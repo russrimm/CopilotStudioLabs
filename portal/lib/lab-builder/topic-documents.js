@@ -11,6 +11,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { writeFileAtomic } from "../concurrency/atomic-file.js";
 import { resolveLabScreenshot } from "./captured.js";
 import { inspectImageDimensions, renderMarkdownToDocxBuffer } from "./docx-builder.js";
 import { renderTopicToPptxBuffer } from "./pptx-builder.js";
@@ -174,11 +175,12 @@ export function renderSingleTopicBuffers(mod, { labTitle, manifest = {}, brandin
 }
 
 /**
- * Generate and write standalone `.docx` and `.pptx` files for every topic in
- * the lab into `<labDir>/topics/`, removing any stale files from previous lab
- * titles, and updating `manifest` in memory.
+ * The work of writing a lab's topic documents, one yield after each topic, so a caller can stay synchronous (drain it) or
+ * give the event loop a turn between topics (see writeGeneratedLabTopicDocumentsAsync). Every file is written to a unique
+ * temp name and renamed into place, so two requests that build the same documents at the same time, or a reader that opens
+ * one while it is rewritten, never see half a file.
  */
-export function writeGeneratedLabTopicDocuments(labDir, options = {}) {
+function* topicDocumentSteps(labDir, options = {}) {
   const resolvedLabDir = path.resolve(labDir);
   const labId = options.labId || path.basename(resolvedLabDir);
   const markdown =
@@ -205,7 +207,8 @@ export function writeGeneratedLabTopicDocuments(labDir, options = {}) {
       : createLabImageResolver(resolvedLabDir);
 
   const expectedFileNames = new Set();
-  split.modules.forEach((mod, idx) => {
+  for (let idx = 0; idx < split.modules.length; idx += 1) {
+    const mod = split.modules[idx];
     const docMeta = topicDocuments[idx];
     const { docxBuffer, pptxBuffer } = renderSingleTopicBuffers(mod, {
       labTitle: split.labTitle,
@@ -213,11 +216,12 @@ export function writeGeneratedLabTopicDocuments(labDir, options = {}) {
       branding: options.branding,
       resolveImageBuffer,
     });
-    fs.writeFileSync(path.join(topicsDir, docMeta.docxFileName), docxBuffer);
-    fs.writeFileSync(path.join(topicsDir, docMeta.pptxFileName), pptxBuffer);
+    writeFileAtomic(path.join(topicsDir, docMeta.docxFileName), docxBuffer);
+    writeFileAtomic(path.join(topicsDir, docMeta.pptxFileName), pptxBuffer);
     expectedFileNames.add(docMeta.docxFileName.toLowerCase());
     expectedFileNames.add(docMeta.pptxFileName.toLowerCase());
-  });
+    yield idx;
+  }
 
   // Remove stale `.docx` / `.pptx` files in `topics/` (e.g., after renaming a lab)
   for (const entry of fs.readdirSync(topicsDir, { withFileTypes: true })) {
@@ -230,6 +234,32 @@ export function writeGeneratedLabTopicDocuments(labDir, options = {}) {
 
   applyTopicDocumentsToManifest(manifest, topicDocuments);
   return topicDocuments;
+}
+
+/**
+ * Generate and write standalone `.docx` and `.pptx` files for every topic in
+ * the lab into `<labDir>/topics/`, removing any stale files from previous lab
+ * titles, and updating `manifest` in memory.
+ */
+export function writeGeneratedLabTopicDocuments(labDir, options = {}) {
+  const steps = topicDocumentSteps(labDir, options);
+  let next = steps.next();
+  while (!next.done) next = steps.next();
+  return next.value;
+}
+
+/**
+ * The same as writeGeneratedLabTopicDocuments, but gives the event loop a turn between topics, so building a lab with many
+ * topics never holds up other people's requests for more than one topic's worth of work.
+ */
+export async function writeGeneratedLabTopicDocumentsAsync(labDir, options = {}) {
+  const steps = topicDocumentSteps(labDir, options);
+  let next = steps.next();
+  while (!next.done) {
+    await new Promise((resolve) => setImmediate(resolve));
+    next = steps.next();
+  }
+  return next.value;
 }
 
 /**
@@ -291,7 +321,7 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
 
   if (fs.existsSync(manifestPath)) {
     try {
-      fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+      writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
     } catch {
       /* best-effort persistence for read-only legacy directories */
     }

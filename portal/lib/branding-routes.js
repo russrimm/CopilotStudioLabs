@@ -32,6 +32,7 @@ import {
 } from "./branding-profiles.js";
 import { resolveSafeGeneratedLabDir } from "./exporter.js";
 import { createRateLimiter, positiveIntFromEnv } from "./rate-limit.js";
+import { visitorKey } from "./concurrency/visitor.js";
 import { resolveGeneratedLabsDir, resolvePortalUploadsDir } from "./storage-config.js";
 
 /** JSON bodies for these routes are small; `server.js` mounts a parser with this limit ahead of the global 10 MB one. */
@@ -42,7 +43,9 @@ export const BRANDING_JSON_PATHS = Object.freeze([
 ]);
 
 function rateKey(req) {
-  return String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase();
+  // A signed-in person keeps the key they always had; anyone else is told apart by browser id, then by address.
+  const person = req.user?.oid || req.user?.upn;
+  return person ? String(person).toLowerCase() : visitorKey(req);
 }
 
 function sendError(res, err) {

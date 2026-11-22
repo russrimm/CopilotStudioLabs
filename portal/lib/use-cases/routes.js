@@ -14,6 +14,7 @@
 
 import { detectProvider } from "../lab-builder/llm.js";
 import { createRateLimiter, positiveIntFromEnv } from "../rate-limit.js";
+import { visitorKey } from "../concurrency/visitor.js";
 import { getUseCaseData } from "./data.js";
 import { generateUseCases, limits, UseCaseRequestError } from "./generate.js";
 import { applyPolish, polishUseCases } from "./polish.js";
@@ -24,7 +25,9 @@ export const USE_CASE_JSON_PATHS = Object.freeze(["/api/use-cases"]);
 const MAX_BODY_BYTES = 64 * 1024;
 
 function userKey(req) {
-  return String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase();
+  // A signed-in person keeps the key they always had; anyone else is told apart by browser id, then by address.
+  const person = req.user?.oid || req.user?.upn;
+  return person ? String(person).toLowerCase() : visitorKey(req);
 }
 
 /** True (after answering 429) when this user is over the limit. */

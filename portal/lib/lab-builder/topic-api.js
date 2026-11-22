@@ -4,6 +4,7 @@
  */
 
 import { getFeatures, getHarnesses } from "./catalog.js";
+import { visitorKey } from "../concurrency/visitor.js";
 import { getConcepts } from "./concepts.js";
 import { isThirdPartyConnectorTopic } from "./topic-feature.js";
 import { summarize } from "./topic-snapshot.js";
@@ -239,7 +240,7 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
     if (bad || (products !== undefined && (!Array.isArray(products) || products.length > known.size || products.some((id) => !known.has(id))))) {
       return res.status(400).json({ error: "The refresh request takes only an optional list of product ids (products)." });
     }
-    const rate = rateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+    const rate = rateCheck(visitorKey(req));
     if (!rate.allowed) {
       res.setHeader("Retry-After", String(rate.retryAfterSec));
       return res.status(429).json({ error: `Refresh rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });
@@ -258,7 +259,7 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
     windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_USER_TOPICS_RATE_WINDOW_MS, 3600000),
     max: positiveIntFromEnv(process.env.LAB_BUILDER_USER_TOPICS_RATE_MAX, 60),
   });
-  const callerOf = (req) => String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase();
+  const callerOf = (req) => visitorKey(req);
   const limited = (req, res) => {
     const rate = mineRate(callerOf(req));
     if (rate.allowed) return false;
@@ -369,7 +370,7 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
    * wizard builds its own files from). `selectedIds`, `requiredIds`, and `excludedSubtopics` only fill "Selected in my lab".
    */
   app.post("/api/lab-builder/topics/export", (req, res) => {
-    const rate = exportRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+    const rate = exportRateCheck(visitorKey(req));
     if (!rate.allowed) {
       res.setHeader("Retry-After", String(rate.retryAfterSec));
       return res.status(429).json({ error: `Export rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });

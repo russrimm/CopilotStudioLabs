@@ -238,6 +238,10 @@ async function lbDraftReload() {
     lbDraft.loadError = "";
     lbDraft.unsaved = data.unsaved || null;
     lbDraft.loaded = true;
+    // The portal moved drafts saved before browsers had their own space to this browser: say so once.
+    if (data.adoptedDrafts > 0) {
+      lbDraftAnnounce("Your saved drafts from before this update are now in this browser.");
+    }
   } catch (err) {
     lbDraft.loadError = err.message;
   }

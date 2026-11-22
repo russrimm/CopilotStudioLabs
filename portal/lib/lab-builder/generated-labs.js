@@ -10,8 +10,10 @@
  * time and filter here.
  */
 
-import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { writeFileAtomic } from "../concurrency/atomic-file.js";
+import { isBuilding, moveToTrash } from "./lab-state.js";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { learnerGuideMarkdown } from "./learner-guide.js";
@@ -245,27 +247,78 @@ function summarizeManifest(rootDir, labId, manifest) {
   };
 }
 
+// A lab's list entry is rebuilt only when one of the files it is built from changes (see summaryFingerprint), so listing
+// many labs costs a few stat calls per lab instead of parsing and summarizing each one on every request.
+const summaryCache = new Map();
+
+function statKey(file) {
+  try {
+    const stat = statSync(file);
+    return `${stat.mtimeMs}:${stat.size}`;
+  } catch {
+    return "-";
+  }
+}
+
+/** Everything summarizeManifest reads about a lab: its manifest and the two screenshot files the drift summary reads. */
+function summaryFingerprint(labDir) {
+  return [join(labDir, "manifest.json"), join(labDir, "screenshots", "learn-state.json"), join(labDir, "screenshots", "shots.json")].map(statKey).join("|");
+}
+
+/** One lab's list entry, from the cache when none of its files changed. Returns null for a lab that is not ready or not readable. */
+function listEntryFor(rootDir, name, seen = null) {
+  const labDir = join(rootDir, name);
+  const manifestPath = join(labDir, "manifest.json");
+  if (!existsSync(manifestPath) || isBuilding(labDir)) return null;
+  try {
+    // Counts come from the manifest, so a lab built with placeholder pictures is repaired before it is summarized.
+    repairLabPlaceholders(labDir, { labId: name, maxAgeMs: LIST_REPAIR_INTERVAL_MS });
+    const cacheKey = `${rootDir}\u0000${name}`;
+    seen?.add(cacheKey);
+    const fingerprint = summaryFingerprint(labDir);
+    const cached = summaryCache.get(cacheKey);
+    if (cached && cached.fingerprint === fingerprint) return { ...cached.summary };
+    const summary = summarizeManifest(rootDir, name, JSON.parse(readFileSync(manifestPath, "utf-8")));
+    summaryCache.set(cacheKey, { fingerprint, summary });
+    return { ...summary };
+  } catch {
+    return null;
+  }
+}
+
 /** @returns {{labs: Array}} previously generated labs, newest first */
 export function listGeneratedLabs(rootDir) {
   if (!existsSync(rootDir)) return { labs: [] };
 
+  const seen = new Set();
   const labs = readdirSync(rootDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && LAB_ID.test(entry.name))
-    .map((entry) => {
-      const manifestPath = join(rootDir, entry.name, "manifest.json");
-      if (!existsSync(manifestPath)) return null;
-      try {
-        // Counts come from the manifest, so a lab built with placeholder pictures is repaired before it is summarized.
-        repairLabPlaceholders(join(rootDir, entry.name), { labId: entry.name, maxAgeMs: LIST_REPAIR_INTERVAL_MS });
-        return summarizeManifest(rootDir, entry.name, JSON.parse(readFileSync(manifestPath, "utf-8")));
-      } catch {
-        return null;
-      }
-    })
+    .map((entry) => listEntryFor(rootDir, entry.name, seen))
     .filter(Boolean)
     .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
 
+  // Forget labs that are gone, so the cache never grows past the labs on disk.
+  const prefix = `${rootDir}\u0000`;
+  for (const key of summaryCache.keys()) if (key.startsWith(prefix) && !seen.has(key)) summaryCache.delete(key);
+
   return { labs };
+}
+
+/**
+ * Fill the list cache one lab at a time, giving the event loop a turn between labs, so the first person to open the page
+ * after a start does not wait for every lab to be read at once. Never throws.
+ */
+export async function warmGeneratedLabList(rootDir) {
+  try {
+    const names = readdirSync(rootDir, { withFileTypes: true }).filter((entry) => entry.isDirectory() && LAB_ID.test(entry.name)).map((entry) => entry.name);
+    for (const name of names) {
+      listEntryFor(rootDir, name);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    return names.length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -287,7 +340,7 @@ function locateGeneratedLab(rootDir, rawId) {
   } catch {
     return { status: 404, error: "Generated lab not found" };
   }
-  if (!existsSync(join(labDir, "manifest.json"))) return { status: 404, error: "Generated lab not found" };
+  if (!existsSync(join(labDir, "manifest.json")) || isBuilding(labDir)) return { status: 404, error: "Generated lab not found" };
   return { status: 200, labId: rawId, labDir };
 }
 
@@ -315,9 +368,12 @@ export function deleteGeneratedLab(rootDir, rawId, { reason = "deleted", newLabI
     return { status: kept.status && kept.status >= 400 ? kept.status : 409, body: { error: kept.error, picturesKept: false, labKept: true } };
   }
   try {
-    rmSync(found.labDir, { recursive: true, force: true });
+    // One atomic rename takes the lab out of the library: a reader sees the whole old lab or "not found", never a
+    // half-deleted folder. The folder itself is removed in the background.
+    moveToTrash(resolve(rootDir), found.labDir);
   } catch (err) {
-    return { status: 500, body: { error: `Could not delete the lab: ${err.message}` } };
+    if (err?.code === "ENOENT") return { status: 404, body: { error: "Generated lab not found" } };
+    return { status: 409, body: { error: "This lab is being used right now (for example, exported), so it could not be deleted yet. Try again in a moment.", labKept: true } };
   }
   return { status: 200, body: { deleted: true, labId: found.labId, ...(kept.counts ? { pictures: kept.counts } : {}) } };
 }
@@ -350,17 +406,6 @@ export function normalizeMetaPatch(body) {
     patch.notes = notes;
   }
   return { patch };
-}
-
-function writeFileAtomic(file, content) {
-  const temp = `${file}.${process.pid}.tmp`;
-  try {
-    writeFileSync(temp, content, "utf-8");
-    renameSync(temp, file);
-  } catch (err) {
-    rmSync(temp, { force: true });
-    throw err;
-  }
 }
 
 /**
@@ -460,7 +505,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
   const labDir = resolve(root, labId);
   const rel = relative(root, labDir);
   const indexPath = join(labDir, "index.md");
-  if (!rel || rel.startsWith("..") || isAbsolute(rel) || !existsSync(indexPath)) {
+  if (!rel || rel.startsWith("..") || isAbsolute(rel) || !existsSync(indexPath) || isBuilding(labDir)) {
     return { status: 404, body: { error: "Generated lab not found" } };
   }
 
@@ -537,7 +582,7 @@ export function readGeneratedLabTopicDocument(rootDir, rawId, rawOrder, rawForma
   const labDir = resolve(root, labId);
   const rel = relative(root, labDir);
   const indexPath = join(labDir, "index.md");
-  if (!rel || rel.startsWith("..") || isAbsolute(rel) || rel !== labId || !existsSync(indexPath)) {
+  if (!rel || rel.startsWith("..") || isAbsolute(rel) || rel !== labId || !existsSync(indexPath) || isBuilding(labDir)) {
     return { status: 404, body: { error: "Generated lab not found" } };
   }
   try {

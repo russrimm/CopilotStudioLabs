@@ -25,6 +25,7 @@ import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
 import { resolveLabScreenshot } from "./lab-builder/captured.js";
 import { altOfTag, loadShotSlots } from "./lab-builder/pending-shot-card.js";
 import { repairLabPlaceholders } from "./lab-builder/lab-screenshots.js";
+import { isBuilding } from "./lab-builder/lab-state.js";
 import { isPlaceholder } from "./lab-builder/placeholder-detect.js";
 import { MIN_CAPTURED_BYTES } from "./lab-builder/slots.js";
 import { renderMarkdownToDocxBuffer } from "./lab-builder/docx-builder.js";
@@ -268,7 +269,7 @@ export function resolveSafeGeneratedLabDir(generatedRoot, rawLabId) {
 
   const indexPath = join(labDir, "index.md");
   const manifestPath = join(labDir, "manifest.json");
-  if (!existsSync(indexPath) || !existsSync(manifestPath)) {
+  if (!existsSync(indexPath) || !existsSync(manifestPath) || isBuilding(labDir)) {
     return { status: 404, error: "Generated lab not found" };
   }
 

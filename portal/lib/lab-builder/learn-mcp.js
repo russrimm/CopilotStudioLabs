@@ -10,6 +10,12 @@
  * Every call degrades gracefully: if the server is unreachable, slow, or
  * changes shape, the functions return an empty result set and the lab
  * generator falls back to the curated `docUrls` in the feature catalog.
+ *
+ * Many people share one portal, so this client is also a good neighbor to
+ * Microsoft Learn: at most LAB_BUILDER_LEARN_MAX_CONCURRENT requests are in
+ * flight at once (default 6), identical lookups made at the same moment share
+ * one request, a retry honors Retry-After, and the cache holds at most
+ * LAB_BUILDER_LEARN_CACHE_MAX entries (default 500).
  */
 
 import { rankResults, DEFAULT_FLOOR, MAX_SOURCES } from "./relevance.js";
@@ -20,7 +26,19 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.LEARN_MCP_TIMEOUT_MS || 30000);
 const PROTOCOL_VERSION = "2025-06-18";
 
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const DEFAULT_CACHE_MAX_ENTRIES = 500;
+const DEFAULT_MAX_CONCURRENT = 6;
+const RETRY_BASE_MS = 250;
+const MAX_RETRY_DELAY_MS = 10000;
 const cache = new Map();
+// One entry per cache key that has a network call under way, so identical misses at the same time share that one call.
+const flights = new Map();
+
+/** A positive whole number from the environment, read at the time it is needed so a deployment (or a test) can change it. */
+function positiveIntEnv(name, fallback) {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 function cacheGet(key) {
   const hit = cache.get(key);
@@ -32,8 +50,102 @@ function cacheGet(key) {
   return hit.value;
 }
 
+/** Store a value. The map keeps insertion order, so re-adding a key moves it to the back and the front is always the oldest. */
 function cacheSet(key, value) {
+  cache.delete(key);
   cache.set(key, { at: Date.now(), value });
+  const max = positiveIntEnv("LAB_BUILDER_LEARN_CACHE_MAX", DEFAULT_CACHE_MAX_ENTRIES);
+  while (cache.size > max) cache.delete(cache.keys().next().value);
+}
+
+// ── Outgoing request limit: a FIFO semaphore shared by everything in this process ────────────────
+
+let activeRequests = 0;
+const queuedRequests = [];
+
+function drainRequestQueue() {
+  while (queuedRequests.length && activeRequests < positiveIntEnv("LAB_BUILDER_LEARN_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT)) {
+    activeRequests += 1;
+    queuedRequests.shift().grant(makeRelease());
+  }
+}
+
+function makeRelease() {
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeRequests -= 1;
+    drainRequestQueue();
+  };
+}
+
+/** Wait for a free slot (first come, first served). A caller that is cancelled while waiting leaves the line. */
+function acquireRequestSlot(signal) {
+  if (signal?.aborted) return Promise.reject(abortError(signal.reason));
+  if (!queuedRequests.length && activeRequests < positiveIntEnv("LAB_BUILDER_LEARN_MAX_CONCURRENT", DEFAULT_MAX_CONCURRENT)) {
+    activeRequests += 1;
+    return Promise.resolve(makeRelease());
+  }
+  return new Promise((resolve, reject) => {
+    const waiter = {
+      grant(release) {
+        signal?.removeEventListener("abort", onAbort);
+        resolve(release);
+      },
+    };
+    const onAbort = () => {
+      const index = queuedRequests.indexOf(waiter);
+      if (index !== -1) queuedRequests.splice(index, 1);
+      reject(abortError(signal.reason));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    queuedRequests.push(waiter);
+  });
+}
+
+/** How many Learn requests are in flight and how many wait for a slot. For tests and diagnostics. */
+export function learnRequestStats() {
+  return { active: activeRequests, queued: queuedRequests.length };
+}
+
+// ── Single flight: identical cache misses at the same moment make one network call ────────────────
+
+/** Resolve or reject with `promise`, but give up as soon as `signal` aborts. */
+function untilAborted(promise, signal) {
+  if (!signal) return promise;
+  return new Promise((resolve, reject) => {
+    const onAbort = () => reject(abortError(signal.reason));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+/**
+ * Run `start` once for `key` however many callers ask at the same time; every caller gets its result. A flight is
+ * forgotten the moment it ends, so a failure is never remembered and the next caller starts a fresh one. When the caller
+ * that started a flight is cancelled, the others (who were not) start a new flight instead of inheriting the cancellation.
+ */
+async function singleFlight(key, signal, start) {
+  for (;;) {
+    if (signal?.aborted) throw abortError(signal.reason);
+    let flight = flights.get(key);
+    const leader = !flight;
+    if (leader) {
+      flight = Promise.resolve()
+        .then(start)
+        .finally(() => {
+          if (flights.get(key) === flight) flights.delete(key);
+        });
+      flights.set(key, flight);
+    }
+    try {
+      return await untilAborted(flight, signal);
+    } catch (err) {
+      if (!leader && err?.name === "AbortError" && !signal?.aborted) continue;
+      throw err;
+    }
+  }
 }
 
 /** Pull JSON-RPC payloads out of an SSE or plain-JSON response body. */
@@ -83,6 +195,26 @@ function wait(ms, signal) {
   });
 }
 
+/** Milliseconds a Retry-After header asks for (seconds, or an HTTP date); NaN when it is missing or unreadable. */
+export function parseRetryAfterMs(value, now = Date.now()) {
+  const text = String(value ?? "").trim();
+  if (!text) return Number.NaN;
+  if (/^\d+(?:\.\d+)?$/.test(text)) return Number(text) * 1000;
+  const at = Date.parse(text);
+  return Number.isNaN(at) ? Number.NaN : Math.max(0, at - now);
+}
+
+/**
+ * How long to wait before retry number `attempt` (1 is the first retry): exponential backoff with jitter, never shorter
+ * than the server asked for, never longer than ten seconds.
+ */
+export function retryDelayMs(attempt, retryAfterMs = Number.NaN, random = Math.random) {
+  const backoff = RETRY_BASE_MS * 2 ** (attempt - 1);
+  const asked = Number.isFinite(retryAfterMs) ? retryAfterMs : 0;
+  const base = Math.min(MAX_RETRY_DELAY_MS, Math.max(backoff, asked));
+  return Math.min(MAX_RETRY_DELAY_MS, Math.round(base + random() * base * 0.25));
+}
+
 async function rpc(endpoint, sessionId, body, timeoutMs, signal) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -92,13 +224,23 @@ async function rpc(endpoint, sessionId, body, timeoutMs, signal) {
     } catch (err) {
       lastError = err;
       if (signal?.aborted || (!err.retryable && err.name !== "AbortError") || attempt === 2) throw err;
-      await wait(250, signal);
+      // The wait happens with no request slot held, so a server that says "later" does not stall other callers.
+      await wait(retryDelayMs(attempt, err.retryAfterMs), signal);
     }
   }
   throw lastError;
 }
 
 async function rpcOnce(endpoint, sessionId, body, timeoutMs, signal) {
+  const release = await acquireRequestSlot(signal);
+  try {
+    return await sendRpc(endpoint, sessionId, body, timeoutMs, signal);
+  } finally {
+    release();
+  }
+}
+
+async function sendRpc(endpoint, sessionId, body, timeoutMs, signal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort("Microsoft Learn request timed out"), timeoutMs);
   const cancel = () => controller.abort(signal.reason || "Operation cancelled");
@@ -122,6 +264,7 @@ async function rpcOnce(endpoint, sessionId, body, timeoutMs, signal) {
     if (!res.ok) {
       const error = new Error(`Learn MCP responded ${res.status}: ${text.slice(0, 200)}`);
       error.retryable = res.status === 429 || res.status >= 500;
+      if (res.status === 429 || res.status === 503) error.retryAfterMs = parseRetryAfterMs(res.headers.get("retry-after"));
       throw error;
     }
     return {
@@ -188,6 +331,7 @@ export async function connect({ endpoint = DEFAULT_ENDPOINT, timeoutMs = DEFAULT
     ok: true,
     endpoint,
     sessionId,
+    signal,
     async call(name, args) {
       const id = nextId++;
       const res = await rpc(
@@ -278,10 +422,13 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
   if (cached) return cached.slice(0, limit);
 
   try {
-    const result = await session.call("microsoft_docs_search", { query });
-    const items = dedupeByUrl(toTextChunks(result).flatMap(parseSearchChunk))
-      .filter((item) => item.excerpt && item.excerpt.length > 40);
-    cacheSet(cacheKey, items);
+    const items = await singleFlight(cacheKey, session.signal, async () => {
+      const result = await session.call("microsoft_docs_search", { query });
+      const found = dedupeByUrl(toTextChunks(result).flatMap(parseSearchChunk))
+        .filter((item) => item.excerpt && item.excerpt.length > 40);
+      cacheSet(cacheKey, found);
+      return found;
+    });
     return items.slice(0, limit);
   } catch (err) {
     if (err.name === "AbortError") throw err;
@@ -311,19 +458,23 @@ export async function fetchDocPage(session, url, { bypassCache = false } = {}) {
     if (cached !== undefined) return cached;
   }
 
-  let page;
-  try {
-    const result = await session.call("microsoft_docs_fetch", { url });
-    page = { markdown: toTextChunks(result).join("\n\n"), url, fetchedAt: new Date().toISOString(), error: null };
-  } catch (err) {
-    if (err.name === "AbortError") throw err;
-    page = { markdown: "", url, fetchedAt: null, error: err.message || String(err) };
-  }
-
   // A failed read is never cached: a transient MCP error must not outlive the
-  // retry the blocker flow offers for it.
-  if (!page.error) cacheSet(cacheKey, page);
-  return page;
+  // retry the blocker flow offers for it. It is not remembered as a flight
+  // either, so the next caller after it ends tries again. `bypassCache` skips
+  // the cache but still shares a read that is already under way: that read is
+  // as fresh as a new one would be.
+  return singleFlight(cacheKey, session.signal, async () => {
+    let page;
+    try {
+      const result = await session.call("microsoft_docs_fetch", { url });
+      page = { markdown: toTextChunks(result).join("\n\n"), url, fetchedAt: new Date().toISOString(), error: null };
+    } catch (err) {
+      if (err.name === "AbortError") throw err;
+      page = { markdown: "", url, fetchedAt: null, error: err.message || String(err) };
+    }
+    if (!page.error) cacheSet(cacheKey, page);
+    return page;
+  });
 }
 
 /**

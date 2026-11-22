@@ -4631,14 +4631,87 @@ const LB_GENERATION_STAGE_LABELS = [
 ];
 
 let lbGenerationAnimTimer = null;
+let lbGenerationStartedAt = 0;
+
+// ── Waiting in line ─────────────────────────────────────────────────────────
+// Many people can build at once. The server builds a few labs at a time and the rest wait their turn, in the order they
+// asked. The page sends a ticket with the build and asks where it stands, so the wait is explained in plain words
+// instead of a long silence. Nothing here changes what is built.
+const lbBuildQueue = { waiting: false, text: "", timer: null, ticket: "" };
+
+function lbNewBuildTicket() {
+  const bytes = new Uint8Array(12);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  return `b${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** What to tell the person while their lab waits, or "" when it is being built (or the answer is not usable). */
+function lbBuildQueueText(state) {
+  if (!state || state.state !== "queued") return "";
+  if (!(Number(state.ahead) > 0)) return "Your lab is next in line.";
+  const people = Number(state.running || 0) + Number(state.ahead || 0);
+  return `${people} people are building labs. Yours starts soon.`;
+}
+
+function lbStopBuildQueuePolling() {
+  if (lbBuildQueue.timer) clearInterval(lbBuildQueue.timer);
+  lbBuildQueue.timer = null;
+  lbBuildQueue.waiting = false;
+  lbBuildQueue.text = "";
+  lbBuildQueue.ticket = "";
+}
+
+function lbStartBuildQueuePolling(ticket, runningMessage) {
+  lbStopBuildQueuePolling();
+  lbBuildQueue.ticket = ticket;
+  let asking = false;
+  const poll = async () => {
+    if (asking || lbBuildQueue.ticket !== ticket) return;
+    asking = true;
+    const status = document.getElementById("lb-status");
+    try {
+      const res = await fetch(`/api/lab-builder/build-queue/${encodeURIComponent(ticket)}`);
+      const state = res?.ok ? await res.json() : null;
+      if (lbBuildQueue.ticket !== ticket) return;
+      const text = lbBuildQueueText(state);
+      if (text) {
+        lbBuildQueue.waiting = true;
+        // The status line is a live region: it is announced when the words change, not on every check.
+        if (text !== lbBuildQueue.text) {
+          lbBuildQueue.text = text;
+          if (status) status.textContent = text;
+          if (typeof lbUpdateGeneratingAnimation === "function") lbUpdateGeneratingAnimation(0);
+        }
+      } else if (lbBuildQueue.waiting) {
+        lbBuildQueue.waiting = false;
+        lbBuildQueue.text = "";
+        lbGenerationStartedAt = Date.now();
+        if (status) status.textContent = runningMessage;
+      }
+    } catch {
+      /* the next check tries again */
+    } finally {
+      asking = false;
+    }
+  };
+  lbBuildQueue.timer = setInterval(poll, 1500);
+  lbBuildQueue.timer?.unref?.();
+}
+
+const LB_GENERATION_SUB = "Ground-truthing steps against Microsoft Learn and assembling interactive multi-page lab content.";
+const LB_GENERATION_WAIT_SUB = "Your lab starts as soon as a place is free. Nothing is written until it does, and you can cancel.";
 
 function lbUpdateGeneratingAnimation(elapsedSec) {
   const phaseEl = document.getElementById("lb-generating-phase");
+  const subEl = document.getElementById("lb-generating-sub");
   const elapsedEl = document.getElementById("lb-generating-elapsed");
   const stagesEl = document.getElementById("lb-generating-stages");
-  const activeStage = Math.min(LB_GENERATION_STAGE_LABELS.length - 1, Math.floor(elapsedSec / 3));
+  // While the lab waits in line no stage is under way, so none is lit.
+  const activeStage = lbBuildQueue.waiting ? -1 : Math.min(LB_GENERATION_STAGE_LABELS.length - 1, Math.floor(elapsedSec / 3));
 
-  if (phaseEl) phaseEl.textContent = LB_GENERATION_STAGE_LABELS[activeStage];
+  if (phaseEl) phaseEl.textContent = lbBuildQueue.waiting ? lbBuildQueue.text : LB_GENERATION_STAGE_LABELS[activeStage];
+  if (subEl) subEl.textContent = lbBuildQueue.waiting ? LB_GENERATION_WAIT_SUB : LB_GENERATION_SUB;
   if (elapsedEl) {
     const mins = Math.floor(elapsedSec / 60);
     const secs = elapsedSec % 60;
@@ -4661,10 +4734,10 @@ function lbStartGeneratingAnimation() {
     card.hidden = false;
     card.setAttribute?.("aria-busy", "true");
   }
-  const startedAt = Date.now();
+  lbGenerationStartedAt = Date.now();
   lbUpdateGeneratingAnimation(0);
   lbGenerationAnimTimer = setInterval(() => {
-    const elapsedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - lbGenerationStartedAt) / 1000));
     lbUpdateGeneratingAnimation(elapsedSec);
   }, 1000);
   lbGenerationAnimTimer?.unref?.();
@@ -4704,13 +4777,16 @@ async function lbGenerate() {
       labBuilder.controller = new AbortController();
       if (cancelBtn) cancelBtn.hidden = false;
       if (typeof lbStartGeneratingAnimation === "function") lbStartGeneratingAnimation();
-      if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
+      const runningMessage = "Researching Microsoft Learn and composing your lab. This can take a minute...";
+      if (status) status.textContent = runningMessage;
+      const ticket = typeof lbNewBuildTicket === "function" ? lbNewBuildTicket() : "";
+      if (ticket && typeof lbStartBuildQueuePolling === "function") lbStartBuildQueuePolling(ticket, runningMessage);
 
       const captureBox = document.getElementById("lb-capture-on-build");
       const captureScreenshots = Boolean(captureBox?.checked && !captureBox?.disabled);
       const res = await fetch("/api/lab-builder/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(ticket ? { "X-Build-Ticket": ticket } : {}) },
         body: JSON.stringify({
           ...lbRequest(),
           ...(typeof lbBrandRequestFields === "function" ? lbBrandRequestFields() : {}),
@@ -4720,8 +4796,14 @@ async function lbGenerate() {
         }),
         signal: labBuilder.controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      if (typeof lbStopBuildQueuePolling === "function") lbStopBuildQueuePolling();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+      if (!res.ok) throw new Error(data.error || (typeof lbBuildFailureText === "function" ? lbBuildFailureText(res.status) : `Request failed (${res.status})`));
 
       if (data.status === "cancelled") {
         if (status) status.textContent = "";
@@ -4770,6 +4852,7 @@ async function lbGenerate() {
     if (status) status.textContent = "";
     toast(err.name === "AbortError" ? "Lab build canceled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
+    if (typeof lbStopBuildQueuePolling === "function") lbStopBuildQueuePolling();
     if (typeof lbStopGeneratingAnimation === "function") lbStopGeneratingAnimation();
     labBuilder.busy = false;
     labBuilder.controller = null;
@@ -4785,6 +4868,15 @@ async function lbGenerate() {
 
 function lbCancelGenerate() {
   labBuilder.controller?.abort();
+}
+
+/** The words for a failed build when the server sent no message (a gateway timeout, for example, answers in HTML). */
+function lbBuildFailureText(status) {
+  if (status === 502 || status === 503 || status === 504) {
+    return "The server took too long to answer. Your lab may still finish building: check Generated labs in a minute.";
+  }
+  if (status === 429) return "The lab builder is getting too many requests right now. Try again in a moment.";
+  return `Request failed (${status})`;
 }
 
 /** Advisory quality report: a score, the weakest modules, and what to fix. It never blocks a lab. */
@@ -4907,8 +4999,13 @@ async function lbLoadResultPreview(labId) {
   if (!host) return;
   try {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const changed = res.status === 404 || res.status === 410;
+      // Someone deleted or replaced this lab while it was open: say so, and refresh the list so it matches.
+      if (changed && typeof lbLoadGenerated === "function") void lbLoadGenerated();
+      throw new Error(typeof lbGenErrorText === "function" ? lbGenErrorText(res, data, "Request failed") : data.error || `Request failed (${res.status})`);
+    }
     // The server sanitizes the lab's Markdown before it reaches us.
     host.innerHTML = data.html;
     labBuilder.lastMarkdown = data.markdown;

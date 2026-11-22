@@ -19,6 +19,7 @@ import {
   getActiveProfileId,
   setProfileLogo,
   updateActiveProfileClassicFields,
+  withBrandProfileStoreLock,
 } from "./branding-profiles.js";
 
 /**
@@ -96,8 +97,11 @@ export function loadBranding(env = process.env) {
 
 export function saveBranding(input = {}, env = process.env) {
   ensureBrandingStorage(env);
-  const classic = normalizeBranding(input, loadBranding(env));
-  return updateActiveProfileClassicFields(classic, env);
+  // Read the current brand and save the merged one under one lock, so another process cannot change a field in between.
+  return withBrandProfileStoreLock(env, () => {
+    const classic = normalizeBranding(input, loadBranding(env));
+    return updateActiveProfileClassicFields(classic, env);
+  });
 }
 
 export function getBrandingLogoAbsolutePath(logoPath, env = process.env) {
@@ -119,12 +123,12 @@ function toActiveBrand(profile) {
 
 export function deleteBrandingLogo(env = process.env) {
   ensureBrandingStorage(env);
-  return toActiveBrand(clearProfileLogo(getActiveProfileId(env), env));
+  return withBrandProfileStoreLock(env, () => toActiveBrand(clearProfileLogo(getActiveProfileId(env), env)));
 }
 
 export function updateBrandingLogo(fileName, env = process.env) {
   ensureBrandingStorage(env);
-  return toActiveBrand(setProfileLogo(getActiveProfileId(env), fileName, env));
+  return withBrandProfileStoreLock(env, () => toActiveBrand(setProfileLogo(getActiveProfileId(env), fileName, env)));
 }
 
 /**

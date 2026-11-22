@@ -20,6 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { lockPathFor, withFileLockSync } from "../concurrency/file-lock.js";
 import { capturedImage, capturedScreenshotsDirs, isRealScreenshotBytes, resolveLabScreenshot } from "../lab-builder/captured.js";
 import {
   getLabScreenshotsStatus,
@@ -38,6 +39,7 @@ import { expectedLabelsForShot } from "./classify.js";
 import { baseFilename, createKeptStore, isKeptPictureName, isRestorable } from "./kept-pictures.js";
 import {
   PREVIOUS_SUFFIX,
+  SHARE_LOCK_WAIT_MS,
   SHARE_MESSAGES,
   acquireShareLock,
   fileSha256,
@@ -47,6 +49,7 @@ import {
   sha256Hex,
   shareVerdict,
   validConfirmation,
+  withShareLockSync,
   writeRecordsFile,
 } from "./library-share.js";
 import { findLibrarySlot, labSlotFilenames, listLibrarySlots } from "./plan.js";
@@ -129,6 +132,27 @@ function cleanCallouts(callouts) {
 export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger = null, onChange = null, keptDir = null, now = () => Date.now() }) {
   const stagedRoot = path.join(captureDir, "staged");
   const libraryRecordsFile = path.join(captureDir, "library-verification.json");
+  // The library's records file holds every slot's check in one file, so a change to it (from this process or a command-line
+  // tool) is read, changed, and written under one lock. Lock order, always: a slot's lock first, then this one.
+  const withRecordsLock = (work) => withFileLockSync(lockPathFor(libraryRecordsFile), work, { timeoutMs: SHARE_LOCK_WAIT_MS });
+  // A write to a library slot (picture and check together) holds that slot's lock, the same lock sharing a lab picture takes.
+  // Slow follow-up work (regenerating labs) is queued with `afterSlotLock` and runs once the lock is released.
+  let afterLockQueue = null;
+  const afterSlotLock = (fn) => (afterLockQueue ? afterLockQueue.push(fn) : fn());
+  const withSlotLock = (target, filename, work) => {
+    if (target.kind !== "library") return work();
+    const queue = [];
+    const outer = afterLockQueue;
+    afterLockQueue = queue;
+    let result;
+    try {
+      result = withShareLockSync(dirs().primary, filename, work);
+    } finally {
+      afterLockQueue = outer;
+    }
+    for (const fn of queue) fn();
+    return result;
+  };
   const labTimers = new Map();
   const labPending = new Set();
   const libraryPending = new Set();
@@ -210,18 +234,22 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       },
       readRecords: () => readRecordsFile(libraryRecordsFile).shots,
       writeRecord(filename, record) {
-        const { shots, confirmations } = readRecordsFile(libraryRecordsFile);
-        if (record) shots[filename] = record;
-        else delete shots[filename];
-        writeRecordsFile(libraryRecordsFile, { shots, confirmations });
+        withRecordsLock(() => {
+          const { shots, confirmations } = readRecordsFile(libraryRecordsFile);
+          if (record) shots[filename] = record;
+          else delete shots[filename];
+          writeRecordsFile(libraryRecordsFile, { shots, confirmations });
+        });
       },
       readConfirmations: () => readRecordsFile(libraryRecordsFile).confirmations,
       writeConfirmation(filename, confirmation) {
-        const { shots, confirmations } = readRecordsFile(libraryRecordsFile);
-        if (confirmation) confirmations[filename] = confirmation;
-        else if (!(filename in confirmations)) return;
-        else delete confirmations[filename];
-        writeRecordsFile(libraryRecordsFile, { shots, confirmations });
+        withRecordsLock(() => {
+          const { shots, confirmations } = readRecordsFile(libraryRecordsFile);
+          if (confirmation) confirmations[filename] = confirmation;
+          else if (!(filename in confirmations)) return;
+          else delete confirmations[filename];
+          writeRecordsFile(libraryRecordsFile, { shots, confirmations });
+        });
       },
       writeImage(filename, bytes, callouts) {
         const dir = dirs().primary;
@@ -235,7 +263,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       afterCommit(filename, { defer }) {
         libraryPending.add(filename);
         if (defer) scheduleLibraryRefresh();
-        else void flushLibraryRefresh().catch(() => {});
+        else afterSlotLock(() => void flushLibraryRefresh().catch(() => {}));
         libraryChanged();
       },
       resetImage(filename) {
@@ -245,7 +273,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         fs.rmSync(path.join(dir, filename), { force: true });
         fs.rmSync(path.join(dir, sidecarName(filename)), { force: true });
         libraryPending.add(filename);
-        void flushLibraryRefresh().catch(() => {});
+        afterSlotLock(() => void flushLibraryRefresh().catch(() => {}));
         libraryChanged();
       },
       hasOwnImage: (filename) => Boolean(capturedImage(dirs().primary, filename)),
@@ -417,14 +445,24 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       if (decision.action === "same") return done("already-shared");
       if (dryRun) return done("would-share", { replaces: decision.action === "replace" });
 
-      // A replaced picture is kept (the last one only) so a bad capture cannot destroy a good one.
-      if (existing) writeBytesAtomic(path.join(primary, `${filename}${PREVIOUS_SUFFIX}`), fs.readFileSync(existing.file));
-      writeBytesAtomic(path.join(primary, filename), bytes);
-      if (callouts) writeJsonAtomic(path.join(primary, sidecarName(filename)), { schema: 1, filename, callouts });
-      else fs.rmSync(path.join(primary, sidecarName(filename)), { force: true });
-      records.shots[filename] = { ...record, state: "accepted", acceptedAt: capturedAt || record?.acceptedAt || new Date().toISOString() };
-      delete records.confirmations[filename];
-      writeRecordsFile(libraryRecordsFile, records);
+      // The picture and its check change together under the records lock (another process may be changing another slot's record),
+      // so a lock that cannot be had leaves the slot exactly as it was.
+      try {
+        withRecordsLock(() => {
+          // A replaced picture is kept (the last one only) so a bad capture cannot destroy a good one.
+          if (existing) writeBytesAtomic(path.join(primary, `${filename}${PREVIOUS_SUFFIX}`), fs.readFileSync(existing.file));
+          writeBytesAtomic(path.join(primary, filename), bytes);
+          if (callouts) writeJsonAtomic(path.join(primary, sidecarName(filename)), { schema: 1, filename, callouts });
+          else fs.rmSync(path.join(primary, sidecarName(filename)), { force: true });
+          const latest = readRecordsFile(libraryRecordsFile);
+          latest.shots[filename] = { ...record, state: "accepted", acceptedAt: capturedAt || record?.acceptedAt || new Date().toISOString() };
+          delete latest.confirmations[filename];
+          writeRecordsFile(libraryRecordsFile, latest);
+        });
+      } catch (err) {
+        if (err?.code === "LOCK_TIMEOUT") return skip("busy");
+        throw err;
+      }
 
       libraryPending.add(filename);
       if (defer) scheduleLibraryRefresh();
@@ -437,13 +475,17 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   }
 
   function commit(target, filename, bytes, { verification, source, capturedAt, callouts, defer, jobId = null, intent = "capture" }) {
-    target.writeImage(filename, bytes, callouts);
-    clearStaged(target, filename);
+    // A library slot is written (picture, then its check) under the slot's lock, so a command-line tool or another portal on
+    // the same folder can never leave the picture of one capture beside the check of another.
     const record = { ...summarizeVerification(verification), state: "accepted", source, jobId, acceptedAt: capturedAt };
-    target.writeRecord(filename, record);
-    // New bytes: an earlier "Mark as accurate" no longer describes this picture.
-    target.writeConfirmation(filename, null);
-    target.afterCommit(filename, { source, capturedAt, defer });
+    withSlotLock(target, filename, () => {
+      target.writeImage(filename, bytes, callouts);
+      clearStaged(target, filename);
+      target.writeRecord(filename, record);
+      // New bytes: an earlier "Mark as accurate" no longer describes this picture.
+      target.writeConfirmation(filename, null);
+      target.afterCommit(filename, { source, capturedAt, defer });
+    });
     if (target.kind !== "lab") return null;
     const sharing = promoteFromLab(target, filename, { bytes, record, intent, capturedAt, callouts, defer });
     return sharing.code === "lab-only" ? null : sharing;
@@ -533,9 +575,11 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       return { status: 200, body: { outcome: "reset", filename, discardedStaged: true, removedImage: false, state: target.state() } };
     }
     const hadOwn = target.hasOwnImage(filename);
-    target.writeRecord(filename, null);
-    target.writeConfirmation(filename, null);
-    if (hadOwn || target.kind === "lab") target.resetImage(filename);
+    withSlotLock(target, filename, () => {
+      target.writeRecord(filename, null);
+      target.writeConfirmation(filename, null);
+      if (hadOwn || target.kind === "lab") target.resetImage(filename);
+    });
     return { status: 200, body: { outcome: "reset", filename, discardedStaged: false, removedImage: hadOwn, state: target.state() } };
   }
 

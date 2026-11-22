@@ -8,7 +8,6 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import { createHash } from "node:crypto";
 
 import { normalizeLearnUrl, topicId, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
@@ -178,10 +177,5 @@ export function readSnapshot(file, options) {
   }
 }
 
-/** Write JSON through a temp file so a crash never leaves a half-written snapshot. */
-export function writeJsonAtomic(file, value) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-  fs.renameSync(temp, file);
-}
+/** Write JSON through a uniquely named temp file so a crash or a second writer never leaves a half-written snapshot. */
+export { writeJsonAtomic } from "../concurrency/atomic-file.js";

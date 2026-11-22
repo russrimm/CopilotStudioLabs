@@ -12,8 +12,10 @@
  *   per-lab overrides > lab profile snapshot > active profile > defaults.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync, copyFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, copyFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
+import { writeJsonAtomic } from "./concurrency/atomic-file.js";
+import { withLockedFileSync } from "./concurrency/json-update.js";
 import { resolveGeneratedLabsDir, resolvePortalDataDir, resolvePortalUploadsDir } from "./storage-config.js";
 import { validateTargets } from "../../tools/screenshot-capture/targets.mjs";
 import { normalizeAgentSource } from "../../tools/screenshot-capture/walkthrough.mjs";
@@ -87,15 +89,13 @@ function ensureStorageDirs(env) {
   mkdirSync(uploadsDir(env), { recursive: true });
 }
 
-function writeJsonAtomic(file, value) {
-  const temp = `${file}.${process.pid}.tmp`;
-  try {
-    writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, "utf-8");
-    renameSync(temp, file);
-  } catch (err) {
-    rmSync(temp, { force: true });
-    throw err;
-  }
+/**
+ * Run `work` while holding the profile store's cross-process lock, so a change read from the store is written back
+ * before another process (a second portal, or a command-line tool) can change it. Reentrant, so a locked function may
+ * call another locked function. Reads never take it.
+ */
+export function withBrandProfileStoreLock(env, work) {
+  return withLockedFileSync(getBrandProfileStorePath(env), work);
 }
 
 export function isValidProfileId(value) {
@@ -233,7 +233,10 @@ export function loadProfileStore(env = process.env) {
   });
   if (legacy) {
     try {
-      writeJsonAtomic(file, store);
+      // Another process may have saved a real store since the check above; never replace it with the migrated copy.
+      withBrandProfileStoreLock(env, () => {
+        if (!existsSync(file)) writeJsonAtomic(file, store);
+      });
     } catch {
       // Read-only storage: keep serving the migrated in-memory profile.
     }
@@ -399,6 +402,10 @@ function throwFieldErrors(errors) {
 }
 
 export function createProfile(input = {}, env = process.env) {
+  return withBrandProfileStoreLock(env, () => createProfileLocked(input, env));
+}
+
+function createProfileLocked(input, env) {
   const store = loadProfileStore(env);
   if (store.profiles.length >= MAX_PROFILES) {
     throw new BrandProfileError(`You can create at most ${MAX_PROFILES} brand profiles.`, 409);
@@ -428,6 +435,10 @@ export function createProfile(input = {}, env = process.env) {
 }
 
 export function updateProfile(id, patch = {}, env = process.env) {
+  return withBrandProfileStoreLock(env, () => updateProfileLocked(id, patch, env));
+}
+
+function updateProfileLocked(id, patch, env) {
   const store = loadProfileStore(env);
   const current = requireProfile(store, id);
   const next = { ...current };
@@ -454,6 +465,10 @@ export function updateProfile(id, patch = {}, env = process.env) {
 }
 
 export function activateProfile(id, env = process.env) {
+  return withBrandProfileStoreLock(env, () => activateProfileLocked(id, env));
+}
+
+function activateProfileLocked(id, env) {
   const store = loadProfileStore(env);
   requireProfile(store, id);
   store.activeProfileId = id;
@@ -467,6 +482,10 @@ export function activateProfile(id, env = process.env) {
  * keep their snapshot and look unchanged.
  */
 export function deleteProfile(id, env = process.env) {
+  return withBrandProfileStoreLock(env, () => deleteProfileLocked(id, env));
+}
+
+function deleteProfileLocked(id, env) {
   const store = loadProfileStore(env);
   const target = requireProfile(store, id);
   if (store.profiles.length <= 1) {
@@ -482,6 +501,10 @@ export function deleteProfile(id, env = process.env) {
 }
 
 export function duplicateProfile(id, { name } = {}, env = process.env) {
+  return withBrandProfileStoreLock(env, () => duplicateProfileLocked(id, name, env));
+}
+
+function duplicateProfileLocked(id, name, env) {
   const store = loadProfileStore(env);
   const source = requireProfile(store, id);
   if (store.profiles.length >= MAX_PROFILES) {
@@ -506,6 +529,10 @@ export function duplicateProfile(id, { name } = {}, env = process.env) {
 
 /** Attach an already-validated, already-written upload file to a profile. */
 export function setProfileLogo(id, fileName, env = process.env) {
+  return withBrandProfileStoreLock(env, () => setProfileLogoLocked(id, fileName, env));
+}
+
+function setProfileLogoLocked(id, fileName, env) {
   if (!LOGO_NAME_RE.test(String(fileName ?? ""))) {
     throw new BrandProfileError("Invalid logo file name.", 400);
   }
@@ -520,6 +547,10 @@ export function setProfileLogo(id, fileName, env = process.env) {
 }
 
 export function clearProfileLogo(id, env = process.env) {
+  return withBrandProfileStoreLock(env, () => clearProfileLogoLocked(id, env));
+}
+
+function clearProfileLogoLocked(id, env) {
   const store = loadProfileStore(env);
   const current = requireProfile(store, id);
   const previous = current.logo;
@@ -542,6 +573,10 @@ export function getActiveBrand(env = process.env) {
  * active profile, persisting through the profile store.
  */
 export function updateActiveProfileClassicFields(fields, env = process.env) {
+  return withBrandProfileStoreLock(env, () => updateActiveProfileClassicFieldsLocked(fields, env));
+}
+
+function updateActiveProfileClassicFieldsLocked(fields, env) {
   const store = loadProfileStore(env);
   const current = requireProfile(store, store.activeProfileId);
   const next = { ...current, ...fields, updatedAt: nowIso() };
@@ -691,11 +726,15 @@ function readManifestFile(labDir) {
 }
 
 function mutateManifest(labDir, mutate, { touch = true } = {}) {
-  const { file, manifest } = readManifestFile(labDir);
-  mutate(manifest);
-  if (touch) manifest.updatedAt = nowIso();
-  writeJsonAtomic(file, manifest);
-  return manifest;
+  const file = resolve(labDir, "manifest.json");
+  // Read, change, and write under the manifest's lock so another process cannot change it in between.
+  return withLockedFileSync(file, () => {
+    const { manifest } = readManifestFile(labDir);
+    mutate(manifest);
+    if (touch) manifest.updatedAt = nowIso();
+    writeJsonAtomic(file, manifest);
+    return manifest;
+  });
 }
 
 /** Describe a lab's customization for the API and the UI. */

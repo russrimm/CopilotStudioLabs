@@ -189,6 +189,14 @@ function lbGenAnnounce(message) {
   if (el) el.textContent = message;
 }
 
+const LB_GEN_CHANGED_TEXT = "Someone else changed this lab while you were viewing it. Reload to see the latest.";
+
+/** What to tell a person when a request about a lab fails. A lab that is gone or was just replaced reads as "someone changed it". */
+function lbGenErrorText(res, data, fallback) {
+  if (res.status === 404 || res.status === 410) return LB_GEN_CHANGED_TEXT;
+  return data?.error || `${fallback} (${res.status})`;
+}
+
 function lbGenCountMessage(shown) {
   const total = lbGen.labs.length;
   const hasQuery = Boolean(lbGen.query.trim());
@@ -937,7 +945,7 @@ async function lbDownloadGeneratedHtml(labId) {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=html`);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Download failed (${res.status})`);
+      throw new Error(lbGenErrorText(res, data, "Download failed"));
     }
     const htmlContent = await res.text();
     const labTitle = lbResolveDisplayLabTitle(labId);
@@ -970,7 +978,7 @@ async function lbExportGeneratedZip(labId, triggerEl) {
     );
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Export failed (${res.status})`);
+      throw new Error(lbGenErrorText(res, data, "Export failed"));
     }
     const labTitle = lbResolveDisplayLabTitle(labId);
     const fileBase = lbSanitizeFileBase(labTitle, labId);
@@ -1016,7 +1024,7 @@ async function lbDownloadPrerequisites(labId, format = "docx") {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=prerequisites-${kind}`);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Download failed (${res.status})`);
+      throw new Error(lbGenErrorText(res, data, "Download failed"));
     }
     const blob = await res.blob();
     const labTitle = lbResolveDisplayLabTitle(labId);
@@ -1035,7 +1043,7 @@ async function lbDownloadAdminGuide(labId, format = "docx") {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=admin-guide-${kind}`);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Download failed (${res.status})`);
+      throw new Error(lbGenErrorText(res, data, "Download failed"));
     }
     const blob = await res.blob();
     const labTitle = lbResolveDisplayLabTitle(labId);
@@ -1071,7 +1079,7 @@ async function lbOpenAdminPreview(kind, labId, triggerEl) {
   try {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/${isGuide ? "admin-guide" : "prerequisites"}`);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(lbGenErrorText(res, data, "Request failed"));
     const items = `${Number(data.itemCount) || 0} item${Number(data.itemCount) === 1 ? "" : "s"} across ${(data.roles || []).length} role${(data.roles || []).length === 1 ? "" : "s"}`;
     desc.textContent = isGuide
       ? `This is the administrator's copy: ${items}. Admin settings only. It is not part of the learner guides.`
@@ -1258,7 +1266,7 @@ async function lbValidateGenerated(labId) {
   try {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/validate`);
     const report = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(report.error || `Validation failed (${res.status})`);
+    if (!res.ok) throw new Error(lbGenErrorText(res, report, "Validation failed"));
     if (host) {
       host.innerHTML = lbRenderGeneratedValidationHtml(report);
       host.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1423,7 +1431,7 @@ async function lbGenSubmitRename(event) {
       body: JSON.stringify({ title, notes: document.getElementById("lb-gen-rename-notes").value }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(lbGenErrorText(res, data, "Request failed"));
     const index = lbGen.labs.findIndex((item) => item.labId === labId);
     lbGen.labs[index] = data.lab;
     if (labBuilder.editing?.labId === labId) lbSetEditing(data.lab);
@@ -1574,7 +1582,7 @@ async function lbRefreshLabScreenshotsPanel(labId, lastOutcome = null) {
   try {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/screenshots`);
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    if (!res.ok) throw new Error(lbGenErrorText(res, data, "Request failed"));
     lbRenderLabScreenshotsPanel(host, labId, data, lastOutcome);
   } catch (err) {
     host.replaceChildren();

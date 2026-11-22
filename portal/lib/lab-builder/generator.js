@@ -20,8 +20,9 @@ import { buildModuleTrainingDigest } from "./topic-training.js";
 import {
   applyTopicDocumentsToManifest,
   buildTopicDocumentsMeta,
-  writeGeneratedLabTopicDocuments,
+  writeGeneratedLabTopicDocumentsAsync,
 } from "./topic-documents.js";
+import { clearBuilding, markBuilding } from "./lab-state.js";
 import { assessLab } from "./qa.js";
 import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
 import { plainModuleNames } from "./module-names.js";
@@ -372,17 +373,26 @@ function wantsCaptureScreenshots(opts, request) {
   return Boolean(opts?.captureScreenshots || request?.captureScreenshots);
 }
 
+/**
+ * Claim a lab folder name that nobody else holds. `mkdir` fails with EEXIST when the folder exists, on the same disk and
+ * across processes, so two builds of the same title always get different folders. The new folder gets a `.building`
+ * marker at once, so no reader (list, open, export) treats it as a lab until the build finishes.
+ */
 function reserveUniqueDir(root, slug) {
   for (let n = 1; ; n += 1) {
     const dir = path.join(root, n === 1 ? slug : `${slug}-${n}`);
     try {
       fs.mkdirSync(dir);
+      markBuilding(dir);
       return dir;
     } catch (err) {
       if (err.code !== "EEXIST") throw err;
     }
   }
 }
+
+/** Give the event loop a turn, so a long write phase never holds up other people's requests. */
+const yieldToEventLoop = () => new Promise((resolve) => setImmediate(resolve));
 
 function concurrency(value, fallback) {
   const parsed = Number(value);
@@ -1215,6 +1225,7 @@ export async function generateLab(request, opts = {}) {
     linkCheck: linkCheckSummary,
     vendorDocs: vendorSummary,
   };
+  await yieldToEventLoop();
   const markdown = composeLab(
     plan,
     groundingByFeature,
@@ -1224,6 +1235,7 @@ export async function generateLab(request, opts = {}) {
     stepsByFeature,
     vendorByFeature,
   );
+  await yieldToEventLoop();
   // Advisory only: a low score is reported to the learner and never blocks the build.
   const qa = assessLab(markdown, {
     expectedTopics: plan.features.filter((f) => !f.prerequisite),
@@ -1231,6 +1243,7 @@ export async function generateLab(request, opts = {}) {
     isAgentDeliverable: plan.deliverable?.isAgent,
     includeKnowledgeCheck: plan.includeKnowledgeCheck,
   });
+  await yieldToEventLoop();
   const differenceSummary = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, { harnesses: getHarnesses(), concepts: getConcepts() });
   // Counts what the learner will hit; unlike the QA score above it reads the substance of every module.
   const labGate = scanLabMarkdown(markdown, {
@@ -1440,6 +1453,7 @@ export async function generateLab(request, opts = {}) {
   }).topicDocuments;
   applyTopicDocumentsToManifest(manifest, previewTopicDocs);
 
+  await yieldToEventLoop();
   const html = renderStandaloneLabHtml(markdown, { title: plan.title, labId: plan.slug });
 
   const result = {
@@ -1469,6 +1483,7 @@ export async function generateLab(request, opts = {}) {
     const savedLabId = path.basename(outputDir);
     copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
     writePlaceholders(screenshots.placeholders, path.join(outputDir, "assets"));
+    await yieldToEventLoop();
 
     const screenshotArtifacts = buildPerLabScreenshotArtifacts({
       labId: savedLabId,
@@ -1483,6 +1498,7 @@ export async function generateLab(request, opts = {}) {
       ...screenshotArtifacts,
       manifest,
     });
+    await yieldToEventLoop();
 
     result.html = renderStandaloneLabHtml(markdown, {
       title: plan.title,
@@ -1508,9 +1524,10 @@ export async function generateLab(request, opts = {}) {
     });
     fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
     fs.writeFileSync(path.join(outputDir, "index.html"), result.html, "utf8");
+    await yieldToEventLoop();
 
     onProgress?.({ stage: "topics", message: "Generating per-topic Word documents and PowerPoint slides" });
-    result.topicDocuments = writeGeneratedLabTopicDocuments(outputDir, {
+    result.topicDocuments = await writeGeneratedLabTopicDocumentsAsync(outputDir, {
       labId: savedLabId,
       markdown,
       manifest,
@@ -1546,6 +1563,7 @@ export async function generateLab(request, opts = {}) {
     }
 
     onProgress?.({ stage: "validate", message: "Validating the generated lab" });
+    await yieldToEventLoop();
     result.validation = validateLabDir(outputDir, { labId: result.labId, title: plan.title });
     if (result.validation.failed) {
       throw new Error(`Generated lab failed ${result.validation.failed} validation check(s).`);
@@ -1557,6 +1575,8 @@ export async function generateLab(request, opts = {}) {
       checkedAt: new Date().toISOString(),
     };
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    // The lab is whole: from here every reader sees it.
+    clearBuilding(outputDir);
   } catch (err) {
     // A lab that failed to build is removed, but pictures captured for it during this run are kept first (and the folder stays when they cannot be).
     const kept = wantsCaptureScreenshots(opts, request)

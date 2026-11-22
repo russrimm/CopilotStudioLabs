@@ -1183,6 +1183,12 @@ function scProgressView(key) {
   });
   const started = Date.parse(lab.job?.startedAt || lab.job?.createdAt || "");
   view.elapsed = Number.isFinite(started) ? scFormatDuration((Date.now() - started) / 1000) : "0:00";
+  // Another person's capture: its progress is shared, but the sentences about "your computer" are not about this person.
+  if (lab.job?.mine === false) {
+    view.shared = true;
+    view.headline = "Capturing screenshots";
+    view.detail = SC_OTHER_PERSON_CAPTURING;
+  }
   return view;
 }
 
@@ -1232,6 +1238,8 @@ function scBuildProgressCard(key, view) {
   scFillCounts(counts, view.counts);
   card.appendChild(counts);
   card.appendChild(scEl("p", { class: "sc-progress-detail", text: view.detail }));
+  // Only the person who started a capture can stop or pause it (the portal refuses anyone else), so no buttons are offered here.
+  if (view.shared) return card;
   const actions = scEl("div", { class: "sc-step-actions" });
   if (view.phase === "queued-offline" && key !== "library") {
     actions.appendChild(scButton("Connect your computer", { action: "step-connect", focus: "progress-connect" }));

@@ -31,26 +31,29 @@ import express from "express";
 import multer from "multer";
 
 import { createRateLimiter, positiveIntFromEnv } from "../rate-limit.js";
+import { createVisitorCheck, visitorKey } from "../concurrency/visitor.js";
 import { buildCompanionZip, COMPANION_ZIP_NAME } from "./companion-zip.js";
 import { createCapturePlatform } from "./index.js";
 import { isJobId } from "./jobs.js";
 import { isKeptPictureName } from "./kept-pictures.js";
+import { createStreamGate, createUploadGate } from "./limits.js";
 import { EXPORT_ZIP_NAME, MAX_IMPORT_ZIP_BYTES, buildLibraryExport, importLibraryZip } from "./library-transfer.js";
+import { ownerOf } from "./owner.js";
 import { TOKEN_PREFIX } from "./pairing.js";
 import { buildPairingCommands } from "./start-command.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
 import { parseRecipeKey } from "../../../tools/screenshot-capture/recipes.mjs";
+
+export { ownerOf };
 
 const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const DEVICE_ID_RE = /^dev_[a-f0-9]{12}$/;
 const IMAGE_BODY_TYPE = /^(?:image\/(?:png|jpe?g|webp)|application\/octet-stream)(?:\s*;|$)/i;
 const COMPANION_PREFIX = "/api/capture/companion";
 const SSE_MAX_MS = 30 * 60 * 1000;
+const SSE_RETRY_AFTER_SEC = 5;
+const UPLOAD_RETRY_AFTER_SEC = 5;
 const MAX_EVIDENCE_BYTES = 64 * 1024;
-
-function userKey(req) {
-  return String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase();
-}
 
 function actor(req) {
   return req.user?.upn || req.user?.oid || null;
@@ -98,33 +101,77 @@ export function registerCaptureRoutes(app, deps = {}) {
   const { pairing, jobs, screenshots, sharedRecipes } = platform;
   const scheduleBlobSync = typeof deps.scheduleBlobSync === "function" ? deps.scheduleBlobSync : () => {};
   const env = deps.env ?? process.env;
+  const sse = platform.sse ?? createStreamGate({ max: positiveIntFromEnv(env.CAPTURE_SSE_MAX, 100), perVisitorMax: positiveIntFromEnv(env.CAPTURE_SSE_PER_VISITOR_MAX, 6) });
+  const uploads = platform.uploads ?? createUploadGate({ max: positiveIntFromEnv(env.CAPTURE_UPLOAD_CONCURRENCY, 4), waitMs: positiveIntFromEnv(env.CAPTURE_UPLOAD_WAIT_MS, 20000) });
+  const sseMaxMs = positiveIntFromEnv(env.CAPTURE_SSE_MAX_MS, SSE_MAX_MS);
 
-  const pairRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_PAIR_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_PAIR_RATE_MAX, 20) });
-  const manageRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_MANAGE_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_MANAGE_RATE_MAX, 120) });
-  const uploadRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_MAX, 600) });
+  // Each visitor (signed-in person, else browser id, else address) has their own bucket. A single address that rotates ids
+  // still cannot go past this many times one visitor's limit.
+  const addressMultiplier = positiveIntFromEnv(env.CAPTURE_IP_RATE_MULTIPLIER, 20);
+  const visitorRate = (windowMs, max) => createVisitorCheck(createRateLimiter({ windowMs, max }), createRateLimiter({ windowMs, max: max * addressMultiplier }));
+  const pairRate = visitorRate(positiveIntFromEnv(env.CAPTURE_PAIR_RATE_WINDOW_MS, 3600000), positiveIntFromEnv(env.CAPTURE_PAIR_RATE_MAX, 20));
+  const manageRate = visitorRate(positiveIntFromEnv(env.CAPTURE_MANAGE_RATE_WINDOW_MS, 3600000), positiveIntFromEnv(env.CAPTURE_MANAGE_RATE_MAX, 120));
+  const uploadRate = visitorRate(positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_WINDOW_MS, 3600000), positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_MAX, 600));
   const exchangeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_WINDOW_MS, 600000), max: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_MAX, 10) });
   const companionRate = createRateLimiter({ windowMs: 60000, max: positiveIntFromEnv(env.CAPTURE_COMPANION_RATE_MAX, 600) });
   const recipeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_MAX, 30) });
-  const confirmRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_MAX, 600) });
+  const confirmRate = visitorRate(positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_WINDOW_MS, 3600000), positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_MAX, 600));
 
-  function limited(check, key, message) {
+  function limited(check, message) {
     return (req, res) => {
-      const rate = check(typeof key === "function" ? key(req) : key);
+      const rate = check(req);
       if (rate.allowed) return false;
       res.setHeader("Retry-After", String(rate.retryAfterSec));
       res.status(429).json({ error: `${message} Try again in ${rate.retryAfterSec}s.` });
       return true;
     };
   }
-  const pairLimited = limited(pairRate, userKey, "Too many pairing codes requested.");
-  const uploadLimited = limited(uploadRate, userKey, "Too many screenshot uploads.");
-  const confirmLimited = limited(confirmRate, userKey, "Too many confirmations.");
-  const manageLimited = typeof deps.manageRateLimited === "function" ? deps.manageRateLimited : limited(manageRate, userKey, "Too many capture changes.");
+  const pairLimited = limited(pairRate, "Too many pairing codes requested.");
+  const uploadLimited = limited(uploadRate, "Too many screenshot uploads.");
+  const confirmLimited = limited(confirmRate, "Too many confirmations.");
+  const manageLimited = typeof deps.manageRateLimited === "function" ? deps.manageRateLimited : limited(manageRate, "Too many capture changes.");
 
   /** Run the Azure Blob write-through after a handler that changed stored state. */
   const syncAfter = (res) => res.once("finish", () => scheduleBlobSync());
 
+  /** A failed write. A picture another process is still writing is "try again in a moment" (503), never a crash. */
+  function fail(res, err) {
+    if (err?.code === "LOCK_TIMEOUT") {
+      res.setHeader("Retry-After", "2");
+      return res.status(503).json({ error: err.message });
+    }
+    return res.status(500).json({ error: err.message });
+  }
+
   // ── Body parsing for image uploads ────────────────────────────────────────
+
+  /**
+   * Let only a few image bodies be read at once (each is held in memory). The others wait a short, bounded while for a place,
+   * then get a plain 503. The place is given back when the response ends or the client leaves, whichever comes first.
+   */
+  function uploadSlot(req, res, next) {
+    const waiting = uploads.acquire();
+    let gone = false;
+    res.once("close", () => {
+      gone = true;
+      waiting.cancel();
+    });
+    waiting.ready.then((release) => {
+      if (!release) {
+        res.setHeader("Retry-After", String(UPLOAD_RETRY_AFTER_SEC));
+        return res.status(503).json({ error: "The portal is receiving several pictures right now. Try again in a few seconds." });
+      }
+      if (gone) return release();
+      res.once("close", release);
+      res.once("finish", release);
+      try {
+        return next();
+      } catch (err) {
+        release();
+        return next(err);
+      }
+    });
+  }
 
   const multipart = multer({
     storage: multer.memoryStorage(),
@@ -164,7 +211,8 @@ export function registerCaptureRoutes(app, deps = {}) {
 
   app.post("/api/capture/pair", (req, res) => {
     if (pairLimited(req, res)) return;
-    const issued = pairing.createCode({ createdBy: actor(req) });
+    // The computer paired with this code works for whoever asked for it (see owner.js).
+    const issued = pairing.createCode({ createdBy: actor(req), ownerKey: ownerOf(req) });
     syncAfter(res);
     const portalUrl = `${req.protocol}://${req.get("host")}`;
     res.status(201).json({ ...issued, portalUrl, ...buildPairingCommands({ portalUrl, code: issued.code }) });
@@ -172,21 +220,21 @@ export function registerCaptureRoutes(app, deps = {}) {
 
   app.get("/api/capture/status", async (req, res) => {
     try {
-      res.json(await platform.statusPayload({ localRequest: isLoopback(req) }));
+      res.json(await platform.statusPayload({ localRequest: isLoopback(req), ownerKey: ownerOf(req) }));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
 
-  app.get("/api/capture/devices", (_req, res) => {
-    res.json({ devices: pairing.listDevices() });
+  app.get("/api/capture/devices", (req, res) => {
+    res.json({ devices: pairing.listDevices({ ownerKey: ownerOf(req) }) });
   });
 
   app.delete("/api/capture/devices/:id", (req, res) => {
     if (manageLimited(req, res)) return;
     if (!DEVICE_ID_RE.test(req.params.id)) return res.status(400).json({ error: "Invalid device id." });
     syncAfter(res);
-    if (!pairing.revokeDevice(req.params.id)) return res.status(404).json({ error: "Device not found or already disconnected." });
+    if (!pairing.revokeDevice(req.params.id, { ownerKey: ownerOf(req) })) return res.status(404).json({ error: "Device not found or already disconnected." });
     return res.json({ revoked: true, id: req.params.id });
   });
 
@@ -195,7 +243,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     syncAfter(res);
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
     try {
-      const result = platform.queueJob(body, { createdBy: actor(req) });
+      const result = platform.queueJob(body, { createdBy: actor(req), ownerKey: ownerOf(req) });
       res.status(result.status).json(result.body);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -230,59 +278,82 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (manageLimited(req, res)) return;
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
     try {
-      const result = platform.requestAccountSetup(body);
+      const result = platform.requestAccountSetup(body, { ownerKey: ownerOf(req) });
       res.status(result.status).json(result.body);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
 
+  // A lab's progress is shared: anyone can look at it. `mine` says whether the person asking started the capture (null when either side is unknown).
   app.get("/api/capture/jobs", (req, res) => {
     const limit = Number.parseInt(String(req.query.limit ?? "25"), 10);
     const status = typeof req.query.status === "string" ? req.query.status : null;
     const labId = typeof req.query.labId === "string" && SAFE_LAB_ID.test(req.query.labId) ? req.query.labId : null;
-    res.json({ jobs: jobs.list({ limit: Number.isFinite(limit) ? limit : 25, status, labId }) });
+    res.json({ jobs: jobs.list({ limit: Number.isFinite(limit) ? limit : 25, status, labId, viewerOwnerKey: ownerOf(req) }) });
   });
 
   app.get("/api/capture/jobs/:id", (req, res) => {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
-    const job = jobs.get(req.params.id);
+    const job = jobs.get(req.params.id, { viewerOwnerKey: ownerOf(req) });
     return job ? res.json({ job }) : res.status(404).json({ error: "Job not found." });
   });
 
   app.get("/api/capture/jobs/:id/events", (req, res) => {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
-    const job = jobs.get(req.params.id);
+    const viewer = ownerOf(req);
+    const job = jobs.get(req.params.id, { viewerOwnerKey: viewer });
     if (!job) return res.status(404).json({ error: "Job not found." });
-    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive", "X-Accel-Buffering": "no" });
-    const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    const finished = (status) => status === "done" || status === "failed" || status === "cancelled";
+    // Every progress window holds a socket and a listener, so the portal and each visitor may only keep so many open.
+    const releaseSlot = sse.tryOpen(viewer || visitorKey(req));
+    if (!releaseSlot) {
+      res.setHeader("Retry-After", String(SSE_RETRY_AFTER_SEC));
+      return res.status(429).json({ error: "Too many progress windows are open. Close one and try again." });
+    }
     let ping = null;
     let limit = null;
     let off = () => {};
+    let closed = false;
+    // Every way the stream can end (finished, the person left, an error, the time limit) comes through here, once.
     const close = () => {
+      if (closed) return;
+      closed = true;
       clearInterval(ping);
       clearTimeout(limit);
       off();
+      releaseSlot();
       if (!res.writableEnded) res.end();
     };
+    const send = (event, data) => {
+      if (closed || res.writableEnded) return;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const finished = (status) => status === "done" || status === "failed" || status === "cancelled";
+    res.on("close", close);
+    res.on("error", close);
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive", "X-Accel-Buffering": "no" });
     send("snapshot", { job });
     if (finished(job.status)) {
       send("end", { status: job.status });
       return close();
     }
-    off = jobs.subscribe(job.id, ({ job: summary, event }) => {
-      send("update", { job: summary, event });
-      if (finished(summary.status)) {
-        send("end", { status: summary.status });
-        close();
-      }
-    });
-    ping = setInterval(() => res.write(": ping\n\n"), 15000);
-    limit = setTimeout(close, SSE_MAX_MS);
+    off = jobs.subscribe(
+      job.id,
+      ({ job: summary, event }) => {
+        send("update", { job: summary, event });
+        if (finished(summary.status)) {
+          send("end", { status: summary.status });
+          close();
+        }
+      },
+      { viewerOwnerKey: viewer },
+    );
+    ping = setInterval(() => {
+      if (!closed && !res.writableEnded) res.write(": ping\n\n");
+    }, 15000);
+    limit = setTimeout(close, sseMaxMs);
     ping.unref?.();
     limit.unref?.();
-    req.on("close", close);
     return undefined;
   });
 
@@ -290,8 +361,8 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (manageLimited(req, res)) return;
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
-    // "Pause" stops after the current screenshot and keeps the rest for Resume; plain cancel drops them.
-    const result = jobs.cancel(req.params.id, { pause: req.body?.pause === true });
+    // "Pause" stops after the current screenshot and keeps the rest for Resume; plain cancel drops them. Only the person who started a capture can stop it.
+    const result = jobs.cancel(req.params.id, { pause: req.body?.pause === true, requesterOwnerKey: ownerOf(req) });
     return result.ok ? res.json({ job: result.job }) : res.status(result.status).json({ error: result.error, job: result.job });
   });
 
@@ -412,7 +483,7 @@ export function registerCaptureRoutes(app, deps = {}) {
       }
     };
 
-    app.put(base(), readUpload, (req, res) => {
+    app.put(base(), uploadSlot, readUpload, (req, res) => {
       if (uploadLimited(req, res)) return;
       if (!requireUploadBytes(req, res)) return;
       const target = resolveTarget(req, res);
@@ -423,7 +494,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = screenshots.submit(target, req.params.filename, req.upload.bytes, { evidence: req.upload.evidence, source: "manual-upload", acceptWarnings, callouts: req.upload.callouts });
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     });
 
@@ -436,7 +507,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = screenshots.accept(target, req.params.filename);
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     });
 
@@ -449,7 +520,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = screenshots.reset(target, req.params.filename);
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     });
 
@@ -463,7 +534,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = screenshots.confirm(target, req.params.filename, { by: actor(req) });
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     });
 
@@ -476,7 +547,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = screenshots.unconfirm(target, req.params.filename);
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     });
 
@@ -658,7 +729,7 @@ export function registerCaptureRoutes(app, deps = {}) {
   const importRaw = express.raw({ type: (req) => /^application\/(?:zip|x-zip-compressed|octet-stream)(?:\s*;|$)/i.test(String(req.headers["content-type"] || "")), limit: MAX_IMPORT_ZIP_BYTES + 4096 });
   const truthy = (value) => ["true", "1", "on", "yes"].includes(String(value ?? "").toLowerCase());
 
-  app.post("/api/capture/library/import", (req, res) => {
+  app.post("/api/capture/library/import", uploadSlot, (req, res) => {
     if (manageLimited(req, res)) return;
     const run = (zip, options) => {
       syncAfter(res);
@@ -666,7 +737,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         const result = importLibraryZip(screenshots, zip, options);
         res.status(result.status).json(result.body);
       } catch (err) {
-        res.status(500).json({ error: err.message });
+        fail(res, err);
       }
     };
     if (String(req.headers["content-type"] || "").toLowerCase().startsWith("multipart/form-data")) {
@@ -725,7 +796,8 @@ export function registerCaptureRoutes(app, deps = {}) {
       };
       return res.status(401).json({ error: messages[auth.reason] || messages.invalid, code: `token-${auth.reason}` });
     }
-    req.captureDevice = auth.device;
+    // The owner key stays inside the portal: it is how a job finds the computer its person paired, never something a response carries.
+    req.captureDevice = { ...auth.device, ownerKey: auth.ownerKey };
     return next();
   });
 
@@ -788,7 +860,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     return result.ok ? res.json({ ok: true, cancelRequested: result.cancelRequested }) : res.status(result.status).json({ error: result.error });
   });
 
-  app.put(`${COMPANION_PREFIX}/jobs/:id/shots/:filename`, readUpload, (req, res) => {
+  app.put(`${COMPANION_PREFIX}/jobs/:id/shots/:filename`, uploadSlot, readUpload, (req, res) => {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     if (!requireUploadBytes(req, res)) return;
     const job = jobs.get(req.params.id);
@@ -830,7 +902,7 @@ export function registerCaptureRoutes(app, deps = {}) {
       });
       res.status(result.status).json({ ...result.body, cancelRequested: Boolean(recorded.cancelRequested) });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      fail(res, err);
     }
   });
 

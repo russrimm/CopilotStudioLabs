@@ -14,6 +14,8 @@ const SC_SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const SC_JOB_ID = /^job_[a-f0-9]{16}$/;
 const SC_ACTIVE_JOB_STATUSES = Object.freeze(["queued", "claimed", "running"]);
 const SC_FINISHED_JOB_STATUSES = Object.freeze(["done", "failed", "cancelled"]);
+/** Shown on a lab card whose active capture another person started (the server's `mine` is false): they alone can stop it. */
+const SC_OTHER_PERSON_CAPTURING = "Another person is capturing this lab right now.";
 const SC_ADDRESS_FIELDS = Object.freeze([
   ["copilotStudioUrl", "Copilot Studio"],
   ["powerPlatformEnvUrl", "Power Platform"],

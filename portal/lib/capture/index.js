@@ -21,8 +21,11 @@ import { ACCOUNT_MIN_COMPANION, PRODUCT_ID_RE } from "./account.js";
 import { HANDOFF_MIN_COMPANION, creationState, requestedAgentSource, resolveAgentSource, withoutOwnAgentTargets } from "./agent-source.js";
 import { autonomyFor, createConsentStore, describeConsent, validateConsent } from "./consent.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
+import { createStreamGate, createUploadGate, DEFAULT_SSE_MAX, DEFAULT_SSE_PER_VISITOR_MAX, DEFAULT_UPLOAD_CONCURRENCY, DEFAULT_UPLOAD_WAIT_MS } from "./limits.js";
 import { readRecordsFile } from "./library-share.js";
+import { cleanOwnerKey, differentPeople } from "./owner.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
+import { positiveIntFromEnv } from "../rate-limit.js";
 import { buildLabJobPlan, buildLibraryJobPlan, findLibrarySlot } from "./plan.js";
 import { buildDryPlan } from "./dry-plan.js";
 import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
@@ -41,6 +44,11 @@ export const SCRATCH_MIN_COMPANION = "1.6.0";
 /** The first companion that runs the recipe families (test conversations with panels, dialogs, item details, a sample test set, landmark checks). An older one keeps working the older way. */
 export const RECIPES_MIN_COMPANION = "1.6.3";
 const BROWSER_CACHE_MS = 60 * 1000;
+/** What a person is told when the lab they asked to capture already has a capture waiting or running. */
+const LAB_BUSY_MESSAGES = Object.freeze({
+  someoneElse: "Another person is capturing this lab right now. Try again when they finish.",
+  you: "This lab already has a capture in progress. Wait for it to finish or cancel it first.",
+});
 
 /** Whether a version string such as "1.3.0" is at least `min`. An unknown version is not. */
 export function versionAtLeast(version, min) {
@@ -103,6 +111,9 @@ export function createCapturePlatform({
   const capturedDirs = () => ({ primary: capturedScreenshotsDir(env), search: capturedScreenshotsDirs(env) });
   const pairing = createPairingStore({ dir: captureDir, now });
   const jobs = createJobStore({ dir: captureDir, now, productLabel });
+  // Open progress windows and in-flight image uploads are capped so a busy portal cannot run out of sockets or memory.
+  const sse = createStreamGate({ max: positiveIntFromEnv(env.CAPTURE_SSE_MAX, DEFAULT_SSE_MAX), perVisitorMax: positiveIntFromEnv(env.CAPTURE_SSE_PER_VISITOR_MAX, DEFAULT_SSE_PER_VISITOR_MAX) });
+  const uploads = createUploadGate({ max: positiveIntFromEnv(env.CAPTURE_UPLOAD_CONCURRENCY, DEFAULT_UPLOAD_CONCURRENCY), waitMs: positiveIntFromEnv(env.CAPTURE_UPLOAD_WAIT_MS, DEFAULT_UPLOAD_WAIT_MS) });
   const consent = createConsentStore({ dir: captureDir, now });
   const sharedRecipes = createSharedRecipeStore({ dir: captureDir, now });
   const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null, keptDir: () => resolveKeptScreenshotsDir(env), now });
@@ -196,9 +207,9 @@ export function createCapturePlatform({
     return { status: 200, body: { revoked: existed, ...consentPayload({ body }) } };
   }
 
-  /** The companions that are connected now, and whether every one of them can run an autonomous job. */
-  function companionCanRunAutonomous() {
-    const status = pairing.status();
+  /** The companions that are connected now (and work for `ownerKey`, when it is given), and whether every one of them can run an autonomous job. */
+  function companionCanRunAutonomous({ ownerKey = null } = {}) {
+    const status = pairing.status({ ownerKey });
     const online = (status.devices || []).filter((d) => d.connected);
     if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true };
     const supported = online.some((d) => versionAtLeast(d.companionVersion, AUTONOMOUS_MIN_COMPANION));
@@ -226,12 +237,13 @@ export function createCapturePlatform({
   /**
    * "Choose which account to use": ask a connected computer to open the sign-in window so the person can sign in with the
    * account they want. The request is given to the computer on its next check-in (see the heartbeat route).
+   * Only a computer that works for the person asking is used: a sign-in window never opens on someone else's computer.
    * @returns {{status: number, body: object}}
    */
-  function requestAccountSetup(body = {}) {
+  function requestAccountSetup(body = {}, { ownerKey = null } = {}) {
     const product = typeof body.product === "string" && PRODUCT_ID_RE.test(body.product) ? body.product : "copilot-studio";
     const labId = typeof body.labId === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/i.test(body.labId) ? body.labId : null;
-    const online = (pairing.status().devices || []).filter((d) => d.connected);
+    const online = (pairing.status({ ownerKey }).devices || []).filter((d) => d.connected);
     if (!online.length) return { status: 409, body: { error: "No computer is connected. Connect your computer first, then choose the account.", code: "no-companion" } };
     const capable = online.filter((d) => versionAtLeast(d.companionVersion, ACCOUNT_MIN_COMPANION));
     if (!capable.length) {
@@ -245,8 +257,8 @@ export function createCapturePlatform({
   }
 
   /** Which companions can report and choose an account, for the Screenshot Center. */
-  function accountCapability() {
-    const online = (pairing.status().devices || []).filter((d) => d.connected);
+  function accountCapability({ ownerKey = null } = {}) {
+    const online = (pairing.status({ ownerKey }).devices || []).filter((d) => d.connected);
     return { connected: online.length > 0, supported: online.some((d) => versionAtLeast(d.companionVersion, ACCOUNT_MIN_COMPANION)), minCompanion: ACCOUNT_MIN_COMPANION };
   }
 
@@ -268,18 +280,19 @@ export function createCapturePlatform({
     return { dismissed: true };
   }
 
-  /** `GET /api/capture/status`: what the portal shows (is a companion connected, since when, signed in to which products, and with which account). */
-  async function statusPayload({ localRequest = false } = {}) {
+  /** `GET /api/capture/status`: what the portal shows (is a companion connected, since when, signed in to which products, and with which account). `ownerKey` limits the computers shown to the ones that work for the person asking. */
+  async function statusPayload({ localRequest = false, ownerKey = null } = {}) {
     await refreshServerBrowser();
-    const companion = pairing.status();
+    const companion = pairing.status({ ownerKey });
     const storage = getStorageDiagnostics(env);
     const where = describeCapturedScreenshotsLocation(env);
     const location = where.kind === "explicit" ? "explicit" : where.kind === "committed" ? "baked" : "persistent";
     const library = screenshots.libraryState();
     const tenantNames = tenantUrlNames();
     // Shots waiting for a sign-in on the person's computer, until the companion reports that sign-in as done.
-    const needsSignIn = jobs.latestSignInNeed({ signedInProducts: companion.signedInProducts });
+    const needsSignIn = jobs.latestSignInNeed({ signedInProducts: companion.signedInProducts, viewerOwnerKey: ownerKey });
     const signInNeed = needsSignIn ? { needsSignIn } : {};
+    const support = companionCanRunAutonomous({ ownerKey });
     // The folder is only ever told to a person at the computer that runs the portal, never to a cloud portal's users.
     const folder = localRequest && isLocalRun(env) && where.kind !== "committed" && where.kind !== "storage-root" ? where.dir : null;
     return {
@@ -297,7 +310,7 @@ export function createCapturePlatform({
         account: companion.account,
         accountSetup: companion.accountSetup,
         accountMinCompanion: ACCOUNT_MIN_COMPANION,
-        accountSupported: accountCapability().supported,
+        accountSupported: accountCapability({ ownerKey }).supported,
       },
       serverBrowser: {
         available: browser.available,
@@ -324,32 +337,40 @@ export function createCapturePlatform({
         notice: locationNotice({ kind: where.kind, folder, captured: library.summary.captured }),
       },
       jobs: { ...jobs.activity(), ...signInNeed },
-      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: companionCanRunAutonomous().handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: companionCanRunAutonomous().recipesSupported, sharedRecipes: sharedRecipes.list().length },
+      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: support.supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: support.scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: support.handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: support.recipesSupported, sharedRecipes: sharedRecipes.list().length },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };
   }
 
-  function activeDuplicate(norm, env, targetText = {}, autonomy = null) {
-    return jobs
-      .list({ limit: 200 })
-      .find(
-        (job) =>
-          (job.status === "queued" || job.status === "claimed" || job.status === "running") &&
-          job.target.type === norm.target.type &&
-          job.target.labId === norm.target.labId &&
-          sameList(job.target.products, norm.target.products) &&
-          job.scope.mode === norm.scope.mode &&
-          sameList(job.scope.filenames, norm.scope.filenames) &&
-          sameList(job.scope.featureIds, norm.scope.featureIds) &&
-          (job.options?.mode || "smart") === norm.options.mode &&
-          (job.options?.autonomy?.level || null) === (autonomy?.level || null) &&
-          (job.options?.agentSource || null) === (norm.options.agentSource || null) &&
-          Boolean(job.options?.record) === Boolean(norm.options.record) &&
-          Boolean(job.options?.retake) === Boolean(norm.options.retake) &&
-          sameEnv(jobs.getPlan(job.id)?.env, env) &&
-          sameEnv(jobs.getPlan(job.id)?.targets, targetText),
-      );
+  /**
+   * The capture that is already waiting or running for a request, if there is one:
+   *  - `existing`: an equivalent capture (the same lab, scope, options, and addresses) started by the same person, or by
+   *    someone the portal cannot tell apart. It is returned instead of queueing a second one.
+   *  - `busy`: any other capture of the same lab (different scope, options, addresses, or person). A lab runs one capture
+   *    at a time, so the pictures of two captures never land in the same slots together.
+   * A capture of the whole shared library is not per lab, so only the equivalent check applies to it.
+   */
+  function activeClash(norm, env, targetText = {}, autonomy = null, ownerKey = null) {
+    const candidates = jobs.active(norm.target.type === "lab" ? { labId: norm.target.labId } : {}).filter((job) => job.target.type === norm.target.type);
+    const equivalent = (job) =>
+      job.target.labId === norm.target.labId &&
+      sameList(job.target.products, norm.target.products) &&
+      job.scope.mode === norm.scope.mode &&
+      sameList(job.scope.filenames, norm.scope.filenames) &&
+      sameList(job.scope.featureIds, norm.scope.featureIds) &&
+      (job.options?.mode || "smart") === norm.options.mode &&
+      (job.options?.autonomy?.level || null) === (autonomy?.level || null) &&
+      (job.options?.agentSource || null) === (norm.options.agentSource || null) &&
+      Boolean(job.options?.record) === Boolean(norm.options.record) &&
+      Boolean(job.options?.retake) === Boolean(norm.options.retake) &&
+      sameEnv(jobs.getPlan(job.id)?.env, env) &&
+      sameEnv(jobs.getPlan(job.id)?.targets, targetText);
+    const same = candidates.find((job) => equivalent(job) && (norm.target.type !== "lab" || !differentPeople(job.ownerKey, ownerKey)));
+    if (same) return { kind: "existing", job: same };
+    if (norm.target.type !== "lab" || !candidates.length) return null;
+    const other = candidates.find((job) => differentPeople(job.ownerKey, ownerKey)) || candidates[0];
+    return { kind: "busy", job: other, busyBy: differentPeople(other.ownerKey, ownerKey) ? "someone-else" : "you" };
   }
 
   /**
@@ -450,10 +471,12 @@ export function createCapturePlatform({
   }
 
   /**
-   * Validate a job request, build its shot plan, and queue it.
+   * Validate a job request, build its shot plan, and queue it. `ownerKey` (see owner.js) is who asked: the job is only given to a
+   * computer that person paired, and only that person can stop it. A lab runs one capture at a time (409 `lab-busy` otherwise).
    * @returns {{status: number, body: object}}
    */
-  function queueJob(body, { createdBy = null } = {}) {
+  function queueJob(body, { createdBy = null, ownerKey = null } = {}) {
+    const owner = cleanOwnerKey(ownerKey);
     const norm = normalizeJobRequest(body);
     if (!norm.ok) return { status: 400, body: { error: norm.errors[0], errors: norm.errors } };
 
@@ -475,7 +498,7 @@ export function createCapturePlatform({
       if (!stored) {
         return { status: 200, body: { job: null, needsConsent: true, consent: consentPayload({ body }), message: "Allow automatic capture first. It takes one minute and you decide what the computer may do." } };
       }
-      support = companionCanRunAutonomous();
+      support = companionCanRunAutonomous({ ownerKey: owner });
       if (support.connected && !support.supported) {
         mode = "smart";
         downgraded = { to: "smart", companionVersion: support.version, needs: AUTONOMOUS_MIN_COMPANION, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${AUTONOMOUS_MIN_COMPANION}, so it cannot capture on its own yet. Download the companion again to get automatic capture. This capture runs the older way for now.` };
@@ -510,7 +533,7 @@ export function createCapturePlatform({
     // The lab's own words for the agent (name, instructions, sample questions, a public website) travel with the job, to the companion only.
     if (scratch) autonomy = { ...autonomy, scratchContext: readLabScratchContext(plan.labDir || null, { labId: norm.target.type === "lab" ? norm.target.labId : "", title: plan.title || "" }), startFresh: norm.options.startFresh === true };
 
-    const companion = pairing.status();
+    const companion = pairing.status({ ownerKey: owner });
     const companionInfo = { connected: companion.connected, lastSeenAt: companion.lastSeenAt };
     if (!plan.shots.length) {
       return {
@@ -544,11 +567,15 @@ export function createCapturePlatform({
       };
     }
 
-    const existing = activeDuplicate(norm, jobTargets.env, jobTargets.text, autonomy);
-    if (existing) {
-      return { status: 200, body: { job: jobs.get(existing.id), existing: true, envSource: jobTargets.source, companion: companionInfo, message: "This capture is already queued or running." } };
+    const clash = activeClash(norm, jobTargets.env, jobTargets.text, autonomy, owner);
+    if (clash?.kind === "existing") {
+      return { status: 200, body: { job: jobs.get(clash.job.id, { viewerOwnerKey: owner }), existing: true, envSource: jobTargets.source, companion: companionInfo, message: "This capture is already queued or running." } };
     }
-    const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobTargets.env, targets: jobTargets.text, options: norm.options, plan, createdBy, autonomy });
+    if (clash?.kind === "busy") {
+      const message = clash.busyBy === "someone-else" ? LAB_BUSY_MESSAGES.someoneElse : LAB_BUSY_MESSAGES.you;
+      return { status: 409, body: { error: message, code: "lab-busy", existingJobId: clash.job.id, busyBy: clash.busyBy } };
+    }
+    const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobTargets.env, targets: jobTargets.text, options: norm.options, plan, createdBy, ownerKey: owner, autonomy });
     const runnable = plan.shots.length - waiting.length;
     // The companion is too old to hand the practice agent to the other screenshots: say so in plain words, and name what to do.
     const agentHandoff = agentFallback === "companion" ? { supported: false, min: HANDOFF_MIN_COMPANION, version: support.version, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${HANDOFF_MIN_COMPANION}, so it cannot hand the practice agent to the other screenshots yet. Download the companion again and replace the old one. Until then, screenshots that show an agent need an agent address.` } : null;
@@ -597,8 +624,9 @@ export function createCapturePlatform({
   }
 
   /** What the older capture endpoint returns when the server cannot run a browser. */
-  async function companionFallbackForLab({ labId, onlyMissing = false, onlyStale = false, featureIds = null, createdBy = null }) {
-    const companion = pairing.status();
+  async function companionFallbackForLab({ labId, onlyMissing = false, onlyStale = false, featureIds = null, createdBy = null, ownerKey = null }) {
+    const owner = cleanOwnerKey(ownerKey);
+    const companion = pairing.status({ ownerKey: owner });
     const base = { connected: companion.connected, lastSeenAt: companion.lastSeenAt, downloadUrl: COMPANION_DOWNLOAD_URL, pairUrl: "/api/capture/pair", statusUrl: "/api/capture/status" };
     if (!companion.connected) {
       return {
@@ -612,7 +640,7 @@ export function createCapturePlatform({
     }
     const result = queueJob(
       { target: { type: "lab", labId }, scope: { mode: onlyStale ? "stale" : "missing", featureIds: featureIds || [] } },
-      { createdBy },
+      { createdBy, ownerKey: owner },
     );
     if (result.status >= 400) return { ...base, queued: false, canQueue: true, reason: "not-queued", message: result.body.error };
     if (result.body.nothingToCapture) return { ...base, queued: false, canQueue: false, reason: "nothing-to-capture", message: result.body.message };
@@ -637,6 +665,8 @@ export function createCapturePlatform({
     screenshots,
     consent,
     sharedRecipes,
+    sse,
+    uploads,
     capabilities,
     statusPayload,
     dismissLocationNotice,

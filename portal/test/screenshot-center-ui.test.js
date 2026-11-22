@@ -1369,6 +1369,66 @@ test("a capture already running for this lab is picked up when the panel opens",
   assert.equal(h.center().querySelector(".sc-primary-btn").disabled, true);
 });
 
+test("a capture another person started is shown with a plain sentence, announced, and offers no way to stop it", async () => {
+  const state = threeShots();
+  const rows = [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]];
+  const progress = { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 };
+  const open = async (mine) => {
+    const h = makeHarness();
+    const running = runningJob(state, rows, progress, { mine });
+    h.activeJobs = [{ id: running.id, status: "running", mine }];
+    h.route("GET", new RegExp(`/api/capture/jobs/${running.id}$`), { status: 200, body: { job: running } });
+    await h.setStatus(statusPayload({ devices: [device()] }));
+    await h.render(state);
+    return h;
+  };
+
+  const theirs = await open(false);
+  const card = theirs.center().querySelector(".sc-progress");
+  assert.equal(card.querySelector(".sc-progress-detail").textContent, "Another person is capturing this lab right now.");
+  assert.equal(card.querySelector(".sc-progress-heading").textContent, "Capturing screenshots", "no sentence about 'your computer' on someone else's capture");
+  assert.equal(card.querySelector('[role="progressbar"]').getAttribute("aria-valuenow"), "33", "the lab's progress is still shared");
+  assert.equal(theirs.live(), "Another person is capturing this lab right now.", "the live region says it when it appears");
+  assert.ok(!theirs.action("job-cancel"), "only the person who started it can stop it");
+  assert.ok(!theirs.action("job-pause"));
+  assert.equal(theirs.center().querySelector(".sc-primary-btn").disabled, true, "and a second capture of the lab is not offered meanwhile");
+
+  for (const mine of [true, null]) {
+    const own = await open(mine);
+    assert.notEqual(own.text(".sc-progress-detail"), "Another person is capturing this lab right now.");
+    assert.ok(own.action("job-cancel"), "your own capture, or one the portal cannot tell apart, can be stopped");
+    assert.ok(!/Another person/.test(own.live()));
+  }
+});
+
+test("a refused capture request shows the portal's plain sentence in the banner, announces it, and shows the capture that is already there", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const theirs = runningJob(state, [["a.png", "running"], ["b.png", "pending"], ["c.png", "pending"]], { done: 0, captured: 0, needsReview: 0, failed: 0, running: 1, pending: 2, percent: 0 }, { mine: false });
+  const sentence = "Another person is capturing this lab right now. Try again when they finish.";
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 409, body: { error: sentence, code: "lab-busy", existingJobId: theirs.id, busyBy: "someone-else" } });
+  h.route("GET", new RegExp(`/api/capture/jobs/${theirs.id}$`), { status: 200, body: { job: theirs } });
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(state);
+  await h.click(h.action("primary-capture-missing"));
+  assert.equal(h.text(".sc-banner-text"), sentence, "the portal's own words, with no 'Could not start' in front");
+  assert.ok(h.center().querySelector(".sc-banner-warn"), "a busy lab is not an error");
+  assert.equal(h.live(), sentence);
+  assert.equal(h.text(".sc-progress-detail"), "Another person is capturing this lab right now.", "the capture that is there is shown beside it");
+  assert.ok(!h.action("job-cancel"));
+
+  // Any other refusal keeps its short lead-in, and no capture is shown.
+  const failed = makeHarness();
+  failed.route("POST", /\/api\/capture\/jobs$/, { status: 500, body: { error: "The queue is unavailable." } });
+  await failed.setStatus(statusPayload({ devices: [device()] }));
+  await failed.render(state);
+  await failed.click(failed.action("primary-capture-missing"));
+  assert.equal(failed.text(".sc-banner-text"), "Could not start the capture. The queue is unavailable.");
+  assert.ok(failed.center().querySelector(".sc-banner-error"));
+  assert.ok(!failed.center().querySelector(".sc-progress"));
+  assert.equal(failed.live(), "Could not start the capture. The queue is unavailable.");
+});
+
 test("a capture queued during the build takes the learner straight to its progress", async () => {
   const state = threeShots();
   const h = makeHarness();
