@@ -379,6 +379,12 @@ export function describeAutomation(shot, { capture = null, labels = [] } = {}) {
   return { ...result, ...(info ? { reasonLabel: info.label, why: info.why, manual: [...info.steps] } : {}), ...(plain.length ? { steps: plain } : {}) };
 }
 
+export function personAutomation(reason = "unseen") {
+  const result = person(reason);
+  const info = REASONS[result.reason];
+  return { ...result, reasonLabel: info.label, why: info.why, manual: [...info.steps] };
+}
+
 const STATES = new Set(["automatic", "person"]);
 const VIAS = new Set(["address", "walkthrough", "family"]);
 const REVIEWS = new Set(["never", "landmark", "always"]);

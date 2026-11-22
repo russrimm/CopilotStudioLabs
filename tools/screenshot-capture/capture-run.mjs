@@ -23,7 +23,7 @@ import { startRecorder } from "./recorder.mjs";
 import { findControls, openNavigationItem, revealLabel } from "./locator.mjs";
 import { removeGuidedToolbar, waitForGuidedAction } from "./guided.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
-import { collectVisibleLabels } from "./redact.mjs";
+import { collectVisibleLabels, readPageSignals } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
 import { normalizeAgentSource, resolveAutomation } from "./walkthrough.mjs";
 import {
@@ -543,6 +543,13 @@ export async function runCaptureShot({
   // A quiet screen: no blinking caret, no hover tooltip, and nothing half-loaded.
   if (autonomous) await setupRun?.executor?.prepareForCapture({ keepPointer: (setupRun.setup.steps || []).at(-1)?.action === "hover" });
   await waitUntilReady(page, { budgets: readinessBudgets(readiness, attempt), sleep, trace, shot: shot.filename, attempt });
+  // The product's own public page (a Sign in button at the top and no account anywhere) is not the product: stop here, so the
+  // job pauses with a plain reason instead of a picture of a marketing page.
+  const signals = await readPageSignals(page);
+  if (signals?.signedOut) {
+    trace?.event("signed-out-page", { shot: shot.filename, product: capture.product || shot.product || null });
+    return needsSignIn({ error: `You are not signed in to ${capture.path?.[0] || "the product"}. The page offers a Sign in button and shows no account.`, code: "signed-out-page" });
+  }
 
   let callouts = null;
   if (Array.isArray(shot.callouts) && shot.callouts.length && typeof page.getByText === "function") {

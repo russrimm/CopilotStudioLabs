@@ -21,6 +21,7 @@ import path from "node:path";
 import { PLACEHOLDER_PATH, derivedSlotsForTopic, describeSlot, slotsForFeature } from "./slots.js";
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { isPlaceholder } from "./placeholder-detect.js";
+import { reusePictureVerdict } from "./picture-guard.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -112,8 +113,11 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
       const described = describeSlot(feature, shot);
       figure += 1;
-      // A real screenshot captured for this slot is used as is; every other slot keeps the placeholder.
-      const captured = capturedImage(capturedDir, shot.filename);
+      // A real screenshot captured for this slot is used as is, unless the capture platform says it looks like the wrong screen;
+      // every other slot keeps the placeholder.
+      const found = capturedImage(capturedDir, shot.filename);
+      const reuse = found ? reusePictureVerdict(found.file) : { ok: true };
+      const captured = found && reuse.ok !== false ? found : null;
 
       const entry = {
         // capture.js selects shots by numeric id (--only, --range, --from).

@@ -36,21 +36,21 @@ import { runSetupAccount } from "./account-setup.mjs";
 import { diagnosticAdvice, writeDiagnostic } from "./diagnostics.mjs";
 import { blockedInstructionReason, blockedLabelReason, resolveAutonomy } from "./guard.mjs";
 import { deleteOldSignIn, describeHomeState, migrateLegacyHome, oldSignInAdvice, resolveHome, syncedHomeMessage } from "./home.mjs";
-import { verifyImage } from "./image-verify.mjs";
+import { EVIDENCE_VERSION, verifyImage } from "./image-verify.mjs";
 import { detectBrowserAvailability, executePlaywrightLabShot, loadPlaywrightModule } from "./lab-runner.mjs";
 import { briefError, classifyBrowserError, ensureLivePage, gotoWithRetry, watchContext } from "./lifecycle.mjs";
 import { UNSAFE_PROFILE_MESSAGE, createProfileWaiter, isDefaultBrowserDir, isProfileInUseFailure } from "./profile-guard.mjs";
 import { dryRunPlan } from "./dry-run.mjs";
 import { createPracticeRegistry, summarizeCreated, writePracticeReport } from "./practice.mjs";
 import { createRecipeStore } from "./recipes.mjs";
-import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, scrubSensitiveText } from "./redact.mjs";
+import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, readPageSignals, scrubSensitiveText } from "./redact.mjs";
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 import { normalizeAgentSource, orderCreationFirst, resolveStage } from "./walkthrough.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.6.3";
+export const COMPANION_VERSION = "1.7.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -650,7 +650,7 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
   const scratchLenient = session?.autonomy?.scratch === true && resolveStage(shot).scoped;
   const attempts = mode === "guided" ? 1 : 2;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [], setup: null };
+    const evidence = { version: EVIDENCE_VERSION, finalUrl: "", title: "", visibleText: [], redaction: null, signals: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [], setup: null };
     const hooks = {
       collectLabels: (livePage) => collectVisibleLabels(livePage, { terms }),
       async beforeScreenshot({ page: livePage, viewport, callouts }) {
@@ -659,6 +659,9 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
         if (session?.autonomy?.scratch === true && evidence.finalUrl) evidence.finalUrl = maskedAddress(evidence.finalUrl) || "";
         evidence.title = typeof livePage.title === "function" ? await livePage.title().catch(() => "") : "";
         evidence.visibleText = await collectVisibleLabels(livePage, { terms });
+        // What the page says about who is signed in, read before anything is covered: the portal decides again from it.
+        const signals = await readPageSignals(livePage);
+        if (signals) evidence.signals = { signInVisible: signals.signInVisible, accountControl: signals.accountControl };
         if (redact) evidence.redaction = await applyRedaction(livePage, { terms });
         if (calloutMode === "burn" && Array.isArray(callouts) && callouts.some((c) => c.rect)) {
           await burnCalloutMarkers(livePage, callouts, viewport);
@@ -1078,8 +1081,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           const extra = { cause: result.cause || undefined, ...common, ...(result.detail?.path ? { path: result.detail.path } : {}), steps: summarizeSteps(result.executedSteps), setup: setupEvidence(result.detail?.setup) || undefined, outcome: result.status === "captured" ? plainOutcome(result.detail, result.executedSteps, effective) : undefined };
 
           // A page that looks like a sign-in page but was not recognized by its address (a company sign-in service) counts as not signed in.
-          if (result.status === "failed" && result.check?.reasons?.some((r) => r.code === "sign-in-page") && !gate.failed) {
-            gate.markFailed("sign-in-page", `${label} showed a sign-in page instead of the product.`);
+          if (result.status === "failed" && result.check?.reasons?.some((r) => r.code === "sign-in-page" || r.code === "signed-out-page") && !gate.failed) {
+            const signedOut = result.check.reasons.some((r) => r.code === "signed-out-page");
+            gate.markFailed("sign-in-page", signedOut ? `You are not signed in to ${label}. The page offers a Sign in button and shows no account.` : `${label} showed a sign-in page instead of the product.`);
             result = { status: "auth-required", code: "sign-in-page", error: gate.failed.message };
           }
           if (result.status === "auth-required") {

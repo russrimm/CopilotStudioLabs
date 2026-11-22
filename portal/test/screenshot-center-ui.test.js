@@ -12,7 +12,7 @@ import vm from "node:vm";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 
 const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
-const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center-keep.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
+const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center-keep.js", "screenshot-center-wrong.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
 const GENERATED_LABS_SOURCE = publicFile("generated-labs.js");
 const INDEX_HTML = publicFile("index.html");
 const APP_SOURCE = publicFile("app.js");
@@ -2869,6 +2869,77 @@ test("the shared library says where its pictures are saved, announces found pict
   await h.click(h.action("keep-ask-yes"));
   assert.equal(h.callsTo("DELETE", /kept/).length, 1);
   assert.equal(h.host.querySelector("[data-sc-kept-none]").textContent, "No pictures are being kept right now.");
+});
+
+test("Pictures that look wrong: a calm notice at the top, a panel in Advanced with the plain reason for each, Keep this one, Move to kept pictures, and one question before moving them all", async () => {
+  const flagged = (filename, extra = {}) => ({ scope: "library", labId: null, labTitle: null, filename, label: "The AI models page", level: "definite", reason: "This shows the product's start page, but its lab describes a screen inside the product (The AI models page). The computer never opened that screen.", short: "shows a start page, not the screen it should show", flags: [], reach: "landing", writable: true, sha256: "a".repeat(64), ...extra });
+  const pictures = [flagged("ppai-ai-models-page.png"), flagged("ppai-ai-hub-menu.png", { label: "The AI hub in the left pane" }), flagged("agent-home.png", { scope: "lab", labId: LAB, level: "probable", label: "Agents page", reason: "This looks the same as “Settings”. They may show the same screen; check that each one shows what its lab describes." })];
+  const reply = (list) => ({ status: 200, body: { scannedAt: "2026-06-01T12:00:00.000Z", counts: { total: list.length, definite: list.filter((p) => p.level === "definite").length, probable: list.filter((p) => p.level === "probable").length }, notice: list.length ? `${list.length} ${list.length === 1 ? "picture looks" : "pictures look"} like the wrong screen. Review ${list.length === 1 ? "it" : "them"}.` : "", retentionDays: 90, pictures: list } });
+  const h = makeHarness();
+  h.route("GET", /\/api\/capture\/suspect-pictures/, reply(pictures));
+  await h.setStatus({ ...statusPayload({ devices: [device()] }) });
+  await h.render(stateFor([ownShot("agent-home.png")]));
+  await h.flush();
+
+  // The notice is one calm line, with one way to review.
+  const notice = h.host.querySelector("[data-sc-wrong-notice]");
+  assert.equal(notice.querySelector("p").textContent, "3 pictures look like the wrong screen. Review them.");
+  assert.equal(notice.getAttribute("role"), "status");
+  assert.equal(h.callsTo("GET", /suspect-pictures\?labId=lab-test-1$/).length >= 1, true, "the lab's own pictures are asked about too");
+  await h.click(h.action("wrong-review"));
+  assert.equal(h.host.querySelector("[data-sc-advanced]").open, true, "Review opens Advanced");
+
+  // The panel lists every flagged picture with its plain reason, where it is, and two buttons a keyboard can reach.
+  const panel = h.host.querySelector("[data-sc-wrong-host]");
+  assert.equal(panel.querySelector("h6").textContent, "Pictures that look wrong");
+  const rows = panel.querySelectorAll("[data-sc-wrong-picture]");
+  assert.equal(rows.length, 3);
+  assert.match(rows[0].textContent, /Shared library: ppai-ai-models-page\.png\. Clearly the wrong screen\./);
+  assert.match(rows[0].textContent, /This shows the product's start page/);
+  assert.match(rows[2].textContent, /This lab: agent-home\.png\. Worth a look\./);
+  const keep = rows[0].querySelector('[data-sc-action="wrong-keep"]');
+  const move = rows[0].querySelector('[data-sc-action="wrong-move"]');
+  assert.deepEqual([keep.textContent, move.textContent], ["Keep this one", "Move to kept pictures"]);
+  assert.equal(keep.tagName, "BUTTON");
+  assert.equal(keep.getAttribute("aria-label"), "Keep this one: ppai-ai-models-page.png");
+  assert.equal(move.getAttribute("aria-label"), "Move ppai-ai-models-page.png to kept pictures");
+  assert.equal(panel.querySelectorAll("[role=dialog]").length, 0, "no new modal");
+
+  // Keep this one marks exactly that picture.
+  h.route("POST", /\/api\/capture\/library\/screenshots\/ppai-ai-models-page\.png\/confirm$/, { status: 200, body: { outcome: "confirmed", scope: "library", filename: "ppai-ai-models-page.png" } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, reply(pictures.slice(1)));
+  await h.click(keep);
+  assert.equal(h.callsTo("POST", /ppai-ai-models-page\.png\/confirm$/).length, 1);
+  assert.equal(h.host.querySelectorAll("[data-sc-wrong-picture]").length, 2);
+  assert.equal(h.host.querySelector("[data-sc-wrong-message]").textContent, "Kept. This picture is not flagged again.");
+  assert.equal(h.host.querySelector("[data-sc-wrong-notice] p").textContent, "2 pictures look like the wrong screen. Review them.");
+
+  // Moving one lab picture goes straight to the kept pictures list, which can restore it.
+  h.route("POST", /\/api\/capture\/suspect-pictures\/quarantine$/, { status: 200, body: { dryRun: false, moved: [{ filename: "agent-home.png", scope: "lab", labId: LAB }], failed: [] } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, reply(pictures.slice(1, 2)));
+  await h.click(h.host.querySelector('[data-sc-wrong-picture="lab:lab-test-1:agent-home.png"] [data-sc-action="wrong-move"]'));
+  assert.deepEqual(h.callsTo("POST", /suspect-pictures\/quarantine$/)[0].body, { dryRun: false, confirm: true, items: [{ scope: "lab", labId: LAB, filename: "agent-home.png" }] });
+  assert.equal(h.host.querySelector("[data-sc-wrong-message]").textContent, "1 picture moved to the kept pictures list. Its screenshot is pending again.");
+
+  // Moving every clearly wrong picture asks first, in words that say they can be restored.
+  const many = [flagged("a.png"), flagged("b.png")];
+  h.route("GET", /\/api\/capture\/suspect-pictures/, reply(many));
+  await h.run("scWrongLoad")(LAB, true);
+  h.run("scRenderWrongHosts")();
+  await h.flush();
+  const all = h.host.querySelector('[data-sc-action="wrong-move-all"]');
+  assert.equal(all.textContent, "Move the 2 clearly wrong pictures to kept pictures");
+  const callsBefore = h.callsTo("POST", /suspect-pictures\/quarantine$/).length;
+  await h.click(all);
+  assert.equal(h.callsTo("POST", /suspect-pictures\/quarantine$/).length, callsBefore, "a question comes first");
+  const ask = h.host.querySelector('[data-sc-ask="wrong"]');
+  assert.match(ask.querySelector(".sc-ask-text").textContent, /2 pictures will move to the kept pictures list for 90 days\..*You can restore any of them\./);
+  h.route("POST", /\/api\/capture\/suspect-pictures\/quarantine$/, { status: 200, body: { dryRun: false, moved: [{ filename: "a.png" }, { filename: "b.png" }], failed: [] } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, reply([]));
+  await h.click(ask.querySelector('[data-sc-action="wrong-ask-yes"]'));
+  assert.deepEqual(h.callsTo("POST", /suspect-pictures\/quarantine$/).at(-1).body, { dryRun: false, confirm: true, labId: LAB });
+  assert.equal(h.host.querySelector("[data-sc-wrong-none]").textContent, "No pictures look wrong.");
+  assert.equal(h.host.querySelector("[data-sc-wrong-notice]"), null, "no notice when nothing looks wrong");
 });
 
 test("export is one link, and import sends the ZIP, with Replace as a choice, and reports what was imported, skipped, and rejected", async () => {

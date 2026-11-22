@@ -712,6 +712,44 @@ export function registerCaptureRoutes(app, deps = {}) {
     }
   });
 
+  // ── Pictures that look like the wrong screen: list them, move them to the kept pictures list, or keep one ──
+
+  app.get("/api/capture/suspect-pictures", (req, res) => {
+    const labId = typeof req.query.labId === "string" && req.query.labId ? req.query.labId : null;
+    if (labId && !SAFE_LAB_ID.test(labId)) return res.status(400).json({ error: "Invalid lab id." });
+    try {
+      const result = screenshots.suspectPictures({ labId });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // A dry run unless the request says `dryRun: false` and `confirm: true`: nothing moves without the person's choice in the request itself.
+  app.post("/api/capture/suspect-pictures/quarantine", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    const dryRun = !(body.dryRun === false && body.confirm === true);
+    const items = Array.isArray(body.items) ? body.items.slice(0, 500).map((i) => ({ scope: i?.scope === "lab" ? "lab" : "library", labId: typeof i?.labId === "string" && SAFE_LAB_ID.test(i.labId) ? i.labId : null, filename: String(i?.filename || "").slice(0, 128) })).filter((i) => i.scope === "library" || i.labId) : null;
+    const labId = typeof body.labId === "string" && SAFE_LAB_ID.test(body.labId) ? body.labId : null;
+    if (!dryRun) syncAfter(res);
+    try {
+      const result = screenshots.quarantineWrongPictures({ dryRun, items, includeProbable: body.includeProbable === true, labId });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // A shared picture for the panel's preview.
+  app.get("/api/capture/library/screenshots/:filename/image", (req, res) => {
+    const found = screenshots.libraryPicture(req.params.filename);
+    if (!found) return res.status(404).json({ error: "That shared picture was not found." });
+    const type = /\.png$/i.test(found.filename) ? "image/png" : /\.webp$/i.test(found.filename) ? "image/webp" : "image/jpeg";
+    res.set({ "Content-Type": type, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox" });
+    return res.send(found.bytes);
+  });
+
   // ── Move the shared library between computers: export a ZIP, import a ZIP ──
 
   app.get("/api/capture/library/export", async (req, res) => {
@@ -888,6 +926,10 @@ export function registerCaptureRoutes(app, deps = {}) {
         defer: true,
         requireEvidence: true,
         requireRedaction: job.options?.redact !== false,
+        // A companion's picture counts as captured only when its evidence proves the screen (see verifyImage `requireProof`).
+        requireProof: true,
+        productLabel: plannedShot?.capture?.path?.[0] || "",
+        companionVersion: String(req.get("x-companion-version") || ""),
         jobId: job.id,
         retake: job.options?.retake === true,
         expect: plannedShot?.capture?.expect || null,

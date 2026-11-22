@@ -53,6 +53,7 @@ const SC_KEEP_WHY = Object.freeze({
   "lab-only": "Specific to that lab.",
   "previous-version": "An earlier version of a picture.",
   "carry-failed": "Could not be copied into the new lab.",
+  "looks-wrong": "Moved because it looked like the wrong screen.",
 });
 
 function scKeepWhy(picture) {
@@ -85,7 +86,7 @@ function scBuildKeepAsk() {
 
 function scBuildKeptEntry(entry) {
   const box = scEl("div", { class: "sc-keep-entry", data: { scKeptEntry: entry.id } });
-  const how = entry.reason === "replaced" ? "replaced" : entry.reason === "failed-build" ? "removed after a failed build" : "deleted";
+  const how = entry.reason === "replaced" ? "replaced" : entry.reason === "failed-build" ? "removed after a failed build" : entry.reason === "looks-wrong" ? "moved because they looked wrong" : "deleted";
   const left = scCount(entry.daysLeft);
   box.appendChild(scEl("p", { class: "sc-keep-entry-head", text: `From \u201c${scText(entry.labTitle || entry.labId, 80)}\u201d (${how} ${scKeepDate(entry.keptAt)}). ${scPlural(left, "day")} left.` }));
   const list = scEl("ul", { class: "sc-library-list", attrs: { "aria-label": `Kept pictures from ${scText(entry.labTitle || entry.labId, 80)}` } });

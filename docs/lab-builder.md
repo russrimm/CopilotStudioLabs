@@ -2509,6 +2509,102 @@ purged when their 90 days are up: at start and every 24 hours, one log line per 
 picture(s) from <lab>: they were kept for 90 days (since 2026-03-01) and no one restored them.`), and
 `POST /api/capture/kept/purge` does it on demand.
 
+#### Pictures that show the wrong screen
+
+A real report: *many screenshots do not match what they should show, like Refresher 4 and Refresher 5.* On the owner's library 47
+pictures were only 26 different images: 19 slots of the Power Platform AI hub held the Power Apps or Power Automate start page, nine
+Agent Builder slots held the Microsoft 365 Copilot start page, and two Foundry slots held the signed-out public Foundry page. Every
+one had been accepted as **Captured**, then promoted to the shared library and reused in other labs.
+
+**Why they were accepted** (all confirmed on a copy of that library, never on the real one):
+
+| Cause | Where |
+|---|---|
+| The address check passed because the slot's expected address was only the product or agent page, and a missing label was a warning only when the address was unknown | `verifyImage` in `tools/screenshot-capture/image-verify.mjs` |
+| A slot with no navigation recipe fell back to "photograph whatever is open" (a start page, or the agent's Build tab) | `setupCandidates` and `runShotSetup` in `tools/screenshot-capture/autonomous.mjs`, and a plan that only built steps in non-scratch mode (`portal/lib/capture/plan.js`) |
+| `capture.automation` was display only, so a shot the planner called "needs a person" still ran | `capture-run.mjs`, `scratch.mjs` |
+| Masking missed `Welcome, <name>!`, account chips, initials avatars, environment names, and recent or chat-history lists | `tools/screenshot-capture/redact.mjs` |
+| Nothing compared a picture with the other pictures, and promotion and reuse never read the saved check | `library-share.js`, `planScreenshots` in `lab-builder/screenshots.js` |
+| A signed-out public page was not recognized | `image-verify.mjs` |
+
+**What the portal now requires before a picture is Captured** (server-side; the portal never trusts the companion):
+
+| Rule | Reason code | Result |
+|---|---|---|
+| The final address matches the slot's route **and** a required landmark (an expected label) is visible. A slot with no label needs an address that names a screen of its own (a deep link, or steps that opened something inside the product). | `labels-missing`, `screen-unproven` | **Needs review**, never auto-accepted |
+| The page shows a Sign in button and no account menu | `signed-out-page` | Rejected |
+| The evidence says masking was requested but not applied, or lists a Recent or History page that was not masked | `not-redacted`, `list-not-masked` | **Needs review** |
+| The upload has no evidence, or an older companion's evidence (`version` below 2) | `no-evidence`, `old-companion` | **Needs review**, with: *Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.* |
+| The picture is identical (SHA-256) or near-identical (perceptual fingerprint) to a picture of a different slot, and it cannot be right for both | `duplicate-picture` | **Needs review**: *This looks the same as “<other screenshot>”.* |
+| The picture is the product's start page (or the agent's main tab) for a slot that describes a deeper screen | `landing-page` | **Needs review** |
+
+A person who looks at a flagged picture and accepts it is saying it is right: **Accept** writes the **Keep this one** mark, so the
+picture is not flagged again. Guided captures (a person drove the browser) are exempt from the landmark and unproven-screen proof, because the person
+vouches for them; the signed-out and old-companion checks still apply.
+
+**The fingerprint.** `tools/screenshot-capture/fingerprint.mjs` decodes a PNG (no dependency) and keeps two 256-bit hashes of a 17 by 16
+brightness grid: a difference hash (`d`) and an average hash (`a`). The saved check keeps them (`verification.fingerprint`). Two pictures are
+the *same screen* when their `d` hashes are at most **12 bits apart** (`NEAR_DISTANCE`). The threshold was tuned on the copy of the real library and on
+synthetic pictures: the same page at different moments was 0 to 9 bits apart, the closest two different screens (two tabs of one Settings dialog)
+were 17 apart, and everything else was 28 or more. Pictures of a different size, or that cannot be decoded (JPEG, WebP), are never compared by look; only by bytes.
+Clusters are built transitively, so a long chain of nearly identical pictures can join two different pages: the audit lists every member so a person can check.
+
+**Which slots may share a picture.** A cluster's *truthful* set is the pictures whose slot can truthfully show them (`canExpect` in `portal/lib/capture/picture-integrity.js`):
+a slot that expects a start page can show a start page; a slot that expects the agent's tab can show that tab; a slot that describes a deeper screen cannot show a start page.
+A picture outside the truthful set is **definite**. Two or more truthful slots (two slots that may legitimately show one screen) are **probable**: worth a look, never moved by default.
+A picture marked **Keep this one** is never flagged.
+
+**The audit** (read-only, writes outside the repository):
+
+```bash
+node tools/lab-builder/audit-screenshots.mjs --out=<folder outside the repository>
+node tools/lab-builder/audit-screenshots.mjs --library --out=<folder>      # the shared library only
+node tools/lab-builder/audit-screenshots.mjs --labs --lab=<id> --json      # JSON on standard output
+```
+
+It writes `audit.md` (plain report), `audit.json`, and `contact-sheet.html` (thumbnails grouped by cluster, with slot names; the pictures stay where they are and are shown through `file://`
+links). It refuses to write inside the repository (exit code 2). Where things live: `--root=<generated-labs folder>`, `--library-dir=<shared library folder>`, `--data=<portal data folder>` (the saved
+checks); with none of them the portal's own rules apply. For every picture it reports the SHA-256, the fingerprint, the cluster, the screen the slot expects (from `plan.js` and `classify.js`),
+what the saved check says the computer did, and these flags:
+
+| Flag | Meaning | Level |
+|---|---|---|
+| `DUPLICATE_ACROSS_SLOTS` | the same bytes under slots that cannot all be right | definite or probable |
+| `NEAR_DUPLICATE` | a picture that looks the same (distance of 12 or less) under different slots | definite or probable |
+| `LANDING_PAGE` | a start page for a slot that describes a deeper screen | definite |
+| `SIGNED_OUT_OR_MARKETING` | a sign-in cue was recorded, or the saved check shows no account control and no masking | definite, or probable for an older check |
+| `WRONG_PRODUCT` | the page address is not one of the slot's product's pages | probable |
+| `POSSIBLE_IDENTITY` | masking was not applied, a list page was not masked, or a start page or history page an older companion could not mask | definite or probable |
+
+**What it cannot detect.** There is no OCR: it cannot read a name, a greeting, an account chip, or a chat title inside a picture. `POSSIBLE_IDENTITY` is a judgment from what the saved check says and from the
+kind of page; a picture can show a name and not be flagged. Review the contact sheet. New captures are protected by the wider masking below, and by evidence that says what was masked.
+
+**Move pictures that look wrong to the kept pictures list.** Dry run first; nothing moves without `--apply`:
+
+```bash
+node tools/lab-builder/quarantine-screenshots.mjs --dry-run                  # what would move; changes nothing (default)
+node tools/lab-builder/quarantine-screenshots.mjs --dry-run --report=<file>   # the same, with a plain report outside the repository
+node tools/lab-builder/quarantine-screenshots.mjs --apply                    # move every picture that is clearly wrong
+node tools/lab-builder/quarantine-screenshots.mjs --apply --include-probable # also the ones that only need a glance
+node tools/lab-builder/quarantine-screenshots.mjs --apply --lab=<id>         # the shared library and one lab
+```
+
+Each picture is saved in the kept pictures list first (with its saved check and its Keep this one mark), then removed from the shared library and from each lab's `assets/`. Its slot goes back to **pending**
+(a lab shows the **Screenshot to add** card and the Screenshot Center counts update), and a lab's *Reused from the library* copy of it is cleared. Everything is restorable for 90 days:
+**Restore** puts the picture back where it was (and writes **Keep this one**, because the person who restores it has looked). Add `--library-dir`, `--data`, and `--root` for the owner's real folders. Pictures a person marked **Keep this one** are never moved.
+
+**In the Screenshot Center.** One calm line at the top when something is flagged (for example *3 pictures look like the wrong screen. Review them.*, with a **Review** button), and under **Advanced** a panel **Pictures that look wrong** listing each flagged picture with its plain reason, where it is (the shared library or this lab), and how sure the portal is (*Clearly the wrong screen.* or *Worth a look.*). Each row has **Keep this one** and **Move to kept pictures**; **Move the N clearly wrong pictures to kept pictures** asks first in the same panel (no new modal). The portal runs the check once at start for the local library only, as a **dry run** that sets the notice and logs one line; it never moves or deletes anything. Set `CAPTURE_STARTUP_SCAN=off` to skip it.
+
+**Promotion and reuse.** A lab picture is promoted to the shared library on its own only when its saved check is strictly clean (`pass`, accepted, no reasons) and it is not a duplicate or a start page for a deeper slot; otherwise the answer is `warned` or `looks-wrong` and the picture stays in its lab until a person chooses **Use this one for every lab**
+(an explicit share is blocked only by a definite finding). `planScreenshots` does not copy a library picture that looks wrong into a new lab, and a lab does not show a library picture that is definitely wrong.
+
+**Masking coverage** (`tools/screenshot-capture/redact.mjs`, covered in real headless Chromium on a made-up page): the account control and avatars (a profile picture, or one to three initials in a round button), greetings (`Welcome, <name>!`, `Hello, <name>`, `Hi, <name>`, `Good morning, <name>`, and `Welcome back` forms: the name is covered, the greeting stays), account chips (`Work <name>`, `Personal <name>`), plan and license chips (`M365 Copilot (Premium)`),
+the environment display name (`<name> (default)`), email addresses and user principal names, and lists of the person's own items: **Recent**, **Your recent**, **Last opened** (table cells too), **Pinned**, and **Chat history** (the item text is covered; the layout, headings, and buttons stay). The evidence reports how many controls and lists it found and covered (`redaction.controls`, `lists`, `listsMasked`),
+and the portal refuses to auto-accept a picture whose evidence says masking was requested but not applied, or lists a page that was not covered.
+
+**What the companion does now.** It reads the page before masking (`readPageSignals`: a visible Sign in control, and an account control). On a public page it stops the product's shots with *You are not signed in to <product>. Sign in once in the companion window, then retake the shot.* instead of capturing. When no recipe can reach the expected screen, the shot becomes a person shot with the portal's fixed reason (*Use “Retake guided”, or upload the picture.*) and nothing is photographed. The evidence it sends is `version: 2`.
+The job queue tells the Screenshot Center when the connected companion is older than **1.7.0**: *Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.* An older companion keeps working; nothing it captures is silently accepted.
+
 #### Move the shared library between computers
 
 **Export shared screenshots** (`GET /api/capture/library/export`, or `node tools/lab-builder/export-screenshots.mjs
@@ -3702,6 +3798,9 @@ Browser-facing:
 | `POST` | `/api/capture/kept/:entry/:filename/restore` | `{ to: "lab", labId? }` or `{ to: "library", confirm: true }`. Never replaces anything: `409` when there is no place to put it, `400` when sharing with every lab was not confirmed. `{ outcome: "restored", to, labId?, filename }`. |
 | `DELETE` | `/api/capture/kept/:entry/:filename?confirm=true` | Delete one kept picture forever (`400` without the confirmation). |
 | `POST` | `/api/capture/kept/purge` | Remove entries older than 90 days now: `{ removed: [{ id, labId, pictures }] }`. Also runs at start and every 24 hours. |
+| `GET` | `/api/capture/suspect-pictures?labId=` | The pictures that look like the wrong screen, in the shared library and (with `labId`) in that lab: `{ scannedAt, counts: { total, definite, probable }, notice, retentionDays, pictures: [{ scope: "library" \| "lab", labId, labTitle, filename, label, level: "definite" \| "probable", reason, short, flags, reach, writable, sha256 }] }`. Reads only. |
+| `POST` | `/api/capture/suspect-pictures/quarantine` | Move pictures to the kept pictures list. A **dry run** unless the body has `dryRun: false` **and** `confirm: true`. Choose pictures with `items: [{ scope, labId?, filename }]`, or take every definite one (add `includeProbable: true` for the others, `labId` to limit labs). `{ dryRun, counts: { library, lab, slotsPending }, report, moved: [...], failed: [...] }`. Each picture is kept first, then removed; its slot returns to pending; restore it from the kept pictures list. |
+| `GET` | `/api/capture/library/screenshots/:filename/image` | A shared library picture's bytes (for the Pictures that look wrong panel). |
 | `GET` | `/api/capture/library/export` | The library as `shared-screenshots.zip` (pictures plus `manifest.json`), with the header `X-Export-Warning`. |
 | `POST` | `/api/capture/library/import` | Multipart `file` or a raw `application/zip` body; `?replace=true`, `?dryRun=true`. `{ dryRun, replace, imported, replaced, needsReview, skipped, rejected, ignored, counts, message }`. `400` for a file that is not a ZIP, `413` over 128 MB. |
 | `POST` | `/api/capture/library/notice/dismiss` | Dismiss the one-time "found your pictures" notice. |
@@ -3793,7 +3892,8 @@ unsupported type:
 
 Reason codes: `bad-filename`, `bad-signature`, `extension-mismatch`, `empty`, `too-large`, `too-small`, `corrupt`, `truncated`,
 `trailing-data`, `embedded-markup`, `dimensions-small`, `dimensions-large`, `blank`, `near-uniform`, `not-analyzed`,
-`sign-in-page`, `not-a-web-page`, `labels-missing`, `not-redacted`, `no-page-address`, `no-evidence`.
+`sign-in-page`, `signed-out-page`, `not-a-web-page`, `labels-missing`, `screen-unproven`, `not-redacted`, `list-not-masked`, `no-page-address`, `no-evidence`, `old-companion`,
+`duplicate-picture`, `landing-page` (the last two are added by the portal when it compares a picture with the others; see [Pictures that show the wrong screen](#pictures-that-show-the-wrong-screen)).
 
 `GET .../screenshots` (and every capture or revalidate result's `state`) now also carries:
 

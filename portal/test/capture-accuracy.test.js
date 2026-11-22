@@ -335,7 +335,7 @@ test("an upload is checked against the screen the plan expects, not against what
   assert.equal(queued.status, 201, queued.text);
   const claimed = await ctx.client.next();
   const upload = (filename, url, extra = {}) =>
-    ctx.client.upload(claimed.job.id, filename, { bytes: makePng({ mode: "ui", seed: 3 }), mime: "image/png", evidence: { finalUrl: url, title: "Copilot Studio", visibleText: ["Overview", "Instructions"], redaction: { applied: true, masked: 0 }, capturedAt: new Date().toISOString(), executedSteps: 2, mode: "auto", routeSteps: [{ action: "open", label: "Copilot Studio", ok: true, found: true }], ...extra } });
+    ctx.client.upload(claimed.job.id, filename, { bytes: makePng({ mode: "ui", seed: 3 }), mime: "image/png", evidence: { version: 2, finalUrl: url, title: "Copilot Studio", visibleText: ["Overview", "Instructions"], redaction: { applied: true, masked: 0 }, capturedAt: new Date().toISOString(), executedSteps: 2, mode: "auto", routeSteps: [{ action: "open", label: "Copilot Studio", ok: true, found: true }], ...extra } });
   const home = await upload("agent-overview.png", `https://copilotstudio.microsoft.com/environments/${ENV}/home`, { expect: { family: "url", host: "copilotstudio.microsoft.com" } });
   assert.equal(home.status, 202, "the wrong page is never accepted, even with every label visible and a made-up expectation");
   assert.equal(home.body.outcome, "needs-review");
