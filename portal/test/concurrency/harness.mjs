@@ -151,6 +151,7 @@ function evidenceFor(shot) {
     finalUrl = `https://${expect.host}/`;
   }
   return {
+    version: 2,
     finalUrl: `${finalUrl}?token=SECRET#frag`,
     title: "Copilot Studio",
     visibleText: shot.expectedLabels?.length ? shot.expectedLabels : ["Settings"],

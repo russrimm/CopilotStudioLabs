@@ -133,7 +133,9 @@ test("the practice agent is published once, only after its instructions and know
     assert.equal(writesOf(out, "publish:").length, 1, `published exactly once: ${writes.join(" | ")}`);
     assert.ok(writes.findIndex((w) => w.startsWith("publish:")) > writes.findIndex((w) => w.startsWith("add-knowledge:")) && writes.findIndex((w) => w.startsWith("add-knowledge:")) > writes.findIndex((w) => w.startsWith("set-instructions:")), `after the instructions and the knowledge: ${writes.join(" | ")}`);
     assert.deepEqual(out.site.stats.dangers, [], "the Add channel button was never clicked");
-    assert.equal(publishRow(out)?.status, "captured", out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    // The pretend newer layout has no Overview tab, so a picture whose lab names that label is saved for review instead of being accepted blindly.
+    assert.ok(["captured", "needs-review"].includes(publishRow(out)?.status), statusLine(out));
+    assert.ok(reviewReasons(publishRow(out)).every((c) => c === "labels-missing"), "the only reason is the label the pretend layout lacks");
     const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
     assert.ok(registry.agents[0].once.publish, "the one publish was claimed in the local record");
     assert.ok(registry.agents[0].stages.published.proof >= 2, "and the published state was proven by the product's own message");
@@ -329,8 +331,10 @@ test("the older layout: the agent is made on its form, screens are looked at, an
     assert.equal(writesOf(out, "create-agent:").length, 1);
     assert.deepEqual(out.site.stats.dangers, []);
     const create = out.rows.find((r) => /create-agent/.test(r.filename));
-    assert.equal(create.status, "captured");
-    assert.ok(out.rows.every((r) => r.status === "captured" || r.status === "needs-you"));
+    // The pretend older layout does not show every label the lab names (they come from the newer layout), so the picture is saved for review rather than accepted.
+    assert.ok(["captured", "needs-review"].includes(create.status) && reviewReasons(create).every((c) => c === "labels-missing"), statusLine(out));
+    assert.ok(out.rows.every((r) => r.status === "captured" || r.status === "needs-you" || r.status === "needs-review"), statusLine(out));
+    assert.ok(!out.rows.some((r) => reviewReasons(r).some((c) => c === "duplicate-picture" || c === "signed-out-page")), statusLine(out));
   } finally {
     await scenario.close();
   }
@@ -433,7 +437,7 @@ test("a practice agent made under a different sign-in is not used and nothing is
 const FAMILY_FEATURES = ["create-agent", "agent-instructions", "knowledge-files-web", "knowledge-sharepoint", "generative-orchestration", "content-moderation", "evaluations"];
 const rowOf = (out, name) => out.rows.find((r) => r.filename === name);
 const reviewReasons = (row) => (row?.verification?.reasons || []).map((r) => r.code);
-const statusLine = (out) => out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", ");
+const statusLine = (out) => out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}:${reviewReasons(r).join("+")}`).join(", ");
 
 /** Change what one shot of the generated lab says it shows (the plan reads the lab's own shot list). */
 function editShot(labDir, filename, change) {
@@ -463,7 +467,11 @@ test("test conversations, dialogs, an item, and a sample test set are taken by t
     neutralKnowledgeAddress(scenario.lab.labDir);
     const out = await run(scenario);
     const stats = out.site.stats;
-    for (const name of ["test-pane-in-scope.png", "activity-map-plan.png", "knowledge-sharepoint-add.png", "eval-test-set.png", "knowledge-sources-list.png"]) assert.equal(rowOf(out, name)?.status, "captured", `${name}: ${statusLine(out)} :: ${rowOf(out, name)?.reason}`);
+    for (const name of ["test-pane-in-scope.png", "activity-map-plan.png", "knowledge-sharepoint-add.png", "knowledge-sources-list.png"]) assert.equal(rowOf(out, name)?.status, "captured", `${name}: ${statusLine(out)} :: ${rowOf(out, name)?.reason}`);
+    // On the pretend site the only thing recorded before this picture is choosing the Evaluate tab (a real tenant also opens the first test set). Choosing a tab alone is
+    // what the earlier wrong pictures had (the same Build tab under many slots), so the portal saves it for a person instead of accepting it.
+    assert.equal(rowOf(out, "eval-test-set.png")?.status, "needs-review", statusLine(out));
+    assert.deepEqual(reviewReasons(rowOf(out, "eval-test-set.png")), ["landing-page"]);
     assert.ok(stats.views.includes("activity-map"), "the activity map was brought up beside the answer");
     // What the computer cannot check is kept for a person, with the picture, and says why in plain words.
     for (const name of ["knowledge-answer-citation.png", "guardrail-refusal.png", "test-guardrail-response.png"]) {
@@ -520,7 +528,8 @@ test("a second run reuses the test set and adds nothing twice", { skip }, async 
     await run(scenario);
     const again = await run(scenario);
     assert.equal(writesOf(again, "create-evaluation:").length, 1, "still one test set");
-    assert.equal(rowOf(again, "eval-test-set.png")?.status, "captured");
+    assert.equal(rowOf(again, "eval-test-set.png")?.status, "needs-review", statusLine(again));
+    assert.deepEqual(reviewReasons(rowOf(again, "eval-test-set.png")), ["landing-page"], "only a tab was chosen before the picture, which does not prove the screen");
     assert.equal(writesOf(again, "create-agent:").length, 1);
     assert.deepEqual(again.site.stats.dangers, []);
   } finally {
@@ -534,8 +543,8 @@ test("a panel the screen does not show is never accepted blindly: the picture is
     const out = await run(scenario);
     const row = rowOf(out, "activity-map-plan.png");
     assert.equal(row?.status, "needs-review", statusLine(out));
-    assert.deepEqual(reviewReasons(row), ["recipe-review"]);
-    assert.match(row.verification.reasons[0].message, /did not show what the computer expected \(missing: Activity map\)\. The picture was saved so you can check it\./);
+    assert.deepEqual(reviewReasons(row), ["labels-missing", "recipe-review"]);
+    assert.match(row.verification.reasons.find((r) => r.code === "recipe-review").message, /did not show what the computer expected \(missing: Activity map\)\. The picture was saved so you can check it\./);
     assert.deepEqual(out.site.stats.views, [], "nothing was clicked that was not there");
     assert.equal(out.site.stats.answers, 2, "the lab's question and the activity-map question were each asked once: no retry loop");
     assert.equal(rowOf(out, "test-pane-in-scope.png")?.status, "captured", "a plain question and answer needs no panel");

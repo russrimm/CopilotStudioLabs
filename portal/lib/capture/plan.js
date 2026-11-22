@@ -23,7 +23,7 @@ import { blockedInstructionReason, blockedLabelReason } from "../../../tools/scr
 import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
-import { createsAgent, describeAutomation, orderCreationFirst, orderForWalkthrough, sanitizeAutomation, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { createsAgent, describeAutomation, orderCreationFirst, orderForWalkthrough, personAutomation, sanitizeAutomation, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -115,13 +115,21 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
   const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
   // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
-  const setup = scratch ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
+  // A from-scratch capture of Copilot Studio builds its screens with the walkthrough instead; another product's screens are opened by the product's own navigation.
+  const walkthroughBuilds = scratch && String(product ?? src.product ?? "copilot-studio") === "copilot-studio";
+  const setup = walkthroughBuilds ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
   // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
   const stage = scratch ? scratchDescriptor({ ...full, product: product ?? src.product, callouts, instructions }) : null;
   const agent = agentDescriptor(src, capture, { agentSource, agentFallback, stage });
   // Whether the computer takes this shot by itself (and how), or the one reason it needs a person. A library slot is read with its slot description (its kind), as a lab's own shot is.
   const readAs = meta ? classifyShot({ ...full, product: product ?? src.product, callouts, instructions }, { values }) : capture;
-  const automation = sanitizeAutomation(describeAutomation({ ...full, product: product ?? src.product, callouts, instructions }, { capture: readAs, labels: expectedLabelsForShot({ callouts, instructions }, { extra: capture.landmarks || [] }) }));
+  let automation = sanitizeAutomation(describeAutomation({ ...full, product: product ?? src.product, callouts, instructions }, { capture: readAs, labels: expectedLabelsForShot({ callouts, instructions }, { extra: capture.landmarks || [] }) }));
+  // A screen deeper than the page its address opens, with no recipe (a shared or built-in one, or labels to open) to reach it, is not
+  // photographed as it stands: the page that happens to be open is the product's start page. It is left to a person, for the same plain
+  // reason the computer gives when it meets the shot (a from-scratch capture of Copilot Studio is the exception: its walkthrough builds the screen).
+  if (automation?.state === "automatic" && automation.via !== "address" && !walkthroughBuilds && !setup?.steps?.length && !setup?.limited && !["auto", "manual"].includes(capture.mode)) {
+    automation = sanitizeAutomation(personAutomation(readAs.product === "copilot-studio" ? "unseen" : "other-product"));
+  }
   // A shot that uses the agent created earlier in this capture is not waiting for an address: the agent arrives from the creation step.
   const unmetNeeds = agent?.via === "created" ? (capture.needs || []).filter((id) => id !== "copilot-studio-agent") : capture.needs;
   // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
@@ -379,4 +387,16 @@ export function findLibrarySlot(filename, { manifestDir } = {}) {
     }
   }
   return null;
+}
+
+/** Every library slot by filename with the shot as the feature tour describes it (its kind, caption, and alt text from the slot table): `Map<filename, {product, shot}>`. */
+export function libraryShotIndex({ manifestDir } = {}) {
+  const meta = getSlotMeta();
+  const out = new Map();
+  for (const { entry, shot } of libraryShots({ manifestDir })) {
+    if (out.has(shot.filename)) continue;
+    const slot = meta[shot.filename] || {};
+    out.set(shot.filename, { product: entry.product, shot: { ...shot, product: entry.product, kind: shot.kind || slot.kind, alt: shot.alt || slot.alt, caption: shot.caption || slot.caption } });
+  }
+  return out;
 }

@@ -5,10 +5,12 @@
 // shot. Whatever the source, every step is checked again here and by the gate before it touches the page.
 
 import { createExecutor } from "./executor.mjs";
+import { REASONS } from "./automation.mjs";
 import { TIER } from "./guard.mjs";
 import { sanitizeSetup, sanitizeSteps, stepsFromReveal } from "./setup-steps.mjs";
 import { recipeKeyForShot } from "./recipes.mjs";
 import { ensurePracticeAgent } from "./practice.mjs";
+import { resolveAutomation } from "./walkthrough.mjs";
 
 export { recipeKeyForShot, stepsFromReveal };
 
@@ -111,6 +113,22 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
   const executor = createExecutor({ page, autonomy, product, practice, claimOnce, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: { ...(candidates[0]?.inputs || {}), ...(scratch?.inputs || {}) }, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: session.scratch?.budget, effectMs: session.effectMs, findMs: session.findMs });
 
   const attempts = [];
+  // A screen deeper than the page the address opens, with nothing that can reach it (no recorded recipe, no shared or built-in recipe, no labels to
+  // open), is not photographed as it stands: the page that happens to be open is the product's start page, not the screen the lab describes.
+  // The shot is left to a person, for the same plain reason the portal showed on its card.
+  if (!scratch && !candidates.some((c) => c.steps.length || c.limited) && !["auto", "manual"].includes(shot.capture?.mode)) {
+    const automation = resolveAutomation(shot);
+    const reason = (automation?.state === "person" && REASONS[automation.reason]) || REASONS.unseen;
+    trace?.event("no-recipe", { shot: shot.filename, reason: reason.code, mode: shot.capture?.mode || null });
+    return {
+      ok: false,
+      executor,
+      cause: "no-recipe",
+      reason: reason.code,
+      error: `${reason.why} Use “Retake guided”, or upload the picture.`,
+      setup: { source: "derived", steps: [], summary: [], notes: [...notes, "No steps reach this screen."] },
+    };
+  }
   for (const [index, candidate] of candidates.entries()) {
     // A recipe that needs the practice agent is run in it; without one the steps that need it were already left out.
     const steps = practiceInfo || !candidate.needsPractice ? candidate.steps : candidate.steps.filter((s) => s.tier < TIER.PRACTICE && !s.practiceOnly);

@@ -16,6 +16,7 @@ export const CAUSES = Object.freeze({
   "browser-closed": { code: "browser-closed", title: "Paused: the browser window was closed", fix: "Select Resume to continue where it stopped.", fixAction: "resume", tone: "info" },
   "browser-busy": { code: "browser-busy", title: "Waiting for the browser", fix: "Close the browser window from an earlier capture that is still open on your computer, then select Resume.", fixAction: "resume", tone: "info" },
   "needs-you": { code: "needs-you", title: "This screen needs you", fix: "Use “Retake guided” to set up the screen and capture it yourself.", fixAction: "guided", tone: "info" },
+  "no-recipe": { code: "no-recipe", title: "No steps reach this screen yet", fix: "Use “Show me once” so the computer learns the steps, or “Retake guided” and capture it yourself. The computer does not photograph a start page for a screen deeper than that.", fixAction: "guided", tone: "info" },
   "automation-failed": { code: "automation-failed", title: "The computer could not set this screen up", fix: "Use “Show me once” so it can learn the steps, or set the screen up yourself with “Retake guided”.", fixAction: "record", tone: "warn" },
   "needs-practice-agent": { code: "needs-practice-agent", title: "Needs a practice agent", fix: "Allow a practice agent in the consent card, then retake. The picture shows the screen as far as the computer could go without one.", fixAction: "consent", tone: "info" },
   "needs-connection": { code: "needs-connection", title: "Needs a connection you must allow", fix: "Add the tool yourself with “Retake guided”, or upload the picture. The computer never creates connections or signs in to other services.", fixAction: "guided", tone: "info" },
@@ -45,7 +46,7 @@ export function describeCause(code) {
 /** Which cause a reason from the image checks belongs to. */
 export function causeForVerification(reasons) {
   const codes = new Set((reasons || []).map((r) => r.code));
-  if (codes.has("sign-in-page")) return "sign-in";
+  if (codes.has("sign-in-page") || codes.has("signed-out-page")) return "sign-in";
   if (codes.has("blank") || codes.has("near-uniform")) return "blank-page";
   if (codes.has("wrong-screen")) return "wrong-screen";
   if (codes.has("needs-practice-agent")) return "needs-practice-agent";

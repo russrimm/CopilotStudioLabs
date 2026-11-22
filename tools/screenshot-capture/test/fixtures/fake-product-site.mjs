@@ -101,6 +101,7 @@ dialog::backdrop{background:rgba(15,23,42,.45)}
  * @param {boolean} [options.stayOnNew] (newer) the new-agent page keeps its own address after Save (the agent is made, the page says Saved)
  * @param {string} [options.knowledgeDialogTitle] (newer) the title of the Add knowledge dialog (an unknown title must never be confirmed)
  * @param {boolean} [options.editableInstructions] (classic) the Overview page edits its instructions in place: a text box and a Save button that is available only while something is unsaved
+ * @param {boolean} [options.signedOutHome] the home page is the product's public page: a Sign in button at the top, no account anywhere
  */
 export function createFakeProductSite(options = {}) {
   const config = {
@@ -129,6 +130,7 @@ export function createFakeProductSite(options = {}) {
     stayOnNew: false,
     knowledgeDialogTitle: "",
     editableInstructions: false,
+    signedOutHome: false,
     ...options,
   };
   const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0 };
@@ -274,6 +276,17 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     // /environments/<env>/<area>[/<id>/<section>]
     const area = segs[2] || "";
     const home = envBase(envId);
+    if (area === "home" && config.signedOutHome) {
+      // The product's own public page: a Sign in button at the top, no account anywhere, and a pitch instead of the product.
+      return shell({
+        title: "Microsoft Copilot Studio",
+        envId,
+        sideNav: "",
+        delay: delayFor("home"),
+        topHtml: `<header class="top"><b>Copilot Studio</b><span style="margin-left:auto"></span><button type="button" id="public-sign-in">Sign in</button></header>`,
+        content: `<h1>Build agents for your business</h1><p>Sign in to start building. New here? Explore what agents can do.</p>`,
+      });
+    }
     if (area === "home") {
       return shell({
         title: "Home",

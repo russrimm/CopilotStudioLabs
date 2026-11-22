@@ -35,8 +35,11 @@ import {
 import { PLACEHOLDER_PATH } from "../lab-builder/slots.js";
 import { isPlaceholder } from "../lab-builder/placeholder-detect.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, resolveKeptScreenshotsDir } from "../storage-config.js";
+import { fingerprintPicture, isFingerprint } from "../../../tools/screenshot-capture/fingerprint.mjs";
 import { expectedLabelsForShot } from "./classify.js";
 import { baseFilename, createKeptStore, isKeptPictureName, isRestorable } from "./kept-pictures.js";
+import { createPictureScanner } from "./picture-inventory.js";
+import { assessPictures, noticeText, shortReason } from "./picture-integrity.js";
 import {
   PREVIOUS_SUFFIX,
   SHARE_LOCK_WAIT_MS,
@@ -135,6 +138,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   // The library's records file holds every slot's check in one file, so a change to it (from this process or a command-line
   // tool) is read, changed, and written under one lock. Lock order, always: a slot's lock first, then this one.
   const withRecordsLock = (work) => withFileLockSync(lockPathFor(libraryRecordsFile), work, { timeoutMs: SHARE_LOCK_WAIT_MS });
+  // What looks like the wrong screen is judged by one scanner (picture-inventory.js) that reads this store's folders; it keeps what it
+  // learned about each file, so asking again costs a directory listing, not a decode.
+  const scanner = createPictureScanner({ generatedRoot, captureDir, capturedDirs: () => dirs(), manifestDir });
   // A write to a library slot (picture and check together) holds that slot's lock, the same lock sharing a lab picture takes.
   // Slow follow-up work (regenerating labs) is queued with `afterSlotLock` and runs once the lock is released.
   let afterLockQueue = null;
@@ -166,6 +172,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   const keptFolder = () => (typeof keptDir === "function" ? keptDir() : keptDir || resolveKeptScreenshotsDir({ FEATURE_TOUR_SCREENSHOTS_DIR: dirs().primary, PORTAL_DATA_DIR: path.dirname(captureDir) }));
   const kept = () => createKeptStore({ keptDir: keptFolder(), now, logger });
   const libraryChanged = () => {
+    forgetSuspects();
     try {
       onChange?.();
     } catch (err) {
@@ -418,11 +425,17 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
    * @param {"capture"|"retake"|"accept"|"backfill"|"share"} intent see `replacementVerdict` for what each may replace
    * @returns {{outcome: "shared"|"replaced"|"already-shared"|"skipped"|"would-share", filename: string, code?: string, message?: string}}
    */
-  function promoteFromLab(target, filename, { bytes, record, intent, capturedAt = null, callouts = null, defer = true, replaceConfirmed = false, dryRun = false }) {
+  function promoteFromLab(target, filename, { bytes, record, intent, capturedAt = null, callouts = null, defer = true, replaceConfirmed = false, dryRun = false, confirmed = false }) {
     const done = (outcome, extra = {}) => ({ outcome, filename, ...extra });
     const skip = (code, message) => done("skipped", { code, message: message || SHARE_MESSAGES[code] });
     const verdict = shareVerdict({ filename, bytes, record, slot: findLibrarySlot(filename, { manifestDir }), intent });
     if (!verdict.ok) return skip(verdict.code, verdict.message);
+    // One bad picture must never spread to every lab: a picture that looks like the wrong screen (a start page for a deeper slot, the
+    // same picture as other slots, a page that was not signed in) is not shared, unless a person marked this exact picture "Keep this one".
+    const sha = sha256Hex(bytes);
+    const kept = confirmed || Boolean(target && validConfirmation(target.readConfirmations?.()[filename], sha));
+    const looksWrong = kept ? null : pictureLooksWrong({ filename, bytes, record, intent });
+    if (looksWrong) return skip("looks-wrong", looksWrong);
     // The committed folder is tracked by Git: a customer's picture must never land there unless a person chose to share it.
     if (libraryIsCommittedFolder() && !["share", "backfill"].includes(intent)) return skip("not-persistent");
 
@@ -474,10 +487,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     }
   }
 
-  function commit(target, filename, bytes, { verification, source, capturedAt, callouts, defer, jobId = null, intent = "capture" }) {
+  function commit(target, filename, bytes, { verification, source, capturedAt, callouts, defer, jobId = null, intent = "capture", extras = {} }) {
     // A library slot is written (picture, then its check) under the slot's lock, so a command-line tool or another portal on
     // the same folder can never leave the picture of one capture beside the check of another.
-    const record = { ...summarizeVerification(verification), state: "accepted", source, jobId, acceptedAt: capturedAt };
+    const record = { ...summarizeVerification(verification, extras), state: "accepted", source, jobId, acceptedAt: capturedAt };
     withSlotLock(target, filename, () => {
       target.writeImage(filename, bytes, callouts);
       clearStaged(target, filename);
@@ -492,12 +505,64 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   }
 
   /**
+   * What the picture itself says is wrong with it, judged like every other picture (picture-integrity.js) against the pictures of this lab
+   * and the shared library: it is the same as another slot's picture when the two cannot both be right, or it is a start page (or the
+   * agent's main tab) for a slot that describes a deeper screen. Two slots that show the same screen (both are the start page, both
+   * were reached by the same steps) are not a problem, and a good new picture is not held back by an old wrong one it matches.
+   * @returns {Array<{code: string, message: string}>}
+   */
+  function integrityReasons(target, filename, { sha256, fingerprint, record }) {
+    const labId = target.kind === "lab" ? target.labId : null;
+    let others = [];
+    try {
+      others = scanner.inventory({ library: true, labIds: labId ? [labId] : [] }).pictures.filter((p) => p.filename !== filename);
+    } catch (err) {
+      logger?.(`[capture] Could not compare a picture with the others: ${err.message}`);
+      return [];
+    }
+    const candidate = { id: "candidate", scope: target.kind, labId, filename, sha256, fingerprint, record: { ...record, sha256, state: "accepted" }, confirmed: false, slot: scanner.slotOf(filename, { labId }) };
+    const result = assessPictures([...others, candidate]).find((r) => r.id === "candidate");
+    const out = [];
+    for (const flag of result?.flags || []) {
+      if (flag.level !== "definite") continue;
+      if (flag.code === "DUPLICATE_ACROSS_SLOTS" || flag.code === "NEAR_DUPLICATE") {
+        const names = (flag.others || []).slice(0, 2).map((o) => `“${cleanText(o.label, 80)}”`).join(" and ");
+        out.push({ code: "duplicate-picture", message: `This looks the same as ${names || "another screenshot"}${(flag.others || []).length > 2 ? " and others" : ""}. A picture cannot be the right one for two different screens. Check it, then accept it or retake it.` });
+      } else if (flag.code === "LANDING_PAGE") {
+        out.push({ code: "landing-page", message: `${flag.message} Check it, then accept it or retake it.` });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Whether a picture offered to the shared library looks like the wrong screen, judged against the pictures already in the library
+   * (picture-integrity.js). Returns the plain reason, or null when it is fine. An explicit "Use this one for every lab" (`share`) is
+   * stopped only by a definite finding; every other way in is also stopped by a probable one.
+   */
+  function pictureLooksWrong({ filename, bytes, record, intent }) {
+    let others = [];
+    try {
+      others = scanner.inventory({ library: true, labIds: [] }).pictures.filter((p) => p.filename !== filename);
+    } catch (err) {
+      logger?.(`[capture] Could not check a picture before sharing it: ${err.message}`);
+      return null;
+    }
+    const sha = sha256Hex(bytes);
+    const fingerprint = record && record.sha256 === sha && isFingerprint(record.fingerprint) ? record.fingerprint : fingerprintPicture(bytes);
+    const candidate = { id: "candidate", scope: "library", labId: null, filename, sha256: sha, fingerprint, record: record || null, confirmed: false, slot: scanner.slotOf(filename) };
+    const result = assessPictures([...others, candidate]).find((r) => r.id === "candidate");
+    if (!result?.level || (result.level === "probable" && intent === "share")) return null;
+    return `${result.flags[0].message} It stays where it is. If it is right, mark it Keep this one first.`;
+  }
+
+  /**
    * Verify and store an uploaded image. `outcome` is `accepted`, `needs-review`, or `rejected`.
    * `retake` says the person asked for a new picture (so it may replace the library's, unless that one is marked accurate).
    *
    * @returns {{status: number, body: object}}
    */
-  function submit(target, filename, bytes, { evidence = null, source = "upload", acceptWarnings = false, defer = false, callouts = null, jobId = null, requireEvidence = false, requireRedaction = false, expect = null, expectedLabels = null, retake = false } = {}) {
+  function submit(target, filename, bytes, { evidence = null, source = "upload", acceptWarnings = false, defer = false, callouts = null, jobId = null, requireEvidence = false, requireRedaction = false, requireProof = false, productLabel = "", companionVersion = "", expect = null, expectedLabels = null, retake = false } = {}) {
     const slot = target.slot(filename);
     if (!slot) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
     const labels = Array.isArray(expectedLabels) && expectedLabels.length ? expectedLabels : slot.expectedLabels;
@@ -509,15 +574,27 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       expect,
       requireEvidence,
       requireRedaction,
+      requireProof,
+      productLabel,
     });
-    const record = summarizeVerification(verification);
     if (verification.level === "fail") {
-      return { status: 422, body: { outcome: "rejected", filename, verification: record, message: verification.reasons[0]?.message || "The image failed verification." } };
+      const failed = summarizeVerification(verification);
+      return { status: 422, body: { outcome: "rejected", filename, verification: failed, message: verification.reasons[0]?.message || "The image failed verification." } };
     }
+    // What the picture looks like (kept with its check) and what it looks like to the other slots' pictures.
+    const fingerprint = verification.format === "png" ? fingerprintPicture(bytes) : null;
+    const extras = { ...(fingerprint ? { fingerprint } : {}), ...(companionVersion ? { companionVersion: cleanText(companionVersion, 20) } : {}) };
+    const problems = integrityReasons(target, filename, { sha256: verification.sha256, fingerprint, record: summarizeVerification(verification) });
+    for (const problem of problems) verification.reasons.push({ code: problem.code, level: "warn", message: problem.message });
+    if (problems.length) {
+      verification.level = "warn";
+      verification.ok = true;
+    }
+    const record = summarizeVerification(verification, extras);
 
     const capturedAt = new Date().toISOString();
     if (verification.level === "warn" && !acceptWarnings) {
-      stage(target, filename, bytes, { verification: record, evidence: verification.evidence, source, jobId, stagedAt: capturedAt, callouts: cleanCallouts(callouts), expect, expectedLabels: labels });
+      stage(target, filename, bytes, { verification: record, evidence: verification.evidence, source, jobId, stagedAt: capturedAt, callouts: cleanCallouts(callouts), expect, expectedLabels: labels, extras });
       // A picture already in place keeps its own check, so discarding this one later puts it back.
       const before = target.readRecords()[filename];
       const priorRecord = before?.state === "accepted" ? before : before?.priorRecord || null;
@@ -529,7 +606,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     }
 
     const intent = retake ? "retake" : acceptWarnings ? "accept" : "capture";
-    const sharing = commit(target, filename, bytes, { verification, source, capturedAt, callouts: cleanCallouts(callouts), defer, jobId, intent });
+    const sharing = commit(target, filename, bytes, { verification, source, capturedAt, callouts: cleanCallouts(callouts), defer, jobId, intent, extras });
     return { status: 200, body: { outcome: "accepted", filename, verification: { ...record, state: "accepted" }, ...(sharing ? { library: sharing } : {}), state: defer ? null : target.state() } };
   }
 
@@ -548,6 +625,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     // Accepting a picture whose masking was required and missing must not make it look masked to the library.
     const notMasked = (staged.meta?.verification?.reasons || []).find((r) => r?.code === "not-redacted");
     if (notMasked && !verification.reasons.some((r) => r.code === "not-redacted")) verification.reasons.push(notMasked);
+    // Accepting a picture the portal found wrong (the same as another slot's, or a start page for a deeper screen) is a person saying it is
+    // right: it is marked Keep this one, so it is not flagged again.
+    const sawProblem = (staged.meta?.verification?.reasons || []).some((r) => r?.code === "duplicate-picture" || r?.code === "landing-page");
     const sharing = commit(target, filename, staged.bytes, {
       verification,
       source: staged.meta?.source || "upload",
@@ -556,7 +636,12 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       defer,
       jobId: staged.meta?.jobId || null,
       intent: "accept",
+      extras: staged.meta?.extras || {},
     });
+    if (sawProblem) {
+      withSlotLock(target, filename, () => target.writeConfirmation(filename, makeConfirmation(sha256Hex(staged.bytes), { by: "review" })));
+      if (target.kind === "library") libraryChanged();
+    }
     return { status: 200, body: { outcome: "accepted", filename, ...(sharing ? { library: sharing } : {}), state: defer ? null : target.state() } };
   }
 
@@ -925,14 +1010,24 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     }
     if (choice.type === "library") {
       if (confirm !== true) return { status: 400, body: { error: "Confirm first: this picture will be used by every lab." } };
-      const result = promoteFromLab(null, base, { bytes, record: meta.record, intent: "share", capturedAt: meta.record?.acceptedAt || null, callouts: cleanCallouts(meta.callouts), defer: true });
+      const result = promoteFromLab(null, base, { bytes, record: meta.record, intent: "share", capturedAt: meta.record?.acceptedAt || null, callouts: cleanCallouts(meta.callouts), defer: true, confirmed: true });
       if (!["shared", "replaced", "already-shared"].includes(result.outcome)) return { status: 409, body: { error: result.message || "The shared library did not take this picture.", code: result.code } };
     } else {
       const target = labTarget(choice.labId);
       target.writeImage(base, bytes, cleanCallouts(meta.callouts));
       if (meta.record) target.writeRecord(base, meta.record);
       if (meta.confirmation && validConfirmation(meta.confirmation, meta.sha256)) target.writeConfirmation(base, meta.confirmation);
+      // A person who restores a picture that was moved because it looked wrong has looked at it: it is marked Keep this one.
+      else if (meta.why === "looks-wrong") target.writeConfirmation(base, makeConfirmation(meta.sha256, { by: "restore" }));
       target.afterCommit(base, { source: meta.record?.source || "restored", capturedAt: meta.record?.acceptedAt || new Date(now()).toISOString(), defer: false });
+    }
+    if (choice.type === "library" && meta.why === "looks-wrong") {
+      withRecordsLock(() => {
+        const latest = readRecordsFile(libraryRecordsFile);
+        latest.confirmations[base] = makeConfirmation(meta.sha256, { by: "restore" });
+        writeRecordsFile(libraryRecordsFile, latest);
+      });
+      libraryChanged();
     }
     kept().removePicture(entryId, filename);
     return { status: 200, body: { outcome: "restored", to: choice.type, ...(choice.type === "lab" ? { labId: choice.labId } : {}), filename: base } };
@@ -1007,9 +1102,263 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     return { entries: entries.length, pictures: entries.reduce((sum, e) => sum + e.pictures.length, 0), retentionDays: store.retentionDays };
   }
 
+  // ── Pictures that look like the wrong screen ─────────────────────────────
+
+  const LIBRARY_ENTRY_ID = "shared-library";
+  const SUSPECT_CACHE_MS = 5000;
+  let suspectCache = null;
+  let flagCache = null;
+  const forgetSuspects = () => {
+    suspectCache = null;
+    flagCache = null;
+  };
+
+  let recordsSnapshot = { key: "", value: null };
+  /** The library's saved checks and Keep this one marks, re-read only when the file changed (this runs for every picture a lab shows). */
+  function libraryRecords() {
+    try {
+      const info = fs.statSync(libraryRecordsFile);
+      const key = `${info.size}:${info.mtimeMs}`;
+      if (recordsSnapshot.key !== key) recordsSnapshot = { key, value: readRecordsFile(libraryRecordsFile) };
+      return recordsSnapshot.value;
+    } catch {
+      return { shots: {}, confirmations: {} };
+    }
+  }
+
+  /**
+   * Whether the library picture at `file` may be copied into a new lab (or, with `forDisplay`, shown in a lab that has no picture of its
+   * own): its saved check (when it has one) must be for these bytes and clean, and it must not look like the wrong screen (unless a
+   * person marked this exact picture Keep this one). Showing a picture is stopped only by a clear finding; copying it also by a doubt.
+   * A picture with no saved check at all (one committed in the repository) is judged by how it looks next to the others only.
+   */
+  function reuseVerdict(file, { forDisplay = false } = {}) {
+    const filename = path.basename(String(file));
+    const sha = fileSha256(file);
+    if (!sha) return { ok: true };
+    const { shots, confirmations } = libraryRecords();
+    const kept = Boolean(confirmations[filename] && validConfirmation(confirmations[filename], sha));
+    if (kept) return { ok: true };
+    const record = shots[filename];
+    if (record && !forDisplay) {
+      if (record.sha256 !== sha) return { ok: false, message: SHARE_MESSAGES["check-mismatch"] };
+      if (record.state !== "accepted" || record.level !== "pass" || (Array.isArray(record.reasons) && record.reasons.length)) return { ok: false, message: SHARE_MESSAGES.warned };
+    }
+    if (!flagCache || now() - flagCache.at > SUSPECT_CACHE_MS || flagCache.shas.get(filename) !== sha) {
+      const scan = scanner.scan({ library: true, labIds: [] });
+      flagCache = { at: now(), shas: new Map(scan.items.map((i) => [i.filename, i.sha256])), flagged: new Map(scan.items.filter((i) => i.level && !i.confirmed).map((i) => [i.filename, i])) };
+    }
+    const flagged = flagCache.flagged.get(filename);
+    if (!flagged || (forDisplay && flagged.level !== "definite")) return { ok: true };
+    return { ok: false, message: flagged.flags[0]?.message || SHARE_MESSAGES["looks-wrong"] };
+  }
+
+  /** One flagged picture as the Screenshot Center and the command line show it. */
+  const suspectView = (item) => ({
+    scope: item.scope,
+    labId: item.labId || null,
+    labTitle: item.labTitle || null,
+    filename: item.filename,
+    label: item.label,
+    level: item.level,
+    reason: item.flags[0]?.message || "",
+    short: shortReason(item.flags),
+    flags: item.flags.map(({ code, level, message }) => ({ code, level, message })),
+    reach: item.reach,
+    writable: item.writable,
+    sha256: item.sha256,
+  });
+
+  const LEVEL_ORDER = { definite: 0, probable: 1 };
+  const bySuspectOrder = (a, b) => (LEVEL_ORDER[a.level] ?? 2) - (LEVEL_ORDER[b.level] ?? 2) || String(a.labId || "").localeCompare(String(b.labId || "")) || a.filename.localeCompare(b.filename);
+
+  /**
+   * The pictures that look like the wrong screen, in the shared library and (with `labId`) in one lab. Reads only.
+   * `GET /api/capture/suspect-pictures`.
+   */
+  function suspectPictures({ labId = null } = {}) {
+    if (labId && !labFolder(labId)) return { status: 404, body: { error: "Generated lab not found" } };
+    const result = scanner.scan({ library: true, labIds: labId ? [labId] : [] });
+    const pictures = result.items.filter((item) => item.level && !item.confirmed).map(suspectView).sort(bySuspectOrder);
+    const counts = { total: pictures.length, definite: pictures.filter((p) => p.level === "definite").length, probable: pictures.filter((p) => p.level === "probable").length };
+    return { status: 200, body: { scannedAt: result.scannedAt, counts, notice: noticeText(counts.total), retentionDays: kept().retentionDays, pictures } };
+  }
+
+  /** The shared library's count of pictures that look wrong, for the status line and the start-up notice. Cached for a few seconds. */
+  function suspectSummary({ fresh = false } = {}) {
+    if (!fresh && suspectCache && now() - suspectCache.at < SUSPECT_CACHE_MS) return suspectCache.value;
+    let value;
+    try {
+      const body = suspectPictures().body;
+      value = { total: body.counts.total, definite: body.counts.definite, probable: body.counts.probable, notice: body.notice, scannedAt: body.scannedAt };
+    } catch (err) {
+      logger?.(`[capture] Could not check the library for pictures that look wrong: ${err.message}`);
+      value = { total: 0, definite: 0, probable: 0, notice: "", scannedAt: null, error: err.message };
+    }
+    suspectCache = { at: now(), value };
+    return value;
+  }
+
+  /** The bytes of a library picture, for the preview in the panel. */
+  function libraryPicture(filename) {
+    const found = capturedImage(dirs().search, filename);
+    if (!found || !findLibrarySlot(filename, { manifestDir })) return null;
+    return { bytes: fs.readFileSync(found.file), filename };
+  }
+
+  /**
+   * "Move pictures that look wrong to the kept pictures list". Every picture it moves is first saved in the kept pictures archive
+   * with its check, its Keep this one mark, and its callouts (for 90 days, restorable), and only then removed from the shared library
+   * or the lab's assets; its slot goes back to pending. A dry run (the default) changes nothing and says what would happen.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.dryRun] default true
+   * @param {Array<{scope: "library"|"lab", labId?: string, filename: string}>|null} [options.items] move exactly these (the person chose them); default: every definite one
+   * @param {boolean} [options.includeProbable] with no `items`, move the probable ones too
+   * @param {string|null} [options.labId] limit the scan to the library and this lab
+   */
+  function quarantineWrongPictures({ dryRun = true, items = null, includeProbable = false, labId = null } = {}) {
+    const chosen = Array.isArray(items) ? items : null;
+    // Moving a shared picture also moves the copies of it in labs, so any choice that includes one looks at every lab.
+    const labIds = chosen && !chosen.some((i) => i?.scope === "library") ? [...new Set(chosen.filter((i) => i?.scope === "lab" && labFolder(i.labId)).map((i) => i.labId))] : labId ? [labId] : null;
+    if (labId && !labFolder(labId)) return { status: 404, body: { error: "Generated lab not found" } };
+    const scan = scanner.scan({ library: true, labIds });
+    const flagged = scan.items.filter((item) => item.level && !item.confirmed);
+    const keyOf = (item) => `${item.scope}:${item.labId || ""}:${item.filename}`;
+    let selected;
+    const notMoved = [];
+    if (chosen) {
+      const wanted = new Set(chosen.map((i) => `${i?.scope}:${i?.scope === "lab" ? i.labId : ""}:${i?.filename}`));
+      selected = flagged.filter((item) => wanted.has(keyOf(item)));
+      for (const key of wanted) if (!selected.some((item) => keyOf(item) === key)) notMoved.push({ key, why: "This picture is not flagged, or a person already marked it Keep this one, so it was left alone." });
+    } else {
+      selected = flagged.filter((item) => item.level === "definite" || includeProbable);
+    }
+    // A copy of a moved library picture in a lab ("reused" or copied in when the lab was built) goes with it: it is the same picture.
+    const movedSha = new Set(selected.filter((item) => item.scope === "library").map((item) => `${item.filename}:${item.sha256}`));
+    for (const item of scan.items) {
+      if (item.scope === "lab" && !item.confirmed && movedSha.has(`${item.filename}:${item.sha256}`) && !selected.includes(item)) selected.push(Object.assign(item, { derived: true, level: item.level || "definite", flags: item.flags.length ? item.flags : [{ code: "DUPLICATE_ACROSS_SLOTS", level: "definite", message: "This is a copy of a shared picture that was moved because it looked like the wrong screen." }] }));
+    }
+    const movable = [];
+    for (const item of selected) {
+      if (!item.writable) notMoved.push({ key: keyOf(item), filename: item.filename, scope: item.scope, labId: item.labId || null, why: "This picture is in the committed folder of the code repository, so it is not moved from here." });
+      else movable.push(item);
+    }
+
+    const labs = [...new Set(movable.filter((i) => i.scope === "lab").map((i) => i.labId))].sort();
+    const view = (item) => ({ ...suspectView(item), derived: item.derived === true });
+    const plan = { dryRun, counts: { pictures: movable.length, library: movable.filter((i) => i.scope === "library").length, lab: movable.filter((i) => i.scope === "lab").length, labs: labs.length, slotsPending: new Set(movable.map((i) => i.filename)).size }, pictures: movable.map(view).sort(bySuspectOrder), notMoved, retentionDays: kept().retentionDays };
+    if (dryRun || !movable.length) return { status: 200, body: { ...plan, moved: [], report: quarantineReport(plan, { moved: [] }) } };
+
+    const moved = [];
+    const failed = [];
+    const groups = new Map();
+    for (const item of movable) {
+      const id = item.scope === "library" ? LIBRARY_ENTRY_ID : item.labId;
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(item);
+    }
+    for (const [ownerId, group] of groups) {
+      const isLibrary = ownerId === LIBRARY_ENTRY_ID;
+      const target = isLibrary ? libraryTarget() : labTarget(ownerId);
+      if (target.error) {
+        for (const item of group) failed.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, why: target.error.body.error });
+        continue;
+      }
+      const records = target.readRecords();
+      const confirmations = target.readConfirmations();
+      const pictures = [];
+      const live = [];
+      for (const item of group) {
+        let bytes;
+        try {
+          bytes = fs.readFileSync(item.file);
+        } catch {
+          failed.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, why: "The picture could not be read, so it was left where it is." });
+          continue;
+        }
+        // The picture that was judged must be the one moved: a retake in between leaves the new one alone.
+        if (sha256Hex(bytes) !== item.sha256) {
+          failed.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, why: "The picture changed while this ran, so it was left where it is." });
+          continue;
+        }
+        const callouts = isLibrary ? cleanCallouts(readJson(path.join(path.dirname(item.file), sidecarName(item.filename)), null)?.callouts) : readLabCallouts(target, item.filename);
+        pictures.push({ filename: item.filename, bytes, why: "looks-wrong", message: item.flags[0]?.message || "Looks like the wrong screen.", record: records[item.filename] || null, confirmation: confirmations[item.filename] || null, callouts });
+        live.push(item);
+      }
+      if (!pictures.length) continue;
+      try {
+        kept().archive({ labId: ownerId, labTitle: isLibrary ? "Shared library" : labTitleOf(target.labDir), reason: "looks-wrong", pictures });
+      } catch (err) {
+        for (const item of live) failed.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, why: `The picture could not be kept first, so nothing was moved: ${err.message}` });
+        continue;
+      }
+      for (const item of live) {
+        try {
+          if (isLibrary) {
+            withSlotLock(target, item.filename, () => {
+              const dir = dirs().primary;
+              const previous = path.join(dir, `${item.filename}${PREVIOUS_SUFFIX}`);
+              if (fileSha256(previous) === item.sha256) fs.rmSync(previous, { force: true });
+              fs.rmSync(path.join(dir, item.filename), { force: true });
+              fs.rmSync(path.join(dir, sidecarName(item.filename)), { force: true });
+              target.writeRecord(item.filename, null);
+              target.writeConfirmation(item.filename, null);
+            });
+            libraryPending.add(item.filename);
+          } else {
+            const earlier = path.join(labPreviousDir(target.labDir), item.filename);
+            if (fileSha256(earlier) === item.sha256) fs.rmSync(earlier, { force: true });
+            target.writeRecord(item.filename, null);
+            target.writeConfirmation(item.filename, null);
+            writeBytesAtomic(path.join(target.labDir, "assets", item.filename), fs.readFileSync(PLACEHOLDER_PATH));
+            fs.rmSync(path.join(target.labDir, "screenshots", sidecarName(item.filename)), { force: true });
+            recordLabShotReset(target.labDir, { labId: target.labId, filename: item.filename, capturedDir: dirs().search });
+          }
+          moved.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, label: item.label, level: item.level, reason: item.flags[0]?.message || "", short: shortReason(item.flags) });
+        } catch (err) {
+          failed.push({ filename: item.filename, scope: item.scope, labId: item.labId || null, why: `It was kept, but could not be removed: ${err.message}` });
+        }
+      }
+      if (!isLibrary) refreshLab(ownerId);
+    }
+    if (moved.some((m) => m.scope === "library")) {
+      libraryChanged();
+      afterSlotLock(() => void flushLibraryRefresh().catch(() => {}));
+    }
+    forgetSuspects();
+    const result = { ...plan, dryRun: false, moved, failed };
+    return { status: 200, body: { ...result, report: quarantineReport(plan, { moved, failed }) } };
+  }
+
+  /** The plain report of a quarantine run, as lines of text. */
+  function quarantineReport(plan, { moved = [], failed = [] } = {}) {
+    const lines = [];
+    const days = plan.retentionDays;
+    if (plan.dryRun) {
+      lines.push(plan.counts.pictures ? `${plan.counts.pictures} picture${plan.counts.pictures === 1 ? "" : "s"} would move to the kept pictures list (${plan.counts.library} in the shared library, ${plan.counts.lab} in ${plan.counts.labs} lab${plan.counts.labs === 1 ? "" : "s"}). Nothing was changed.` : "No pictures need to move.");
+      if (plan.counts.pictures) lines.push(`${plan.counts.slotsPending} screenshot slot${plan.counts.slotsPending === 1 ? "" : "s"} would go back to pending. Moved pictures are kept for ${days} days and can be restored.`);
+    } else {
+      lines.push(moved.length ? `Moved ${moved.length} picture${moved.length === 1 ? "" : "s"} to the kept pictures list. Their screenshot slots are pending again. They are kept for ${days} days and can be restored.` : "No pictures were moved.");
+      if (failed.length) lines.push(`${failed.length} picture${failed.length === 1 ? "" : "s"} could not be moved and were left where they were.`);
+    }
+    for (const item of plan.dryRun ? plan.pictures : moved) lines.push(`- ${item.scope === "library" ? "Shared library" : `Lab ${item.labId}`}: ${item.filename}${item.short ? ` (${item.short})` : ""}`);
+    for (const item of failed) lines.push(`- Not moved: ${item.filename}: ${item.why}`);
+    for (const item of plan.notMoved || []) lines.push(`- Left alone: ${item.filename || item.key}: ${item.why}`);
+    return lines.join("\n");
+  }
+
   return {
     lab: labTarget,
     library: libraryTarget,
+    suspectPictures,
+    suspectSummary,
+    reuseVerdict,
+    libraryPicture,
+    quarantineWrongPictures,
+    forgetSuspects,
+    scanPictures: scanner.scan,
+    pictureScanner: scanner,
     previewLabPictures,
     carryLabPictures,
     guardLabRemoval,

@@ -205,6 +205,7 @@ function addressFor(shot) {
 
 function goodEvidence(shot) {
   return {
+    version: 2,
     finalUrl: `${addressFor(shot)}?token=SECRET#frag`,
     title: "Copilot Studio",
     visibleText: shot.expectedLabels?.length ? shot.expectedLabels : ["Settings"],

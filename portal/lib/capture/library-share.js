@@ -35,6 +35,8 @@ export const SHARE_MESSAGES = Object.freeze({
   "no-check": "There is no saved check for this picture, so it was not shared.",
   "check-mismatch": "The saved check is for a different picture, so this one was not shared.",
   "not-accepted": "This picture has not been accepted yet, so it is not shared.",
+  warned: "This picture was accepted after a warning, so it stays in this lab. Check it, then choose Use this one for every lab to share it.",
+  "looks-wrong": "This picture looks like the wrong screen, so it is not shared.",
   failed: "This picture did not pass its check, so it is not shared.",
   "not-masked": "Account details were not hidden in this picture, so it is not shared. Retake it with hiding turned on.",
   "masking-unproven": "We could not confirm that account details are hidden, so this picture stays in this lab. After you check it, choose Use this one for every lab.",
@@ -130,6 +132,9 @@ export function shareVerdict({ filename, bytes, record, slot, intent }) {
   if (check.level === "fail" || check.ok === false) return no("failed");
   if (check.state !== "accepted") return no("not-accepted");
   if (hasReason(check, "not-redacted") || check.redaction?.applied === false) return no("not-masked");
+  // Only a check with nothing to look at (no warning of any kind) lets a picture in on its own; a picture a person accepted after a
+  // warning can still be shared by choosing so.
+  if (intent !== "share" && (check.level !== "pass" || (Array.isArray(check.reasons) && check.reasons.length))) return no("warned");
   if (check.redaction?.applied === true) return { ok: true, masking: "proven" };
   return intent === "share" ? { ok: true, masking: "person-checked" } : no("masking-unproven");
 }

@@ -57,7 +57,7 @@ test("before and after: the planner still says how a shot is captured by address
     "microsoft-copilot": [{ auto: 4, guided: 7 }, 6, 5, { "build-first": 1, credits: 1, "real-users": 2, unseen: 1 }, { conversation: 2, dialog: 2 }],
     "agent-builder": [{ guided: 8 }, 0, 8, { "other-product": 8 }, {}],
     "sharepoint-ai": [{ guided: 6 }, 0, 6, { "other-product": 6 }, {}],
-    foundry: [{ guided: 9 }, 3, 6, { "other-product": 6 }, { navigate: 3 }],
+    foundry: [{ guided: 9 }, 2, 7, { "other-product": 7 }, { navigate: 2 }],
   };
   for (const [name, [modes, automatic, person, reasons, families]] of Object.entries(expected)) {
     const shots = plans[name].plan.shots;
@@ -67,9 +67,10 @@ test("before and after: the planner still says how a shot is captured by address
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.reason), (s) => s.capture.automation.reason), reasons, `${name}: the reasons`);
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.family), (s) => s.capture.automation.family), families, `${name}: the recipe families`);
   }
-  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 24 run automatically.
+  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 23 run automatically.
+  // (One Foundry shot names navigation labels but no step reaches its screen, so it is left to a person instead of being photographed from the start page.)
   const all = Object.keys(expected).flatMap((name) => plans[name].plan.shots);
-  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 24]);
+  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 23]);
 });
 
 test("the shots that were conservative are now taken by a family, and each one says how it is judged", () => {

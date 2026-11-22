@@ -40,3 +40,31 @@ export function guardLabPictures(request) {
     return { ok: false, error: `This lab's pictures could not be kept, so nothing was removed: ${err.message}` };
   }
 }
+
+// ── Reusing a shared picture in a new lab ───────────────────────────────────
+//
+// A new lab copies the shared library's picture for every slot the library has. One bad picture would then spread to every lab, so the
+// capture platform registers a guard for the library's folders: a picture is copied only when its saved check is clean and it does not
+// look like the wrong screen (a start page for a deeper slot, the same picture as other slots, a page that was not signed in).
+// Without a guard for a folder (an offline script) every picture is copied as before.
+
+const reuseGuards = new Map();
+
+/** Register (or clear, with `null`) the reuse guard for the library folders: `(file) => {ok: true}|{ok: false, message}`. */
+export function setReusePictureGuard(dirs, fn) {
+  for (const dir of [dirs].flat().filter(Boolean)) {
+    if (typeof fn === "function") reuseGuards.set(keyOf(dir), fn);
+    else reuseGuards.delete(keyOf(dir));
+  }
+}
+
+/** Whether the library picture at `file` may be copied into a new lab, or (with `forDisplay`) shown in a lab. */
+export function reusePictureVerdict(file, options = {}) {
+  const guard = reuseGuards.get(keyOf(path.dirname(String(file))));
+  if (!guard) return { ok: true };
+  try {
+    return guard(file, options) || { ok: true };
+  } catch {
+    return { ok: true };
+  }
+}

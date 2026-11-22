@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveCapturedScreenshotsDir, resolveCapturedScreenshotsSearchDirs } from "../storage-config.js";
+import { reusePictureVerdict } from "./picture-guard.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 import { MIN_CAPTURED_BYTES } from "./slots.js";
 
@@ -88,7 +89,8 @@ export function resolveLabScreenshot(labDir, filename, { capturedDir = capturedS
   }
   if (capturedDir) {
     const shared = capturedImage(capturedDir, filename);
-    if (shared) return { ...shared, source: "shared" };
+    // A shared picture the portal knows shows the wrong screen is not shown in a lab (it stays pending), so one bad picture never spreads.
+    if (shared && reusePictureVerdict(shared.file, { forDisplay: true }).ok !== false) return { ...shared, source: "shared" };
   }
   return null;
 }

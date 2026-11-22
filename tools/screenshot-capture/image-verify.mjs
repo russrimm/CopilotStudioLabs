@@ -301,6 +301,15 @@ export function sanitizeSetupEvidence(raw) {
   };
 }
 
+/** What the companion reports about a page from this version on: the page's own signals, and what masking found. Older companions report no `version`. */
+export const EVIDENCE_VERSION = 2;
+
+/** The one plain sentence a person reads when a picture arrives without the newer evidence. */
+export const OLD_COMPANION_MESSAGE = "Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.";
+
+/** A sign-in call to action as a button or link label: the page offers to sign in, it is not showing a signed-in person. */
+const SIGN_IN_ITEM_RE = /^(?:sign in|log in|sign in now)$/i;
+
 /** Bound and clean the evidence the companion reports before anything reads it. */
 export function sanitizeEvidence(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -310,7 +319,10 @@ export function sanitizeEvidence(raw) {
     ? raw.visibleText.split(/\n+/)
     : [];
   const redaction = raw.redaction && typeof raw.redaction === "object" ? raw.redaction : null;
+  const count = (value, max = 10000) => (Number.isFinite(Number(value)) ? Math.max(0, Math.min(max, Number(value))) : null);
+  const signals = raw.signals && typeof raw.signals === "object" && !Array.isArray(raw.signals) ? raw.signals : null;
   return {
+    version: Number.isInteger(raw.version) ? Math.max(1, Math.min(99, raw.version)) : 1,
     finalUrl: safeUrl(raw.finalUrl),
     title: cleanText(raw.title, 200),
     visibleText: textItems.slice(0, 300).map((t) => cleanText(t, 120)).filter(Boolean),
@@ -318,6 +330,16 @@ export function sanitizeEvidence(raw) {
       ? {
           applied: redaction.applied === true,
           masked: Number.isFinite(Number(redaction.masked)) ? Math.max(0, Math.min(10000, Number(redaction.masked))) : 0,
+          // Newer companions also say how many account controls and list-type regions (Recent, History) the page had, and how many were hidden.
+          controls: count(redaction.controls),
+          lists: count(redaction.lists, 200),
+          listsMasked: count(redaction.listsMasked, 200),
+        }
+      : null,
+    signals: signals
+      ? {
+          signInVisible: typeof signals.signInVisible === "boolean" ? signals.signInVisible : null,
+          accountControl: typeof signals.accountControl === "boolean" ? signals.accountControl : null,
         }
       : null,
     capturedAt: cleanText(raw.capturedAt, 40),
@@ -362,6 +384,8 @@ export function scoreLabels(expectedLabels, visibleText) {
  * @param {string[]} [options.expectedLabels] UI labels the shot should show (a soft hint when the address matches `expect`)
  * @param {{family: string, scope?: string, paths?: string[], host?: string, label?: string, strict?: boolean}} [options.expect] the screen the plan expects; its address is the main signal
  * @param {boolean} [options.requireEvidence] warn when the page address was not reported
+ * @param {boolean} [options.requireProof] the picture is a capture that must prove its screen: a missing landmark, an address that names only the product, or a companion that cannot report the newer evidence is "needs review", never accepted by itself
+ * @param {string} [options.productLabel] the product's name, for the sentence "You are not signed in to ..."
  * @param {Partial<typeof IMAGE_LIMITS>} [options.limits]
  * @returns {{ok: boolean, level: "pass"|"warn"|"fail", reasons: Array<{code: string, level: "fail"|"warn", message: string}>, format: string|null, width: number|null, height: number|null, bytes: number, sha256: string|null, analysis: object|null, labels: object|null, evidence: object|null}}
  */
@@ -509,35 +533,83 @@ export function verifyImage(bytes, options = {}) {
     if (signInHits >= 2 && !reasons.some((r) => r.code === "sign-in-page")) {
       reasons.push(reason("sign-in-page", "fail", "The visible text looks like a sign-in page, not the product."));
     }
+    // The product's own public page: a Sign in button and no account menu. The product is not showing a signed-in person.
+    if (!reasons.some((r) => r.code === "sign-in-page") && signedOutCue(evidence)) {
+      reasons.push(reason("signed-out-page", "fail", `You are not signed in to ${cleanText(options.productLabel, 80) || "the product"}. The page shows a Sign in button and no account menu. Sign in once in the companion window, then retake the shot.`));
+    }
     result.labels = scoreLabels(options.expectedLabels, evidence.visibleText);
     const landing = assessLanding(evidence.finalUrl, options.expect);
     result.landing = landing;
-    const signIn = reasons.some((r) => r.code === "sign-in-page");
+    const signIn = reasons.some((r) => r.code === "sign-in-page" || r.code === "signed-out-page");
     if (landing.state === "mismatch" && !signIn) {
       reasons.push(reason("wrong-screen", "warn", `This is ${landing.page}, not ${landing.expected}. Retake it with “Retake guided”, or check the agent address in Capture settings.`));
     }
     if (result.labels) {
       const { expected, matched } = result.labels;
-      // The address is the main signal. When it matches the screen the plan expects, labels are only a hint;
-      // when it does not match, the wrong-screen message already says what is wrong.
-      result.labels.soft = landing.state === "match";
-      if (landing.state === "unknown" && (matched === 0 || (expected >= 3 && result.labels.score < 0.34))) {
+      // The address is the main signal. When it matches the screen the plan expects, labels are only a hint, unless the capture has to
+      // prove the screen (`requireProof`: a companion's picture is saved as captured only when its landmarks show); when it does not
+      // match, the wrong-screen message already says what is wrong. A person who set the screen up themselves (guided) vouches for it.
+      const proof = Boolean(options.requireProof) && evidence.mode !== "guided";
+      result.labels.soft = landing.state === "match" && !proof;
+      if ((landing.state === "unknown" || proof) && (matched === 0 || (expected >= 3 && result.labels.score < 0.34)) && !signIn) {
         const missing = result.labels.missing.slice(0, 3).join(", ");
         reasons.push(reason("labels-missing", "warn", `Only ${matched} of ${expected} expected UI labels are visible${missing ? ` (missing: ${missing})` : ""}. Check that the screen is the one the lab describes.`));
       }
+    } else if (options.requireProof && evidence.mode !== "guided" && !signIn && !provesScreenByRoute(landing, options.expect) && !provesScreenBySteps(evidence)) {
+      // No expected label could be matched, the address names only a product or a start page, and the computer did not choose anything
+      // inside the page: nothing proves which screen this is.
+      reasons.push(reason("screen-unproven", "warn", "Nothing on the page proves this is the screen the lab describes: no expected label was visible, and the address only names the product. Check the picture."));
     }
     if (options.requireRedaction && !(evidence.redaction && evidence.redaction.applied)) {
       reasons.push(reason("not-redacted", "warn", "The companion did not report masking account details. Check the screenshot for names and email addresses."));
     }
+    if (evidence.redaction && evidence.redaction.applied && Number(evidence.redaction.lists) > Number(evidence.redaction.listsMasked || 0)) {
+      reasons.push(reason("list-not-masked", "warn", "This page lists recent items or chats, and the list was not hidden. Check the screenshot for names and titles."));
+    }
+    if (options.requireProof && evidence.version < EVIDENCE_VERSION) reasons.push(reason("old-companion", "warn", OLD_COMPANION_MESSAGE));
     if (evidence.setup?.limitedBy === "practice-agent") {
       reasons.push(reason("needs-practice-agent", "warn", "This shows the screen as far as the computer could take it without a practice agent. Allow a practice agent, then retake it, to capture the final state."));
     }
     if (evidence.setup?.review?.message) reasons.push(reason("recipe-review", "warn", evidence.setup.review.message));
   } else if (options.requireEvidence) {
-    reasons.push(reason("no-evidence", "warn", "The companion did not report what the page showed."));
+    reasons.push(reason("no-evidence", "warn", options.requireProof ? OLD_COMPANION_MESSAGE : "The companion did not report what the page showed."));
   }
 
   return finish();
+}
+
+/** Whether the page offers a Sign in button and shows no account: the companion's own reading when it has one, the labels and masking count otherwise. */
+export function signedOutCue(evidence) {
+  if (!evidence) return false;
+  const signals = evidence.signals;
+  const signInVisible = signals && typeof signals.signInVisible === "boolean" ? signals.signInVisible : evidence.visibleText.some((line) => SIGN_IN_ITEM_RE.test(line));
+  if (!signInVisible) return false;
+  if (signals && typeof signals.accountControl === "boolean") return signals.accountControl === false;
+  const controls = evidence.redaction ? (Number.isFinite(evidence.redaction.controls) ? evidence.redaction.controls : evidence.redaction.masked) : null;
+  return controls === 0;
+}
+
+/** An address proves a screen only when it names that screen: a Copilot Studio page of its own, not "somewhere on this host" and not the agent's default page. */
+function provesScreenByRoute(landing, expect) {
+  if (!expect || landing?.state !== "match" || expect.strict === false) return false;
+  if (expect.family !== "copilot-studio") return false;
+  const paths = Array.isArray(expect.paths) ? expect.paths : [];
+  if (!paths.length) return false;
+  return expect.scope === "environment" || !paths.includes("overview");
+}
+
+const PASSIVE_STEP_ACTIONS = new Set(["screenshot", "verify", "wait-for"]);
+
+/**
+ * Whether the computer chose something inside the page (a tab, a menu, a dialog, a question) and each choice was confirmed by what the page
+ * then showed. The setup steps and the route steps both only pass when their expected evidence is on the page, so a start page that was
+ * photographed with nothing chosen (no step at all) never counts.
+ */
+function provesScreenBySteps(evidence) {
+  const setup = Array.isArray(evidence.setup?.steps) ? evidence.setup.steps : [];
+  if (setup.some((step) => step.status === "ok" && !PASSIVE_STEP_ACTIONS.has(step.action)) && !setup.some((step) => step.status === "failed")) return true;
+  const route = Array.isArray(evidence.routeSteps) ? evidence.routeSteps : [];
+  return route.some((step) => step.ok && step.found && !step.urlBefore && !PASSIVE_STEP_ACTIONS.has(step.action));
 }
 
 /** A short, storable summary of a verification result (no bytes, no evidence text). */
@@ -558,6 +630,8 @@ export function summarizeVerification(result, extra = {}) {
     finalUrl: result.evidence?.finalUrl || null,
     pageTitle: result.evidence?.title || null,
     redaction: result.evidence?.redaction || null,
+    // What the companion could say about the page (see EVIDENCE_VERSION): the version, and the sign-in and account signals it read.
+    ...(result.evidence ? { evidenceVersion: result.evidence.version || 1, ...(result.evidence.signals ? { signals: result.evidence.signals } : {}) } : {}),
     checkedAt: new Date().toISOString(),
     ...extra,
   };

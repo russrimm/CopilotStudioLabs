@@ -5,6 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { cleanExpectedLabel, cleanExpectedLabels, labelIsVisible, visibleWordSet, wordsMatch } from "../labels.mjs";
+import { causeForVerification } from "../causes.mjs";
 import { scoreLabels, verifyImage } from "../image-verify.mjs";
 import {
   COPILOT_STUDIO_SCREENS,
@@ -190,4 +191,75 @@ test("verification of a guided capture only needs to be in the product, and evid
   assert.equal(guided.evidence.mode, "guided");
   assert.equal(guided.evidence.routeSteps[0].label.length, 80, "a long label is cut");
   assert.ok(!JSON.stringify(guided.evidence.routeSteps).includes("SECRET"), "query strings never reach the record");
+});
+
+// ── A capture must prove its screen ──────────────────────────────────────────
+
+const proof = (over = {}) => ({ filename: "a.png", requireEvidence: true, requireProof: true, requireRedaction: true, ...over });
+const current = (finalUrl, visibleText, extra = {}) => ({ version: 2, ...evidence(finalUrl, visibleText), redaction: { applied: true, masked: 2, controls: 1, lists: 0, listsMasked: 0 }, signals: { signInVisible: false, accountControl: true }, ...extra });
+
+test("proof: a missing landmark is Needs review even when the address matches, and one that shows is accepted", () => {
+  const wanted = ["Overview", "Instructions", "Publish"];
+  const lacking = verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/overview`, ["Something else entirely"]), expectedLabels: wanted, expect: expectOverview }));
+  assert.equal(lacking.level, "warn", "the address names the agent's page but none of its landmarks is visible");
+  assert.equal(lacking.reasons[0].code, "labels-missing");
+  assert.equal(lacking.labels.soft, false, "labels are no longer only a hint");
+  const present = verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/overview`, ["Overview", "Instructions"]), expectedLabels: wanted, expect: expectOverview }));
+  assert.equal(present.level, "pass");
+  assert.deepEqual(present.reasons, []);
+  // The same picture without the proof requirement keeps the old reading, so a hand-checked upload is unchanged.
+  assert.equal(verifyImage(png(), { ...proof({ requireProof: false }), evidence: current(`${base}/bots/${BOT}/overview`, ["Something else entirely"]), expectedLabels: wanted, expect: expectOverview }).level, "pass");
+  // A person who set the screen up themselves vouches for it.
+  assert.equal(verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/overview`, ["Something else entirely"], { mode: "guided" }), expectedLabels: wanted, expect: { ...expectOverview, strict: false } })).level, "pass");
+});
+
+test("proof: with no label to match, only an address that names one screen of its own is enough", () => {
+  const knowledge = { family: "copilot-studio", scope: "agent", paths: ["knowledge"], label: "the agent's Knowledge page", strict: true };
+  const home = { family: "copilot-studio", scope: "environment", paths: ["home"], label: "the Copilot Studio home page", strict: true };
+  const byAddress = (url, expect, labels = []) => verifyImage(png(), proof({ evidence: current(url, ["Anything"]), expectedLabels: labels, expect }));
+  assert.equal(byAddress(`${base}/bots/${BOT}/knowledge`, knowledge).level, "pass", "a page of its own");
+  assert.equal(byAddress(`${base}/home`, home).level, "pass");
+  const overview = byAddress(`${base}/bots/${BOT}/overview`, expectOverview);
+  assert.equal(overview.level, "warn", "the agent's default page proves nothing: the newer layout keeps its address");
+  assert.equal(overview.reasons[0].code, "screen-unproven");
+  const product = verifyImage(png(), proof({ evidence: current("https://ai.azure.com/anything", ["Anything"]), expect: { family: "url", host: "ai.azure.com", label: "a page of Microsoft Foundry", strict: true } }));
+  assert.equal(product.reasons[0].code, "screen-unproven", "somewhere on the product's host proves no screen");
+  assert.match(product.reasons[0].message, /Nothing on the page proves/);
+  const none = verifyImage(png(), proof({ evidence: current("https://ai.azure.com/anything", ["Anything"]) }));
+  assert.equal(none.reasons[0].code, "screen-unproven", "no landmarks at all and no distinctive route");
+});
+
+test("proof: no evidence, or an older companion's evidence, is saved for review with the plain update sentence", () => {
+  const update = "Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.";
+  const none = verifyImage(png(), proof({ evidence: null }));
+  assert.deepEqual([none.level, none.reasons[0].code, none.reasons[0].message], ["warn", "no-evidence", update]);
+  const older = verifyImage(png(), proof({ evidence: { ...evidence(`${base}/bots/${BOT}/knowledge`, ["Anything"]), redaction: { applied: true, masked: 2 } }, expect: { family: "copilot-studio", scope: "agent", paths: ["knowledge"], strict: true } }));
+  assert.equal(older.level, "warn");
+  assert.equal(older.reasons.find((r) => r.code === "old-companion").message, update);
+  assert.equal(older.evidence.version, 1);
+  assert.equal(verifyImage(png(), { filename: "a.png", evidence: null }).level, "pass", "a picture pasted by hand needs none of this");
+});
+
+test("proof: the product's public page (a Sign in button and no account) is refused, and a Sign in button on a signed-in page is not", () => {
+  const publicPage = verifyImage(png(), proof({ evidence: current("https://ai.azure.com/home", ["Sign in", "Explore models"], { signals: { signInVisible: true, accountControl: false }, redaction: { applied: true, masked: 0, controls: 0 } }), productLabel: "Microsoft Foundry" }));
+  assert.equal(publicPage.level, "fail");
+  assert.equal(publicPage.reasons[0].code, "signed-out-page");
+  assert.match(publicPage.reasons[0].message, /^You are not signed in to Microsoft Foundry\./);
+  // An older companion has no signals, but its labels and its masking count say the same thing.
+  const older = verifyImage(png(), proof({ evidence: { ...evidence("https://ai.azure.com/home", ["Sign in", "Explore models"]), redaction: { applied: true, masked: 0 } } }));
+  assert.equal(older.reasons[0].code, "signed-out-page");
+  // A Sign in button inside a signed-in page (a connection card) has an account beside it.
+  const signedIn = verifyImage(png(), proof({ evidence: current("https://make.powerapps.com/home", ["Sign in", "Connections"], { signals: { signInVisible: true, accountControl: true } }) }));
+  assert.ok(!signedIn.reasons.some((r) => r.code === "signed-out-page"));
+  assert.equal(causeForVerification(publicPage.reasons), "sign-in", "the job pauses with the sign-in cause");
+});
+
+test("proof: a list of the person's own items that was not hidden is Needs review", () => {
+  const listed = verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/knowledge`, ["Anything"], { redaction: { applied: true, masked: 4, controls: 1, lists: 2, listsMasked: 1 } }), expect: { family: "copilot-studio", scope: "agent", paths: ["knowledge"], strict: true } }));
+  assert.equal(listed.level, "warn");
+  assert.ok(listed.reasons.some((r) => r.code === "list-not-masked"));
+  const hidden = verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/knowledge`, ["Anything"], { redaction: { applied: true, masked: 6, controls: 1, lists: 2, listsMasked: 2 } }), expect: { family: "copilot-studio", scope: "agent", paths: ["knowledge"], strict: true } }));
+  assert.equal(hidden.level, "pass");
+  const requested = verifyImage(png(), proof({ evidence: current(`${base}/bots/${BOT}/knowledge`, ["Anything"], { redaction: null }), expect: { family: "copilot-studio", scope: "agent", paths: ["knowledge"], strict: true } }));
+  assert.ok(requested.reasons.some((r) => r.code === "not-redacted"), "masking was requested and not reported");
 });

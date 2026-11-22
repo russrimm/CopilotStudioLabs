@@ -489,7 +489,7 @@ function scAccountSentence(model) {
   return String(model.text).replace(/^Account:\s*/i, "").replace(/^Account not reported/i, "an account that is not reported");
 }
 
-const SC_UNFINISHED_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect", "needs-you"]);
+const SC_UNFINISHED_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect", "needs-you", "no-recipe"]);
 // The causes where the computer tried and could not finish: only these get "Show me once".
 const SC_AUTOMATION_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect"]);
 

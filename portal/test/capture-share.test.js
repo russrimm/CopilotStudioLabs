@@ -83,6 +83,7 @@ function addressFor(shot) {
 function evidenceFor(target, filename, { redaction = { applied: true, masked: 2 } } = {}) {
   const slot = target.slot(filename);
   return {
+    version: 2,
     finalUrl: "https://copilotstudio.microsoft.com/environments/00000000-0000-0000-0000-000000000000/bots",
     title: "Copilot Studio",
     visibleText: [...(slot.expectedLabels || []), "Settings"],
@@ -216,7 +217,7 @@ test("when every shot of a new lab is already in the library, nothing is queued,
   assert.equal(capturedImage(join(later.labDir, "assets"), origin.files[0]) !== null, true, "the lab built later holds a copy of the shared picture");
 });
 
-test("a picture a person accepts after a warning is shared too, when masking was proven", async () => {
+test("a picture a person accepts after a warning stays in its lab until they choose to share it", async () => {
   const lab = await newLab();
   const [filename] = lab.files;
   const staged = capture(lab.labId, filename, { bytes: makePng({ mode: "mostly", seed: 5 }) });
@@ -225,7 +226,12 @@ test("a picture a person accepts after a warning is shared too, when masking was
 
   const accepted = ctx.store.accept(ctx.store.lab(lab.labId), filename, { defer: true });
   assert.equal(accepted.status, 200);
-  assert.equal(accepted.body.library.outcome, "shared");
+  assert.equal(accepted.body.library.code, "warned", "only a check with nothing to look at lets a picture into the library on its own");
+  assert.match(accepted.body.library.message, /accepted after a warning/);
+  assert.equal(existsSync(libraryFile(filename)), false);
+
+  const chosen = ctx.store.shareLabPicture(ctx.store.lab(lab.labId), filename, { confirm: true });
+  assert.equal(chosen.status, 200, "the person's own choice still shares it, when masking was proven");
   assert.deepEqual(readFileSync(libraryFile(filename)), staged.bytes);
 });
 
@@ -316,11 +322,14 @@ test("an existing library picture is kept unless a person retakes or accepts, an
   assert.equal(capture(c.labId, filename, { bytes: retake.bytes, retake: true }).body.library.outcome, "already-shared");
   assert.deepEqual(readFileSync(`${libraryFile(filename)}.previous`), first.bytes);
 
-  // An explicit Accept of a newer capture replaces it too.
+  // A newer capture a person accepted after a warning is not shared by itself; their own choice replaces it.
   const staged = capture(d.labId, filename, { bytes: makePng({ mode: "mostly", seed: 54 }) });
   assert.equal(staged.status, 202);
   const accepted = ctx.store.accept(ctx.store.lab(d.labId), filename, { defer: true });
-  assert.equal(accepted.body.library.outcome, "replaced");
+  assert.equal(accepted.body.library.code, "warned");
+  assert.deepEqual(readFileSync(libraryFile(filename)), retake.bytes);
+  const chosen = ctx.store.shareLabPicture(ctx.store.lab(d.labId), filename, { confirm: true });
+  assert.equal(chosen.body.outcome, "replaced");
   assert.deepEqual(readFileSync(libraryFile(filename)), staged.bytes);
   assert.deepEqual(readFileSync(`${libraryFile(filename)}.previous`), retake.bytes);
 });

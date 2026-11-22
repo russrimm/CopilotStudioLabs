@@ -144,7 +144,7 @@ test("a job in each mode reports the mode of every shot and the plain-language p
 
 test("how a shot runs, the job settings that travel with a job, and the command line", () => {
   assert.equal(effectiveModeFor(shot("g.png", "guided"), "auto"), "needs-you");
-  assert.equal(COMPANION_VERSION, "1.6.4");
+  assert.equal(COMPANION_VERSION, "1.7.0");
   assert.match(helpText(), /--guided-wait=<seconds>/);
   assert.match(helpText(), /--ready-wait=<seconds>/);
   const opts = parseArgs(["--guided-wait=30", "--ready-wait=40"]);

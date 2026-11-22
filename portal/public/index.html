@@ -3615,6 +3615,17 @@
     .sc-keep-row .btn { flex: 0 0 auto; }
     .sc-keep-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
     .sc-keep-notice p { margin: 0; }
+    .sc-wrong-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .sc-wrong-notice p { margin: 0; }
+    .sc-wrong .sc-ask, .sc-wrong .sc-banner { margin-top: 8px; }
+    .sc-wrong-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .sc-wrong-row { align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--bg); }
+    .sc-wrong-definite { border-left-color: var(--sc-warn-border); }
+    .sc-wrong-probable { border-left-color: var(--sc-info-border); }
+    .sc-wrong-thumb { flex: 0 0 auto; width: 96px; height: auto; border: 1px solid var(--border); border-radius: 4px; }
+    .sc-wrong-text { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+    .sc-wrong-reason { margin: 0; font-size: 12.5px; line-height: 1.45; }
+    .sc-wrong-row .btn { flex: 0 0 auto; }
     .lb-gen-delete-pictures { margin: 0 0 8px; font-weight: 600; }
     .sc-causes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .sc-cause { padding: 8px 10px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--bg); }
@@ -7408,6 +7419,7 @@
 <script src="screenshot-center-command.js" defer></script>
 <script src="screenshot-center-jobs.js" defer></script>
 <script src="screenshot-center-keep.js" defer></script>
+<script src="screenshot-center-wrong.js" defer></script>
 <script src="screenshot-center.js" defer></script>
 <script src="lab-checklist.js" defer></script>
 <script src="lab-customize.js" defer></script>

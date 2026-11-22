@@ -11,8 +11,8 @@ import path from "node:path";
 import { findProfile, getActiveProfileId, readCustomization, updateLabAgentSource, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
 import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider } from "../lab-builder/lab-screenshots.js";
-import { setLabPictureGuard } from "../lab-builder/picture-guard.js";
-import { describeCapturedScreenshotsLocation, getStorageDiagnostics, resolveKeptScreenshotsDir, resolvePortalDataDir } from "../storage-config.js";
+import { setLabPictureGuard, setReusePictureGuard } from "../lab-builder/picture-guard.js";
+import { BAKED_CAPTURED_SCREENSHOTS_DIR, describeCapturedScreenshotsLocation, getStorageDiagnostics, resolveKeptScreenshotsDir, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
 import { validateTargets, missingRequirements } from "../../../tools/screenshot-capture/targets.mjs";
@@ -43,6 +43,10 @@ export const AUTONOMOUS_MIN_COMPANION = "1.4.0";
 export const SCRATCH_MIN_COMPANION = "1.6.0";
 /** The first companion that runs the recipe families (test conversations with panels, dialogs, item details, a sample test set, landmark checks). An older one keeps working the older way. */
 export const RECIPES_MIN_COMPANION = "1.6.3";
+/** The first companion that proves the screen it took (what the page showed, sign-in signals, what masking found). An older one keeps working, but nothing it captures is accepted without a look. */
+export const EVIDENCE_MIN_COMPANION = "1.7.0";
+/** What a person is told when the connected companion is older than `EVIDENCE_MIN_COMPANION`. */
+export const OLD_COMPANION_NOTICE = "Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.";
 const BROWSER_CACHE_MS = 60 * 1000;
 /** What a person is told when the lab they asked to capture already has a capture waiting or running. */
 const LAB_BUSY_MESSAGES = Object.freeze({
@@ -119,10 +123,20 @@ export function createCapturePlatform({
   const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null, keptDir: () => resolveKeptScreenshotsDir(env), now });
   // Deleting or replacing a lab (or throwing away one that failed to build) keeps its real pictures first.
   setLabPictureGuard(generatedRoot, (request) => screenshots.guardLabRemoval(request));
+  // A new lab copies a shared picture only when it is clean and does not look like the wrong screen, so one bad picture never spreads.
+  setReusePictureGuard(capturedDirs().search, (file, options) => screenshots.reuseVerdict(file, options));
   try {
     screenshots.purgeKept();
   } catch (err) {
     logger?.(`[kept-pictures] Could not remove expired kept pictures: ${err.message}`);
+  }
+  // Once at start, and only for the local library (never the committed folder in the repository): a dry run that looks for pictures
+  // that look like the wrong screen and sets the notice. It never moves or deletes anything; that needs the owner's click or the command line.
+  if (env.CAPTURE_STARTUP_SCAN !== "off" && path.resolve(capturedDirs().primary) !== path.resolve(BAKED_CAPTURED_SCREENSHOTS_DIR)) {
+    setImmediate(() => {
+      const found = screenshots.suspectSummary({ fresh: true });
+      if (found.total) logger?.(`[capture] ${found.notice} (${found.definite} clearly wrong, ${found.probable} to check). Nothing was moved.`);
+    });
   }
   // Lab screenshot status says where each picture comes from and how it relates to the shared library.
   setSharedLibraryProvider({
@@ -211,12 +225,13 @@ export function createCapturePlatform({
   function companionCanRunAutonomous({ ownerKey = null } = {}) {
     const status = pairing.status({ ownerKey });
     const online = (status.devices || []).filter((d) => d.connected);
-    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true };
+    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true, evidenceSupported: true };
     const supported = online.some((d) => versionAtLeast(d.companionVersion, AUTONOMOUS_MIN_COMPANION));
     const scratchSupported = online.some((d) => versionAtLeast(d.companionVersion, SCRATCH_MIN_COMPANION));
     const handoffSupported = online.some((d) => versionAtLeast(d.companionVersion, HANDOFF_MIN_COMPANION));
     const recipesSupported = online.some((d) => versionAtLeast(d.companionVersion, RECIPES_MIN_COMPANION));
-    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported, recipesSupported };
+    const evidenceSupported = online.some((d) => versionAtLeast(d.companionVersion, EVIDENCE_MIN_COMPANION));
+    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported, recipesSupported, evidenceSupported };
   }
 
   /** The capture settings (addresses and names) in effect, as an account setup request carries them, so the landing can be checked. */
@@ -334,10 +349,12 @@ export function createCapturePlatform({
         needsReview: library.summary.needsReview,
         confirmed: library.summary.confirmed,
         kept: screenshots.keptSummary(),
+        // How many shared pictures look like the wrong screen (checked once at start, then when the library changes). It reads only.
+        suspect: screenshots.suspectSummary(),
         notice: locationNotice({ kind: where.kind, folder, captured: library.summary.captured }),
       },
       jobs: { ...jobs.activity(), ...signInNeed },
-      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: support.supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: support.scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: support.handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: support.recipesSupported, sharedRecipes: sharedRecipes.list().length },
+      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: support.supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: support.scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: support.handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: support.recipesSupported, evidenceMinCompanion: EVIDENCE_MIN_COMPANION, evidenceSupported: support.evidenceSupported, ...(support.connected && !support.evidenceSupported ? { evidenceNotice: OLD_COMPANION_NOTICE } : {}), sharedRecipes: sharedRecipes.list().length },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };
@@ -584,6 +601,9 @@ export function createCapturePlatform({
     const recipesHint = familyShots && support.connected && !support.recipesSupported
       ? { supported: false, min: RECIPES_MIN_COMPANION, version: support.version, shots: familyShots, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${RECIPES_MIN_COMPANION}, so it cannot run the new automatic recipes yet. ${familyShots} screenshot${familyShots === 1 ? "" : "s"} (test conversations, dialogs, and the sample test set) still need you. Download the companion again and replace the old one.` }
       : null;
+    // An older companion cannot prove the screen it took, so what it captures is saved for review, never accepted by itself.
+    const evidenceSupport = mode === "autonomous" ? support : companionCanRunAutonomous({ ownerKey: owner });
+    const evidenceHint = evidenceSupport.connected && !evidenceSupport.evidenceSupported ? { supported: false, min: EVIDENCE_MIN_COMPANION, version: evidenceSupport.version, message: OLD_COMPANION_NOTICE } : null;
     return {
       status: 201,
       body: {
@@ -594,11 +614,12 @@ export function createCapturePlatform({
         agentSource: { choice: agentPick.source, effective: effectiveAgentSource, ...(agentFallback ? { fallback: agentFallback } : {}) },
         ...(agentHandoff ? { agentHandoff } : {}),
         ...(recipesHint ? { recipes: recipesHint } : {}),
+        ...(evidenceHint ? { evidence: evidenceHint } : {}),
         ...(autonomy ? { autonomy: { level: autonomy.level } } : {}),
         ...(downgraded ? { downgraded } : {}),
         ...(missing.length ? { missing } : {}),
         message: companion.connected
-          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}${recipesHint ? ` ${recipesHint.message}` : ""}`
+          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}${recipesHint ? ` ${recipesHint.message}` : ""}${evidenceHint ? ` ${evidenceHint.message}` : ""}`
           : "Queued, but no Local Capture Companion is connected yet. Download it, pair it with a code, and it will pick this job up.",
       },
     };

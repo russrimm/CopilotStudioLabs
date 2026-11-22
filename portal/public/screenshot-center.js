@@ -340,6 +340,8 @@ function scRenderInto(host, labId) {
   if (banner) section.appendChild(banner);
   const keepNotice = typeof scKeepNotice === "function" ? scKeepNotice() : null;
   if (keepNotice) section.appendChild(keepNotice);
+  const wrongNotice = typeof scWrongNotice === "function" ? scWrongNotice(labId) : null;
+  if (wrongNotice) section.appendChild(wrongNotice);
   section.appendChild(scBuildStrip(model));
   const accountLine = scBuildAccountLine(labId);
   if (accountLine) section.appendChild(accountLine);
@@ -406,6 +408,7 @@ function scEnsureSetup(labId) {
     });
   }
   if (!lab.brand) void scLoadLabBrand(labId);
+  if (typeof scWrongEnsure === "function") scWrongEnsure(labId);
   if (!lab.targets || (lab.targets.loaded && Date.now() - lab.targets.loadedAt > 20000)) void scLoadTargets(labId, { force: true });
   const store = scProfileStore();
   if (!store && typeof bpEnsureLoaded === "function" && !scState.profilesRequested) {
@@ -1416,6 +1419,7 @@ function scBuildAdvanced(labId, model) {
   learn.appendChild(learnRow);
   body.appendChild(learn);
 
+  if (typeof scBuildWrongSection === "function") body.appendChild(scBuildWrongSection(labId));
   body.appendChild(scBuildLibrarySection());
   body.appendChild(scBuildShareLabBlock(labId));
 
@@ -2392,8 +2396,10 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "lightbox-next":
       scStepLightbox(labId, 1);
       return;
-    default:
-      if (typeof scKeepAction === "function") await scKeepAction(labId, action, control);
+    default: {
+      const handled = typeof scKeepAction === "function" ? await scKeepAction(labId, action, control) : false;
+      if (!handled && typeof scWrongAction === "function") await scWrongAction(labId, action, control);
+    }
   }
 }
 
