@@ -1,0 +1,52 @@
+{
+  "$comment": "Foundations brief for Microsoft Copilot Studio. Every statement follows the Microsoft Learn pages listed in verifiedAgainst.",
+  "products": {
+    "copilot-studio": {
+      "whatItIs": "Microsoft Copilot Studio is a low-code studio for building and managing AI agents and workflows. You connect them to your organization's data and systems, then publish them where people already work.",
+      "whoUses": "Makers, with or without coding skills, build agents with it, and IT admins use it to manage and protect them.",
+      "blocks": [
+        { "label": "Agent", "plain": "An AI assistant that follows instructions, uses knowledge, and takes actions." },
+        { "label": "Instructions", "plain": "Plain-language rules for the agent's identity, tone, scope, and behavior." },
+        { "label": "Knowledge", "plain": "Content the agent reads so answers come from your information." },
+        { "label": "Tools", "plain": "Actions the agent can take, such as looking up data or running a flow." },
+        { "label": "Channels", "plain": "Places where people talk to the agent, such as Teams or a website." },
+        { "label": "Harness", "plain": "The engine an agent runs on. Copilot Studio has three." }
+      ],
+      "fit": {
+        "center": { "label": "Agent", "plain": "The assistant that people talk to and that gets work done." },
+        "around": [
+          { "label": "Instructions", "plain": "Tell the agent its job, its tone, and its limits." },
+          { "label": "Knowledge", "plain": "Gives the agent your content to answer from." },
+          { "label": "Tools", "plain": "Let the agent act, such as looking up or changing data." },
+          { "label": "Topics", "plain": "Give standard harness agents conversation paths you design." },
+          { "label": "Channels", "plain": "Carry the agent to people in Teams, on a website, or by phone." },
+          { "label": "Harness", "plain": "Runs the agent. Pick the standard, Microsoft Copilot, or Customer Conversation harness." }
+        ]
+      },
+      "whereYouWork": "You work in Copilot Studio, a web app that runs in a modern browser. It has work areas for building an agent, trying it in a test chat, checking its quality, publishing it, and watching how it performs. Administrators work in a separate admin area for policies, environments, and costs.",
+      "vocabulary": ["agent", "instructions", "knowledge", "tool", "topic", "channel", "harness", "environment", "publish", "copilot-credits"],
+      "askTheRoom": "Where do your teammates or customers already go when they need help, and what would you want an agent to do for them there?",
+      "sayOutLoud": "Copilot Studio is where you build AI agents. An agent follows your instructions, reads your content, and uses tools to get things done. Today we will learn the parts, so every lab feels familiar.",
+      "learn": [
+        { "title": "Copilot Studio overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio" },
+        { "title": "Agents overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-overview" },
+        { "title": "Harnesses in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false,
+      "thinNote": ""
+    }
+  }
+}

@@ -104,6 +104,7 @@ import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { registerProductRoutes } from "./lib/lab-builder/product-api.js";
 import { registerDraftRoutes } from "./lib/lab-builder/drafts-api.js";
+import { TRAINING_EXPORT_FORMAT, registerTrainingDeckRoutes, sendTrainingExport } from "./lib/lab-builder/training-routes.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -940,12 +941,13 @@ async function handleGeneratedLabExport(req, res) {
     format !== "facilitator-md" &&
     format !== "facilitator-markdown" &&
     format !== "facilitator-html" &&
+    !TRAINING_EXPORT_FORMAT.test(format) &&
     !PREREQUISITES_EXPORT_FORMAT.test(format) &&
     !ADMIN_GUIDE_EXPORT_FORMAT.test(format)
   ) {
     return res.status(400).json({
       error:
-        "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', 'md', 'facilitator-docx', 'facilitator-pdf', 'facilitator-md', 'facilitator-html', 'prerequisites-docx', 'prerequisites-pdf', 'prerequisites-html', 'prerequisites-md', 'admin-guide-docx', 'admin-guide-pdf', 'admin-guide-html', or 'admin-guide-md'.",
+        "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', 'md', 'facilitator-docx', 'facilitator-pdf', 'facilitator-md', 'facilitator-html', 'training', 'training-complete', 'training-foundations', 'prerequisites-docx', 'prerequisites-pdf', 'prerequisites-html', 'prerequisites-md', 'admin-guide-docx', 'admin-guide-pdf', 'admin-guide-html', or 'admin-guide-md'.",
     });
   }
 
@@ -1021,6 +1023,10 @@ async function handleGeneratedLabExport(req, res) {
     );
     return `attachment; filename="${asciiSafeName}"; filename*=UTF-8''${encodedUtf8}`;
   };
+
+  if (TRAINING_EXPORT_FORMAT.test(format)) {
+    return sendTrainingExport(res, { generatedLabsDir: GENERATED_LABS_DIR, labId: found.labId, format });
+  }
 
   if (ADMIN_GUIDE_EXPORT_FORMAT.test(format)) {
     try {
@@ -1344,6 +1350,9 @@ async function handleGeneratedLabTopicDocument(req, res) {
 /** GET /api/lab-builder/generated/:labId/topics/:order/:format — Download a per-topic Word (.docx) or PowerPoint (.pptx) file named per lab */
 app.get("/api/lab-builder/generated/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
 app.get("/api/generated-labs/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
+
+/** GET /api/lab-builder/generated/:labId/training[/:deck[/:format]] — The pre-lab training decks: list, download, or outline */
+registerTrainingDeckRoutes(app, { generatedLabsDir: GENERATED_LABS_DIR });
 
 /** GET /api/lab-builder/generated/:labId/prerequisites — Preview of the standalone prerequisites checklist (what the customer receives) */
 async function handleGeneratedLabPrerequisitesPreview(req, res) {

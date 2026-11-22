@@ -280,6 +280,7 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
     const { generateLab } = await portal("lab-builder/generator.js");
     const exporter = await portal("exporter.js");
     const { writeGeneratedLabTopicDocuments } = await portal("lab-builder/topic-documents.js");
+    const { writeGeneratedLabTrainingDecks } = await portal("lab-builder/training-decks.js");
 
     const labSpecs = [["lab-small", SMALL_LAB], ["lab-special", SPECIAL_LAB]];
     if (largeLab) labSpecs.push(["lab-large", LARGE_LAB]);
@@ -300,6 +301,15 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
       };
       readTopics("plain");
 
+      // The pre-lab training decks: the complete deck, the foundations decks, and one per topic.
+      const trainingDir = join(built.outputDir, "training");
+      const readTraining = (tag) => {
+        for (const file of readdirSync(trainingDir).sort()) {
+          if (!/\.pptx$/.test(file)) continue;
+          add(`${id}-training-${tag}-${file.replace(/[^A-Za-z0-9]+/g, "-").slice(-48)}`, "pptx", `${id} training deck (${tag}) ${file}`, readFileSync(join(trainingDir, file)), { expectNotes: true });
+        }
+      };
+      readTraining("plain");
       const variants = [["plain", undefined, undefined], ["branded", BRANDS.branded, logoPath]];
       if (id === "lab-large") variants.length = 1;
       for (const [tag, branding, logoSourcePath] of variants) {
@@ -320,6 +330,8 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
         const docBranding = { ...BRANDS.branded, logoBuffer: png };
         writeGeneratedLabTopicDocuments(built.outputDir, { branding: docBranding });
         readTopics("branded");
+        writeGeneratedLabTrainingDecks(built.outputDir, { branding: docBranding });
+        readTraining("branded");
 
         log(`bundling ${id} ZIP`);
         const sink = collectStream();

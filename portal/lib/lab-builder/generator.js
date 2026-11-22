@@ -17,6 +17,8 @@ import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest
 import { composeLab } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { buildModuleTrainingDigest } from "./topic-training.js";
+import { buildModuleTrainingSources } from "./training-plan.js";
+import { writeGeneratedLabTrainingDecks } from "./training-decks.js";
 import {
   applyTopicDocumentsToManifest,
   buildTopicDocumentsMeta,
@@ -1396,6 +1398,14 @@ export async function generateLab(request, opts = {}) {
           vendorSources: vendorByFeature.get(f.id) || [],
           appliedNarrative: enrichment.byFeature?.get(f.id)?.applied || "",
         }),
+        // What Microsoft Learn printed for this module (cautions, takeaways, page fingerprint), kept so the pre-lab
+        // training decks can be rebuilt later from the manifest alone.
+        training: buildModuleTrainingSources({
+          feature: f,
+          grounding: groundingByFeature.get(f.id),
+          stepsRecord: derived,
+          digest: null,
+        }),
       };
     }),
     deferred: plan.deferred,
@@ -1532,6 +1542,13 @@ export async function generateLab(request, opts = {}) {
       markdown,
       manifest,
     });
+    onProgress?.({ stage: "topics", message: "Building the pre-lab training decks" });
+    try {
+      result.trainingDecks = writeGeneratedLabTrainingDecks(outputDir, { labId: savedLabId, markdown, manifest }).summary;
+    } catch (err) {
+      // The lab is complete without them: they are built again the first time someone asks for one.
+      plan.warnings.push(`The training decks could not be built yet (${err.message}). They will be built when you first open them.`);
+    }
 
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {

@@ -42,6 +42,7 @@ import {
 import { ADMIN_AUDIENCE_LABEL, LEARNER_SETUP_NOTE, isAdminAudienceTopic } from "./learner-guide.js";
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 import { subtopicPlaceholderStep } from "./topic-feature.js";
+import { estimateLabTrainingMinutes, formatTrainingDuration } from "./training-plan.js";
 import { scopeProblem } from "./topic-scope.js";
 import { stepLeadSentence, stepToMarkdown } from "./sub-steps.js";
 import {
@@ -184,7 +185,8 @@ function metadataTable(plan, generation = {}) {
     "|---|---|",
     `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
     `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
-    `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
+    `| ⏱️ **TIME** | Hands-on: about ${plan.duration} (estimate, not a limit) |`,
+    `| 🎓 **TRAINING** | Training: about ${formatTrainingDuration(estimateLabTrainingMinutes(plan).total)}, delivered before the hands-on lab (estimate, not a limit) |`,
     `| 🧩 **PRODUCTS** | ${productsRow(plan)} |`,
     plan.harness ? `| 🧭 **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
     `| 🏷️ **TAGS** | ${tags} |`,
@@ -351,6 +353,8 @@ function timeEstimateSection(plan) {
     "## Time Estimate",
     "",
     `Plan for about **${estimate.duration}** in total. These are estimates to help you schedule, not limits: work at your own pace, and take the time each module needs to be done well.`,
+    "",
+    `That is the hands-on time. The pre-lab training decks add about **${formatTrainingDuration(estimateLabTrainingMinutes(plan).total)}** of training before it, with no lab steps.`,
     "",
     "| Step | Module | Level | Estimated time |",
     "|---|---|---|---|",

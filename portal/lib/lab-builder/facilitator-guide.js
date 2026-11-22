@@ -37,6 +37,7 @@ import {
 } from "./sharepoint-site.js";
 import { createLabImageResolver } from "./topic-documents.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
+import { TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
 import {
   ensureReadableColor,
   getBrandFont,
@@ -429,6 +430,19 @@ function computeDemoHandsOnSplit(targetMinutes, isRecap = false) {
 
 function formatClockRange(startMin, endMin) {
   return `${startMin}–${endMin} min`;
+}
+
+/**
+ * The pre-lab session: the foundations decks, then the training for every topic, each with the hands-on time that
+ * follows it later. The training comes first in the day; the run-of-show below it is the hands-on time.
+ */
+function buildPreLabSession({ markdown, manifest, labId, outputDir, handsOnMinutes }) {
+  const plan = buildTrainingPlan({ markdown, manifest, labId, outputDir });
+  const rows = [
+    ...plan.foundations.map((f) => ({ kind: "foundations", stepLabel: "Foundations", title: f.short, trainingMinutes: f.minutes, handsOnMinutes: null, reviewFirst: f.thin })),
+    ...plan.topics.map((t) => ({ kind: t.isRecap ? "recap" : "topic", stepLabel: t.stepLabel, title: t.title, trainingMinutes: t.minutes, handsOnMinutes: t.handsOnMinutes, reviewFirst: t.unreviewed })),
+  ];
+  return { totalMinutes: plan.totalMinutes, handsOnMinutes, rows, deckFolder: TRAINING_ZIP_FOLDER, completeDeck: `${plan.completeFileBase}.pptx` };
 }
 
 function buildPacingSchedule(moduleEntries, preFlightBufferMinutes = 15) {
@@ -902,6 +916,9 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
   });
 
   const pacing = buildPacingSchedule(modulePlaybooks, 15);
+  const preLab = buildPreLabSession({ markdown, manifest, labId, outputDir: resolvedLabDir, handsOnMinutes: pacing.modulesMinutes });
+  pacing.preLabTrainingMinutes = preLab.totalMinutes;
+  pacing.totalWithTrainingMinutes = preLab.totalMinutes + pacing.totalWorkshopMinutes;
 
   const sharepointReadiness = {
     required: requiresSharepoint,
@@ -962,6 +979,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     learnerKnowledgeCheckEnabled,
     learnerKnowledgeCheckStatusText,
     pacing,
+    preLab,
     readinessRunbook: {
       leadTimeHours: 24,
       twentyFourHourChecklist,
@@ -993,13 +1011,15 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
     `| **Products & Harness** | ${escapeMarkdownTableCell(`${model.productsLabel} (${model.harnessLabel})`)} |`,
     `| **Target Solution / Agent** | ${escapeMarkdownTableCell(model.agentName)} |`,
     `| **Module Count** | ${model.modules.length} module${model.modules.length === 1 ? "" : "s"} |`,
+    `| **Pre-Lab Training Session (Deliver First)** | ${model.preLab.totalMinutes} minutes: the foundations decks, then the training for each topic. No lab steps. |`,
     `| **Recommended Pre-Flight Buffer** | ${model.pacing.preFlightBufferMinutes} minutes (sign-in, environment check, sample-files verification) |`,
-    `| **Core Module Delivery Time** | ${model.pacing.modulesMinutes} minutes${
+    `| **Core Module Delivery Time (Hands-On)** | ${model.pacing.modulesMinutes} minutes${
       model.pacing.breakMinutes > 0
         ? ` + ${model.pacing.breakMinutes} minutes suggested break buffer`
         : ""
     } |`,
-    `| **Total Scheduled Workshop Window** | **${model.pacing.totalWorkshopMinutes} minutes** |`,
+    `| **Total Hands-On Workshop Window** | **${model.pacing.totalWorkshopMinutes} minutes** |`,
+    `| **Training Plus Hands-On** | **${model.pacing.totalWithTrainingMinutes} minutes** (${model.preLab.totalMinutes} training, then ${model.pacing.totalWorkshopMinutes} hands-on) |`,
     `| **Learner Handout Knowledge Checks** | ${escapeMarkdownTableCell(
       model.learnerKnowledgeCheckEnabled
         ? "Enabled in learner handout (Answer Key & distractor rationales included below)"
@@ -1008,7 +1028,19 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
     "",
     `> **Knowledge Check Delivery Note:** ${model.learnerKnowledgeCheckStatusText}`,
     "",
-    "### Run-of-Show Pacing Table",
+    "### Pre-Lab Training Session (Deliver First)",
+    "",
+    `Deliver the training before anyone opens the lab guide. It takes about ${model.preLab.totalMinutes} minutes, it is for people who are new to this, and it has no lab steps. Use \`${model.preLab.completeDeck}\` to deliver it in one sitting, or the one-topic decks one at a time (all are in the \`${model.preLab.deckFolder}\` folder of the lab package). The hands-on times below come after it.`,
+    "",
+    "| Order | Part | Training Min | Hands-On Min (Later) | Note |",
+    "| --- | --- | --- | --- | --- |",
+    ...model.preLab.rows.map(
+      (row, i) =>
+        `| ${i + 1} | **${escapeMarkdownTableCell(row.stepLabel)}**: ${escapeMarkdownTableCell(row.title)} | ${row.trainingMinutes} min | ${row.handsOnMinutes ? `${row.handsOnMinutes} min` : "—"} | ${row.reviewFirst ? "Review before you present: this deck comes only from Microsoft Learn." : ""} |`,
+    ),
+    `| | **Total** | **${model.preLab.totalMinutes} min** | **${model.preLab.handsOnMinutes} min** | |`,
+    "",
+    "### Run-of-Show Pacing Table (Hands-On)",
     "",
     "| Window | Segment | Module / Activity | Level | Target Min | Demo vs. Hands-On Split | Facilitator Pacing Cue |",
     "| --- | --- | --- | --- | --- | --- | --- |",
@@ -1214,6 +1246,18 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
   const secondaryDark = secondaryHex ? ensureReadableColor(secondaryHex, ["#1e293b", "#0f172a"], "#93c5fd", 3) : "";
   const bodyFontStack = getBrandFont(branding.font).css || '"Segoe UI", system-ui, -apple-system, sans-serif';
   const brandInfoHtml = renderBrandInfoHtml(branding, { className: "brand-info" });
+
+  const preLabRowsHtml = model.preLab.rows
+    .map(
+      (row, i) => `<tr class="row-${escapeHtml(row.kind)}">
+        <td>${i + 1}</td>
+        <td><strong>${escapeHtml(row.stepLabel)}</strong>: ${escapeHtml(row.title)}</td>
+        <td>${row.trainingMinutes} min</td>
+        <td>${row.handsOnMinutes ? `${row.handsOnMinutes} min` : "&mdash;"}</td>
+        <td>${row.reviewFirst ? "Review before you present: this deck comes only from Microsoft Learn." : ""}</td>
+      </tr>`,
+    )
+    .join("\n");
 
   const pacingRowsHtml = model.pacing.rows
     .map(
@@ -1478,7 +1522,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
       <div>
         <div class="hero-kicker">${escapeHtml(companyName)} &middot; ${escapeHtml(tagline)}</div>
         <h1>${escapeHtml(model.title)} — Facilitator Guide</h1>
-        <div class="module-meta">${escapeHtml(model.productsLabel)} (${escapeHtml(model.harnessLabel)}) &middot; ${model.modules.length} Modules &middot; Total Window: ${model.pacing.totalWorkshopMinutes} min (includes ${model.pacing.preFlightBufferMinutes} min pre-flight)</div>${coverSubtitle ? `\n        <div class="module-meta"><em>${escapeHtml(coverSubtitle)}</em></div>` : ""}
+        <div class="module-meta">${escapeHtml(model.productsLabel)} (${escapeHtml(model.harnessLabel)}) &middot; ${model.modules.length} Modules &middot; Training first: ${model.preLab.totalMinutes} min &middot; Hands-on: ${model.pacing.totalWorkshopMinutes} min (includes ${model.pacing.preFlightBufferMinutes} min pre-flight)</div>${coverSubtitle ? `\n        <div class="module-meta"><em>${escapeHtml(coverSubtitle)}</em></div>` : ""}
       </div>
       <div class="toolbar">
         <button type="button" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'">Toggle Theme</button>
@@ -1491,6 +1535,18 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     </div>
 
     <h2>1. Workshop Overview &amp; Run-of-Show Pacing</h2>
+    <h3>Pre-Lab Training Session (Deliver First)</h3>
+    <p>Deliver the training before anyone opens the lab guide. It takes about ${model.preLab.totalMinutes} minutes, it is for people who are new to this, and it has no lab steps. Use <code>${escapeHtml(model.preLab.completeDeck)}</code> to deliver it in one sitting, or the one-topic decks one at a time (all are in the <code>${escapeHtml(model.preLab.deckFolder)}</code> folder of the lab package). The hands-on times below come after it.</p>
+    <table>
+      <thead>
+        <tr><th>Order</th><th>Part</th><th>Training</th><th>Hands-On (Later)</th><th>Note</th></tr>
+      </thead>
+      <tbody>
+        ${preLabRowsHtml}
+        <tr class="row-total"><td></td><td><strong>Total</strong></td><td><strong>${model.preLab.totalMinutes} min</strong></td><td><strong>${model.preLab.handsOnMinutes} min</strong></td><td></td></tr>
+      </tbody>
+    </table>
+    <h3>Run-of-Show Pacing (Hands-On)</h3>
     <table>
       <thead>
         <tr><th>Window</th><th>Segment</th><th>Module / Activity</th><th>Level</th><th>Target</th><th>Demo vs. Hands-On</th><th>Facilitator Cue</th></tr>

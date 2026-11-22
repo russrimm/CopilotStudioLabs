@@ -1,0 +1,218 @@
+{
+  "$comment": "Foundations briefs for five products: Agent Builder and declarative agents for Microsoft 365 Copilot, SharePoint AI, Microsoft Foundry, the Microsoft 365 Copilot hub and Copilot controls, and the Power Platform AI hub (AI Builder). Every statement follows the Microsoft Learn pages listed in verifiedAgainst.",
+  "version": 1,
+  "products": {
+    "m365-copilot-agent-builder": {
+      "whatItIs": "A declarative agent is an agent for Microsoft 365 Copilot that you define with a purpose, instructions, knowledge, and actions. You can build one in Agent Builder inside Microsoft 365 Copilot, or with developer tools such as Microsoft 365 Agents Toolkit.",
+      "whoUses": "Business users who want a quick, guided agent use Agent Builder, and developers who need more control use developer tools.",
+      "blocks": [
+        { "label": "Declarative agent", "plain": "Defined by instructions, knowledge, and actions. Copilot's own engine runs it." },
+        { "label": "Instructions", "plain": "Plain-language rules for the agent's purpose, tone, and limits." },
+        { "label": "Knowledge", "plain": "Approved sources, such as SharePoint content, that ground answers." },
+        { "label": "Actions", "plain": "Things the agent can do, such as skills, connectors, or outside actions." },
+        { "label": "Agent Builder", "plain": "A guided tool in Microsoft 365 Copilot for quick agents." },
+        { "label": "Agents Toolkit", "plain": "Developer tools for building agents in code." }
+      ],
+      "fit": {
+        "center": { "label": "Declarative agent", "plain": "Runs on Copilot's own orchestrator and model." },
+        "around": [
+          { "label": "Instructions", "plain": "Shape the agent's purpose, tone, and limits." },
+          { "label": "Knowledge", "plain": "Approved sources that ground its answers." },
+          { "label": "Actions", "plain": "Skills, connectors, or outside actions it can use." },
+          { "label": "Build tools", "plain": "Agent Builder for guided work, Agents Toolkit for code." },
+          { "label": "Sharing", "plain": "Share with people, or submit to the org catalog for approval." }
+        ]
+      },
+      "whereYouWork": "Agent Builder is part of Microsoft 365 Copilot, on the web and in Teams on desktop and web, but not on mobile. Agents Toolkit works in code editors such as Visual Studio Code. Administrators govern agents in the Microsoft 365 admin center.",
+      "vocabulary": ["declarative-agent", "agent-builder", "agents-toolkit", "instructions", "knowledge", "grounding", "tool", "publish", "m365-copilot"],
+      "askTheRoom": "What is one job on your team that a helper with the right instructions and documents could take on?",
+      "sayOutLoud": "A declarative agent is a version of Copilot that you set up for one job. You give it instructions, point it at trusted content, and sometimes add actions. Copilot does the thinking, so the agent itself needs no hosting.",
+      "learn": [
+        { "title": "Declarative agents for Microsoft 365 Copilot", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent" },
+        { "title": "Agent Builder overview", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder" },
+        { "title": "Microsoft 365 Agents Toolkit", "url": "https://learn.microsoft.com/microsoftteams/platform/toolkit/overview-agents-toolkit" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-overview",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-architecture",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-development-tools",
+        "https://learn.microsoft.com/microsoftteams/platform/toolkit/overview-agents-toolkit"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false
+    },
+    "sharepoint-ai": {
+      "whatItIs": "SharePoint AI features bring AI to the content in SharePoint. They include Copilot in SharePoint, agents that answer from SharePoint content, document processing that fills in details from files, and extra admin controls for oversharing and sprawl.",
+      "whoUses": "Site owners and members use the AI with their files and pages, and admins use Advanced Management to keep content under control.",
+      "blocks": [
+        { "label": "Copilot in SharePoint", "plain": "AI help inside SharePoint to ask questions and create content." },
+        { "label": "Agents in SharePoint", "plain": "Agents that help people find information on sites, pages, and libraries." },
+        { "label": "Autofill columns", "plain": "Library columns that fill in from each file using a plain-language prompt." },
+        { "label": "Document processing", "plain": "Prebuilt or custom models that read documents and save details." },
+        { "label": "Advanced Management", "plain": "Admin tools that cut content sprawl and prevent oversharing." },
+        { "label": "Copilot Credits", "plain": "The units used for advanced Copilot work in SharePoint." }
+      ],
+      "fit": {
+        "center": { "label": "SharePoint content", "plain": "Sites, libraries, pages, and lists where the AI works." },
+        "around": [
+          { "label": "Copilot in SharePoint", "plain": "Ask, create, and organize in natural language." },
+          { "label": "Agents", "plain": "Answer from chosen sites, pages, and libraries." },
+          { "label": "Document AI", "plain": "Turn what is inside files into columns." },
+          { "label": "Advanced Management", "plain": "Governs access and what Copilot can discover." },
+          { "label": "Licensing", "plain": "A Copilot license, or usage-based billing for advanced work." }
+        ]
+      },
+      "whereYouWork": "Site owners and members work inside SharePoint sites and document libraries. Administrators work in the SharePoint admin center and the Microsoft 365 admin center.",
+      "vocabulary": ["sharepoint", "agent", "autofill-column", "document-processing", "sharepoint-advanced-management", "restricted-content-discovery", "copilot-credits", "oversharing"],
+      "askTheRoom": "Where does your team keep files that people keep asking questions about?",
+      "sayOutLoud": "SharePoint is where many of us already keep our files. SharePoint AI adds help right there: Copilot to ask and create, agents to answer from chosen content, tools that read documents, and admin controls to keep it safe.",
+      "learn": [
+        { "title": "Get started with Copilot in SharePoint", "url": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started" },
+        { "title": "Get started with agents in SharePoint", "url": "https://learn.microsoft.com/sharepoint/get-started-sharepoint-agents" },
+        { "title": "What is SharePoint Advanced Management?", "url": "https://learn.microsoft.com/sharepoint/advanced-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+        "https://learn.microsoft.com/sharepoint/get-started-sharepoint-agents",
+        "https://learn.microsoft.com/sharepoint/advanced-management",
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false
+    },
+    "ai-foundry": {
+      "whatItIs": "Microsoft Foundry is a platform for building with AI models and agents. It brings agents, models, and tools together under one Azure resource, with tracing, monitoring, evaluations, and shared access controls built in.",
+      "whoUses": "Developers, data scientists, and platform teams use it to choose models, build and test agents, and run them with shared governance.",
+      "blocks": [
+        { "label": "Foundry project", "plain": "The workspace for a team's agents, evaluations, and files." },
+        { "label": "Model catalog", "plain": "A searchable list of more than 10,000 models from many providers." },
+        { "label": "Deployment", "plain": "A copy of a model, set up so apps and agents can call it." },
+        { "label": "Agent", "plain": "A model with instructions and tools that can reason and take action." },
+        { "label": "Playground", "plain": "A safe place to try models and agents without writing code." },
+        { "label": "Governance", "plain": "Roles, content filters, network rules, and policy for shared control." }
+      ],
+      "fit": {
+        "center": { "label": "Foundry project", "plain": "The workspace where a team builds and tests." },
+        "around": [
+          { "label": "Models", "plain": "Deployed from the catalog and shared by the resource." },
+          { "label": "Agents", "plain": "Prompt agents Foundry hosts, or hosted agents running your code." },
+          { "label": "Tools and knowledge", "plain": "Tools, files, and search that ground agents in your content." },
+          { "label": "Evaluation", "plain": "Tracing, scoring, and dashboards to check quality." },
+          { "label": "Access", "plain": "Roles and policies that decide who can do what." }
+        ]
+      },
+      "whereYouWork": "Mostly in the Foundry web portal, which has a new version and a classic version. Developers can also use code libraries, command-line tools, and Visual Studio Code. Some setup is done in the Azure portal.",
+      "vocabulary": ["foundry", "foundry-project", "ai-model", "model-catalog", "model-deployment", "agent", "prompt-agent", "hosted-agent", "foundry-playground", "quota", "evaluation"],
+      "askTheRoom": "What would you want to try first: sending a prompt to a model, or building an agent that takes action?",
+      "sayOutLoud": "Foundry is where Contoso's developers pick a model, try it, and build an agent around it. Everything lives in a project, so access, safety checks, and monitoring are shared in one place.",
+      "learn": [
+        { "title": "What is Microsoft Foundry?", "url": "https://learn.microsoft.com/azure/foundry/what-is-foundry" },
+        { "title": "Microsoft Foundry product and capability map", "url": "https://learn.microsoft.com/azure/foundry/concepts/capabilities" },
+        { "title": "What is Microsoft Foundry (classic) portal?", "url": "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry/concepts/capabilities",
+        "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview",
+        "https://learn.microsoft.com/azure/foundry/concepts/concept-playgrounds",
+        "https://learn.microsoft.com/azure/foundry/how-to/create-projects",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false
+    },
+    "m365-copilot-hub": {
+      "whatItIs": "The Microsoft 365 Copilot hub is the part of the Microsoft 365 admin center, with linked tools, where organizations manage Microsoft Copilot and agents. Learn groups this guidance under Copilot controls.",
+      "whoUses": "IT admins use it to give people Copilot, manage agents, protect data, and see how Copilot is used.",
+      "blocks": [
+        { "label": "Copilot controls", "plain": "Three parts: keep data safe, manage use, and measure results." },
+        { "label": "Settings", "plain": "Choices such as who gets Copilot Chat and whether web search is allowed." },
+        { "label": "Agent Registry", "plain": "The list of agents the company can use, with owners and status." },
+        { "label": "Licensing and billing", "plain": "Per-person licenses, or pay-as-you-go billing for some services." },
+        { "label": "Data protection", "plain": "Tools in Microsoft Purview and SharePoint that find oversharing and protect data." },
+        { "label": "Reports", "plain": "Usage and adoption reports, such as the Copilot Dashboard." }
+      ],
+      "fit": {
+        "center": { "label": "Copilot controls", "plain": "One framework for governing Copilot and agents." },
+        "around": [
+          { "label": "Security and governance", "plain": "Protect the data Copilot and agents use." },
+          { "label": "Management", "plain": "Licensing, agent lifecycle, and customization." },
+          { "label": "Measurement", "plain": "Adoption, productivity, and business value." }
+        ]
+      },
+      "whereYouWork": "In admin portals, mainly the Microsoft 365 admin center, which has areas for Copilot and for agents. Some tasks lead to other admin tools, such as Microsoft Purview and the SharePoint admin center.",
+      "vocabulary": ["microsoft-copilot", "copilot-chat", "copilot-controls", "agent", "agent-registry", "purview", "pay-as-you-go", "oversharing", "copilot-credits"],
+      "askTheRoom": "If your organization turned on Copilot tomorrow, what would you most want to control, measure, or protect?",
+      "sayOutLoud": "Copilot controls are how an organization stays in charge of Copilot and agents. They cover three jobs: protect the data, manage who gets what, and measure how it is used. Today we learn the ideas, not the settings.",
+      "learn": [
+        { "title": "Copilot controls overview", "url": "https://learn.microsoft.com/copilot/implement/copilot-controls-overview" },
+        { "title": "Microsoft Copilot overview", "url": "https://learn.microsoft.com/copilot/plan/copilot-overview" },
+        { "title": "Overview of Microsoft Agent 365", "url": "https://learn.microsoft.com/microsoft-agent-365/overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-overview",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/plan/copilot-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false
+    },
+    "power-platform-ai-hub": {
+      "whatItIs": "AI Builder is a Power Platform feature for creating and using AI models and prompts in Power Apps and Power Automate. You can use a prebuilt model that is ready to go, or train a custom model on your own data.",
+      "whoUses": "Makers, including people with no coding skills, use it to add AI to the apps and flows they build.",
+      "blocks": [
+        { "label": "AI hub", "plain": "The area of Power Apps and Power Automate where makers find models and prompts." },
+        { "label": "Prebuilt model", "plain": "Ready to use with no training, for common business jobs." },
+        { "label": "Custom model", "plain": "Trained on your own data, then published for others to use." },
+        { "label": "Prompt", "plain": "Instructions for a generative AI model, built and tested in prompt builder." },
+        { "label": "Apps and flows", "plain": "Where models and prompts get used, in Power Apps and Power Automate." },
+        { "label": "Dataverse and roles", "plain": "Where training data and AI Builder tables live, secured by roles." }
+      ],
+      "fit": {
+        "center": { "label": "AI Builder", "plain": "Models and prompts for apps and flows." },
+        "around": [
+          { "label": "Prebuilt models", "plain": "Ready now, for common jobs such as receipts." },
+          { "label": "Custom models", "plain": "Trained on your data, for your own needs." },
+          { "label": "Prompts", "plain": "Instructions that make a generative AI model do a job." },
+          { "label": "Apps and flows", "plain": "Call a model or prompt and use the result." },
+          { "label": "Dataverse", "plain": "Stores data and security settings for AI Builder." }
+        ]
+      },
+      "whereYouWork": "In the Power Apps and Power Automate maker portals, in the AI hub area. Prompts can also be built in Copilot Studio. Administrators manage AI Builder in the Power Platform admin center.",
+      "vocabulary": ["ai-builder", "ai-hub", "prebuilt-model", "custom-model", "prompt", "prompt-builder", "dataverse", "environment", "agent-flow", "power-fx"],
+      "askTheRoom": "Which repetitive task in an app or flow you use today involves reading text or documents?",
+      "sayOutLoud": "AI Builder lets people add AI to the apps and flows they already build, without writing code. Some models are ready to use, some you train on your own data, and prompts let you ask a generative AI model to do a job.",
+      "learn": [
+        { "title": "Overview of AI Builder", "url": "https://learn.microsoft.com/ai-builder/overview" },
+        { "title": "AI models and business scenarios", "url": "https://learn.microsoft.com/ai-builder/model-types" },
+        { "title": "Overview of prompts", "url": "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/overview",
+        "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview",
+        "https://learn.microsoft.com/ai-builder/create-a-custom-prompt",
+        "https://learn.microsoft.com/ai-builder/availability-region",
+        "https://learn.microsoft.com/ai-builder/security",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview",
+        "https://learn.microsoft.com/ai-builder/manage-model"
+      ],
+      "verifiedOn": "2026-11-21",
+      "thin": false
+    }
+  }
+}

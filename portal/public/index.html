@@ -3210,6 +3210,21 @@
       text-decoration: none;
       color: var(--text);
     }
+    .lb-training-group { display: flex; flex-direction: column; gap: 8px; flex: 1 1 100%; margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+    .lb-training-heading { margin: 0; font-size: 15px; color: var(--text); }
+    .lb-training-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-training-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .lb-training-list { display: flex; flex-direction: column; gap: 6px; }
+    .lb-training-list[hidden] { display: none; }
+    .lb-training-summary, .lb-training-empty { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-training-subheading { margin: 6px 0 0; font-size: 13px; color: var(--text); }
+    .lb-training-items { list-style: none; margin: 0; padding: 0; }
+    .lb-training-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--border); }
+    .lb-training-item-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; flex: 1 1 280px; }
+    .lb-training-item-title { font-size: 13.5px; color: var(--text); }
+    .lb-training-time { font-size: 12.5px; color: var(--text-muted); }
+    .lb-training-chip { font-size: 12px; }
+    .lb-training-item-btn { text-decoration: none; color: var(--text); }
     .lb-gen-dialog { margin: auto; max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); }
     .lb-gen-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
     .lb-gen-dialog h4 { margin: 0 0 10px; font-size: 17px; }
@@ -7387,6 +7402,7 @@
   <script src="lab-builder-my-products.js" defer></script>
 <script src="use-case-builder.js" defer></script>
 <script src="generated-labs.js" defer></script>
+<script src="training-decks.js" defer></script>
 <script src="screenshot-center-core.js" defer></script>
 <script src="screenshot-center-command.js" defer></script>
 <script src="screenshot-center-jobs.js" defer></script>

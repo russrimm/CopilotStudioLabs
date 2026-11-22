@@ -1,0 +1,21 @@
+{
+  "$comment": "Glossary terms for the publish, test, monitor, secure, govern, and billing training briefs. Each entry is defined once; terms.json has the shared ones.",
+  "terms": {
+    "user-authentication": { "term": "authentication", "match": ["authentication", "authenticate", "authenticated"], "plain": "proving who a person is, usually by signing in, before an agent shares private information" },
+    "single-sign-on": { "term": "single sign-on", "match": ["single sign-on", "SSO"], "plain": "letting a person who is already signed in to a page or app skip a second sign-in to the agent", "expansion": "single sign-on" },
+    "content-moderation": { "term": "content moderation", "match": ["content moderation", "moderation"], "plain": "filters that check an agent's answers for harmful content and can block them" },
+    "agent-identity": { "term": "agent identity", "match": ["agent identit(?:y|ies)", "Entra Agent IDs?"], "plain": "a Microsoft Entra account that lets an agent prove who it is to channels and services" },
+    "test-set": { "term": "test set", "match": ["test sets?", "test cases?"], "plain": "a saved group of test questions or conversations that you can run again and again" },
+    "agent-session": { "term": "session", "match": ["sessions?"], "plain": "one stretch of conversation between a person and an agent, as counted in reports" },
+    "conversation-transcript": { "term": "transcript", "match": ["transcripts?"], "plain": "the saved record of what a person and an agent said in a conversation" },
+    "pay-as-you-go": { "term": "pay-as-you-go", "match": ["pay-as-you-go"], "plain": "paying at the end of each month for what an agent actually used, through an Azure subscription" },
+    "usage-based-billing": { "term": "usage-based billing", "match": ["usage-based billing"], "plain": "paying for how much you use something, instead of paying one fixed price per user" },
+    "foundry-guardrail": { "term": "guardrail", "match": ["guardrails?"], "plain": "a set of safety controls that watch what goes into and comes out of a model or an agent" },
+    "agent-trace": { "term": "trace", "match": ["traces?", "tracing"], "plain": "a record, in order, of what an agent did to answer one request" },
+    "oversharing": { "term": "oversharing", "match": ["oversharing", "overshared"], "plain": "content that more people can reach than should be able to" },
+    "agent-registry": { "term": "agent registry", "match": ["agent registry", "registry"], "plain": "a list of the agents in an organization, with their owners and status" },
+    "sharepoint-advanced-management": { "term": "SharePoint Advanced Management", "match": ["SharePoint Advanced Management", "SAM"], "plain": "SharePoint tools that help manage content sprawl, content lifecycle, and oversharing", "expansion": "SharePoint Advanced Management" },
+    "agent-365": { "term": "Microsoft Agent 365", "match": ["Microsoft Agent 365", "Agent 365"], "plain": "Microsoft's central place to observe, govern, and secure agents across an organization" },
+    "agent-builder": { "term": "Agent Builder", "match": ["Agent Builder"], "plain": "a Microsoft 365 Copilot tool for building agents with instructions and chosen knowledge sources" }
+}
+}

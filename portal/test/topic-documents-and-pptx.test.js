@@ -632,7 +632,7 @@ test("generateLab writes per-topic .docx and .pptx named per lab in topics/ (inc
   }
 });
 
-test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card with per-lab filenames", () => {
+test("portal UI renders the accessible hands-on documents and decks card with per-lab filenames", () => {
   const genLabsSrc = readFileSync(new URL("../public/generated-labs.js", import.meta.url), "utf8");
   const context = {
     CSS: { escape: (s) => String(s) },
@@ -680,7 +680,8 @@ test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card
 
   const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
-  assert.match(html, /Topic Word Documents &amp; PowerPoint Slides/);
+  assert.match(html, /Hands-on documents &amp; decks: lab day/);
+  assert.match(html, /The training decks to deliver first are above\./, "points to the pre-lab group");
   assert.match(html, /2 topics<\/span>/);
   assert.doesNotMatch(html, /files named per lab/);
   assert.doesNotMatch(html, /generated-labs\//);
@@ -689,7 +690,7 @@ test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card
   assert.match(html, /lb-prereq-req-badge-recap">Refresher 1<\/span>/);
   assert.match(html, /<span class="lb-prereq-req-badge">Part 1<\/span>/);
   assert.match(html, /aria-label="Download Word guide for Refresher 1: Create an agent"/);
-  assert.match(html, /aria-label="Download PowerPoint deck for Part 1: Ground on SharePoint"/);
+  assert.match(html, /aria-label="Download hands-on deck \(lab day\) for Part 1: Ground on SharePoint"/);
   assert.doesNotMatch(visibleText, /\b(?:Recap|Step) \d/);
   assert.match(html, /download="Healthcare Lab - Recap 01 - Create an agent\.docx"/);
   assert.match(html, /download="Healthcare Lab - Step 01 - Ground on SharePoint\.pptx"/);
