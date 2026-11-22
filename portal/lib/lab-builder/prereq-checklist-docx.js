@@ -9,6 +9,7 @@
 
 import { buildZipBuffer, inspectImageDimensions, stripIllegalXmlChars } from "./docx-builder.js";
 import { contrastRatio, ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
+import { PRODUCT_NAME, isDefaultCompanyName } from "../product-name.js";
 import {
   checklistInlineSegments,
   checklistItemParts,
@@ -57,7 +58,7 @@ export function renderPrerequisitesChecklistDocxBuffer(model, { branding } = {})
   const tint = mixWithWhite(primaryHex, 0.9);
   const fontName = getBrandFont(brand.font).office || "Segoe UI";
   const companyName = String(brand.companyName || "").trim();
-  const showCompany = companyName && companyName !== "Microsoft AI Training Generator";
+  const showCompany = companyName && !isDefaultCompanyName(companyName);
 
   const hyperlinks = [];
   const images = [];
@@ -325,7 +326,7 @@ export function renderPrerequisitesChecklistDocxBuffer(model, { branding } = {})
     {
       name: "docProps/app.xml",
       data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Copilot Studio Labs Builder</Application></Properties>`,
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${PRODUCT_NAME}</Application></Properties>`,
     },
     { name: "word/document.xml", data: documentXml },
     {

@@ -15,6 +15,7 @@ import {
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
 import { cleanText, getBrandFont } from "./brand-theme.js";
+import { PRODUCT_NAME } from "../product-name.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { isSubStepStart, normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 
@@ -1163,8 +1164,8 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
 
   objects[0] = "<< /Type /Catalog /Pages 3 0 R >>";
   objects[1] = `<< /Title ${pdfLiteralString(docTitle)} /Creator ${pdfLiteralString(
-    options.branding?.companyName || "Copilot Studio Labs Builder",
-  )} /Producer (Copilot Studio Labs Pure-Node PDF Builder) >>`;
+    options.branding?.companyName || PRODUCT_NAME,
+  )} /Producer ${pdfLiteralString(`${PRODUCT_NAME} PDF builder`)} >>`;
   objects[2] = `<< /Type /Pages /Count ${pageIds.length} /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] >>`;
 
   // Serialize binary PDF with exact byte offsets

@@ -17,6 +17,7 @@
 
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { cleanText } from "./brand-theme.js";
+import { isDefaultCompanyName } from "../product-name.js";
 import { DEFAULT_PRODUCT, getProduct, joinNames } from "./products.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 
@@ -958,7 +959,7 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
   const hasConfirm = sectionList.some((s) => s.items.some((i) => i.confirm));
 
   const brandInfo = brand && typeof brand === "object" ? brand : {};
-  const customerName = cleanText(brandInfo.companyName) && brandInfo.companyName !== "Microsoft AI Training Generator" ? cleanText(brandInfo.companyName) : "";
+  const customerName = cleanText(brandInfo.companyName) && !isDefaultCompanyName(brandInfo.companyName) ? cleanText(brandInfo.companyName) : "";
   const support = {
     name: cleanText(brandInfo.supportName),
     email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(brandInfo.supportEmail || "")) ? String(brandInfo.supportEmail) : "",

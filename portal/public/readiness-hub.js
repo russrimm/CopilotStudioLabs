@@ -56,7 +56,7 @@ function rhIsLocalHost(hostname) {
 }
 
 function rhDefaultBrand() {
-  return typeof BRAND_DEFAULT_PROFILE !== "undefined" ? BRAND_DEFAULT_PROFILE : { companyName: "Microsoft AI Training Generator", primaryColor: "#4f8ff7" };
+  return typeof BRAND_DEFAULT_PROFILE !== "undefined" ? BRAND_DEFAULT_PROFILE : { companyName: "Agentic Microsoft Training and Lab Generator", primaryColor: "#4f8ff7" };
 }
 
 function rhNormalizeHex(value) {

@@ -23,6 +23,7 @@ import { resolveTopicTrainingDigest } from "./topic-training.js";
 import { getBrandFont, getBrandInfoModel } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { learnerGuideMarkdown } from "./learner-guide.js";
+import { PRODUCT_NAME } from "../product-name.js";
 import { normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
@@ -1080,7 +1081,7 @@ class PptxDeckAssembler {
 
   renderCorePropsXml() {
     const nowIso = new Date().toISOString();
-    const creator = this.organizationName || "Copilot Studio Labs Builder";
+    const creator = this.organizationName || PRODUCT_NAME;
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -1099,7 +1100,7 @@ class PptxDeckAssembler {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
   xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-  <Application>Copilot Studio Labs Builder</Application>
+  <Application>${xmlEscape(PRODUCT_NAME)}</Application>
   <PresentationFormat>Widescreen</PresentationFormat>
   <Slides>${this.slides.length}</Slides>
   <Notes>${notesCount}</Notes>

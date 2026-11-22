@@ -77,7 +77,7 @@ const BRAND_OVERRIDE_FIELDS = [
 ];
 
 const BRAND_DEFAULT_PROFILE = {
-  companyName: "Microsoft AI Training Generator",
+  companyName: "Agentic Microsoft Training and Lab Generator",
   tagline: "Provisioning Portal",
   primaryColor: "#4f8ff7",
   secondaryColor: "",

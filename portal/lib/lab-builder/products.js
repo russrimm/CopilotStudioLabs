@@ -1,5 +1,5 @@
 /**
- * Products: the solution areas the Microsoft AI Training Generator builds labs for.
+ * Products: the solution areas the Agentic Microsoft Training and Lab Generator builds labs for.
  *
  * A product sits above the harness. Copilot Studio is the only product with
  * harnesses today, so a harness is optional everywhere: it is chosen, tagged,
@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { PRODUCT_NAME } from "../product-name.js";
 
 import { readUserProducts, userProductsPath } from "./user-products.js";
 
@@ -21,7 +22,7 @@ const PRODUCTS_PATH = path.join(__dirname, "products.json");
 
 export const DEFAULT_PRODUCT = "copilot-studio";
 export const PRODUCT_LEVELS = [100, 200, 300];
-export const GENERATOR_NAME = "Microsoft AI Training Generator";
+export const GENERATOR_NAME = PRODUCT_NAME;
 
 const LEARN_HOST = "learn.microsoft.com";
 const SLUG = /^[a-z][a-z0-9-]*$/;
