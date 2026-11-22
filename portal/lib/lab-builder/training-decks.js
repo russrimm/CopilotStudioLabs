@@ -171,7 +171,12 @@ export function writeGeneratedLabTrainingDecks(labDir, options = {}) {
   const plan = buildTrainingPlan({ markdown, manifest, labId, outputDir: resolved, library });
   const decks = planDecks(plan, library);
   const folder = path.join(resolved, TRAINING_FOLDER);
-  fs.mkdirSync(folder, { recursive: true });
+  // The lab folder must already exist: a reader that lost a race with delete or replace must not recreate it.
+  try {
+    fs.mkdirSync(folder);
+  } catch (err) {
+    if (err.code !== "EEXIST") throw err;
+  }
   sweepTemporaryFiles(folder);
 
   const expected = new Set([TRAINING_STATE_FILE.toLowerCase()]);

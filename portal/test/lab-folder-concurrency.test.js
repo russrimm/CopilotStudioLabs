@@ -111,7 +111,8 @@ test("a lab that is still being built is invisible to every reader until it is w
   const seen = [];
   const result = await build(REQUEST, root, {
     onProgress: ({ stage }) => {
-      if (stage !== "topics") return;
+      // The build reports "topics" again for the training decks; the first report is the one this test looks at.
+      if (stage !== "topics" || seen.length) return;
       const dirs = visible(root);
       seen.push({ dirs: dirs.length, markers: dirs.filter((d) => existsSync(path.join(root, d.name, BUILDING_MARKER))).length, listed: listGeneratedLabs(root).labs.length, exists: dirs.length ? generatedLabExists(root, dirs[0].name) : null, export: dirs.length ? resolveSafeGeneratedLabDir(root, dirs[0].name).status : null, read: dirs.length ? readGeneratedLab(root, dirs[0].name).status : null });
     },
