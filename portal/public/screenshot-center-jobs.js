@@ -37,6 +37,7 @@ function scLab(key) {
       needsAddress: null,
       busy: "",
       resumeAt: 0,
+      sharedNoticeJobId: null,
       eventSource: null,
       pollTimer: null,
       tickTimer: null,
@@ -457,6 +458,11 @@ function scApplyJob(key, job, { full = true, silent = false } = {}) {
     void scFinishJob(key, job);
     return;
   }
+  // A lab's progress is shared, but only the person who started a capture can stop it: say so once, in the live region too.
+  if (job.mine === false && lab.sharedNoticeJobId !== job.id) {
+    lab.sharedNoticeJobId = job.id;
+    scAnnounce(SC_OTHER_PERSON_CAPTURING);
+  }
   const view = scDescribeJob(job, {
     companionConnected: scState.status?.companion ? Boolean(scState.status.companion.connected) : null,
     nowMs: Date.now(),
@@ -464,7 +470,7 @@ function scApplyJob(key, job, { full = true, silent = false } = {}) {
   });
   const phaseChanged = view.phase !== lab.phase;
   const progressed = view.counts.done !== lab.lastDone;
-  if (!silent && phaseChanged && lab.phase) scAnnounce(`${view.headline}. ${view.detail}`);
+  if (!silent && job.mine !== false && phaseChanged && lab.phase) scAnnounce(`${view.headline}. ${view.detail}`);
   else if (!silent && progressed && lab.lastDone >= 0 && Date.now() - lab.lastAnnounceAt > 4000) {
     scAnnounce(`${view.counts.done} of ${view.counts.total} screenshots done.`);
     lab.lastAnnounceAt = Date.now();
@@ -665,6 +671,16 @@ function scScopeBody(scope, filenames) {
 }
 
 /**
+ * What a refused capture request says. A lab that already has a capture (409) is not an error: the portal's own plain
+ * sentence is shown as it is. Anything else keeps the short lead-in.
+ */
+function scQueueFailure(status, data) {
+  const plain = scText(data?.error, 300);
+  if (status === 409 && plain) return { type: "job", variant: "warn", message: plain, jobId: null, actions: [] };
+  return { type: "job", variant: "error", message: `Could not start the capture. ${data?.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+}
+
+/**
  * Queue a capture for one lab. Returns true when a job is now being tracked.
  * @param {string} labId
  * @param {{ scope?: string, filenames?: string[], mode?: string }} request `mode` defaults to the lab's choice
@@ -695,7 +711,9 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
     };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
-      lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+      lab.outcome = scQueueFailure(status, data);
+      // The lab's capture is already there (yours or someone else's): show its progress beside the sentence.
+      if (status === 409 && SC_JOB_ID.test(String(data.existingJobId || ""))) await scTrackJobById(labId, data.existingJobId);
     } else if (data.needsNewerCompanion) {
       // Nothing was queued: this computer's companion is too old to build an agent from scratch.
       lab.outcome = { type: "job", variant: "warn", message: scText(data.message, 400) || "Download the Local Capture Companion again to build the agent from scratch.", jobId: null, actions: [] };
@@ -1328,7 +1346,7 @@ async function scQueueLibraryCapture(product) {
     const body = { target: { type: "library", products: [product] }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true, mode: SC_DEFAULT_CAPTURE_MODE } };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
-      lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+      lab.outcome = scQueueFailure(status, data);
     } else if (data.nothingToCapture) {
       lab.outcome = { type: "job", variant: "ok", message: "Nothing to capture. Every screenshot for that product already exists.", jobId: null, actions: [] };
     } else if (data.job) {

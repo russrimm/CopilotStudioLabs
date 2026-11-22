@@ -5,21 +5,17 @@
  * disk (`PORTAL_STORAGE_ROOT`) and Azure Blob Storage over HTTPS using Entra
  * Managed Identity RBAC (`Storage Blob Data Contributor`) with zero storage
  * account keys and zero external npm dependencies (Node 24 built-ins only).
+ *
+ * Upload passes: `scheduleBlobSync()` is a cheap synchronous call that debounces a burst into one pass (never later
+ * than `BLOB_SYNC_MAX_WAIT_MS`). Every entry point (scheduled, flush, manual, shutdown) runs through one serialized
+ * runner, so two passes never overlap. A pass yields to the event loop as it walks the tree, and sends a file only if
+ * it is unchanged since it was read. A failed pass retries on a bounded exponential backoff
+ * (`BLOB_SYNC_RETRY_BASE_MS`), independent of any request.
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
+import { existsSync, lstatSync, promises as fsp, renameSync, statSync } from "node:fs";
+import { basename, dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import {
   ensurePortalStorageDirs,
   registerBlobSyncStatusProvider,
@@ -36,6 +32,22 @@ export const MANAGED_BLOB_PREFIXES = Object.freeze(["generated-labs", "data", "u
 
 const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_SYNC_DEBOUNCE_MS = 250;
+// A burst of changes never postpones the next upload pass by more than this (env BLOB_SYNC_MAX_WAIT_MS).
+const DEFAULT_SYNC_MAX_WAIT_MS = 30000;
+// Backoff between automatic retries of a failed pass (env BLOB_SYNC_RETRY_BASE_MS), doubling up to the attempt cap.
+const DEFAULT_SYNC_FAILURE_RETRY_BASE_MS = 2000;
+const MAX_SYNC_FAILURE_RETRIES = 5;
+const MAX_SYNC_FAILURE_RETRY_DELAY_MS = 5 * 60 * 1000;
+// A pass that skipped a file because it changed mid-pass reruns at most this many times back to back.
+const MAX_CHURN_RERUNS = 3;
+const DEFAULT_SHUTDOWN_FLUSH_TIMEOUT_MS = 10000;
+// A pass hands the event loop back after this many files or this much work, whichever comes first.
+const YIELD_EVERY_FILES = 20;
+const YIELD_EVERY_MS = 15;
+const HASH_SLICE_BYTES = 4 * 1024 * 1024;
+// A file modified this recently when tracked is re-hashed instead of trusted by size and mtime alone, because a second
+// write inside the same timestamp tick would look unchanged.
+const RACY_STAMP_WINDOW_MS = 2000;
 const DEFAULT_HYDRATE_CONCURRENCY = 6;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_BASE_DELAY_MS = 150;
@@ -228,10 +240,13 @@ export function encodeBlobPath(blobName) {
   return segments.map((segment) => encodeURIComponent(segment)).join("/");
 }
 
+// Half-written copies and lock leftovers: never uploaded, in a file or a folder name.
 function isTransientFileName(fileName) {
   return (
     fileName.startsWith(".portal-storage-probe-") ||
-    fileName.includes(".blob-tmp-")
+    fileName.includes(".blob-tmp-") ||
+    fileName.includes(".stale-") ||
+    /\.tmp$/i.test(fileName)
   );
 }
 
@@ -478,29 +493,79 @@ export async function acquireStorageAccessToken(options = {}) {
   return provider.acquireStorageAccessToken();
 }
 
+/**
+ * Run `worker` over `items` with a concurrency limit. After the first failure no new item starts, but every worker
+ * already running settles before the first error is rethrown, so nothing keeps uploading behind a failed pass.
+ */
 async function runWithConcurrency(items, concurrency, worker) {
   const limit = Math.max(1, Math.min(concurrency, items.length || 1));
   let index = 0;
+  let failure = null;
   const runners = Array.from({ length: limit }, async () => {
-    while (index < items.length) {
+    while (!failure && index < items.length) {
       const currentIndex = index;
       index += 1;
-      await worker(items[currentIndex], currentIndex);
+      try {
+        await worker(items[currentIndex], currentIndex);
+      } catch (err) {
+        failure ??= { err };
+      }
     }
   });
   await Promise.all(runners);
+  if (failure) throw failure.err;
 }
 
-function writeBufferAtomically(targetPath, buffer) {
-  const dir = dirname(targetPath);
-  mkdirSync(dir, { recursive: true });
+function yieldToEventLoop() {
+  return new Promise((resolveImmediate) => setImmediate(resolveImmediate));
+}
+
+/** Hands the event loop back after every `everyFiles` ticks or `everyMs` of work, so HTTP requests keep being served. */
+function createYielder({ everyFiles = YIELD_EVERY_FILES, everyMs = YIELD_EVERY_MS } = {}) {
+  let ticks = 0;
+  let sliceStartedAt = performance.now();
+  return {
+    async tick() {
+      ticks += 1;
+      if (ticks >= everyFiles || performance.now() - sliceStartedAt >= everyMs) {
+        ticks = 0;
+        await yieldToEventLoop();
+        sliceStartedAt = performance.now();
+      }
+    },
+  };
+}
+
+/** SHA-256 that gives the event loop a turn between slices of a large buffer. */
+async function sha256HexYielding(buffer) {
+  if (buffer.byteLength <= HASH_SLICE_BYTES) return sha256Hex(buffer);
+  const hash = createHash("sha256");
+  for (let offset = 0; offset < buffer.byteLength; offset += HASH_SLICE_BYTES) {
+    hash.update(buffer.subarray(offset, offset + HASH_SLICE_BYTES));
+    await yieldToEventLoop();
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Write `buffer` beside `targetPath` under a unique `.blob-tmp-` name, then rename it into place, so a reader sees the
+ * whole old file or the whole new one and the sync pass never uploads a half-written copy. With `overwrite: false` an
+ * existing target wins (checked right before the rename) and `false` is returned.
+ */
+async function writeBufferAtomically(targetPath, buffer, { overwrite = true } = {}) {
+  await fsp.mkdir(dirname(targetPath), { recursive: true });
   const tempPath = `${targetPath}.blob-tmp-${process.pid}-${randomUUID()}`;
   try {
-    writeFileSync(tempPath, buffer);
+    await fsp.writeFile(tempPath, buffer, { flag: "wx" });
+    if (!overwrite && existsSync(targetPath)) {
+      await fsp.rm(tempPath, { force: true });
+      return false;
+    }
     renameSync(tempPath, targetPath);
+    return true;
   } catch (err) {
     try {
-      if (existsSync(tempPath)) unlinkSync(tempPath);
+      await fsp.rm(tempPath, { force: true });
     } catch {
       // Ignore cleanup failure.
     }
@@ -517,13 +582,31 @@ function readStatStamp(filePath) {
   };
 }
 
-function walkManagedDirectory(baseDir, prefix, outMap) {
-  if (!existsSync(baseDir)) return;
+async function readStatStampAsync(filePath) {
+  const st = await fsp.stat(filePath, { bigint: true });
+  return {
+    size: Number(st.size),
+    mtimeMs: Number(st.mtimeMs),
+    mtimeNs: st.mtimeNs,
+    isFile: st.isFile(),
+  };
+}
 
-  function recurse(currentDir, relSegments) {
+function sameStamp(a, b) {
+  return a.size === b.size && a.mtimeNs === b.mtimeNs;
+}
+
+async function walkManagedDirectory(baseDir, prefix, outMap, yielder) {
+  try {
+    await fsp.access(baseDir);
+  } catch {
+    return;
+  }
+
+  async function recurse(currentDir, relSegments) {
     let entries;
     try {
-      entries = readdirSync(currentDir, { withFileTypes: true });
+      entries = await fsp.readdir(currentDir, { withFileTypes: true });
     } catch {
       return;
     }
@@ -536,24 +619,17 @@ function walkManagedDirectory(baseDir, prefix, outMap) {
       const nextSegments = [...relSegments, entry.name];
 
       if (entry.isDirectory()) {
-        recurse(fullPath, nextSegments);
+        await recurse(fullPath, nextSegments);
       } else if (entry.isFile()) {
         const blobName = [prefix, ...nextSegments].join("/");
         if (isUnsafeBlobName(blobName)) continue;
-        try {
-          const stamp = readStatStamp(fullPath);
-          outMap.set(blobName, {
-            fullPath,
-            ...stamp,
-          });
-        } catch {
-          // File may have been concurrently removed; next scan will reconcile.
-        }
+        outMap.set(blobName, { fullPath });
+        await yielder.tick();
       }
     }
   }
 
-  recurse(baseDir, []);
+  await recurse(baseDir, []);
 }
 
 /**
@@ -588,6 +664,29 @@ export function createBlobPersistence(options = {}) {
     1000,
     positiveInt(options.requestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS),
   );
+  const syncMaxWaitMs = Math.max(
+    debounceMs,
+    positiveInt(options.maxWaitMs ?? env?.BLOB_SYNC_MAX_WAIT_MS, DEFAULT_SYNC_MAX_WAIT_MS),
+  );
+  const failureRetryBaseMs = positiveInt(
+    options.syncRetryBaseMs ?? env?.BLOB_SYNC_RETRY_BASE_MS,
+    DEFAULT_SYNC_FAILURE_RETRY_BASE_MS,
+  );
+  const maxFailureRetries = positiveInt(options.maxSyncFailureRetries, MAX_SYNC_FAILURE_RETRIES);
+  const random = typeof options.random === "function" ? options.random : Math.random;
+  // Injectable so tests drive the debounce, backoff, and shutdown timers with a fake clock. The default clock is
+  // monotonic, so a wall-clock jump cannot stretch the debounce.
+  const timers = {
+    now: typeof options.timers?.now === "function" ? options.timers.now : () => performance.now(),
+    setTimeout:
+      typeof options.timers?.setTimeout === "function"
+        ? options.timers.setTimeout
+        : (fn, ms) => setTimeout(fn, ms),
+    clearTimeout:
+      typeof options.timers?.clearTimeout === "function"
+        ? options.timers.clearTimeout
+        : (handle) => clearTimeout(handle),
+  };
 
   const tokenManager = createStorageTokenProvider({
     env,
@@ -597,7 +696,7 @@ export function createBlobPersistence(options = {}) {
     now: options.now,
   });
 
-  // relPath -> { size: number, mtimeMs: number, mtimeNs: bigint, sha256: string }
+  // relPath -> { size: number, mtimeMs: number, mtimeNs: bigint, sha256: string, racy: boolean }
   const syncedFiles = new Map();
 
   let hydrated = false;
@@ -608,8 +707,16 @@ export function createBlobPersistence(options = {}) {
   let healthy = true;
 
   let debounceTimer = null;
+  let pendingSince = 0;
+  let lastRequestAt = 0;
+  let retryTimer = null;
+  let failureRetryAttempts = 0;
   let activeSyncPromise = null;
   let syncRequestedWhileRunning = false;
+  let passFailed = false;
+  let passChurned = false;
+  let stopped = false;
+  let shuttingDown = false;
 
   function containerBaseUrl() {
     if (!enabled) {
@@ -621,8 +728,13 @@ export function createBlobPersistence(options = {}) {
     return `${endpoint}/${encodeURIComponent(container)}`;
   }
 
-  async function blobFetch(url, init = {}, { allowNotFound = false } = {}) {
+  /**
+   * `guard` is a synchronous last-look check run right before the request is sent (after the bearer token is in
+   * hand, which can take a while): when it returns false nothing is sent and `null` is returned.
+   */
+  async function blobFetch(url, init = {}, { allowNotFound = false, guard = null } = {}) {
     let token = await tokenManager.acquireStorageAccessToken();
+    if (guard && !guard()) return null;
     const attemptRequest = async (bearerToken) => {
       const headers = {
         Authorization: `Bearer ${bearerToken}`,
@@ -653,6 +765,7 @@ export function createBlobPersistence(options = {}) {
     if (response.status === 401) {
       tokenManager.invalidate();
       token = await tokenManager.acquireStorageAccessToken();
+      if (guard && !guard()) return null;
       response = await attemptRequest(token);
     }
 
@@ -719,18 +832,28 @@ export function createBlobPersistence(options = {}) {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  async function uploadBlob(blobName, buffer, contentType) {
+  /** Resolves `false` (nothing sent) when `guard` vetoes the upload at send time, `true` once the blob is written. */
+  async function uploadBlobGuarded(blobName, buffer, contentType, guard) {
     const encodedPath = encodeBlobPath(blobName);
     const body = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
-    await blobFetch(`${containerBaseUrl()}/${encodedPath}`, {
-      method: "PUT",
-      headers: {
-        "x-ms-blob-type": "BlockBlob",
-        "Content-Length": String(body.byteLength),
-        "Content-Type": contentType || inferContentType(blobName),
+    const response = await blobFetch(
+      `${containerBaseUrl()}/${encodedPath}`,
+      {
+        method: "PUT",
+        headers: {
+          "x-ms-blob-type": "BlockBlob",
+          "Content-Length": String(body.byteLength),
+          "Content-Type": contentType || inferContentType(blobName),
+        },
+        body,
       },
-      body,
-    });
+      { guard },
+    );
+    return response !== null;
+  }
+
+  async function uploadBlob(blobName, buffer, contentType) {
+    await uploadBlobGuarded(blobName, buffer, contentType, null);
   }
 
   async function deleteBlob(blobName) {
@@ -783,13 +906,14 @@ export function createBlobPersistence(options = {}) {
         await runWithConcurrency(validManaged, hydrateConcurrency, async (blobName) => {
           const targetPath = resolveSafeBlobLocalPath(blobName, env);
           const content = await downloadBlob(blobName);
-          writeBufferAtomically(targetPath, content);
+          await writeBufferAtomically(targetPath, content);
           const stamp = readStatStamp(targetPath);
           downloadedEntries.push([
             blobName,
             {
               ...stamp,
               sha256: sha256Hex(content),
+              racy: false,
             },
           ]);
         });
@@ -808,18 +932,30 @@ export function createBlobPersistence(options = {}) {
       hydrated = false;
       healthy = false;
       lastError = sanitizeBlobError(err);
+      // Typically RBAC still propagating: try again by itself instead of waiting for the first change.
+      scheduleFailureRetry();
     }
 
     return getStatus();
   }
 
-  function scanLocalFiles() {
+  async function scanLocalFiles(yielder) {
     const dirs = resolvePrefixDirs(env);
     const localMap = new Map();
     for (const prefix of MANAGED_BLOB_PREFIXES) {
-      walkManagedDirectory(dirs[prefix], prefix, localMap);
+      await walkManagedDirectory(dirs[prefix], prefix, localMap, yielder);
     }
     return localMap;
+  }
+
+  function trackSynced(blobName, stamp, sha256) {
+    syncedFiles.set(blobName, {
+      size: stamp.size,
+      mtimeMs: stamp.mtimeMs,
+      mtimeNs: stamp.mtimeNs,
+      sha256,
+      racy: Date.now() - stamp.mtimeMs < RACY_STAMP_WINDOW_MS,
+    });
   }
 
   /**
@@ -838,74 +974,100 @@ export function createBlobPersistence(options = {}) {
       const targetPath = resolveSafeBlobLocalPath(blobName, env);
       if (existsSync(targetPath)) return;
       const content = await downloadBlob(blobName);
-      writeBufferAtomically(targetPath, content);
+      // A local write that landed while the download was in flight wins over the older remote copy.
+      if (!(await writeBufferAtomically(targetPath, content, { overwrite: false }))) return;
       const stamp = readStatStamp(targetPath);
-      const entry = {
-        ...stamp,
-        sha256: sha256Hex(content),
-      };
-      syncedFiles.set(blobName, entry);
-      localFiles.set(blobName, { fullPath: targetPath, ...stamp });
+      trackSynced(blobName, stamp, sha256Hex(content));
+      localFiles.set(blobName, { fullPath: targetPath });
     });
 
     hydrated = true;
     hydratedFiles += missingLocally.length;
   }
 
+  /**
+   * Bring one local file up to date in Blob. The size/mtime stamp read before the content is what gets tracked, and a
+   * synchronous re-stat right before the PUT vetoes the upload when the file changed in the meantime: an older version
+   * is never sent over a newer one, and the tracked state only ever describes what was actually uploaded.
+   */
+  async function syncLocalFile(blobName, fullPath) {
+    let before;
+    try {
+      before = await readStatStampAsync(fullPath);
+    } catch {
+      return; // Removed since the scan; the delete phase or the next pass reconciles it.
+    }
+    if (!before.isFile) return;
+
+    const prev = syncedFiles.get(blobName);
+    if (prev && !prev.racy && sameStamp(prev, before)) return;
+
+    let buffer;
+    try {
+      buffer = await fsp.readFile(fullPath);
+    } catch {
+      return;
+    }
+    const sha256 = await sha256HexYielding(buffer);
+    if (prev && prev.sha256 === sha256) {
+      trackSynced(blobName, before, sha256);
+      return;
+    }
+
+    const unchangedSinceRead = () => {
+      try {
+        return sameStamp(before, readStatStamp(fullPath));
+      } catch {
+        return false;
+      }
+    };
+    const uploaded = await uploadBlobGuarded(blobName, buffer, inferContentType(blobName), unchangedSinceRead);
+    if (!uploaded) {
+      passChurned = true;
+      return;
+    }
+    trackSynced(blobName, before, sha256);
+  }
+
+  function isTrackedFileBackOnDisk(blobName) {
+    try {
+      const localPath = resolveSafeBlobLocalPath(blobName, env);
+      return lstatSync(localPath).isFile() && !isTransientFileName(basename(localPath));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * One scan-and-sync pass. Private: every entry point goes through `runSerializedSync` so two passes never overlap.
+   */
   async function performSyncPass() {
     if (!enabled) {
       return getStatus();
     }
 
+    passFailed = false;
     try {
       await withRetries(async () => {
-        const localFiles = scanLocalFiles();
+        const yielder = createYielder();
+        const localFiles = await scanLocalFiles(yielder);
         const wasHydratedBeforePass = hydrated;
 
         if (!hydrated) {
           await reconcileRemoteBeforeSync(localFiles);
         }
 
-        const toUpload = [];
-        for (const [blobName, localInfo] of localFiles.entries()) {
-          const prev = syncedFiles.get(blobName);
-          if (
-            prev &&
-            prev.size === localInfo.size &&
-            prev.mtimeNs === localInfo.mtimeNs
-          ) {
-            continue;
-          }
-
-          let buffer;
-          let freshStamp;
+        // One failing file never stops the others; the first error is rethrown once every file has been tried.
+        let firstFileError = null;
+        await runWithConcurrency([...localFiles.entries()], hydrateConcurrency, async ([blobName, localInfo]) => {
           try {
-            buffer = readFileSync(localInfo.fullPath);
-            freshStamp = readStatStamp(localInfo.fullPath);
-          } catch {
-            // File disappeared mid-scan; skip in this pass.
-            continue;
+            await syncLocalFile(blobName, localInfo.fullPath);
+          } catch (err) {
+            firstFileError ??= err;
           }
-
-          const sha256 = sha256Hex(buffer);
-          if (prev && prev.sha256 === sha256) {
-            syncedFiles.set(blobName, {
-              ...freshStamp,
-              sha256,
-            });
-            continue;
-          }
-
-          toUpload.push({ blobName, buffer, freshStamp, sha256 });
-        }
-
-        await runWithConcurrency(toUpload, hydrateConcurrency, async (item) => {
-          await uploadBlob(item.blobName, item.buffer, inferContentType(item.blobName));
-          syncedFiles.set(item.blobName, {
-            ...item.freshStamp,
-            sha256: item.sha256,
-          });
+          await yielder.tick();
         });
+        if (firstFileError) throw firstFileError;
 
         // CRITICAL SAFETY GUARD: Only delete remote blobs that were previously
         // materialized in `syncedFiles` AND only when this replica was already
@@ -920,6 +1082,11 @@ export function createBlobPersistence(options = {}) {
           }
 
           await runWithConcurrency(toDelete, hydrateConcurrency, async (blobName) => {
+            // The pass can run for a while; a file that came back since the scan is kept, and the rerun picks it up.
+            if (isTrackedFileBackOnDisk(blobName)) {
+              passChurned = true;
+              return;
+            }
             await deleteBlob(blobName);
             syncedFiles.delete(blobName);
           });
@@ -930,6 +1097,7 @@ export function createBlobPersistence(options = {}) {
         lastSyncAt = new Date().toISOString();
       });
     } catch (err) {
+      passFailed = true;
       healthy = false;
       lastError = sanitizeBlobError(err);
     }
@@ -937,6 +1105,44 @@ export function createBlobPersistence(options = {}) {
     return getStatus();
   }
 
+  function cancelDebounce() {
+    if (debounceTimer) {
+      timers.clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    pendingSince = 0;
+  }
+
+  function cancelFailureRetry() {
+    if (retryTimer) {
+      timers.clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  /**
+   * After a failed pass, retry on a timer with exponential backoff and jitter, independent of any request. Gives up
+   * after `maxFailureRetries` attempts and waits for the next scheduled change (which starts a fresh budget).
+   */
+  function scheduleFailureRetry() {
+    cancelFailureRetry();
+    if (stopped || shuttingDown || failureRetryAttempts >= maxFailureRetries) return;
+    const ceilingMs = Math.max(MAX_SYNC_FAILURE_RETRY_DELAY_MS, failureRetryBaseMs);
+    const backoffMs = Math.min(ceilingMs, failureRetryBaseMs * 2 ** failureRetryAttempts);
+    const delayMs = Math.round(backoffMs * (0.5 + 0.5 * random()));
+    failureRetryAttempts += 1;
+    retryTimer = timers.setTimeout(() => {
+      retryTimer = null;
+      void runSerializedSync().catch(() => {});
+    }, delayMs);
+    retryTimer?.unref?.();
+  }
+
+  /**
+   * The single runner behind every entry point (scheduled, flush, manual `syncToBlob`, shutdown). A call that arrives
+   * while a pass is running does not start a second one: it asks for a rerun and shares the running promise, which only
+   * settles after a pass that began after the call.
+   */
   function runSerializedSync() {
     if (!enabled) {
       return Promise.resolve(getStatus());
@@ -948,50 +1154,120 @@ export function createBlobPersistence(options = {}) {
 
     activeSyncPromise = (async () => {
       let result = null;
-      do {
-        syncRequestedWhileRunning = false;
-        result = await performSyncPass();
-      } while (syncRequestedWhileRunning);
+      let churnReruns = 0;
+      let churnPending = false;
+      try {
+        for (;;) {
+          syncRequestedWhileRunning = false;
+          passChurned = false;
+          result = await performSyncPass();
+          // A file changed under the pass: go again, but never spin on a file that keeps changing.
+          churnPending = passChurned;
+          if (churnPending && churnReruns < MAX_CHURN_RERUNS) {
+            churnReruns += 1;
+            churnPending = false;
+            syncRequestedWhileRunning = true;
+          }
+          if (!syncRequestedWhileRunning) break;
+        }
+      } finally {
+        // Cleared in the same turn as the last rerun check, so a request can never be lost between the two.
+        activeSyncPromise = null;
+      }
+      if (passFailed) {
+        scheduleFailureRetry();
+      } else {
+        failureRetryAttempts = 0;
+        cancelFailureRetry();
+      }
+      if (churnPending) scheduleBlobSync();
       return result;
-    })().finally(() => {
-      activeSyncPromise = null;
-    });
+    })();
 
     return activeSyncPromise;
   }
 
+  function onDebounceTimer() {
+    debounceTimer = null;
+    const nowMs = timers.now();
+    const quietForMs = nowMs - lastRequestAt;
+    const waitedMs = nowMs - pendingSince;
+    if (quietForMs < debounceMs && waitedMs < syncMaxWaitMs) {
+      armDebounce(Math.max(0, Math.min(debounceMs, debounceMs - quietForMs, syncMaxWaitMs - waitedMs)));
+      return;
+    }
+    pendingSince = 0;
+    // A fresh change supersedes any pending failure retry and starts a new retry budget.
+    cancelFailureRetry();
+    failureRetryAttempts = 0;
+    void runSerializedSync().catch(() => {});
+  }
+
+  function armDebounce(delayMs) {
+    debounceTimer = timers.setTimeout(onDebounceTimer, delayMs);
+    debounceTimer?.unref?.();
+  }
+
+  /**
+   * Called on every mutating response, so it stays synchronous and cheap: it records the time and arms at most one
+   * timer. The pass runs `debounceMs` after the last call, or `maxWaitMs` after the first of a continuous burst.
+   */
   function scheduleBlobSync() {
     if (!enabled) return;
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
+    stopped = false;
+    if (shuttingDown) {
+      if (activeSyncPromise) syncRequestedWhileRunning = true;
+      return;
     }
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null;
-      void runSerializedSync();
-    }, debounceMs);
-    debounceTimer.unref?.();
+    const nowMs = timers.now();
+    lastRequestAt = nowMs;
+    if (debounceTimer) return;
+    pendingSince = nowMs;
+    armDebounce(debounceMs);
   }
 
   async function flushBlobSync() {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
-    }
-    if (!enabled) {
-      return getStatus();
-    }
-    if (activeSyncPromise) {
-      syncRequestedWhileRunning = true;
-      return activeSyncPromise;
-    }
+    cancelDebounce();
+    cancelFailureRetry();
     return runSerializedSync();
   }
 
-  function stop() {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-      debounceTimer = null;
+  /**
+   * For a SIGTERM handler: cancels the timers, runs one final serialized pass, and resolves (never rejects) with the
+   * sync status plus `timedOut`, no later than `timeoutMs` from the call.
+   */
+  async function flushBlobSyncForShutdown({ timeoutMs = DEFAULT_SHUTDOWN_FLUSH_TIMEOUT_MS } = {}) {
+    shuttingDown = true;
+    cancelDebounce();
+    cancelFailureRetry();
+    if (!enabled) {
+      return { ...getStatus(), timedOut: false };
     }
+
+    const limitMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) >= 0 ? Number(timeoutMs) : DEFAULT_SHUTDOWN_FLUSH_TIMEOUT_MS;
+    let timeoutHandle = null;
+    try {
+      const timedOut = await Promise.race([
+        runSerializedSync().then(
+          () => false,
+          () => false,
+        ),
+        new Promise((resolveTimeout) => {
+          timeoutHandle = timers.setTimeout(() => resolveTimeout(true), limitMs);
+        }),
+      ]);
+      return { ...getStatus(), timedOut };
+    } catch {
+      return { ...getStatus(), timedOut: false };
+    } finally {
+      if (timeoutHandle !== null) timers.clearTimeout(timeoutHandle);
+    }
+  }
+
+  function stop() {
+    stopped = true;
+    cancelDebounce();
+    cancelFailureRetry();
   }
 
   function getPublicDiagnostics() {
@@ -1010,6 +1286,9 @@ export function createBlobPersistence(options = {}) {
       ...getPublicDiagnostics(),
       rejectedBlobs,
       lastError,
+      syncing: activeSyncPromise !== null,
+      retryScheduled: retryTimer !== null,
+      retryAttempts: failureRetryAttempts,
     };
   }
 
@@ -1021,9 +1300,10 @@ export function createBlobPersistence(options = {}) {
     uploadBlob,
     deleteBlob,
     hydrateFromBlob,
-    syncToBlob: performSyncPass,
+    syncToBlob: runSerializedSync,
     scheduleBlobSync,
     flushBlobSync,
+    flushBlobSyncForShutdown,
     stop,
     getPublicDiagnostics,
     getStatus,
@@ -1051,20 +1331,35 @@ export function scheduleBlobSync() {
   defaultBlobPersistence?.scheduleBlobSync();
 }
 
+function disabledSyncStatus() {
+  return {
+    enabled: false,
+    hydrated: false,
+    hydratedFiles: 0,
+    syncedFiles: 0,
+    lastSyncAt: null,
+    healthy: true,
+    rejectedBlobs: 0,
+    lastError: null,
+  };
+}
+
 export async function flushBlobSync() {
   if (!defaultBlobPersistence) {
-    return {
-      enabled: false,
-      hydrated: false,
-      hydratedFiles: 0,
-      syncedFiles: 0,
-      lastSyncAt: null,
-      healthy: true,
-      rejectedBlobs: 0,
-      lastError: null,
-    };
+    return disabledSyncStatus();
   }
   return defaultBlobPersistence.flushBlobSync();
+}
+
+/**
+ * For a SIGTERM handler: cancels the pending timers, runs one final serialized sync pass, and resolves with the sync
+ * status plus `timedOut`. Never rejects and never waits past `timeoutMs`.
+ */
+export async function flushBlobSyncForShutdown(options = {}) {
+  if (!defaultBlobPersistence) {
+    return { ...disabledSyncStatus(), timedOut: false };
+  }
+  return defaultBlobPersistence.flushBlobSyncForShutdown(options);
 }
 
 export function getBlobPersistence() {

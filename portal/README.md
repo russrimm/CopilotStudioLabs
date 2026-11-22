@@ -150,9 +150,18 @@ All configuration is provided through environment variables (see `.env.template`
 | `LEARN_MCP_TIMEOUT_MS` | No | Learn MCP request timeout (default: `30000`) |
 | `LAB_BUILDER_OUTPUT_DIR` | No | Output directory for generated labs (default: `../generated-labs`) |
 | `FEATURE_TOUR_SCREENSHOTS_DIR` | No | The shared screenshot library, used on its own when set. Default: `${PORTAL_STORAGE_ROOT}/screenshots`, else a per-user folder outside the repository: `%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` on Windows, `~/Library/Application Support/CopilotStudioLabsPortal/screenshots` on macOS, `$XDG_DATA_HOME` or `~/.local/share/CopilotStudioLabsPortal/screenshots` elsewhere. The committed `docs/feature-tour/screenshots` stays a read-only fallback and is never written to. Pictures kept from deleted labs sit in its `.kept/` folder (see [Where the shared library lives](../docs/lab-builder.md#where-the-shared-library-lives)) |
-| `LAB_BUILDER_MAX_ACTIVE` | No | Concurrent lab generations before the API returns HTTP 429 (default: `2`) |
-| `LAB_BUILDER_RATE_MAX` | No | Lab generations allowed per user per window (default: `10`) |
+| `LAB_BUILDER_MAX_ACTIVE` | No | Lab builds that run at once; the rest wait in a fair line (default: `2`, at most `8`). See [Many people at once](../docs/lab-builder.md#many-people-at-once) |
+| `LAB_BUILDER_MAX_PER_PERSON`, `LAB_BUILDER_MAX_WAITING` | No | Places one person may hold, running plus waiting (default: `2`), and people allowed to wait (default: `50`) |
+| `LAB_BUILDER_QUEUE_WAIT_MS`, `LAB_BUILDER_BUILD_TIMEOUT_MS` | No | Longest wait for a turn (default: `150000`; keep it under the 240-second Container Apps ingress limit) and longest build (default: `600000`) |
+| `LAB_BUILDER_RATE_MAX` | No | Lab generations allowed per visitor (sign-in, else browser id, else address) per window (default: `10`) |
 | `LAB_BUILDER_RATE_WINDOW_MS` | No | Lab generation rate-limit window (default: `3600000`) |
+| `LAB_BUILDER_RATE_ADDRESS_MULTIPLIER` | No | One network address may use this many times one visitor's limit, so a flood that rotates browser ids is still capped (default: `8`) |
+| `PORTAL_TRUST_PROXY` | No | Proxy hops to believe about the caller's address (default: `1`, the Container Apps ingress; `false` when reached directly) |
+| `PORTAL_EXPORT_WORKERS` | No | Worker threads that build Word, PowerPoint, PDF, and ZIP files (default: `1`; `0` builds them on the main thread). Also `PORTAL_EXPORT_TIMEOUT_MS` (`120000`), `PORTAL_EXPORT_MAX_QUEUED` (`200`), `PORTAL_EXPORT_WORKER_IDLE_MS` (`60000`), `PORTAL_EXPORT_WORKER_HEAP_MB` (`384`) |
+| `PORTAL_HEADERS_TIMEOUT_MS`, `PORTAL_REQUEST_TIMEOUT_MS`, `PORTAL_KEEPALIVE_TIMEOUT_MS` | No | Connection limits (default: `30000`, `300000`, `65000`) |
+| `LAB_BUILDER_LEARN_MAX_CONCURRENT`, `LAB_BUILDER_LEARN_CACHE_MAX` | No | Microsoft Learn calls in flight at once (default: `6`) and cached answers kept (default: `500`) |
+| `BLOB_SYNC_MAX_WAIT_MS`, `BLOB_SYNC_RETRY_BASE_MS` | No | Longest a burst of writes waits before the Blob mirror flushes (default: `30000`) and the first retry delay after a failed pass (default: `2000`) |
+| `CAPTURE_SSE_MAX`, `CAPTURE_SSE_PER_VISITOR_MAX`, `CAPTURE_UPLOAD_CONCURRENCY`, `CAPTURE_IP_RATE_MULTIPLIER` | No | Open capture progress windows (portal, default `100`; per visitor, `6`), uploads read at once (`4`), and the per-address multiple of one visitor's capture limits (`20`) |
 | `LAB_BUILDER_MANAGE_RATE_MAX` | No | Generated-lab export/validate/rename/delete calls allowed per window (default: `60`) |
 | `LAB_BUILDER_MANAGE_RATE_WINDOW_MS` | No | Generated-lab management rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_BODY_LIMIT` | No | Maximum JSON body size on `/api/lab-builder` routes (default: `64kb`) |
@@ -334,7 +343,8 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | `POST` | `/api/lab-builder/topics/export` | Export every topic and sub-topic for the chosen products at every level (`format=csv\|markdown\|json\|dataset`; see [Export All Topics](../docs/lab-builder.md#export-all-topics)) |
 | `POST` | `/api/lab-builder/topics/refresh` | Crawl Microsoft Learn to refresh discovered topics for a product (`{ "product": "<id>" }`) |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (modules, recaps, estimated time, deliverable framing) without generating files |
-| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); supports `includeKnowledgeCheck`, SharePoint site inputs, `decisions`, and optional `replaceLabId` |
+| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); supports `includeKnowledgeCheck`, SharePoint site inputs, `decisions`, and optional `replaceLabId`. Builds wait in a fair line when several people build at once; send `X-Build-Ticket` to ask where you stand |
+| `GET` | `/api/lab-builder/build-queue/:ticket`, `/api/lab-builder/build-queue` | Where one build stands in line (`state`, `position`, `ahead`, `running`, `waiting`), and the totals. Counts only |
 | `GET` | `/api/lab-builder/generated` | List generated labs (with saved selections, module counts, and per-topic document metadata) |
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab (rendered HTML and branded Markdown for learners, which never include administrator settings; plus `adminPrerequisites` for the owner's panel, and `topicDocuments`) |
 | `GET` | `/api/lab-builder/generated/:labId/assets/:file` | Serve a generated lab screenshot or image asset (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) |
@@ -346,7 +356,7 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one). Its real screenshots are shared or kept for 90 days first; `GET /api/lab-builder/generated/:labId/pictures` says how many in advance |
 | `GET` / `POST` / `DELETE` | `/api/capture/kept` | Pictures kept from deleted or replaced labs: list, `POST .../:entry/:file/restore`, `DELETE .../:entry/:file?confirm=true`, `POST /api/capture/kept/purge` |
 | `GET` / `POST` | `/api/capture/library/export`, `/api/capture/library/import` | Move the shared screenshot library between computers as a ZIP (see [Move the shared library between computers](../docs/lab-builder.md#move-the-shared-library-between-computers)) |
-| `GET` / `POST` | `/api/lab-builder/drafts` | List the caller's saved drafts, or save a new one (`{ name, content }`; at most 50 per person, 256 KB each) |
+| `GET` / `POST` | `/api/lab-builder/drafts` | List the caller's saved drafts, or save a new one (`{ name, content }`; at most 50 per person, 256 KB each). "The caller" is the signed-in person, or with sign-in off the browser, named by its `X-Client-Id` header (separates people; not a security boundary) |
 | `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/unsaved` | The one autosave slot behind the unsaved-work banner (never a named draft) |
 | `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/:id` | Read, rename or change (last save wins), or delete one draft |
 | `POST` | `/api/lab-builder/drafts/:id/duplicate` | Copy a draft |
@@ -382,12 +392,14 @@ portal/
 │   ├── auth.js            MSAL device code delegated auth
 │   ├── require-auth.js    Entra ID bearer-token API middleware
 │   ├── rate-limit.js      Fixed-window in-memory API rate limiter
+│   ├── concurrency/       Many people at once: atomic file writes, per-key mutex, cross-process file lock, fair build queue, worker-thread pool, and who-is-calling (browser id, per-visitor limits)
+│   ├── exports/           Word, PowerPoint, PDF, and ZIP exports built in a worker thread so the portal keeps answering
 │   ├── validate-id.js     Input validation for az CLI arguments
 │   ├── approvals.js       Environment approval workflow engine
 │   ├── agent-chat.js      Copilot Studio agent chat config
 │   └── lab-builder/       6-product catalog (195 capabilities), planner, Learn MCP grounding, canonical URL dedup,
 │                          admin-prereqs, interactive paged HTML, pure-Node DOCX/PDF/PPTX & per-topic document builders
-├── test/                  Node test suites (npm test)
+├── test/                  Node test suites (npm test); test/concurrency/ is the many-people harness (npm run test:concurrency, see docs/lab-builder.md "Many people at once")
 ├── public/
 │   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
 │   ├── app.js                 Core portal frontend logic (pagination, checklists, mini-quizzes)
@@ -403,6 +415,7 @@ portal/
 │   ├── step-validation.js     Step validation UI (progress and results)
 │   ├── step-validation.css    Step validation styles
 │   ├── theme.js               Light/dark color theme toggle and persistence
+│   ├── client-id.js           A private id for this browser (localStorage), sent as X-Client-Id so drafts and limits are per browser when sign-in is off
 │   └── vendor/
 │       └── mermaid.min.js     Mermaid diagram renderer
 ├── data/                  Runtime data (feedback, branding and brand profiles, approvals, agent config, saved lab drafts)

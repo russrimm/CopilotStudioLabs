@@ -2,30 +2,41 @@
  * Routes for saved drafts of a partly configured lab: /api/lab-builder/drafts.
  *
  * They sit behind the same `requireAuth()` as every other /api/lab-builder route. With sign-in on, the signed-in
- * identity (req.user) names the person's private space; with sign-in off there is one local space. See drafts.js for
- * what is saved and where.
+ * identity (req.user) names the person's private space. With sign-in off, each browser's random id (the X-Client-Id
+ * header) names its own space, so two people on one portal never see or overwrite each other's work (this separates
+ * people and prevents collisions; it is not a security boundary). A caller with neither shares one `local` space, and the
+ * drafts saved there before browsers had ids move to the first browser that asks. See drafts.js for what is saved and where.
  */
 
 import { createDraftStore, DraftError, draftsDirFor, ownerKeyFor, UNSAVED_ID } from "./drafts.js";
+import { callerAddress, readClientId } from "../concurrency/visitor.js";
 
 export function registerDraftRoutes(app, { dataDir, authEnabled = false, createRateLimiter, positiveIntFromEnv, now } = {}) {
   const store = createDraftStore({ dir: draftsDirFor(dataDir), ...(now ? { now } : {}) });
-  const rate = createRateLimiter({
-    windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_DRAFTS_RATE_WINDOW_MS, 600000),
-    max: positiveIntFromEnv(process.env.LAB_BUILDER_DRAFTS_RATE_MAX, 600),
-  });
+  const windowMs = positiveIntFromEnv(process.env.LAB_BUILDER_DRAFTS_RATE_WINDOW_MS, 600000);
+  const max = positiveIntFromEnv(process.env.LAB_BUILDER_DRAFTS_RATE_MAX, 600);
+  const ownerRate = createRateLimiter({ windowMs, max });
+  // One address that rotates browser ids still cannot write more than this many times the limit of one browser.
+  const addressRate = createRateLimiter({ windowMs, max: max * positiveIntFromEnv(process.env.LAB_BUILDER_RATE_ADDRESS_MULTIPLIER, 8) });
+  const allowWrite = (owner, req) => {
+    const own = ownerRate(owner);
+    if (!own.allowed || !owner.startsWith("c-")) return own;
+    return addressRate(`ip:${callerAddress(req)}`);
+  };
 
   const handle = (work) => (req, res) => {
-    const owner = ownerKeyFor(req.user, { authEnabled });
+    const owner = ownerKeyFor(req.user, { authEnabled, clientId: readClientId(req) });
     if (!owner) return res.status(401).json({ error: "Sign in to use saved drafts." });
     if (req.method !== "GET") {
-      const result = rate(owner);
+      const result = allowWrite(owner, req);
       if (!result.allowed) {
         res.setHeader("Retry-After", String(result.retryAfterSec));
         return res.status(429).json({ error: `Too many draft changes. Try again in ${result.retryAfterSec}s.` });
       }
     }
     try {
+      const adopted = store.adoptLegacy(owner);
+      if (adopted) res.locals.adoptedDrafts = adopted;
       return work(owner, req, res);
     } catch (err) {
       if (err instanceof DraftError) return res.status(err.status).json({ error: err.message, code: err.code });
@@ -41,7 +52,7 @@ export function registerDraftRoutes(app, { dataDir, authEnabled = false, createR
   app.get("/api/lab-builder/drafts", handle((owner, _req, res) => {
     const { drafts, limit } = store.list(owner);
     const unsaved = store.getUnsaved(owner);
-    res.json({ drafts, limit, unsaved: unsaved ? { updatedAt: unsaved.updatedAt, basedOn: unsaved.basedOn || null, products: unsaved.content.selections.products, step: unsaved.content.wizard.step } : null });
+    res.json({ drafts, limit, ...(res.locals.adoptedDrafts ? { adoptedDrafts: res.locals.adoptedDrafts } : {}), unsaved: unsaved ? { updatedAt: unsaved.updatedAt, basedOn: unsaved.basedOn || null, products: unsaved.content.selections.products, step: unsaved.content.wizard.step } : null });
   }));
 
   /** POST /api/lab-builder/drafts: save a new draft ({ name, content }). */

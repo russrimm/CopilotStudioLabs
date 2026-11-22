@@ -5,7 +5,7 @@
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
+import { existsSync, createReadStream, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "fs";
 import multer from "multer";
 import { extname, join, resolve } from "path";
 import { discoverLabs, getLabContent, isValidLabId } from "./lib/labs.js";
@@ -69,10 +69,17 @@ import {
   resolveSafeUploadFile,
 } from "./lib/storage-config.js";
 import { initBlobPersistence, scheduleBlobSync } from "./lib/blob-persistence.js";
+import * as blobPersistence from "./lib/blob-persistence.js";
 import { registerCaptureRoutes } from "./lib/capture/routes.js";
+import { ownerOf } from "./lib/capture/owner.js";
 import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
+import { createBuildQueue, BuildQueueError, isTicket } from "./lib/concurrency/build-queue.js";
+import { createVisitorCheck, readClientId, visitorKey } from "./lib/concurrency/visitor.js";
+import { writeFileAtomic } from "./lib/concurrency/atomic-file.js";
+import { createExportService } from "./lib/exports/export-service.js";
+import { sweepLabLibrary } from "./lib/lab-builder/lab-state.js";
 import {
   deleteGeneratedLab,
   generatedLabExists,
@@ -82,6 +89,7 @@ import {
   replaceGeneratedLab,
   resolveGeneratedAsset,
   updateGeneratedLabMeta,
+  warmGeneratedLabList,
 } from "./lib/lab-builder/generated-labs.js";
 import {
   captureLabScreenshots,
@@ -132,7 +140,18 @@ import { requireAuth, authConfigSummary } from "./lib/require-auth.js";
 import { loadAgentChatConfig, saveAgentChatConfig } from "./lib/agent-chat.js";
 
 const app = express();
-app.set("trust proxy", 1);
+// How many proxy hops sit in front of the portal and may be believed about the caller's address. Azure Container Apps
+// puts one (its ingress) in front of the container, so 1 is the default; set PORTAL_TRUST_PROXY to the real count, or to
+// "false" when the portal is reached directly. Each visitor also has a browser id (see lib/concurrency/visitor.js), so one
+// shared address never throttles everybody even if this is wrong.
+function trustProxySetting(raw) {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (!value) return 1;
+  if (value === "false" || value === "off" || value === "no") return false;
+  const hops = Number.parseInt(value, 10);
+  return Number.isInteger(hops) && hops >= 0 && hops <= 10 && String(hops) === value ? hops : 1;
+}
+app.set("trust proxy", trustProxySetting(process.env.PORTAL_TRUST_PROXY));
 const PORT = process.env.PORT || 3005;
 const HOST = process.env.HOST || "127.0.0.1";
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
@@ -270,7 +289,7 @@ function loadFeedbackEntries() {
 
 function saveFeedbackEntries(entries) {
   mkdirSync(dataRoot, { recursive: true });
-  writeFileSync(feedbackFilePath, JSON.stringify(entries, null, 2));
+  writeFileAtomic(feedbackFilePath, JSON.stringify(entries, null, 2));
 }
 
 function estimateProvisionSteps(labIds, subscriptionId) {
@@ -522,26 +541,43 @@ app.post("/api/scenarios/configure", (req, res) => {
 registerUseCaseRoutes(app);
 
 // ── Lab Builder: generate a custom, Microsoft Learn-grounded lab ────────────
+// Many people can ask for a lab at once. At most LAB_BUILDER_MAX_ACTIVE build at the same time (default 2); the rest wait
+// in line in the order they asked, and one person may hold LAB_BUILDER_MAX_PER_PERSON places (default 2).
 const configuredLabBuilderConcurrency = Number(process.env.LAB_BUILDER_MAX_ACTIVE || 2);
 const LAB_BUILDER_MAX_ACTIVE = Number.isInteger(configuredLabBuilderConcurrency)
   ? Math.min(8, Math.max(1, configuredLabBuilderConcurrency))
   : 2;
-let activeLabGenerations = 0;
-const labBuilderRateCheck = createRateLimiter({
+const buildQueue = createBuildQueue({
+  concurrency: LAB_BUILDER_MAX_ACTIVE,
+  maxPerOwner: positiveIntFromEnv(process.env.LAB_BUILDER_MAX_PER_PERSON, 2),
+  maxWaiting: positiveIntFromEnv(process.env.LAB_BUILDER_MAX_WAITING, 50),
+  waitTimeoutMs: positiveIntFromEnv(process.env.LAB_BUILDER_QUEUE_WAIT_MS, 150 * 1000),
+});
+// A build that runs longer than this is stopped, so a stuck one never holds a place for good.
+const LAB_BUILDER_BUILD_TIMEOUT_MS = positiveIntFromEnv(process.env.LAB_BUILDER_BUILD_TIMEOUT_MS, 10 * 60 * 1000);
+
+/** One bucket per visitor (their sign-in, else their browser id, else their address), plus a roomier bucket per address. */
+function createVisitorLimiter({ windowMs, max }) {
+  const multiplier = positiveIntFromEnv(process.env.LAB_BUILDER_RATE_ADDRESS_MULTIPLIER, 8);
+  return createVisitorCheck(createRateLimiter({ windowMs, max }), createRateLimiter({ windowMs, max: max * multiplier }));
+}
+
+const labBuilderRateCheck = createVisitorLimiter({
   windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_WINDOW_MS, 3600000),
   max: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_MAX, 10),
 });
 
 // Where generated labs live. The override exists so tests and persistent volumes stay isolated.
 const GENERATED_LABS_DIR = resolveGeneratedLabsDir();
+const exportService = createExportService({ generatedRoot: GENERATED_LABS_DIR, tempDir: resolve(dataRoot, "tmp") });
 // Deleting and renaming generated labs is cheap but destructive, so it has its own, looser window.
-const labBuilderManageRateCheck = createRateLimiter({
+const labBuilderManageRateCheck = createVisitorLimiter({
   windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_MANAGE_RATE_WINDOW_MS, 3600000),
   max: positiveIntFromEnv(process.env.LAB_BUILDER_MANAGE_RATE_MAX, 60),
 });
 
 function manageRateLimited(req, res) {
-  const rate = labBuilderManageRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+  const rate = labBuilderManageRateCheck(req);
   if (rate.allowed) return false;
   res.setHeader("Retry-After", String(rate.retryAfterSec));
   res.status(429).json({ error: `Too many changes to generated labs. Try again in ${rate.retryAfterSec}s.` });
@@ -678,14 +714,25 @@ app.post("/api/lab-builder/preview", (req, res) => {
   }
 });
 
+/**
+ * GET /api/lab-builder/build-queue/:ticket — Where one build stands in line, for the wizard's waiting message. The page
+ * sends the same ticket in the X-Build-Ticket header of its generate call. Counts only; nobody is named.
+ */
+app.get("/api/lab-builder/build-queue/:ticket", (req, res) => {
+  if (!isTicket(req.params.ticket)) return res.status(400).json({ error: "That is not a build ticket." });
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(buildQueue.status(req.params.ticket));
+});
+
+/** GET /api/lab-builder/build-queue — How many builds run and wait right now. */
+app.get("/api/lab-builder/build-queue", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json(buildQueue.snapshot());
+});
+
 /** POST /api/lab-builder/generate — Build the lab and write it to generated-labs/ */
 app.post("/api/lab-builder/generate", async (req, res) => {
-  if (activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE) {
-    res.setHeader("Retry-After", "10");
-    return res.status(429).json({ error: "The lab builder is busy. Try again shortly." });
-  }
-
-  const rate = labBuilderRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+  const rate = labBuilderRateCheck(req);
   if (!rate.allowed) {
     res.setHeader("Retry-After", String(rate.retryAfterSec));
     return res.status(429).json({ error: `Lab generation rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });
@@ -723,13 +770,32 @@ app.post("/api/lab-builder/generate", async (req, res) => {
     }
   }
 
-  activeLabGenerations += 1;
   const controller = new AbortController();
   const cancel = () => {
     if (!res.writableEnded) controller.abort("Client disconnected");
   };
   req.once("aborted", cancel);
   res.once("close", cancel);
+  // Wait for a turn. Leaving the page (or Cancel) while waiting leaves the line without ever starting a build.
+  const ticketHeader = req.get("x-build-ticket");
+  let turn;
+  try {
+    turn = await buildQueue.enter({ owner: visitorKey(req), ticket: isTicket(ticketHeader) ? ticketHeader : undefined, signal: controller.signal });
+  } catch (err) {
+    req.off("aborted", cancel);
+    res.off("close", cancel);
+    if (!(err instanceof BuildQueueError)) return res.status(500).json({ error: err.message });
+    if (err.code === "cancelled") return undefined;
+    res.setHeader("Retry-After", String(err.retryAfterSec));
+    return res.status(err.status).json({ error: err.message, code: err.code });
+  }
+  const buildTimeoutMessage = "This lab took too long to build and was stopped. Try again with fewer topics.";
+  let timedOut = false;
+  const buildTimer = setTimeout(() => {
+    timedOut = true;
+    controller.abort(buildTimeoutMessage);
+  }, LAB_BUILDER_BUILD_TIMEOUT_MS);
+  buildTimer.unref?.();
   // Capturing needs a tenant sign-in, so it never runs inside this request:
   // a Local Capture Companion job is queued afterward when one is connected.
   const wantsCapture = Boolean(body.captureScreenshots);
@@ -744,6 +810,8 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       decisionSource: "portal",
       signal: controller.signal,
     });
+
+    if (timedOut) return res.status(504).json({ error: buildTimeoutMessage });
 
     // Who decided what belongs in the server log, never in the lab artifact —
     // the manifest travels with the lab and can be exported and emailed.
@@ -781,6 +849,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
         labId: result.labId,
         onlyMissing: true,
         createdBy: req.user?.upn || req.user?.oid || null,
+        ownerKey: ownerOf(req),
       });
     }
 
@@ -818,11 +887,14 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       warnings: result.plan.warnings,
     });
   } catch (err) {
-    if (!res.writableEnded && !controller.signal.aborted) {
+    if (timedOut) {
+      if (!res.writableEnded) res.status(504).json({ error: buildTimeoutMessage });
+    } else if (!res.writableEnded && !controller.signal.aborted) {
       res.status(400).json({ error: err.message });
     }
   } finally {
-    activeLabGenerations -= 1;
+    clearTimeout(buildTimer);
+    turn.release();
     req.off("aborted", cancel);
     res.off("close", cancel);
   }
@@ -952,12 +1024,12 @@ async function handleGeneratedLabExport(req, res) {
 
   if (ADMIN_GUIDE_EXPORT_FORMAT.test(format)) {
     try {
-      const rendered = renderGeneratedLabAdminGuide(
+      const rendered = await exportService.render("renderGeneratedLabAdminGuide", [
         GENERATED_LABS_DIR,
         found.labId,
         format.slice("admin-guide-".length),
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -972,18 +1044,18 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer ?? rendered.text);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (PREREQUISITES_EXPORT_FORMAT.test(format)) {
     try {
-      const rendered = renderGeneratedLabPrerequisites(
+      const rendered = await exportService.render("renderGeneratedLabPrerequisites", [
         GENERATED_LABS_DIR,
         found.labId,
         format.slice("prerequisites-".length),
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -998,17 +1070,17 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer ?? rendered.text);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "facilitator-docx") {
     try {
-      const rendered = renderGeneratedLabFacilitatorDocx(
+      const rendered = await exportService.render("renderGeneratedLabFacilitatorDocx", [
         GENERATED_LABS_DIR,
         found.labId,
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1023,17 +1095,17 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "facilitator-pdf") {
     try {
-      const rendered = renderGeneratedLabFacilitatorPdf(
+      const rendered = await exportService.render("renderGeneratedLabFacilitatorPdf", [
         GENERATED_LABS_DIR,
         found.labId,
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1045,17 +1117,17 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "facilitator-md" || format === "facilitator-markdown") {
     try {
-      const rendered = renderGeneratedLabFacilitatorMarkdown(
+      const rendered = await exportService.render("renderGeneratedLabFacilitatorMarkdown", [
         GENERATED_LABS_DIR,
         found.labId,
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1067,17 +1139,17 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.markdown);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "facilitator-html") {
     try {
-      const rendered = renderGeneratedLabFacilitatorHtml(
+      const rendered = await exportService.render("renderGeneratedLabFacilitatorHtml", [
         GENERATED_LABS_DIR,
         found.labId,
         replacements,
-      );
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1089,15 +1161,18 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.html);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "html") {
     try {
-      const rendered = renderGeneratedLabHtml(GENERATED_LABS_DIR, found.labId, replacements, {
-        resolveAsset: resolveGeneratedAsset,
-      });
+      const rendered = await exportService.render("renderGeneratedLabHtml", [
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+        { resolveAsset: true },
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1106,15 +1181,18 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.html);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "docx") {
     try {
-      const rendered = renderGeneratedLabDocx(GENERATED_LABS_DIR, found.labId, replacements, {
-        resolveAsset: resolveGeneratedAsset,
-      });
+      const rendered = await exportService.render("renderGeneratedLabDocx", [
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+        { resolveAsset: true },
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1126,15 +1204,18 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "pptx") {
     try {
-      const rendered = renderGeneratedLabPptx(GENERATED_LABS_DIR, found.labId, replacements, {
-        resolveAsset: resolveGeneratedAsset,
-      });
+      const rendered = await exportService.render("renderGeneratedLabPptx", [
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+        { resolveAsset: true },
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1146,15 +1227,18 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "pdf") {
     try {
-      const rendered = renderGeneratedLabPdf(GENERATED_LABS_DIR, found.labId, replacements, {
-        resolveAsset: resolveGeneratedAsset,
-      });
+      const rendered = await exportService.render("renderGeneratedLabPdf", [
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+        { resolveAsset: true },
+      ]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1163,13 +1247,13 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   if (format === "md" || format === "markdown") {
     try {
-      const rendered = renderGeneratedLabMarkdown(GENERATED_LABS_DIR, found.labId, replacements);
+      const rendered = await exportService.render("renderGeneratedLabMarkdown", [GENERATED_LABS_DIR, found.labId, replacements]);
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
@@ -1178,28 +1262,36 @@ async function handleGeneratedLabExport(req, res) {
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.markdown);
     } catch (err) {
-      return res.status(500).json({ error: err.message });
+      return res.status(err.status || 500).json({ error: err.message });
     }
   }
 
   const zipSuffix =
     selectedZipFormats && selectedZipFormats.length === 1 ? `-${selectedZipFormats[0]}` : "";
+
+  // The ZIP is built in a worker into a staging file, then streamed, so building it never holds up other people.
+  let staged = null;
+  try {
+    staged = await exportService.buildZip(found.labId, replacements, { formats: selectedZipFormats });
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message });
+  }
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", buildExportContentDisposition("zip", zipSuffix));
   res.setHeader("X-Content-Type-Options", "nosniff");
-
-  try {
-    await exportGeneratedLab(GENERATED_LABS_DIR, found.labId, replacements, res, {
-      resolveAsset: resolveGeneratedAsset,
-      formats: selectedZipFormats,
-    });
-  } catch (err) {
-    if (!res.headersSent) {
-      res.status(err.status || 500).json({ error: err.message });
-    } else if (!res.writableEnded) {
-      res.destroy(err);
-    }
-  }
+  res.setHeader("Content-Length", String(statSync(staged.file).size));
+  const source = createReadStream(staged.file);
+  const cleanup = () => {
+    source.destroy();
+    staged.remove();
+  };
+  res.once("close", cleanup);
+  source.once("error", (err) => {
+    cleanup();
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+    else if (!res.writableEnded) res.destroy(err);
+  });
+  source.pipe(res);
 }
 
 function handleGeneratedLabValidate(req, res) {
@@ -1207,34 +1299,39 @@ function handleGeneratedLabValidate(req, res) {
   res.status(status).json(body);
 }
 
-function handleGeneratedLabTopicDocument(req, res) {
+async function handleGeneratedLabTopicDocument(req, res) {
   const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
   const branding = resolveLabBrand(found.status === 200 ? found.manifest : null);
   const customBranding = isCustomBranding(branding);
   const logoPath = customBranding ? getBrandingLogoAbsolutePath(branding.logo) : null;
   const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
 
-  const result = readGeneratedLabTopicDocument(
-    GENERATED_LABS_DIR,
-    req.params.labId,
-    req.params.order,
-    req.params.format,
-    {
-      customBranding,
-      branding: customBranding
-        ? {
-            companyName: branding.companyName,
-            tagline: branding.tagline,
-            primaryColor: branding.primaryColor,
-            secondaryColor: branding.secondaryColor,
-            font: branding.font,
-            coverSubtitle: branding.coverSubtitle,
-            footerText: branding.footerText,
-            logoBuffer,
-          }
-        : null,
-    },
-  );
+  let result;
+  try {
+    result = await exportService.render("readGeneratedLabTopicDocument", [
+      GENERATED_LABS_DIR,
+      req.params.labId,
+      req.params.order,
+      req.params.format,
+      {
+        customBranding,
+        branding: customBranding
+          ? {
+              companyName: branding.companyName,
+              tagline: branding.tagline,
+              primaryColor: branding.primaryColor,
+              secondaryColor: branding.secondaryColor,
+              font: branding.font,
+              coverSubtitle: branding.coverSubtitle,
+              footerText: branding.footerText,
+              logoBuffer,
+            }
+          : null,
+      },
+    ]);
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message });
+  }
   if (result.status !== 200) {
     return res.status(result.status).json(result.body);
   }
@@ -1249,9 +1346,9 @@ app.get("/api/lab-builder/generated/:labId/topics/:order/:format", handleGenerat
 app.get("/api/generated-labs/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
 
 /** GET /api/lab-builder/generated/:labId/prerequisites — Preview of the standalone prerequisites checklist (what the customer receives) */
-function handleGeneratedLabPrerequisitesPreview(req, res) {
+async function handleGeneratedLabPrerequisitesPreview(req, res) {
   try {
-    const rendered = renderGeneratedLabPrerequisites(GENERATED_LABS_DIR, req.params.labId, "html");
+    const rendered = await exportService.render("renderGeneratedLabPrerequisites", [GENERATED_LABS_DIR, req.params.labId, "html"]);
     if (rendered.status !== 200) {
       return res.status(rendered.status).json({ error: rendered.error });
     }
@@ -1265,16 +1362,16 @@ function handleGeneratedLabPrerequisitesPreview(req, res) {
       html: rendered.text,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(err.status || 500).json({ error: err.message });
   }
 }
 app.get("/api/lab-builder/generated/:labId/prerequisites", handleGeneratedLabPrerequisitesPreview);
 app.get("/api/generated-labs/:labId/prerequisites", handleGeneratedLabPrerequisitesPreview);
 
 /** GET /api/lab-builder/generated/:labId/admin-guide — Preview of the Administrator setup guide (admin settings only, never in learner guides) */
-function handleGeneratedLabAdminGuidePreview(req, res) {
+async function handleGeneratedLabAdminGuidePreview(req, res) {
   try {
-    const rendered = renderGeneratedLabAdminGuide(GENERATED_LABS_DIR, req.params.labId, "html");
+    const rendered = await exportService.render("renderGeneratedLabAdminGuide", [GENERATED_LABS_DIR, req.params.labId, "html"]);
     if (rendered.status !== 200) {
       return res.status(rendered.status).json({ error: rendered.error });
     }
@@ -1288,7 +1385,7 @@ function handleGeneratedLabAdminGuidePreview(req, res) {
       html: rendered.text,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(err.status || 500).json({ error: err.message });
   }
 }
 app.get("/api/lab-builder/generated/:labId/admin-guide", handleGeneratedLabAdminGuidePreview);
@@ -1413,7 +1510,7 @@ async function handleGeneratedLabScreenshotsCapture(req, res) {
       featureIds,
       mode,
       companionFallback: (info) =>
-        capturePlatform.companionFallbackForLab({ ...info, createdBy: req.user?.upn || req.user?.oid || null }),
+        capturePlatform.companionFallbackForLab({ ...info, createdBy: req.user?.upn || req.user?.oid || null, ownerKey: ownerOf(req) }),
     });
     return res.status(result.status).json(result.body);
   } catch (err) {
@@ -1579,7 +1676,7 @@ app.post("/api/branding/logo", (req, res) => {
       const nextFileName = `logo-${Date.now()}${getBrandingLogoExtension(req.file)}`;
       const targetPath = resolve(BRANDING_UPLOADS_DIR, nextFileName);
 
-      writeFileSync(targetPath, req.file.buffer);
+      writeFileAtomic(targetPath, req.file.buffer);
       const branding = updateBrandingLogo(nextFileName);
 
       res.json(branding);
@@ -1636,7 +1733,7 @@ const stepValidationRateCheck = createRateLimiter({
 
 /** POST /api/step-validation — Start a run for the given labs (default: all) */
 app.post("/api/step-validation", (req, res) => {
-  const rate = stepValidationRateCheck(req.ip || "local");
+  const rate = stepValidationRateCheck(visitorKey(req));
   if (!rate.allowed) {
     res.setHeader("Retry-After", String(rate.retryAfterSec));
     return res.status(429).json({ error: "Too many step validation runs. Try again later." });
@@ -2371,7 +2468,23 @@ app.use((err, _req, res, next) => {
 await initBlobPersistence();
 ensureBrandingStorage();
 
-app.listen(PORT, HOST, () => {
+// Staged ZIP builds that a crash left behind (a live build keeps its file for far less than an hour).
+try {
+  const stagingDir = resolve(dataRoot, "tmp");
+  for (const name of readdirSync(stagingDir)) {
+    const file = join(stagingDir, name);
+    if (Date.now() - statSync(file).mtimeMs > 60 * 60 * 1000) rmSync(file, { force: true });
+  }
+} catch {
+  /* no staging folder yet */
+}
+// Trash from labs deleted just before a stop, and labs whose build never finished (their folders carry a .building marker).
+{
+  const swept = sweepLabLibrary(GENERATED_LABS_DIR);
+  if (swept.trash || swept.unfinished) console.log(`[lab-builder] Cleaned up ${swept.trash} deleted and ${swept.unfinished} unfinished lab folder(s).`);
+}
+
+const server = app.listen(PORT, HOST, () => {
   const auth = authConfigSummary();
   console.log(`\n⚡ Microsoft AI Training Generator Portal running at http://${HOST}:${PORT}`);
   console.log(
@@ -2387,4 +2500,33 @@ app.listen(PORT, HOST, () => {
   }
   if (getTopicService().startAutoRefresh()) console.log("   Learn topic list: scheduled refresh is on");
   console.log("");
+  // Read the labs into the list cache a lab at a time, so the first visit does not stall the portal.
+  void warmGeneratedLabList(GENERATED_LABS_DIR);
 });
+
+// Connection limits, set on purpose (Node's defaults are 60 s for headers, 300 s for a whole request, 5 s of keep-alive).
+// A slow or stalled client cannot hold a socket for long, and keep-alive outlasts the Azure Container Apps ingress's idle
+// timer so the ingress never reuses a connection this side has already closed.
+server.headersTimeout = positiveIntFromEnv(process.env.PORTAL_HEADERS_TIMEOUT_MS, 30 * 1000);
+server.requestTimeout = positiveIntFromEnv(process.env.PORTAL_REQUEST_TIMEOUT_MS, 5 * 60 * 1000);
+server.keepAliveTimeout = positiveIntFromEnv(process.env.PORTAL_KEEPALIVE_TIMEOUT_MS, 65 * 1000);
+
+// A stop signal (a new revision, a scale-in, Ctrl+C): stop taking new connections, save what is waiting for the Blob
+// mirror, and exit. The platform waits for its own grace period, so this never hangs: it gives up after 20 seconds.
+let shuttingDown = false;
+async function shutDown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[portal] ${signal} received: finishing in-flight requests and saving shared files.`);
+  const force = setTimeout(() => process.exit(0), 20000);
+  force.unref?.();
+  server.close();
+  server.closeIdleConnections?.();
+  try {
+    await Promise.allSettled([blobPersistence.flushBlobSyncForShutdown?.({ timeoutMs: 15000 }), exportService.close()]);
+  } finally {
+    process.exit(0);
+  }
+}
+process.once("SIGTERM", () => void shutDown("SIGTERM"));
+process.once("SIGINT", () => void shutDown("SIGINT"));

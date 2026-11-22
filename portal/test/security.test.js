@@ -240,9 +240,10 @@ test("the lab builder validates decisions server-side before generating", () => 
   assert.ok(route, "the generate route must exist");
   assert.match(route, /normalizeDecisions\(body\.decisions\)/);
   assert.match(route, /res\.status\(400\)/);
-  // The existing hardening must survive: concurrency cap and client-disconnect
-  // cancellation are what keep this route from being a denial-of-service lever.
-  assert.match(route, /activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE/);
+  // The existing hardening must survive: a bounded build queue (a few builds at once, a per-person limit, a wait timeout)
+  // and client-disconnect cancellation are what keep this route from being a denial-of-service lever.
+  assert.match(route, /buildQueue\.enter\(/);
+  assert.match(route, /LAB_BUILDER_BUILD_TIMEOUT_MS/);
   assert.match(route, /controller\.abort\("Client disconnected"\)/);
 });
 

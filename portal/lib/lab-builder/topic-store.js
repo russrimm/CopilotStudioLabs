@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { resolvePortalDataDir } from "../storage-config.js";
+import { withLockedFileSync } from "../concurrency/json-update.js";
 import { listHash, readSnapshot, validateSnapshot, writeJsonAtomic } from "./topic-snapshot.js";
 import { consolidateSnapshot, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
@@ -347,21 +348,28 @@ export function createTopicService({ discover, config = topicConfig(), now = Dat
     setUserTopicsSource(list);
   }
 
+  /** Run a read-modify-write of the saved topics under the cross-process lock when they live in a file. */
+  const lockedUserTopics = (work) => (config.userTopicsPath ? withLockedFileSync(config.userTopicsPath, work) : work());
+
   /** Save one topic. Returns false when it is already saved (the same id). */
   function addUserTopic(topic) {
-    const list = userTopics();
-    if (list.some((entry) => entry.id === topic.id)) return false;
-    if (list.length >= MAX_USER_TOPICS) throw new Error(`You can keep up to ${MAX_USER_TOPICS} topics of your own. Remove one first.`);
-    saveUserTopics([...list, topic]);
-    return true;
+    return lockedUserTopics(() => {
+      const list = userTopics();
+      if (list.some((entry) => entry.id === topic.id)) return false;
+      if (list.length >= MAX_USER_TOPICS) throw new Error(`You can keep up to ${MAX_USER_TOPICS} topics of your own. Remove one first.`);
+      saveUserTopics([...list, topic]);
+      return true;
+    });
   }
 
   /** Remove a saved topic. Returns false when there was none with that id. */
   function removeUserTopic(id) {
-    const list = userTopics();
-    if (!list.some((entry) => entry.id === id)) return false;
-    saveUserTopics(list.filter((entry) => entry.id !== id));
-    return true;
+    return lockedUserTopics(() => {
+      const list = userTopics();
+      if (!list.some((entry) => entry.id === id)) return false;
+      saveUserTopics(list.filter((entry) => entry.id !== id));
+      return true;
+    });
   }
 
   return { view, views, refresh, revalidateIfStale, startAutoRefresh, stop, config, userTopics, addUserTopic, removeUserTopic };

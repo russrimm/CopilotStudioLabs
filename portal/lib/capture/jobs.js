@@ -18,6 +18,7 @@ import path from "node:path";
 
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
 import { cleanAccount, cleanNeedsAccount } from "./account.js";
+import { canServe, cleanOwnerKey, mineFlag } from "./owner.js";
 import { CAUSES, causeForVerification, describeCause } from "../../../tools/screenshot-capture/causes.mjs";
 import { sanitizeSetupEvidence } from "../../../tools/screenshot-capture/image-verify.mjs";
 import { REQUIREMENTS, effectiveModeFor, missingRequirements, targetValuesFromJob, validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
@@ -338,10 +339,14 @@ export function summarizeSignInNeeds(shots, labelFor = (id) => id) {
   };
 }
 
-function summarize(job, labelFor) {
-  const { shots, events, ...rest } = job;
+/**
+ * A job as a browser or a companion may see it: without its shots and events, and never with the owner key. `mine` says
+ * whether the viewer started it (`true`/`false`), or `null` when the viewer or the job has no owner to compare.
+ */
+function summarize(job, labelFor, viewerOwnerKey = null) {
+  const { shots, events, ownerKey, ...rest } = job;
   const needsSignIn = summarizeSignInNeeds(shots, labelFor);
-  return { ...rest, progress: countShots(shots || []), causes: summarizeCauses(shots), ...(needsSignIn ? { needsSignIn } : {}) };
+  return { ...rest, mine: mineFlag(ownerKey, viewerOwnerKey), progress: countShots(shots || []), causes: summarizeCauses(shots), ...(needsSignIn ? { needsSignIn } : {}) };
 }
 
 /**
@@ -375,7 +380,8 @@ export function createJobStore({
   function persist(job, event = null) {
     job.updatedAt = iso();
     writeJsonAtomic(jobFile(job.id), job);
-    emitter.emit(job.id, { type: event?.type || "update", job: summarize(job, productLabel), event });
+    // The owner key travels with the event only so `subscribe` can say who it is for; it is removed before a listener sees it.
+    emitter.emit(job.id, { type: event?.type || "update", job: summarize(job, productLabel), event, ownerKey: cleanOwnerKey(job.ownerKey) });
   }
 
   function addEvent(job, type, message, data = null) {
@@ -438,8 +444,10 @@ export function createJobStore({
   /**
    * Queue a job. `request` is a validated `normalizeJobRequest()` result and
    * `plan.shots` the shot plan the companion will run (filename, startUrl, steps...).
+   * `ownerKey` (see owner.js) says who started it: the job is only handed to a computer that person paired, or to one paired
+   * before owners existed. It is saved with the job but never returned to a browser.
    */
-  function create({ target, scope, env = {}, targets = {}, options = {}, plan, createdBy = null, autonomy = null }) {
+  function create({ target, scope, env = {}, targets = {}, options = {}, plan, createdBy = null, ownerKey = null, autonomy = null }) {
     const shots = (plan?.shots || []).slice(0, MAX_SHOTS);
     const id = `job_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
     const t = iso();
@@ -457,6 +465,7 @@ export function createJobStore({
       startedAt: null,
       finishedAt: null,
       createdBy: createdBy ? cleanText(createdBy, 120) : null,
+      ownerKey: cleanOwnerKey(ownerKey),
       target,
       scope,
       options: { ...options, mode, autonomy: carried },
@@ -474,7 +483,7 @@ export function createJobStore({
     const event = addEvent(job, "queued", `Queued ${shots.length} shot${shots.length === 1 ? "" : "s"}.`);
     persist(job, event);
     prune();
-    return summarizeFull(job);
+    return summarizeFull(job, job.ownerKey);
   }
 
   /**
@@ -536,14 +545,15 @@ export function createJobStore({
     return row;
   }
 
-  function summarizeFull(job) {
+  function summarizeFull(job, viewerOwnerKey = null) {
+    const { ownerKey, ...rest } = job;
     const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
-    return { ...job, progress: countShots(job.shots), causes: summarizeCauses(job.shots), ...(needsSignIn ? { needsSignIn } : {}) };
+    return { ...rest, mine: mineFlag(ownerKey, viewerOwnerKey), progress: countShots(job.shots), causes: summarizeCauses(job.shots), ...(needsSignIn ? { needsSignIn } : {}) };
   }
 
-  function get(id) {
+  function get(id, { viewerOwnerKey = null } = {}) {
     const job = readJob(id);
-    return job ? summarizeFull(expireIfStale(job)) : null;
+    return job ? summarizeFull(expireIfStale(job), viewerOwnerKey) : null;
   }
 
   /** The shot plan and CAPTURE_* environment, for the companion only. */
@@ -551,17 +561,32 @@ export function createJobStore({
     return isJobId(id) ? readJson(planFile(id), null) : null;
   }
 
-  function list({ limit = 25, status = null, labId = null } = {}) {
+  function readAll() {
     if (!existsSync(jobsDir)) return [];
-    const jobs = readdirSync(jobsDir)
+    return readdirSync(jobsDir)
       .filter((name) => /^job_[a-f0-9]{16}\.json$/.test(name))
       .map((name) => readJob(name.slice(0, -5)))
       .filter(Boolean)
-      .map(expireIfStale)
+      .map(expireIfStale);
+  }
+
+  function list({ limit = 25, status = null, labId = null, viewerOwnerKey = null } = {}) {
+    return readAll()
       .filter((job) => (!status || job.status === status) && (!labId || job.target?.labId === labId))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-      .slice(0, Math.max(1, Math.min(200, Number(limit) || 25)));
-    return jobs.map((job) => summarize(job, productLabel));
+      .slice(0, Math.max(1, Math.min(200, Number(limit) || 25)))
+      .map((job) => summarize(job, productLabel, viewerOwnerKey));
+  }
+
+  /**
+   * The jobs waiting or running now (optionally for one lab), newest first, with `ownerKey` so the portal can tell whose they
+   * are. For the portal's own checks only: it is never sent to a browser.
+   */
+  function active({ labId = null } = {}) {
+    return readAll()
+      .filter((job) => ["queued", "claimed", "running"].includes(job.status) && (!labId || job.target?.labId === labId))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .map((job) => ({ ...summarize(job, productLabel), ownerKey: cleanOwnerKey(job.ownerKey) }));
   }
 
   /** Counts of jobs waiting and running, for the portal status. */
@@ -576,12 +601,17 @@ export function createJobStore({
   /**
    * The most recent job that ended with shots waiting for a sign-in the person has not made yet.
    * `signedInProducts` is what the companion reports: once a product shows up there, its need is gone.
+   * With `viewerOwnerKey`, another person's job is not considered (its shot counts are not this person's business).
    * Returns `{ jobId, count, products, message }` or null.
    */
-  function latestSignInNeed({ signedInProducts = [] } = {}) {
+  function latestSignInNeed({ signedInProducts = [], viewerOwnerKey = null } = {}) {
     const signedIn = new Set(signedInProducts);
     const cutoff = now() - SIGN_IN_NEED_MAX_AGE_MS;
-    for (const job of list({ limit: 20 })) {
+    for (const job of readAll()
+      .filter((j) => canServe(j.ownerKey, viewerOwnerKey))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0, 20)
+      .map((j) => summarize(j, productLabel))) {
       const needs = job.needsSignIn;
       if (!needs) continue;
       const lastWord = Date.parse(job.finishedAt || job.updatedAt || job.createdAt);
@@ -602,14 +632,16 @@ export function createJobStore({
   /**
    * Give a device its next job. A device that asks again while it still holds
    * an unfinished job gets that job back (a restarted companion resumes it).
+   *
+   * A computer paired by a person (`device.ownerKey`) only takes jobs that person started, or jobs with no owner. A computer
+   * paired before owners existed has no owner and takes any job: the migration rule, so nothing already paired stops working.
+   *
+   * Choosing the job and saving the claim happen in one synchronous run, so two computers asking at the same moment can never
+   * both get the same job.
    */
   function claimNext(device) {
-    if (!existsSync(jobsDir)) return null;
-    const all = readdirSync(jobsDir)
-      .filter((name) => /^job_[a-f0-9]{16}\.json$/.test(name))
-      .map((name) => readJob(name.slice(0, -5)))
-      .filter(Boolean)
-      .map(expireIfStale);
+    const all = readAll();
+    if (!all.length) return null;
     const resumable = all.find((job) => (job.status === "claimed" || job.status === "running") && job.claim?.deviceId === device.id);
     let job = resumable;
     if (resumable) {
@@ -623,7 +655,7 @@ export function createJobStore({
       }
     }
     if (!job) {
-      job = all.filter((j) => j.status === "queued").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))[0];
+      job = all.filter((j) => j.status === "queued" && canServe(device.ownerKey, j.ownerKey)).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))[0];
       if (!job) return null;
       job.status = "claimed";
       job.claim = { deviceId: device.id, deviceName: cleanText(device.name, 80), claimedAt: iso(), lastActivityAt: iso(), resumes: 0 };
@@ -796,12 +828,16 @@ export function createJobStore({
     return { ok: true, job: summarizeFull(job) };
   }
 
-  /** Ask for a job to stop. A queued job stops now; a running one stops between shots. With `pause`, the shots not yet captured wait for Resume. */
-  function cancel(id, { pause = false } = {}) {
+  /**
+   * Ask for a job to stop. A queued job stops now; a running one stops between shots. With `pause`, the shots not yet captured wait for Resume.
+   * A job another person started (both owners known and different) is left running: only they can stop it.
+   */
+  function cancel(id, { pause = false, requesterOwnerKey = null } = {}) {
     const job = readJob(id);
     if (!job) return { ok: false, status: 404, error: "Job not found." };
     expireIfStale(job);
-    if (TERMINAL_JOB_STATUSES.includes(job.status)) return { ok: false, status: 409, error: "This job has already finished.", job: summarizeFull(job) };
+    if (TERMINAL_JOB_STATUSES.includes(job.status)) return { ok: false, status: 409, error: "This job has already finished.", job: summarizeFull(job, requesterOwnerKey) };
+    if (mineFlag(job.ownerKey, requesterOwnerKey) === false) return { ok: false, status: 403, error: "This capture was started by someone else, so only they can stop it." };
     job.cancelRequested = true;
     if (job.status === "queued") {
       for (const shot of job.shots) if (!TERMINAL_SHOT_STATUSES.has(shot.status)) shot.status = "cancelled";
@@ -810,14 +846,23 @@ export function createJobStore({
       if (pause) job.pauseRequested = true;
       persist(job, addEvent(job, pause ? "pause-requested" : "cancel-requested", pause ? "Pause requested. The companion stops after the current shot, and the rest wait for Resume." : "Cancel requested. The companion stops after the current shot."));
     }
-    return { ok: true, job: summarizeFull(job) };
+    return { ok: true, job: summarizeFull(job, requesterOwnerKey) };
   }
 
-  /** Subscribe to one job's changes (server-sent events). Returns an unsubscribe function. */
-  function subscribe(id, listener) {
-    emitter.on(id, listener);
-    return () => emitter.off(id, listener);
+  /**
+   * Subscribe to one job's changes (server-sent events). Returns an unsubscribe function.
+   * With `viewerOwnerKey`, each update's job carries `mine` for that viewer; the owner key itself is never passed on.
+   */
+  function subscribe(id, listener, { viewerOwnerKey = null } = {}) {
+    const handler = ({ ownerKey, ...payload }) => listener({ ...payload, job: { ...payload.job, mine: mineFlag(ownerKey, viewerOwnerKey) } });
+    emitter.on(id, handler);
+    return () => emitter.off(id, handler);
   }
 
-  return { create, get, getPlan, list, activity, latestSignInNeed, claimNext, reportProgress, recordShotResult, touch, complete, cancel, subscribe };
+  /** How many listeners are waiting for job updates, for one job or for all of them (a leak check). */
+  function subscriberCount(id = null) {
+    return id ? emitter.listenerCount(id) : emitter.eventNames().reduce((sum, name) => sum + emitter.listenerCount(name), 0);
+  }
+
+  return { create, get, getPlan, list, active, activity, latestSignInNeed, claimNext, reportProgress, recordShotResult, touch, complete, cancel, subscribe, subscriberCount };
 }

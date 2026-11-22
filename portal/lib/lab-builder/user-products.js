@@ -10,6 +10,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { writeJsonAtomic } from "../concurrency/atomic-file.js";
+import { withLockedFileSync } from "../concurrency/json-update.js";
 import { resolvePortalDataDir } from "../storage-config.js";
 
 export const MAX_USER_PRODUCTS = 10;
@@ -113,8 +115,18 @@ export function readUserProducts(file) {
 /** Save the list. Throws when it is over the limit so a full list never silently drops a product. */
 export function writeUserProducts(file, products) {
   if (products.length > MAX_USER_PRODUCTS) throw new Error(`You can add up to ${MAX_USER_PRODUCTS} products of your own. Remove one first.`);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const temp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, `${JSON.stringify({ schemaVersion: USER_PRODUCTS_SCHEMA_VERSION, products }, null, 2)}\n`);
-  fs.renameSync(temp, file);
+  writeJsonAtomic(file, { schemaVersion: USER_PRODUCTS_SCHEMA_VERSION, products });
+}
+
+/**
+ * Change the saved list under the cross-process lock, so two requests (or the portal and a command-line tool) never
+ * overwrite each other's change. `change` gets the list as it is on disk right now and returns an outcome object; when
+ * the outcome has a `products` array it is saved. The outcome is returned to the caller.
+ */
+export function updateUserProducts(file, change) {
+  return withLockedFileSync(file, () => {
+    const outcome = change(readUserProducts(file)) || {};
+    if (Array.isArray(outcome.products)) writeUserProducts(file, outcome.products);
+    return outcome;
+  });
 }

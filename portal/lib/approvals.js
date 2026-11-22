@@ -4,11 +4,13 @@
  */
 
 import { randomBytes, randomUUID } from "crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 import { sendMail } from "./mailer.js";
 import { assertDisplayName, createEnvironment } from "./powerplatform.js";
 import { escapeHtml } from "./branding.js";
+import { writeJsonAtomic } from "./concurrency/atomic-file.js";
+import { withLockedFileSync } from "./concurrency/json-update.js";
 import { resolvePortalDataDir } from "./storage-config.js";
 
 function getApprovalConfigPath(env = process.env) {
@@ -53,9 +55,9 @@ function readJson(path, fallback) {
   }
 }
 
+// The same bytes as before (two-space JSON, no closing newline), now written through a uniquely named temp file.
 function writeJson(path, data) {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(data, null, 2));
+  writeJsonAtomic(path, data, { newline: false });
 }
 
 function sanitizeString(value) {
@@ -109,17 +111,24 @@ function saveRequestsInternal(requests, env = process.env) {
   writeJson(getApprovalRequestsPath(env), requests);
 }
 
-function updateRequest(requestId, updater) {
-  const requests = loadRequestsInternal();
-  const index = requests.findIndex((request) => request.id === requestId);
-  if (index === -1) {
-    throw new Error(`Approval request not found: ${requestId}`);
-  }
+/** Run a read-modify-write of the requests file under the cross-process lock (the sequence itself is synchronous). */
+function withRequestsLock(work, env = process.env) {
+  return withLockedFileSync(getApprovalRequestsPath(env), work);
+}
 
-  const updated = updater({ ...requests[index] });
-  requests[index] = updated;
-  saveRequestsInternal(requests);
-  return updated;
+function updateRequest(requestId, updater) {
+  return withRequestsLock(() => {
+    const requests = loadRequestsInternal();
+    const index = requests.findIndex((request) => request.id === requestId);
+    if (index === -1) {
+      throw new Error(`Approval request not found: ${requestId}`);
+    }
+
+    const updated = updater({ ...requests[index] });
+    requests[index] = updated;
+    saveRequestsInternal(requests);
+    return updated;
+  });
 }
 
 function appendWorkflowEvent(request, type, message) {
@@ -470,9 +479,11 @@ export async function submitRequest(requestData) {
     workflowEvents: [],
   };
 
-  const requests = loadRequestsInternal();
-  requests.push(appendWorkflowEvent(request, "submitted", "Request submitted."));
-  saveRequestsInternal(requests);
+  withRequestsLock(() => {
+    const requests = loadRequestsInternal();
+    requests.push(appendWorkflowEvent(request, "submitted", "Request submitted."));
+    saveRequestsInternal(requests);
+  });
 
   try {
     await sendConfiguredNotifications(request, "submitted");

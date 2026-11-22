@@ -463,10 +463,13 @@ once a draft or lab holds the same choices.
 
 **Where drafts live and who sees them.** One JSON file per draft under `<data dir>/lab-builder/drafts/<owner>/`, written atomically
 (a temp file, then a rename), so they survive restarts and new revisions with the rest of the portal's data and are mirrored to
-Blob storage like it (see [Persistent storage](#persistent-storage-managed-identity-azure-blob-and-custom-volumes)). `<owner>` is a
-one-way hash of the signed-in person's identity (Entra `oid`, with the tenant id), so drafts are private to each person, and no
-name or address is written to disk. With portal sign-in off (local use, or a demo deployment with `PORTAL_AUTH_DISABLED=true`),
-everyone who opens the portal shares one local space. Each person can keep up to 50 drafts, and a draft can be up to 256 KB. Two tabs
+Blob storage like it (see [Persistent storage](#persistent-storage-managed-identity-azure-blob-and-custom-volumes)). With sign-in
+on, `<owner>` is a one-way hash of the signed-in person's identity (Entra `oid`, with the tenant id), so drafts are private to each
+person, and no name or address is written to disk. With portal sign-in off (local use, or a demo deployment with
+`PORTAL_AUTH_DISABLED=true`), `<owner>` is a one-way hash of the random id each browser keeps and sends (`X-Client-Id`), so two
+people on one portal never see or overwrite each other's drafts, autosave, or banner; this separates people but is **not a security
+boundary** (see [Many people at once](#many-people-at-once)). Drafts saved before browsers had ids sat in one shared `local` space;
+the first browser to open the portal after the upgrade adopts them, and every other browser starts empty. Each person can keep up to 50 drafts, and a draft can be up to 256 KB. Two tabs
 saving at once resolve by last write wins, and the response and the list show the saved time. Each file records a schema version.
 A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading. Version 2 (the four-step wizard) moves a version 1 draft or autosave copy onto the new steps when it is read: old Product stays Product; Vertical, Departments, Level, and Harness become **Tailor it**; Topics becomes Topics; and Review and Generate become **Review and build**. The answered-step list and the furthest step move the same way, and every choice is untouched.
 The draft routes are listed in the [API](#api) table.
@@ -3584,25 +3587,42 @@ hour (`CAPTURE_UPLOAD_RATE_MAX`); pairing attempts 10 per 10 minutes per address
 (`CAPTURE_EXCHANGE_RATE_MAX`); marking pictures as accurate 600 per hour (`CAPTURE_CONFIRM_RATE_MAX`). Every mutating route triggers the Azure Blob write-through sync. Jobs and
 paired devices are stored under `<data dir>/capture/` and are not shared between portal instances.
 
+**Who is asking.** With sign-in on, a caller is the signed-in person. With sign-in off (the demo default) it is the browser's
+private client id (the `X-Client-Id` header; a progress stream, which cannot send headers, sends it as `?cid=`), and with neither
+it is the network address. Each of these has its own rate-limit bucket, and one address that rotates ids still has a ceiling
+(`CAPTURE_IP_RATE_MULTIPLIER`, default 20 times one visitor's limit). A person or browser that can be told apart is an **owner**:
+the pairing code, the computer paired with it, and every capture it queues carry a one-way owner key (`u-` or `c-` and 32 hex
+characters) that is saved but never returned. A computer takes only its owner's captures (and captures with no owner); a computer
+paired before owners existed has no owner and takes any capture. The owner is not a security boundary (anyone can send any id), it
+keeps people's captures apart. A caller with no id stays permissive, as before.
+
+**Limits on a busy portal.** Open progress windows: `CAPTURE_SSE_MAX` for the portal (default 100) and
+`CAPTURE_SSE_PER_VISITOR_MAX` for one visitor (default 6); over a limit the answer is a plain 429 with `Retry-After`. A window also
+ends after `CAPTURE_SSE_MAX_MS` (default 30 minutes). Image uploads read into memory at once: `CAPTURE_UPLOAD_CONCURRENCY`
+(default 4); an upload waits up to `CAPTURE_UPLOAD_WAIT_MS` (default 20000) for a place, then gets a plain 503 with `Retry-After`.
+A shared library picture is written under a per-picture lock file (`<file>.blob-tmp-share-lock`, owner token, a lock older than a
+minute is taken over) and its check under a lock on `library-verification.json`, so a command-line tool and the portal never leave
+a picture beside another capture's check.
+
 Browser-facing:
 
 | Method | Route | Purpose |
 |---|---|---|
 | `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command, launcher }`. `command` is the Windows command with the launcher's relative path (`.\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=<portalUrl> --code=<code>`) and is kept for older clients; `launcher` is `{ relativeDir, windows, powershell, posix }`, the launcher paths inside the ZIP with forward slashes, which the Screenshot Center turns into the command for the person's shell. A host or code that is not plain letters, digits, dots, and hyphens is left out of `command`. |
 | `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
-| `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, account, accountSetup, expiresAt, tokenHint }] }`. `account` and `accountSetup` are the flags a companion 1.5.0 or later reported (null from an older one). |
-| `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |
+| `GET` | `/api/capture/devices` | Paired computers that work for the caller (their own, and any paired before owners existed; every computer for a caller with no id): `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, account, accountSetup, expiresAt, tokenHint }] }`. `account` and `accountSetup` are the flags a companion 1.5.0 or later reported (null from an older one). |
+| `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. A computer another person paired is 404. |
 | `POST` | `/api/capture/account-setup` | `{ product?, labId? }` asks the connected companion (1.5.0 or later, not busy) to open the "choose which account to use" sign-in, with the lab's capture settings so the landing can be checked. 202 `{ requested, id, product, deviceName, message }`; 409 `no-companion`, `companion-too-old`, or `busy` with a plain `error`. The person signs in themselves; the companion never picks an account. `GET /api/capture/status` then carries `companion.account`, `companion.accountSetup`, `companion.accountSupported`, and `companion.accountMinCompanion`. |
-| `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, 200 with `nothingToCapture: true`, or 200 with `needsAddress: true` and `missing` when every selected shot is waiting for an address (nothing is queued). |
+| `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, 200 with `nothingToCapture: true`, or 200 with `needsAddress: true` and `missing` when every selected shot is waiting for an address (nothing is queued). A lab runs **one capture at a time**: any other queued, claimed, or running capture of the same lab (another scope, options, addresses, or person) is 409 `{ error, code: "lab-busy", existingJobId, busyBy: "you" \| "someone-else" }` with a plain `error`. A capture of the whole shared library is not held to one per lab. |
 | `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
 | `POST` / `GET` | `/api/capture/dry-plan` | What a capture would do, read before anything runs. `POST { target: { type: "lab", labId } \| { type: "library", products? }, scope?, targets?, options? }` or `GET ?labId=&scope=all` (default `missing`). `{ dryPlan: { labId, title, totals: { total, automatic, needYou, unverified }, practiceAgent[], automatic: [{ order, filename, caption, via, family, familyLabel, verified, review, maxTier, steps[], objects[] }], objects: [{ id, label, shots[] }], manual: [{ filename, caption, reason, reasonLabel, why, steps[] }], reasons: [{ reason, label, count }], summary }, recipesMinCompanion }`. Queues nothing and needs no companion. The same report is `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id> [--all] [--json]`. |
 | `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
 | `GET` / `PUT` | `/api/generated-labs/:labId/capture-targets` | Read and save a lab's own capture settings (also under `/api/lab-builder/generated/:labId/`). `PUT { targets, alsoProfile? }`. |
 | `GET` | `/api/generated-labs/:labId/screenshots/checklist` | The screenshot to-do list: `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`. Each `you` item has `filename`, `figure`, `module`, `caption`, `shows`, `why`, and `steps[]`. Also under `/api/lab-builder/generated/:labId/`. |
-| `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. |
+| `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. Every job carries `mine`: `true` or `false` when both the viewer and the job have an owner, else `null`. A lab's progress is shared: anyone can look. |
 | `GET` | `/api/capture/jobs/:id` | One job with per-shot status and the event log. Poll this. |
-| `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |
-| `POST` | `/api/capture/jobs/:id/cancel` | Cancel. A queued job stops now; a running job stops after the current shot. 409 when already finished. |
+| `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. Over the open-window limits (below) it is 429 "Too many progress windows are open. Close one and try again." |
+| `POST` | `/api/capture/jobs/:id/cancel` | Cancel. A queued job stops now; a running job stops after the current shot. 409 when already finished. 403 "This capture was started by someone else, so only they can stop it." when both owners are known and differ. |
 | `GET` | `/api/capture/companion.zip` | The companion download. An allowlist of files, no secrets or tokens. |
 | `GET` | `/api/capture/library` | Shared library slots: `{ summary: { total, captured, missing, needsReview, confirmed }, shots: [{ product, feature, filename, captured, bytes, capturedAt, confirmed, manual, verification, needsReview }] }`. `confirmed` is `{ at }` while the confirmation still matches the picture, else `null`. Query `products=a,b`. |
 | `GET` | `/api/capture/library/screenshots/:filename/usage` | How many other labs show the library's picture for a slot, so a retake can ask first: `{ filename, hasPicture, otherLabs, confirmed }`. Query `labId` leaves that lab out. |
@@ -3876,9 +3896,230 @@ you run the workflow by hand.
 
 ---
 
+## Many people at once
+
+The portal is built to be used by many people at the same time, in one process. This section says what is shared and what is
+private, what happens without sign-in, how builds wait their turn, the limits and settings, how to measure it, and what would
+have to change before more than one copy of the portal could run. Nothing here needs a setting to work: the defaults suit a
+small container (0.5 CPU, 1 GiB).
+
+### What is shared and what is private
+
+| What | Shared or private | Notes |
+|---|---|---|
+| Saved drafts and the autosave slot | **Private** to each browser (or signed-in person) | See [Without sign-in](#without-sign-in-a-private-id-per-browser). |
+| Rate limits and build places | **Per visitor** (sign-in, else browser id, else address), with a roomier cap per address | A person's burst never throttles someone else. |
+| Generated labs, their pictures, exports, and the lab list | **Shared** library | Any person can open, rename, replace, or delete any lab. Opening one that someone just deleted says so (below). |
+| The shared screenshot library | **Shared** | One picture serves every lab that uses the slot. |
+| Capture jobs and paired computers | **Per owner** where the owner is known | A computer takes only the captures of the person who paired it. A lab runs one capture at a time. See the [capture API](#screenshot-capture-api). |
+| Topics and products added from Microsoft Learn (**My topics**, **My products**) | **Shared** by design | One team list: what one person adds, everyone sees, and the caps (`MAX_USER_TOPICS`, `MAX_USER_PRODUCTS`) are shared. If you need these private, they would have to move under the same owner key as drafts. |
+| Brand profiles, branding, approvals, feedback, agent chat settings | **Shared** | Administrator settings. |
+
+### Without sign-in: a private id per browser
+
+With sign-in off (the demo default, `PORTAL_AUTH_DISABLED=true`) the portal cannot tell people apart, so each browser makes a
+random id once, keeps it in `localStorage` (`labBuilder.clientId.v1`), and `portal/public/client-id.js` sends it as the
+`X-Client-Id` header on every call to the portal's own `/api` (and as `?cid=` on the progress streams, which cannot send headers).
+
+- The id must be 22 to 64 letters, digits, `-` or `_`. Anything else is ignored. It is **hashed** (`c-` and 32 hex characters)
+  before it becomes a folder name or a key, so it never reaches a path, a log, or a response.
+- Drafts live under `<data dir>/lab-builder/drafts/c-<hash>/`. Two browsers never see, change, or delete each other's drafts,
+  autosave, or "You have unsaved work" banner. Two tabs of one browser share one space.
+- **This separates people and prevents collisions. It is not a security boundary.** Anyone who sends the same id sees the same
+  drafts, and clearing browser storage starts a new, empty space (the old drafts stay on disk, unreachable). Use sign-in when
+  privacy matters; with sign-in on, the signed-in identity (`u-<hash>`) names the space and the browser id is ignored.
+- **Drafts from before this change** were in one shared `local` space. The **first browser that opens the portal after the
+  upgrade adopts them** (a `.claimed.json` file in `local/` records who, written with an exclusive create, so two browsers asking at
+  once cannot both adopt, and a move that stopped half way is finished by the same browser). The page says once: *Your saved drafts
+  from before this update are now in this browser.* Every other browser starts empty. A caller that sends no id (an old script)
+  still uses `local`.
+- Rate limits use the same key: one bucket per visitor, plus a per-address cap of `LAB_BUILDER_RATE_ADDRESS_MULTIPLIER` (default
+  8) times one visitor's limit, so one address that rotates ids still cannot flood.
+
+### Builds wait in a fair line
+
+`POST /api/lab-builder/generate` no longer answers "The lab builder is busy" when a few people build at once. At most
+`LAB_BUILDER_MAX_ACTIVE` builds run (default 2); the rest wait in the order they asked. One person may hold
+`LAB_BUILDER_MAX_PER_PERSON` places, running plus waiting (default 2); a third request is refused at once with *You already have 2
+labs building or waiting. Wait for one to finish, then start another.* (429 `owner-limit`, with `Retry-After`). If the line is full
+(`LAB_BUILDER_MAX_WAITING`, default 50) the answer is 503 `queue-full`, and a request that waits longer than
+`LAB_BUILDER_QUEUE_WAIT_MS` (default 150000) gets 503 `timeout`. A build that runs longer than `LAB_BUILDER_BUILD_TIMEOUT_MS`
+(default 600000) is stopped with a 504 and a plain message. Leaving the page, or **Cancel**, while waiting leaves the line and
+frees the place; nothing is built.
+
+The wizard sends a random ticket in `X-Build-Ticket` and asks `GET /api/lab-builder/build-queue/<ticket>` every 1.5 seconds:
+`{ state: "queued" | "running" | "finished" | "unknown", position, ahead, running, waiting, concurrency }`. Counts only; nobody is
+named. `GET /api/lab-builder/build-queue` gives the totals. The page says, in the status line (a polite live region) and on the
+build card:
+
+- *Your lab is next in line.*
+- *3 people are building labs. Yours starts soon.* (the number is the builds running plus those ahead)
+
+and goes back to the usual *Researching Microsoft Learn and composing your lab...* when the build starts. If the server answers
+with something that is not JSON (a gateway timeout), the page says *The server took too long to answer. Your lab may still finish
+building: check Generated labs in a minute.*
+
+> **The Azure Container Apps ingress gives up on a request that has sent no bytes for 240 seconds** (a platform limit, not
+> configurable). A build that waits and then runs for longer than that in one request would be cut off at the ingress, even though
+> the portal finishes it. The defaults keep the wait to 150 seconds and ordinary builds take well under a minute; do not raise
+> `LAB_BUILDER_QUEUE_WAIT_MS` past about 170000 behind that ingress.
+
+### Heavy work stays off the main thread
+
+Node runs one request at a time on its main thread, so one long synchronous task makes everyone wait (and `/healthz` stalls).
+These now run elsewhere or give way:
+
+- **Word, PowerPoint, PDF, ZIP, the per-topic files, the prerequisites checklist, the administrator guide, and the previews**
+  are built in a **worker thread** (`portal/lib/exports/`), the same functions as before (the files are the same). The ZIP is built
+  into a staging file under `<data dir>/tmp/` and streamed, then removed. `PORTAL_EXPORT_WORKERS` (default 1: the container has half
+  a CPU, so more workers only add memory; `0` runs everything on the main thread as before), `PORTAL_EXPORT_TIMEOUT_MS` (120000),
+  `PORTAL_EXPORT_MAX_QUEUED` (200), `PORTAL_EXPORT_WORKER_IDLE_MS` (60000: an idle worker stops and gives its memory back), and
+  `PORTAL_EXPORT_WORKER_HEAP_MB` (384). A lab that is deleted while an export is being built answers 410 *Someone else changed
+  this lab while you were viewing it. Reload to see the latest.*
+- **Building a lab** yields to the event loop between stages and between topic documents.
+- **The lab list** (`GET /api/lab-builder/generated`) keeps each lab's list entry until one of the files it is built from changes
+  (`manifest.json`, `screenshots/learn-state.json`, `screenshots/shots.json`), and the cache is filled one lab at a time after a start.
+  With 100 labs a list went from 2.3 seconds on the main thread to 49 milliseconds.
+- **The Blob mirror** reads files with async calls and yields every 20 files or 15 ms.
+- **Connections.** `PORTAL_HEADERS_TIMEOUT_MS` (30000), `PORTAL_REQUEST_TIMEOUT_MS` (300000), and `PORTAL_KEEPALIVE_TIMEOUT_MS` (65000).
+  Node's own 5-second keep-alive let the server close a connection the ingress was about to reuse; 65 seconds outlasts the ingress.
+  JSON bodies keep their per-route limits (drafts 320 KB, other lab builder routes 64 KB, a general 10 MB).
+
+### Files, locks, and races
+
+One Node process runs synchronous code without interruption, so a read-change-write with no `await` in between cannot be
+interleaved. The races that were real were an `await` between the read and the write (adding a product after a Learn fetch), several
+processes writing one file (the command-line tools beside the portal), and worker threads reading a lab that the main thread removes.
+
+- **Atomic writes.** Every store writes to a unique `<file>.blob-tmp-<pid>-<uuid>` name and renames it into place
+  (`portal/lib/concurrency/atomic-file.js`; the Blob mirror skips that name). The older fixed temp names (`<file>.<pid>.tmp`) that two
+  writers could share are gone.
+- **Locks.** In process: `createKeyedMutex` (`keyed-mutex.js`). Across processes: `withFileLock` and `withFileLockSync`
+  (`file-lock.js`): an exclusive lock file with an owner token, taken over after 60 seconds. They guard the saved products and topics,
+  approvals, brand profiles, branding, and the shared screenshot library's pictures and checks.
+- **A lab that is still being built** has a `.building` marker; the list, open, export, and every route that finds a lab by id treat it
+  as not there until the build is whole. At start, a marker older than 30 minutes (a build that died) is removed with its folder.
+- **Delete and replace** rename the lab folder to `.blob-tmp-trash-<lab>-<uuid>` in one atomic step, then remove it in the
+  background (the pictures are kept first, exactly as before). A reader sees the whole lab or *not found*, never half a folder.
+- **Topic documents** are written file by file through the same atomic writer, so two requests that build the same lab's `topics/`
+  files at once, or a download during a rewrite, never see half a file.
+- **Learn.** One refresh per product at a time (as before), a single shared call for identical Learn searches and page fetches,
+  at most `LAB_BUILDER_LEARN_MAX_CONCURRENT` calls at once (default 6), `Retry-After` honored (with backoff and jitter), and a cache
+  capped at `LAB_BUILDER_LEARN_CACHE_MAX` entries (default 500).
+- **The Blob mirror.** One serialized runner for every pass; a burst of writes is one pass (and a continuous burst still flushes every
+  `BLOB_SYNC_MAX_WAIT_MS`, default 30000); a file that changed while it was uploading is skipped and uploaded again, so an older version
+  never lands over a newer one; a failed pass retries with backoff (`BLOB_SYNC_RETRY_BASE_MS`, default 2000, at most 5 tries) without
+  holding up any request; and on `SIGTERM` or `SIGINT` the portal stops listening, saves what is waiting (up to 15 seconds), and exits.
+
+### Limits and defaults
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `PORTAL_TRUST_PROXY` | `1` | Proxy hops to believe about the caller's address (Container Apps adds one). `false` when reached directly. |
+| `LAB_BUILDER_RATE_MAX` / `_WINDOW_MS` | 10 / 3600000 | Builds per visitor per hour. |
+| `LAB_BUILDER_MANAGE_RATE_MAX` | 60 per hour | Renames, deletes, drift scans, capture changes. |
+| `LAB_BUILDER_DRAFTS_RATE_MAX` / `_WINDOW_MS` | 600 / 600000 | Draft writes per visitor per 10 minutes. |
+| `LAB_BUILDER_RATE_ADDRESS_MULTIPLIER` | 8 | One address may use this many times one visitor's limit. |
+| `LAB_BUILDER_MAX_ACTIVE` | 2 (1 to 8) | Builds that run at once. |
+| `LAB_BUILDER_MAX_PER_PERSON` / `_MAX_WAITING` | 2 / 50 | Places one person holds / people allowed to wait. |
+| `LAB_BUILDER_QUEUE_WAIT_MS` / `_BUILD_TIMEOUT_MS` | 150000 / 600000 | Longest wait for a turn / longest run. |
+| `PORTAL_EXPORT_*` | see above | Worker thread settings. |
+| `CAPTURE_SSE_MAX`, `CAPTURE_SSE_PER_VISITOR_MAX`, `CAPTURE_UPLOAD_CONCURRENCY`, `CAPTURE_IP_RATE_MULTIPLIER` | 100, 6, 4, 20 | Progress windows and uploads (see the [capture API](#screenshot-capture-api)). |
+
+### Measure it: the concurrency harness
+
+```bash
+cd portal
+npm run test:concurrency                                  # 12 people, 2 rounds, about 40 seconds
+npm run test:concurrency -- --users 4 --rounds 1          # the small run the portal test suite also does
+npm run test:concurrency -- --shared-ip                   # every request from one address, with the default limits
+npm run test:concurrency -- --relaxed --label branch --out out
+npm run test:concurrency -- --portal-dir <another checkout>/portal --label main --out out   # the same workload on another version
+```
+
+It starts a throwaway portal (ports 3131 to 3139, temp folders, sign-in off, no language model, no link check, topic refresh off, and a
+fake Learn on 127.0.0.1), runs up to 12 virtual people in parallel, and never touches the network, a real profile, or Azure. Each person
+has a browser id and an address and a seeded random mix (the same seed sends the same requests): open the wizard, ask for
+recommendations, add a Learn topic and a product, save, resume, rename, duplicate, and delete drafts and autosave, build labs (two
+people send the **same** request at once), export every format, open labs while one is replaced and another deleted, and pair two
+fake companions that queue, claim, and upload pictures to the same shared slot. It samples `/healthz` every 100 ms, measures the
+event-loop stall and memory from outside (a preload module, so an older checkout is measured the same way), and then checks the
+files: every JSON file parses; no `.tmp`, `.blob-tmp`, or trash left; every lab has a manifest and `index.md`; no lab id handed to two
+builds; every exported Word, PowerPoint, and ZIP file is valid; no person's response holds another's data; drafts and autosave are
+each person's own; open and export during a replace or delete are whole or gone; no capture job was claimed twice. Exit code 0 means
+no unexpected answer and every check passed. The portal test suite runs the 4-person version (`test/concurrency-harness.test.js`,
+about 15 seconds).
+
+Measured on a development machine (Windows, shared with other work), the same 12-person workload and seed, relaxed limits, two runs
+of each (the range is the two runs; the load on the machine changes from run to run):
+
+| | main (before) | this branch |
+|---|---|---|
+| Run time for the same work | 93 to 114 s | 35 to 37 s |
+| Labs built per minute | 20 to 27 | 69 to 72 |
+| Unexpected answers | 0 and 3 (connection resets) | 0 and 0 |
+| Export p95 / worst | 17.6 to 20.4 s / 40 to 84 s | 4.2 to 4.9 s / 4.7 to 5.5 s |
+| Lab build p95 | 2.1 to 13.6 s | 4.2 to 5.8 s (builds wait their turn instead of competing) |
+| Lab list p95 | 3.8 to 8.0 s | 0.6 s |
+| `/healthz` p95 (while labs build: p95) | 3.0 to 4.6 s (3.0 to 9.4 s) | 0.5 s (0.5 to 0.6 s) |
+| Longest event-loop stall | 5.1 to 10.7 s | 0.7 to 0.9 s |
+| Memory peak | 287 to 300 MB | 432 to 469 MB |
+| Drafts and autosave | shared: 34 to 36 leaks, 15 to 16 reads of someone else's autosave | each person's own: 0 |
+
+With every request from one address and the default limits (12 people, one round): main refused 8 of 18 builds (the 10 per hour limit
+shared by everyone, and "busy" when three built at once); this branch built all 21. The extra memory is the export worker and the extra
+work done in the same time. On a 1 GiB container the peak stays well inside the limit; the worker stops after a minute idle. These are
+numbers from one machine under a shared load, not a promise: run the harness where it matters.
+
+### Why the container stays at one replica
+
+`infra/modules/container-app.bicep` pins `minReplicas` and `maxReplicas` to 1 on purpose. These are per process and would diverge
+across two replicas: the capture job queue and device pairing (JSON files under `data/capture/`, claimed in one process), the Blob
+mirror (each replica would upload its own copy and delete the other's), the draft index and every JSON store (files on each replica's
+disk, mirrored after the fact), the rate limiters and build queue (in memory), the export workers, the lab list cache, and the
+single-flight and caches for Learn. Before scaling out, move: jobs, devices, drafts, and the stores to a shared database or to Blob
+with conditional writes (`If-Match`); the lab library to shared storage that every replica reads directly (not a mirror); the
+rate limits and the build queue to a shared store (Redis or a table); and the capture claim to an atomic operation there. Until
+then, scale up (more CPU and memory) rather than out.
+
+### Real sign-in (not turned on here)
+
+The portal's `requireAuth()` (`portal/lib/require-auth.js`) accepts a **bearer token** (`Authorization: Bearer`, an Entra JWT checked
+against the tenant's keys), and the page never sends one, so turning sign-in on today (`PORTAL_AUTH_DISABLED` unset, with
+`AZURE_TENANT_ID` and `PORTAL_API_AUDIENCE`) would refuse every call from the page. `requireAuth()` does **not** read the identity
+headers that Container Apps built-in authentication adds (`X-MS-CLIENT-PRINCIPAL`, `X-MS-CLIENT-PRINCIPAL-ID`,
+`X-MS-CLIENT-PRINCIPAL-NAME`). Two ways to turn it on:
+
+1. **Container Apps built-in authentication ("Easy Auth"), the smaller change.** Add a `Microsoft.App/containerApps/authConfigs`
+   resource (`current`) to `infra/modules/container-app.bicep` with the Microsoft Entra provider (an app registration whose redirect
+   URI is `https://<fqdn>/.auth/login/aad/callback` and whose secret is a container app secret), `unauthenticatedClientAction:
+   RedirectToLoginPage`, and excluded paths for `/healthz`, `/api/capture/companion/*` (the companion uses its own capture token), and
+   `/api/pp/approval-callback`. In the portal, add a middleware that, only when a setting such as `PORTAL_AUTH_MODE=easyauth` is on,
+   builds `req.user` (`oid`, `tid`, `upn`) from the decoded `X-MS-CLIENT-PRINCIPAL` header (and applies `PORTAL_ALLOWED_USERS` and
+   `PORTAL_ALLOWED_GROUPS` to its claims). **Never trust those headers unless the platform sets them**: with built-in authentication
+   off, a caller can send them. Then drafts, limits, and capture jobs are keyed by the signed-in person with no other change
+   (`ownerKeyFor`, `visitorKey`, and `ownerOf` already prefer a signed-in identity over the browser id), and `registerDraftRoutes`
+   already receives `authEnabled`.
+2. **Bearer tokens from the page.** Add MSAL.js to the page, acquire a token for `api://<app id>`, and send it on every call (the
+   `client-id.js` fetch wrapper is the place), keeping `requireAuth()` as it is. A larger change to the page, with no platform
+   dependency.
+
+Either way, set `PORTAL_AUTH_DISABLED` off, check `/api/config` for the auth summary, and re-run the harness with a sign-in stub. The
+owner of the portal decides; nothing here turns it on.
+
+### What this does not cover
+
+Nothing ran against real Azure, a real ingress, or real browsers on a real network. The 240-second ingress limit, the one-hop address
+(`X-Forwarded-For`), and Blob behavior (a timed-out upload can still land late on the real service; conditional writes would close
+that) are described from the platform's documentation and the fake Blob tests. Scripts under `tools/` that write the shared
+library directly do not take the slot lock. Topics and products added from Learn are shared by design. A sign-in-off portal cannot
+prevent one person from deleting another's lab.
+
+---
+
 ## Persistent storage (Managed Identity Azure Blob and custom volumes)
 
-By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `brand-profiles.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`. A person's [saved drafts](#save-your-progress-and-resume-later) are one JSON file each under `lab-builder/drafts/<owner>/` in that data folder (`<owner>` is a one-way hash of the signed-in identity, or `local` with sign-in off), plus an `unsaved.json` autosave slot, so they follow the same persistence, Blob mirror, and backups as everything else there.
+By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `brand-profiles.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`. A person's [saved drafts](#save-your-progress-and-resume-later) are one JSON file each under `lab-builder/drafts/<owner>/` in that data folder (`<owner>` is a one-way hash of the signed-in identity, a one-way hash of the browser's own id with sign-in off, or `local` for a caller that sends neither), plus an `unsaved.json` autosave slot, so they follow the same persistence, Blob mirror, and backups as everything else there.
 
 In Azure Container Apps (`infra/main.bicep`), `infra/modules/storage.bicep` provisions an SFI-compliant StorageV2 account (`Standard_LRS`, TLS 1.2+, HTTPS-only, `allowSharedKeyAccess: false`, `allowBlobPublicAccess: false`, `publicNetworkAccess: 'SecuredByPerimeter'`) with a private Blob container (`portalstate`), a Network Security Perimeter (`nsp-<token>`, `defaultProfile`, same-subscription `allow-same-subscription` Inbound access rule, and `storage-assoc` in `Learning` mode), and passwordless Microsoft Entra Managed Identity RBAC (`Storage Blob Data Contributor`). No storage account keys or SMB `AzureFile` mounts are used.
 
@@ -3957,6 +4198,14 @@ the "confirm with your Microsoft representative" wording, brand profile and logo
 the export and preview routes with their error codes, the ZIP file, the lab panel markup, and the command line.
 `portal/test/prerequisites-checklist-browser.test.js` drives the button, format list, download, and preview dialog in
 headless Chromium (it skips itself when Playwright or Chromium is missing; set `PREREQ_DEMO_DIR` to also save screenshots).
+`portal/test/concurrency-primitives.test.js`, `client-identity.test.js`, `lab-folder-concurrency.test.js`, `build-queue-server.test.js`,
+`blob-sync-concurrency.test.js`, `store-concurrency.test.js`, `capture-concurrency.test.js`, and `concurrency-harness.test.js` cover
+[Many people at once](#many-people-at-once): the atomic writer, mutex, file lock (two processes, 50 increments), build queue
+(order, caps, cancel, timeout), browser ids (shape, hashing, per-browser drafts, adoption, per-visitor limits behind one address),
+the same request built in two processes, two processes writing the same topic documents, readers during delete and replace, the
+worker-thread exports, the real server's queue and limits, the Blob mirror's ordering and retry, atomic capture claims, and the
+4-person harness. `lab-builder-two-people-browser.test.js` drives two people in two browser contexts (set `CONCURRENCY_DEMO_DIR` to
+also save screenshots of the waiting-in-line and "someone changed this lab" messages in light and dark).
 `portal/test/capture-share.test.js` covers "capture once, reuse everywhere": promotion to the shared library
 (capture and Accept), a lab-specific slot staying in its lab, a placeholder, a stub, an unaccepted warning, a failed
 check, and unmasked account details never being shared, no silent overwrite (a confirmed picture, an existing picture,

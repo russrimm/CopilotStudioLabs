@@ -18,6 +18,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
+import { sleepSync } from "../concurrency/atomic-file.js";
+import { LockTimeoutError } from "../concurrency/file-lock.js";
 import { isPlaceholder } from "../lab-builder/placeholder-detect.js";
 import { isRealScreenshotBytes } from "../lab-builder/captured.js";
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
@@ -157,28 +159,73 @@ export function replacementVerdict({ existing, existingSha, candidateSha, confir
 // ── One writer per picture, across processes ────────────────────────────────
 
 const LOCK_STALE_MS = 60_000;
+/** How long a write that must happen (an upload, a reset) waits for another process to finish with the same picture. */
+export const SHARE_LOCK_WAIT_MS = 3000;
+
+/** Remove the lock file only while it still holds our token: a lock taken over after we stalled belongs to someone else now. */
+function releaseShareLock(file, token) {
+  try {
+    const held = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (held?.token === token) fs.rmSync(file, { force: true });
+  } catch {
+    /* already gone, or taken over and not ours to remove */
+  }
+}
 
 /**
  * Take the lock for one library picture. Returns a release function, or null when another process holds it (a lock older
  * than a minute is a crashed run and is taken over). The lock file carries the `.blob-tmp-` marker, so the Azure Blob
- * mirror never uploads it.
+ * mirror never uploads it. It holds a random token; release removes the file only if the token is still ours.
  */
 export function acquireShareLock(dir, filename) {
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${filename}.blob-tmp-share-lock`);
+  const token = crypto.randomUUID();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      fs.closeSync(fs.openSync(file, "wx"));
-      return () => fs.rmSync(file, { force: true });
+      fs.writeFileSync(file, JSON.stringify({ token, pid: process.pid, at: Date.now() }), { flag: "wx" });
+      return () => releaseShareLock(file, token);
     } catch (err) {
       if (err.code !== "EEXIST") return null;
       try {
         if (Date.now() - fs.statSync(file).mtimeMs <= LOCK_STALE_MS) return null;
-        fs.rmSync(file, { force: true });
+        // Only one taker wins the rename. If the file we moved turns out to be a fresh lock (its holder replaced the stale one
+        // just before), put it back instead of discarding it.
+        const taken = `${file}.stale-${process.pid}-${crypto.randomUUID()}`;
+        fs.renameSync(file, taken);
+        if (Date.now() - fs.statSync(taken).mtimeMs <= LOCK_STALE_MS) {
+          try {
+            fs.linkSync(taken, file);
+          } catch {
+            /* another process already holds a new lock */
+          }
+          fs.rmSync(taken, { force: true });
+          return null;
+        }
+        fs.rmSync(taken, { force: true });
       } catch {
         return null;
       }
     }
   }
   return null;
+}
+
+/**
+ * Run a short, synchronous `work` while holding one library picture's lock, waiting (this thread blocks) up to `timeoutMs`
+ * for another process to let go. Throws a 503 `LockTimeoutError` when it never does. Use it for a write that must not be skipped.
+ */
+export function withShareLockSync(dir, filename, work, { timeoutMs = SHARE_LOCK_WAIT_MS } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let release = acquireShareLock(dir, filename);
+  while (!release) {
+    if (Date.now() > deadline) throw new LockTimeoutError(path.join(dir, filename));
+    sleepSync(15);
+    release = acquireShareLock(dir, filename);
+  }
+  try {
+    return work();
+  } finally {
+    release();
+  }
 }

@@ -17,6 +17,7 @@ import path from "node:path";
 
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
 import { cleanAccount, cleanAccountSetup } from "./account.js";
+import { canServe, cleanOwnerKey } from "./owner.js";
 
 export const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 export const TOKEN_PREFIX = "cap_";
@@ -24,6 +25,10 @@ export const TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 /** A companion counts as connected when it checked in this recently. */
 export const COMPANION_ONLINE_MS = 90 * 1000;
 const PERSIST_LAST_SEEN_MS = 5 * 60 * 1000;
+/** A computer that has not checked in for this long is dropped from the in-memory maps (its saved record stays). */
+export const LIVE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const MAX_TRACKED_DEVICES = 500;
+const PRUNE_EVERY_MS = 5 * 60 * 1000;
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const MAX_ACTIVE_CODES = 5;
 const MAX_FAILED_ATTEMPTS = 15;
@@ -102,6 +107,7 @@ export function createPairingStore({
   const live = new Map();
   const persistedSeen = new Map();
   let failures = [];
+  let lastPrune = 0;
 
   const load = () => {
     const state = readJson(file, null);
@@ -119,8 +125,34 @@ export function createPairingStore({
     writeJsonAtomic(file, state);
   }
 
-  /** Create a one-time pairing code to display in the portal. */
-  function createCode({ createdBy = null } = {}) {
+  /**
+   * Forget computers that have not checked in for a day, and keep every in-memory map bounded. Their saved record stays,
+   * so a computer that comes back is simply seen again. Cheap enough to call on every check-in: it runs at most every few minutes.
+   */
+  function pruneMemory() {
+    const t = now();
+    if (t - lastPrune < PRUNE_EVERY_MS) return;
+    lastPrune = t;
+    const cutoff = t - LIVE_RETENTION_MS;
+    for (const [id, entry] of live) if (!((entry.touchedAt ?? 0) > cutoff)) live.delete(id);
+    for (const [id, seen] of persistedSeen) if (!(seen > cutoff)) persistedSeen.delete(id);
+    for (const id of [...commands.keys()]) if (!freshCommands(id).length) commands.delete(id);
+    if (live.size > MAX_TRACKED_DEVICES) {
+      const oldest = [...live].sort((a, b) => (a[1].touchedAt ?? 0) - (b[1].touchedAt ?? 0));
+      for (const [id] of oldest.slice(0, live.size - MAX_TRACKED_DEVICES)) live.delete(id);
+    }
+    if (persistedSeen.size > MAX_TRACKED_DEVICES) {
+      const oldest = [...persistedSeen].sort((a, b) => a[1] - b[1]);
+      for (const [id] of oldest.slice(0, persistedSeen.size - MAX_TRACKED_DEVICES)) persistedSeen.delete(id);
+    }
+    if (commands.size > MAX_TRACKED_DEVICES) {
+      const oldest = [...commands].sort((a, b) => Math.max(0, ...a[1].map((c) => c.createdAtMs)) - Math.max(0, ...b[1].map((c) => c.createdAtMs)));
+      for (const [id] of oldest.slice(0, commands.size - MAX_TRACKED_DEVICES)) commands.delete(id);
+    }
+  }
+
+  /** Create a one-time pairing code to display in the portal. `ownerKey` is who asked (see owner.js): the computer paired with it works for that person. */
+  function createCode({ createdBy = null, ownerKey = null } = {}) {
     const state = load();
     const code = generateCode();
     const createdAt = now();
@@ -129,6 +161,7 @@ export function createPairingStore({
       createdAt: new Date(createdAt).toISOString(),
       expiresAt: createdAt + codeTtlMs,
       createdBy: createdBy ? cleanText(createdBy, 120) : null,
+      ownerKey: cleanOwnerKey(ownerKey),
     });
     save(state);
     return {
@@ -176,6 +209,7 @@ export function createPairingStore({
       scopes: ["capture:companion"],
       createdAt: new Date(t).toISOString(),
       createdBy: matched.createdBy || null,
+      ownerKey: cleanOwnerKey(matched.ownerKey),
       lastSeenAt: null,
       signedInProducts: [],
       expiresAt: t + tokenTtlMs,
@@ -205,7 +239,8 @@ export function createPairingStore({
       found.expiresAt = t + tokenTtlMs;
       save(state);
     }
-    return { ok: true, device: publicDevice(found, { now: t, onlineMs, live: live.get(found.id) }), scopes: found.scopes };
+    // The owner key is for the portal's own job matching; it is never part of the device a browser or a companion is shown.
+    return { ok: true, device: publicDevice(found, { now: t, onlineMs, live: live.get(found.id) }), scopes: found.scopes, ownerKey: cleanOwnerKey(found.ownerKey) };
   }
 
   /** Record that a companion is alive, what it reports, and what it is signed in to. Omitted fields keep their last value. */
@@ -214,6 +249,7 @@ export function createPairingStore({
     const previous = live.get(deviceId) || listDevices({ includeRevoked: true }).find((d) => d.id === deviceId) || {};
     const entry = {
       lastSeenAt: new Date(t).toISOString(),
+      touchedAt: t,
       companionVersion: cleanText(info.companionVersion, 40) || previous.companionVersion || null,
       signedInProducts: info.signedInProducts === undefined ? previous.signedInProducts || [] : cleanProducts(info.signedInProducts),
       busy: info.busy === undefined ? Boolean(previous.busy) : Boolean(info.busy),
@@ -237,6 +273,8 @@ export function createPairingStore({
         persistedSeen.set(deviceId, t);
       }
     }
+    // Forget the computers that have gone quiet, now that this one is counted.
+    pruneMemory();
     return entry;
   }
 
@@ -247,9 +285,12 @@ export function createPairingStore({
   const COMMAND_TTL_MS = 10 * 60 * 1000;
 
   function freshCommands(deviceId) {
+    const existing = commands.get(deviceId);
+    if (!existing) return [];
     const t = now();
-    const list = (commands.get(deviceId) || []).filter((c) => t - c.createdAtMs <= COMMAND_TTL_MS);
-    commands.set(deviceId, list);
+    const list = existing.filter((c) => t - c.createdAtMs <= COMMAND_TTL_MS);
+    if (list.length) commands.set(deviceId, list);
+    else commands.delete(deviceId);
     return list;
   }
 
@@ -263,7 +304,8 @@ export function createPairingStore({
     commands.set(deviceId, list);
     const known = live.get(deviceId) || listDevices({ includeRevoked: true }).find((d) => d.id === deviceId) || null;
     const base = known ? { lastSeenAt: known.lastSeenAt, companionVersion: known.companionVersion, signedInProducts: known.signedInProducts, busy: known.busy, account: known.account ?? null } : {};
-    live.set(deviceId, { ...base, accountSetup: { id, product: entry.product, state: "requested", message: "Waiting for your computer to open the sign-in window." } });
+    live.set(deviceId, { ...base, touchedAt: now(), accountSetup: { id, product: entry.product, state: "requested", message: "Waiting for your computer to open the sign-in window." } });
+    pruneMemory();
     return { id, product: entry.product };
   }
 
@@ -279,27 +321,34 @@ export function createPairingStore({
     return pending.map((c) => ({ id: c.id, type: c.type, product: c.product, env: c.env, targets: c.targets }));
   }
 
-  function listDevices({ includeRevoked = false } = {}) {
+  /**
+   * The paired computers. With `ownerKey`, only those that work for that person: their own, and any paired before owners
+   * existed. Without one (a caller nobody can tell apart), every computer.
+   */
+  function listDevices({ includeRevoked = false, ownerKey = null } = {}) {
     const t = now();
     return load()
-      .devices.filter((d) => includeRevoked || !d.revokedAt)
+      .devices.filter((d) => (includeRevoked || !d.revokedAt) && canServe(d.ownerKey, ownerKey))
       .map((d) => publicDevice(d, { now: t, onlineMs, live: live.get(d.id) }))
       .sort((a, b) => String(b.lastSeenAt || b.createdAt).localeCompare(String(a.lastSeenAt || a.createdAt)));
   }
 
-  function revokeDevice(deviceId) {
+  /** Disconnect a computer. A computer another person paired is left alone (reported as not found). */
+  function revokeDevice(deviceId, { ownerKey = null } = {}) {
     const state = load();
     const device = state.devices.find((d) => d.id === String(deviceId));
-    if (!device || device.revokedAt) return false;
+    if (!device || device.revokedAt || !canServe(device.ownerKey, ownerKey)) return false;
     device.revokedAt = new Date(now()).toISOString();
     save(state);
     live.delete(device.id);
+    persistedSeen.delete(device.id);
+    commands.delete(device.id);
     return true;
   }
 
   /** What the portal shows: is a companion connected, since when, and signed in to which products. */
-  function status() {
-    const devices = listDevices();
+  function status({ ownerKey = null } = {}) {
+    const devices = listDevices({ ownerKey });
     const connected = devices.filter((d) => d.connected);
     const lastSeenAt = devices.map((d) => d.lastSeenAt).filter(Boolean).sort().pop() || null;
     // Which account the screenshots come from, from the computer that checked in most recently and said (older companions do not).
@@ -318,5 +367,8 @@ export function createPairingStore({
     };
   }
 
-  return { createCode, exchangeCode, authenticate, heartbeat, listDevices, revokeDevice, status, queueCommand, takeCommands, hasPendingCommands };
+  /** How many computers each in-memory map holds (for tests and diagnostics). */
+  const memoryStats = () => ({ live: live.size, persistedSeen: persistedSeen.size, commands: commands.size });
+
+  return { createCode, exchangeCode, authenticate, heartbeat, listDevices, revokeDevice, status, queueCommand, takeCommands, hasPendingCommands, memoryStats };
 }

@@ -1,8 +1,9 @@
 /**
  * Copilot Studio agent chat configuration.
  */
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
+import { writeJsonAtomic } from "./concurrency/atomic-file.js";
 import { resolvePortalDataDir } from "./storage-config.js";
 
 function getAgentChatConfigPath(env = process.env) {
@@ -41,15 +42,13 @@ export function loadAgentChatConfig(env = process.env) {
 }
 
 export function saveAgentChatConfig(config, env = process.env) {
-  const dataRoot = resolvePortalDataDir(env);
-  mkdirSync(dataRoot, { recursive: true });
-
   const sanitized = {
     tokenEndpoint: String(config?.tokenEndpoint || "").trim(),
     agentName: String(config?.agentName || DEFAULT_CONFIG.agentName).trim() || DEFAULT_CONFIG.agentName,
   };
 
-  writeFileSync(getAgentChatConfigPath(env), JSON.stringify(sanitized, null, 2));
+  // The whole file is replaced from the request, so there is no read to protect: the atomic write is enough.
+  writeJsonAtomic(getAgentChatConfigPath(env), sanitized, { newline: false });
 
   return {
     ...sanitized,

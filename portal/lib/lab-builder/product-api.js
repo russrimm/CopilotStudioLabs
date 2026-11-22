@@ -8,14 +8,28 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { createKeyedMutex } from "../concurrency/keyed-mutex.js";
+import { visitorKey } from "../concurrency/visitor.js";
 import { connect, fetchDocPage, searchDocs } from "./learn-mcp.js";
 import { getBuiltInProducts, getProducts, setCustomProducts } from "./products.js";
 import { cleanText, MAX_SUMMARY, MAX_TITLE, normalizeLearnUrl } from "./topic-sanitize.js";
 import { parsePage } from "./topic-discovery.js";
-import { productIdFor, buildUserProduct, readUserProducts, userProductsPath, writeUserProducts, MAX_USER_PRODUCTS } from "./user-products.js";
+import { productIdFor, buildUserProduct, readUserProducts, updateUserProducts, userProductsPath, MAX_USER_PRODUCTS } from "./user-products.js";
 import { productPaths } from "./topic-store.js";
 
 const PICKLIST_PATH = new URL("./product-picklist.json", import.meta.url);
+
+// Requests that change the saved list take turns per file; the file lock inside updateUserProducts covers other processes.
+const writers = createKeyedMutex();
+
+/** Change the saved list for `file`: `change(current)` returns `{ products }` to save, or a refusal to hand back unchanged. */
+function changeSaved(file, change) {
+  return writers.run(file, () => {
+    const outcome = updateUserProducts(file, change);
+    if (outcome.products) setCustomProducts(readUserProducts(file));
+    return outcome;
+  });
+}
 
 /** The reviewed picklist, with every address re-normalized so a bad entry can never reach the wizard. */
 export function readPicklist() {
@@ -55,7 +69,7 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_USER_PRODUCTS_RATE_WINDOW_MS, 3600000),
     max: positiveIntFromEnv(process.env.LAB_BUILDER_USER_PRODUCTS_RATE_MAX, 30),
   });
-  const callerOf = (req) => String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase();
+  const callerOf = (req) => visitorKey(req);
   const limited = (req, res) => {
     const result = rate(callerOf(req));
     if (result.allowed) return false;
@@ -119,8 +133,8 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     }
     const overlap = overlappingProduct(root, getProducts());
     if (overlap) return res.status(409).json({ error: `That documentation is already covered by "${overlap.name}".`, product: describe(overlap) });
-    const current = saved();
-    if (current.length >= MAX_USER_PRODUCTS) return res.status(400).json({ error: `You can add up to ${MAX_USER_PRODUCTS} products of your own. Remove one first.` });
+    // A cheap early answer before the network call; the same checks run again under the lock, which is the one that counts.
+    if (saved().length >= MAX_USER_PRODUCTS) return res.status(400).json({ error: `You can add up to ${MAX_USER_PRODUCTS} products of your own. Remove one first.` });
     let page;
     try {
       page = await client.page(root);
@@ -133,26 +147,41 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     const name = given || cleanText(String(parsed.title || "").replace(/\s+documentation$/i, ""), 80);
     const product = buildUserProduct({ name, root, summary: `${name} documentation on Microsoft Learn.`, now: Date.now() });
     if (!product) return res.status(422).json({ error: "That page has no title to name the product with. Type a name for it." });
-    if (getProducts().some((existing) => existing.id === product.id || existing.name.toLowerCase() === product.name.toLowerCase())) {
-      return res.status(409).json({ error: `A product named "${product.name}" is already in the list. Use a different name.` });
-    }
+    // The Learn fetch is done. Re-read the file and check the cap and the duplicates inside the lock, so two people adding at
+    // once cannot both pass the checks or overwrite each other's product.
+    const file = filePath();
+    let outcome;
     try {
-      writeUserProducts(filePath(), [...current, product]);
+      outcome = await changeSaved(file, (current) => {
+        if (current.length >= MAX_USER_PRODUCTS) return { status: 400, error: `You can add up to ${MAX_USER_PRODUCTS} products of your own. Remove one first.` };
+        const known = [...getBuiltInProducts(), ...current];
+        const covering = overlappingProduct(root, known);
+        if (covering) return { status: 409, error: `That documentation is already covered by "${covering.name}".`, product: describe(covering) };
+        if (known.some((existing) => existing.id === product.id || existing.name.toLowerCase() === product.name.toLowerCase())) {
+          return { status: 409, error: `A product named "${product.name}" is already in the list. Use a different name.` };
+        }
+        return { products: [...current, product] };
+      });
     } catch (err) {
-      return res.status(400).json({ error: err.message });
+      return res.status(err?.status === 503 ? 503 : 400).json({ error: err.message });
     }
-    setCustomProducts(readUserProducts(filePath()));
+    if (!outcome.products) return res.status(outcome.status).json({ error: outcome.error, ...(outcome.product ? { product: outcome.product } : {}) });
     res.status(201).json({ added: true, product: describe(product) });
   });
 
   /** DELETE /api/lab-builder/products/mine/:id: remove a product you added. Labs already built from it are not changed. */
-  app.delete("/api/lab-builder/products/mine/:id", (req, res) => {
+  app.delete("/api/lab-builder/products/mine/:id", async (req, res) => {
     const id = String(req.params.id || "");
     if (!/^custom-[a-z0-9-]{1,40}$/.test(id) || productIdFor(id.replace(/^custom-/, "")) !== id) return res.status(400).json({ error: "That is not a product id." });
-    const current = saved();
-    if (!current.some((product) => product.id === id)) return res.status(404).json({ error: "That product is not in your list." });
-    writeUserProducts(filePath(), current.filter((product) => product.id !== id));
-    setCustomProducts(readUserProducts(filePath()));
+    let outcome;
+    try {
+      outcome = await changeSaved(filePath(), (current) =>
+        current.some((product) => product.id === id) ? { products: current.filter((product) => product.id !== id) } : { status: 404, error: "That product is not in your list." },
+      );
+    } catch (err) {
+      return res.status(err?.status === 503 ? 503 : 400).json({ error: err.message });
+    }
+    if (!outcome.products) return res.status(outcome.status).json({ error: outcome.error });
     // Its cached topic list goes with it.
     try {
       const { cachePath } = productPaths(getService().config, id);

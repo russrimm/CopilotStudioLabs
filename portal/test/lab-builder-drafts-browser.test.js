@@ -17,6 +17,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { clientOwnerKey } from "../lib/concurrency/visitor.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = resolve(here, "..");
@@ -51,10 +52,26 @@ function freePort() {
   })();
 }
 
+// The test person's browser id: the page is given the same one, so the page and these server calls are one person.
+const TEST_CLIENT_ID = "DraftsBrowserTestId0001";
+
 const api = async (path, init = {}) => {
-  const res = await fetch(`${ctx.base}${path}`, { ...init, headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers || {}) } });
+  const res = await fetch(`${ctx.base}${path}`, { ...init, headers: { "X-Client-Id": TEST_CLIENT_ID, ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers || {}) } });
   return { status: res.status, body: await res.json().catch(() => null) };
 };
+
+/** A page that is the same person as `api`: its browser id is already stored. */
+async function newBrowserPage(options) {
+  const page = await ctx.browser.newPage(options);
+  await page.addInitScript((id) => {
+    try {
+      localStorage.setItem("labBuilder.clientId.v1", id);
+    } catch {
+      /* a sandboxed frame has no storage */
+    }
+  }, TEST_CLIENT_ID);
+  return page;
+}
 
 before(async (t) => {
   ctx.storageRoot = join(tmp("lb-drafts-browser-"), "storage");
@@ -122,7 +139,7 @@ after(() => {
 });
 
 const draftFiles = () => {
-  const folder = join(ctx.data, "lab-builder", "drafts", "local");
+  const folder = join(ctx.data, "lab-builder", "drafts", clientOwnerKey(TEST_CLIENT_ID));
   return existsSync(folder) ? readdirSync(folder) : [];
 };
 
@@ -189,7 +206,7 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   const industry = features.industries[0].id;
   const roles = features.roles.slice(0, 2).map((r) => r.id);
   const picks = await recommendPicks();
-  const page = await ctx.browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const page = await newBrowserPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
   t.after(() => page.close());
@@ -361,7 +378,7 @@ test("a refresh in the middle of a lab brings up one calm banner, and Resume put
   const features = (await api("/api/lab-builder/features")).body;
   const industry = features.industries[1]?.id || features.industries[0].id;
   const namedBefore = (await api("/api/lab-builder/drafts")).body.drafts.length;
-  const page = await ctx.browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const page = await newBrowserPage({ viewport: { width: 1280, height: 900 } });
   t.after(() => page.close());
   await page.goto(`${ctx.base}/#labbuilder`);
   await page.waitForSelector('input[name="lb-product"]');

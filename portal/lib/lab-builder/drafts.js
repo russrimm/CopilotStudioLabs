@@ -17,6 +17,12 @@
 import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { writeFileAtomic } from "../concurrency/atomic-file.js";
+import { clientOwnerKey, signedInIdentity } from "../concurrency/visitor.js";
+
+/** The shared space the portal used before each browser had its own. Its drafts go to the first browser that asks. */
+export const LOCAL_OWNER = "local";
+const CLAIM_FILE = ".claimed.json";
 
 /** The version written into every file. Bump it, and add a step to MIGRATIONS, when the saved shape changes. */
 export const DRAFT_SCHEMA_VERSION = 2;
@@ -82,13 +88,17 @@ export function newDraftId() {
 }
 
 /**
- * Whose space the drafts belong to. A signed-in person gets a private space named by a one-way hash of their identity;
- * with sign-in off there is one shared local space. Returns null when sign-in is on but no identity arrived.
+ * Whose space the drafts belong to. A signed-in person gets a private space named by a one-way hash of their identity.
+ * With sign-in off, each browser gets its own space named by a one-way hash of the random id it sends (`clientId`; see
+ * concurrency/visitor.js): that keeps people's work apart and stops them overwriting each other, but it is not a security
+ * boundary, because anyone can send any id. A caller that sends neither uses the shared `local` space the portal had
+ * before browsers had ids. Returns null when sign-in is on but no identity arrived.
  */
-export function ownerKeyFor(user, { authEnabled = false } = {}) {
-  const identity = user && (user.oid || user.upn) ? `${String(user.tid || "").toLowerCase()}:${String(user.oid || user.upn).toLowerCase()}` : "";
+export function ownerKeyFor(user, { authEnabled = false, clientId = null } = {}) {
+  const identity = signedInIdentity(user);
   if (identity) return `u-${createHash("sha256").update(identity).digest("hex").slice(0, 32)}`;
-  return authEnabled ? null : "local";
+  if (authEnabled) return null;
+  return clientId ? clientOwnerKey(clientId) : LOCAL_OWNER;
 }
 
 export function draftsDirFor(dataDir) {
@@ -279,33 +289,6 @@ function validRecord(record, id) {
   }
 }
 
-function sleepMs(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
-/** Write to a temp file, then rename it over the target, so a reader never sees half a file. */
-function writeFileAtomic(file, text) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  // ".blob-tmp-" is the name the Blob mirror already skips, so a half-written copy is never uploaded.
-  const temp = `${file}.blob-tmp-${process.pid}-${randomBytes(6).toString("hex")}`;
-  try {
-    fs.writeFileSync(temp, text, { flag: "wx" });
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        fs.renameSync(temp, file);
-        return;
-      } catch (err) {
-        // Windows can briefly refuse a rename while an antivirus scanner or the Blob mirror holds the target.
-        if (attempt >= 4 || !["EPERM", "EBUSY", "EACCES"].includes(err?.code)) throw err;
-        sleepMs(15 * (attempt + 1));
-      }
-    }
-  } catch (err) {
-    fs.rmSync(temp, { force: true });
-    throw err;
-  }
-}
-
 /**
  * @param {object} options
  * @param {string} options.dir the drafts folder (see draftsDirFor)
@@ -317,9 +300,11 @@ export function createDraftStore({ dir, now = Date.now, schema = {} } = {}) {
   const root = path.resolve(dir);
   const version = schema.currentVersion ?? DRAFT_SCHEMA_VERSION;
   const iso = () => new Date(now()).toISOString();
+  // Once the shared space has been handed over there is nothing left to check on later requests.
+  let legacySettled = false;
 
   const ownerDir = (owner) => {
-    if (typeof owner !== "string" || !/^(local|u-[0-9a-f]{32})$/.test(owner)) throw new DraftError("Sign in to use saved drafts.", 401, "no-owner");
+    if (typeof owner !== "string" || !/^(local|[uc]-[0-9a-f]{32})$/.test(owner)) throw new DraftError("Sign in to use saved drafts.", 401, "no-owner");
     return path.join(root, owner);
   };
   const fileOf = (owner, id) => path.join(ownerDir(owner), `${id}.json`);
@@ -367,6 +352,62 @@ export function createDraftStore({ dir, now = Date.now, schema = {} } = {}) {
   }
 
   return {
+    /**
+     * Hand the drafts of the shared `local` space to the first browser that asks, once. They were saved before browsers had
+     * their own space, so the first browser to open the portal after the upgrade (in practice the person who made them)
+     * finds them again and every other browser starts empty. A claim file in `local` records who adopted them, so a second
+     * browser never takes them and a crash half way through is finished by the same browser on its next visit.
+     * Returns how many files moved this time (0 when there was nothing to do).
+     */
+    adoptLegacy(owner) {
+      if (legacySettled || typeof owner !== "string" || !owner.startsWith("c-")) return 0;
+      const legacyDir = path.join(root, LOCAL_OWNER);
+      const claimFile = path.join(legacyDir, CLAIM_FILE);
+      const readClaim = () => {
+        try {
+          return JSON.parse(fs.readFileSync(claimFile, "utf8"));
+        } catch {
+          return null;
+        }
+      };
+      let claim = readClaim();
+      if (claim && claim.state === "done") legacySettled = true;
+      if (claim && (claim.owner !== owner || claim.state === "done")) return 0;
+      let names;
+      try {
+        names = fs.readdirSync(legacyDir).filter((name) => name.endsWith(".json") && name !== CLAIM_FILE && (name === `${UNSAVED_ID}.json` || isDraftId(name.slice(0, -5))));
+      } catch (err) {
+        if (err?.code === "ENOENT") return 0;
+        throw err;
+      }
+      if (!claim) {
+        if (!names.length) return 0;
+        try {
+          // Exclusive create: of two browsers asking at once, exactly one wins.
+          fs.writeFileSync(claimFile, JSON.stringify({ owner, state: "moving", at: iso() }), { flag: "wx" });
+        } catch (err) {
+          if (err?.code !== "EEXIST") throw err;
+          claim = readClaim();
+          if (!claim || claim.owner !== owner || claim.state === "done") return 0;
+        }
+      }
+      let moved = 0;
+      const destination = ownerDir(owner);
+      fs.mkdirSync(destination, { recursive: true });
+      for (const name of names) {
+        const target = path.join(destination, name);
+        if (fs.existsSync(target)) continue;
+        try {
+          fs.renameSync(path.join(legacyDir, name), target);
+          moved += 1;
+        } catch (err) {
+          if (err?.code !== "ENOENT") throw err;
+        }
+      }
+      writeFileAtomic(claimFile, JSON.stringify({ owner, state: "done", at: iso(), moved }));
+      return moved;
+    },
+
     /** Every draft, newest first. A file that cannot be read is listed as unavailable; the other drafts are not affected. */
     list(owner) {
       const drafts = [];

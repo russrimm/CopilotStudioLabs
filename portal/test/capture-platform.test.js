@@ -1114,8 +1114,13 @@ test("a job carries the tenant addresses of a brand profile or of the lab's own 
   const sameAgain = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://fabrikam.sharepoint.com/sites/x" } });
   assert.equal(sameAgain.json.existing, true);
   const differentEnv = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://other.sharepoint.com/sites/x" } });
-  assert.equal(differentEnv.status, 201, "the same capture for another tenant is a different job");
-  for (const job of [sameButOtherBrand, differentEnv]) await cancel(job.json.job.id);
+  assert.equal(differentEnv.status, 409, "a lab runs one capture at a time, even for another tenant's addresses");
+  assert.equal(differentEnv.json.code, "lab-busy");
+  assert.equal(differentEnv.json.existingJobId, sameButOtherBrand.json.job.id);
+  await cancel(sameButOtherBrand.json.job.id);
+  const differentEnvAfter = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://other.sharepoint.com/sites/x" } });
+  assert.equal(differentEnvAfter.status, 201, "once the first capture is canceled, the same capture for another tenant is a different job");
+  await cancel(differentEnvAfter.json.job.id);
 
   assert.equal((await queue({ brandProfileId: "no-such-profile" })).status, 404);
   assert.equal((await queue({ brandProfileId: 42 })).status, 400);
