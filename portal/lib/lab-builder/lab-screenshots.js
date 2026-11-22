@@ -25,6 +25,7 @@ import { MIN_CAPTURED_BYTES, describeSlot, slotsForFeature } from "./slots.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
 import { flattenStepLegacy, joinStep, repairRunOnStep, stepLeadSentence, stepPlainLines, stepToMarkdown, takeSubSteps } from "./sub-steps.js";
 import { writeGeneratedLabTopicDocuments } from "./topic-documents.js";
+import { writeGeneratedLabTrainingDecks } from "./training-decks.js";
 import { validateLabDir } from "../validator.js";
 import {
   buildLabCaptureCliCommand,
@@ -828,6 +829,12 @@ export function refreshGeneratedLabOutputs(
     markdown,
     manifest,
   });
+  // A changed Microsoft Learn page makes the training decks stale the same way it does the lab text: rebuild them now.
+  try {
+    writeGeneratedLabTrainingDecks(resolvedDir, { labId, markdown, manifest });
+  } catch {
+    /* they are built again the next time someone asks for one */
+  }
 
   // Sync legacy root `shots.json` & `SHOTLIST.md` if present
   const rootShotsPath = path.join(resolvedDir, "shots.json");
@@ -1566,6 +1573,12 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
             sectionHeading: liveDerived?.sectionHeading || null,
             count: liveSteps.length,
             drift: diffSteps(catalogFeature.steps || [], liveSteps),
+          };
+          // The training decks follow the same Learn record: a new page fingerprint makes them stale.
+          modMeta.training = {
+            ...(modMeta.training || {}),
+            contentFingerprint: liveFingerprint,
+            learnCheckedAt: liveDerived?.fetchedAt || checkedAt,
           };
 
           modState.learnBaseline = {

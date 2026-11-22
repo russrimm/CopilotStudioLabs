@@ -1,0 +1,1906 @@
+{
+  "$comment": "Curated teaching briefs for 13 concepts that belong to products other than the Copilot Studio build experience: Microsoft Foundry, Agent Builder and declarative agents, the Microsoft 365 Copilot hub, SharePoint AI, and AI Builder. Every statement follows the Microsoft Learn pages listed in verifiedAgainst.",
+  "version": 1,
+  "concepts": {
+    "foundry-projects": {
+      "definition": "A Foundry project is the workspace where a team builds with models and agents, inside a larger Azure resource that holds shared settings.",
+      "analogy": "Think of it like a folder on a shared drive: the folder holds one team's work, and the drive sets the shared rules.",
+      "blocks": [
+        { "label": "Azure resource", "plain": "Holds shared settings, such as network security and model deployments." },
+        { "label": "Project", "plain": "The workspace for one team or idea. It organizes agents, evaluations, and files." },
+        { "label": "Hub", "plain": "Classic portal only: a hub groups projects that share security settings and connections." },
+        { "label": "Access", "plain": "Roles that decide who on the team can use the project and its resources." },
+        { "label": "Two portals", "plain": "The new portal shows Foundry projects only. The classic portal shows every project type." }
+      ],
+      "flow": [
+        { "label": "Get ready", "plain": "A person with an Azure subscription and a suitable role gets started." },
+        { "label": "Pick a type", "plain": "They pick a Foundry project, or a hub-based project if they need hub features." },
+        { "label": "Create", "plain": "The portal creates the project, and the resource or hub behind it if needed." },
+        { "label": "Share", "plain": "The team gets a role so they can use the project and its resources." },
+        { "label": "Build", "plain": "The team builds agents, tests models, and runs evaluations inside the project." }
+      ],
+      "example": {
+        "input": "A Contoso team wants a safe place to try models and build its first agent.",
+        "output": "A project the team can share. It holds their agents, evaluations, and files, and uses the settings of the resource it lives on."
+      },
+      "whenToUse": [
+        "You want one shared workspace for agents, models, and evaluations.",
+        "Several teams need their own space but the same security settings.",
+        "You want to give each team member the access they need."
+      ],
+      "whenNot": [
+        "A hub-based project is only for features a Foundry project lacks.",
+        "New agents and model features are built for Foundry projects, not hub-based ones.",
+        "Custom names, security controls, or cost tags can need setup in the Azure portal."
+      ],
+      "dataNote": "Projects are units of isolation: agents in a project share its file storage, conversation history, and search indexes. You can bring your own Azure resources for control over sensitive data.",
+      "needToKnow": "Agents, evaluations, and files live in a project. Model deployments and security settings come from the resource or hub the project sits on. Knowing your project type tells you which portal and which features you can use.",
+      "demo": "Show the two portal versions side by side and point out which kinds of project each one lists.",
+      "askTheRoom": "Which of your teams could share one project, and which would need a project of their own?",
+      "sayOutLoud": "Think of a Foundry project as a team's workspace. Contoso's support team and sales team could each have a project, both using the security settings of one Azure resource.",
+      "quiz": [
+        {
+          "q": "What is a Foundry project?",
+          "options": ["A single AI model", "A workspace for building with models and agents", "A billing invoice"],
+          "answer": 1,
+          "why": "A project organizes agents, evaluations, and files for a team. It sits on a larger Azure resource."
+        },
+        {
+          "q": "Which portal shows both hub-based projects and Foundry projects?",
+          "options": ["The new portal", "The classic portal", "Neither portal"],
+          "answer": 1,
+          "why": "Only Foundry projects appear in the new portal. The classic portal shows every project type."
+        },
+        {
+          "q": "What do projects on the same Foundry resource usually share?",
+          "options": ["Each other's agents and files", "Settings such as network security and deployments", "Nothing at all"],
+          "answer": 1,
+          "why": "Each project can have its own access, but they share common settings from the parent resource."
+        }
+      ],
+      "terms": ["foundry", "foundry-project", "hub-based-project", "agent", "prompt-agent", "hosted-agent", "evaluation", "azure-subscription"],
+      "learn": [
+        { "title": "What is Microsoft Foundry?", "url": "https://learn.microsoft.com/azure/foundry/what-is-foundry" },
+        { "title": "Create a project for Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/how-to/create-projects" },
+        { "title": "What is Microsoft Foundry (classic) portal?", "url": "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry/how-to/create-projects",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry-classic/concepts/ai-resources",
+        "https://learn.microsoft.com/azure/foundry-classic/how-to/hub-create-projects"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "model-deployment": {
+      "definition": "Deploying a model sets up a copy that apps can call, which you can try in a playground and limit with quota.",
+      "analogy": "Think of it like a budget: your quota is the total you may use, and each deployment gets a share of it.",
+      "blocks": [
+        { "label": "Model catalog", "plain": "A searchable list of more than 10,000 models from many providers." },
+        { "label": "Model card", "plain": "The details page for one model: facts, deployments, benchmarks, and license." },
+        { "label": "Deployment", "plain": "A copy of a model set up in your project for apps to call." },
+        { "label": "Playground", "plain": "A place to chat with a deployed model and compare up to three models." },
+        { "label": "Quota", "plain": "Your usage allowance per model and region, counted in tokens per minute." }
+      ],
+      "flow": [
+        { "label": "Browse", "plain": "A person searches and filters the catalog and reads a model card." },
+        { "label": "Decide", "plain": "They weigh a model sold by Azure against one from partners and community." },
+        { "label": "Deploy", "plain": "They deploy the model, which gives it a name and a share of quota." },
+        { "label": "Try it", "plain": "They test prompts in a playground and can compare models side by side." },
+        { "label": "Manage quota", "plain": "They watch quota and free some up, or ask for more, when it runs low." }
+      ],
+      "example": {
+        "input": "A Contoso developer wants to see how two models answer the same support question.",
+        "output": "Both models are deployed, then compared side by side in the playground with the same prompt, so the developer can judge quality and speed."
+      },
+      "whenToUse": [
+        "You need to pick a model before building an app or agent.",
+        "You want to test prompts before you write production code.",
+        "You want to compare up to three models side by side."
+      ],
+      "whenNot": [
+        "Shared quota is for temporary tests. Production needs its own quota.",
+        "Partner and community models get support from the companies that make them.",
+        "Some models exist only in some regions, so region can limit your choice."
+      ],
+      "dataNote": "Models from other providers come with their own terms. Learn has separate data and privacy pages for models sold by Azure and for Claude models.",
+      "needToKnow": "A model does nothing for your app until it is deployed. A deployment has a name that your code uses to reach it, and it takes a share of the quota for that model and region. When quota runs out, you free some or ask for more.",
+      "demo": "Show a model card, then a deployed model answering one question in the playground, and its share of quota.",
+      "askTheRoom": "What would you compare between two models before picking one: speed, quality, or cost?",
+      "sayOutLoud": "Before Contoso builds a support agent, the team tries two models in the playground with the same question. They keep the one that answers best, and they check that they have enough quota to run it.",
+      "quiz": [
+        {
+          "q": "What does deploying a model give you?",
+          "options": ["A copy of the model that your apps can call", "A new model trained from scratch", "An unlimited free allowance"],
+          "answer": 0,
+          "why": "A deployment sets the model up in your project under a name your code can use."
+        },
+        {
+          "q": "What is a playground for?",
+          "options": ["Trying prompts and comparing models before you build", "Publishing agents to customers", "Training a model on your data"],
+          "answer": 0,
+          "why": "Playgrounds let you test models and agents without writing code first."
+        },
+        {
+          "q": "What is quota counted in?",
+          "options": ["Tokens per minute", "Number of users", "Pages per day"],
+          "answer": 0,
+          "why": "Azure assigns quota per subscription, per region, and per model, in tokens per minute."
+        },
+        {
+          "q": "Who supports a model from the partners and community group?",
+          "options": ["The provider that built it", "Nobody", "Only your own team"],
+          "answer": 0,
+          "why": "Partner and community models are developed and supported by their providers."
+        }
+      ],
+      "terms": ["model-catalog", "model-deployment", "foundry-playground", "quota", "token", "ai-model", "prompt"],
+      "learn": [
+        { "title": "Overview of Microsoft Foundry Models", "url": "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview" },
+        { "title": "Deploy Microsoft Foundry Models in the Foundry portal", "url": "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models" },
+        { "title": "Manage and increase quotas for resources with Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/how-to/quota" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview",
+        "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
+        "https://learn.microsoft.com/azure/foundry/concepts/concept-playgrounds",
+        "https://learn.microsoft.com/azure/foundry/how-to/quota"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "choose-approach": {
+      "definition": "Choosing an approach means deciding whether you need a declarative agent at all, and which tool to build it with: Agent Builder, Copilot Studio, or code.",
+      "blocks": [
+        { "label": "Declarative agent", "plain": "Defined by instructions, knowledge, and actions. Copilot's own orchestrator and model run it." },
+        { "label": "Agent Builder", "plain": "A guided tool inside Microsoft 365 Copilot for simple, quick agents." },
+        { "label": "Copilot Studio", "plain": "A separate app for workflows and connectors. Features vary by harness." },
+        { "label": "Code tools", "plain": "Developer tools, such as Agents Toolkit, for lower-level control." }
+      ],
+      "flow": [
+        { "label": "Need", "plain": "A person describes the goal, the users, and where they will work." },
+        { "label": "Reuse check", "plain": "They check whether an approved agent already does the job." },
+        { "label": "Match tool", "plain": "They match needs to a tool: outside actions or channels point to Copilot Studio." },
+        { "label": "Build", "plain": "They build with that tool and record owners, knowledge, and dependencies." },
+        { "label": "Grow", "plain": "If needs grow, an Agent Builder agent can be copied to Copilot Studio." }
+      ],
+      "example": {
+        "input": "Contoso wants an onboarding agent that answers from approved team content.",
+        "output": "Agent Builder fits: instructions plus approved knowledge, shared inside the organization. If it later needs workflows or outside actions, copy it to Copilot Studio."
+      },
+      "whenToUse": [
+        "Instructions and supported knowledge meet the need: start with Agent Builder.",
+        "You need outside actions, workflow logic, or separate environments: look at Copilot Studio.",
+        "You need an outside channel, such as a customer website: look at Copilot Studio."
+      ],
+      "whenNot": [
+        "Skip building a new agent if an approved one already fits.",
+        "Audience size alone is not a reason to leave Agent Builder.",
+        "Declarative agents keep Copilot's engine; for your own engine, use a custom engine agent."
+      ],
+      "dataNote": "Agent Builder does not use the organization's Dataverse storage allowance. A copied agent is stored in Dataverse in the environment you pick.",
+      "needToKnow": "A declarative agent runs on Copilot's own orchestrator and model, so you shape it with instructions, knowledge, and actions. That keeps it simple, but you do not control the engine. Needing more control, outside channels, or workflows is the signal to look at other tools.",
+      "demo": "Show a one-page comparison of Agent Builder and Copilot Studio, then place the room's example agent on it.",
+      "askTheRoom": "Think of an agent you want. Does it need outside actions or another channel, or only instructions and knowledge?",
+      "sayOutLoud": "Fabrikam's HR team wants an onboarding helper. If it only needs instructions and approved documents, Agent Builder is enough. If it must update another system, they would look at Copilot Studio.",
+      "quiz": [
+        {
+          "q": "What runs a declarative agent?",
+          "options": ["Copilot's own orchestrator and model", "A server you host yourself", "A language model you train"],
+          "answer": 0,
+          "why": "Declarative agents use Copilot's orchestrator and models, so no extra hosting is needed."
+        },
+        {
+          "q": "Which need points toward Copilot Studio instead of Agent Builder?",
+          "options": ["Actions in an outside system, or a customer-facing channel", "Answers from approved team documents", "Sharing with several departments"],
+          "answer": 0,
+          "why": "Agent Builder does not author actions for external services. Sharing across departments does not by itself need Copilot Studio."
+        },
+        {
+          "q": "What happens when you copy an Agent Builder agent to Copilot Studio?",
+          "options": ["A separate snapshot is created", "The two agents stay in sync", "The original agent is deleted"],
+          "answer": 0,
+          "why": "Copying creates a snapshot, not a synchronized upgrade. Some knowledge and capabilities are not copied."
+        }
+      ],
+      "terms": ["declarative-agent", "agent-builder", "agents-toolkit", "instructions", "knowledge", "orchestration", "connector", "environment", "harness", "dataverse", "m365-copilot"],
+      "learn": [
+        { "title": "Declarative agents for Microsoft 365 Copilot", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent" },
+        { "title": "Choose between Agent Builder and Copilot Studio to build your agent", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience" },
+        { "title": "Compare declarative and custom engine agents", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-overview",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-development-tools",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-architecture"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "copilot-controls": {
+      "definition": "Copilot controls are the settings and tools that help a company decide who uses Copilot, what it can reach, and how it is run.",
+      "blocks": [
+        { "label": "Security and governance", "plain": "Protects data that Copilot and agents create or use." },
+        { "label": "Management", "plain": "Covers licensing, agent lifecycle, and how Copilot is set up." },
+        { "label": "Measurement", "plain": "Shows adoption, productivity impact, and business value." },
+        { "label": "Everyday choices", "plain": "Choices such as web search, pinning, and who can use Copilot Chat." }
+      ],
+      "flow": [
+        { "label": "Use", "plain": "Someone in the organization uses Copilot or an agent." },
+        { "label": "Follow choices", "plain": "Copilot follows the organization's choices, such as web search and pinning." },
+        { "label": "Protect", "plain": "Protections apply to the data Copilot and agents read or create." },
+        { "label": "Report", "plain": "Reports show how much people use Copilot and agents." },
+        { "label": "Adjust", "plain": "The organization reviews the results and adjusts its choices." }
+      ],
+      "example": {
+        "input": "Contoso wants Copilot Chat available but wants a say in web search.",
+        "output": "The organization decides whether Copilot may use the web. If it is allowed, each person can still choose to turn web content off."
+      },
+      "whenToUse": [
+        "You are rolling out Copilot and want clear choices about access.",
+        "You need to decide where Copilot appears for your people.",
+        "You want one plan for safety, management, and reports."
+      ],
+      "whenNot": [
+        "What you see depends on licenses, features, and rollout, so it can differ.",
+        "Some choices live in another service, such as Microsoft Purview.",
+        "Some agent controls live in the Power Platform admin center."
+      ],
+      "dataNote": "When web search is on, Copilot sends Bing a short search query built from the prompt, not whole files. Prompts and responses stay in Microsoft 365 unless the customer directs otherwise.",
+      "needToKnow": "Copilot controls have three parts: security and governance, management, and measurement. Most choices are made in Microsoft admin tools, but some open other services, such as Microsoft Purview. Data protection, agent lifecycle, and billing topics all build on this framework.",
+      "demo": "Show a one-page map of the three parts and point to the admin area where each one lives.",
+      "askTheRoom": "If Copilot arrived tomorrow, what would worry you most: who can use it, what it can see, or what it costs?",
+      "sayOutLoud": "Before Contoso turns Copilot on for everyone, the IT team decides who gets it, whether it may search the web, and how they will measure use. Those choices are what we call Copilot controls.",
+      "quiz": [
+        {
+          "q": "What are the three parts of Copilot controls?",
+          "options": ["Security and governance, management, and measurement", "Training, licensing, and support", "Chat, search, and create"],
+          "answer": 0,
+          "why": "Learn describes security and governance, management controls, and measurement and reporting."
+        },
+        {
+          "q": "If an organization allows web search, can a person still turn web content off for themselves?",
+          "options": ["Yes", "No, never", "Only administrators can"],
+          "answer": 0,
+          "why": "A person can turn web content off. If the organization turns web search off, the person cannot turn it on."
+        },
+        {
+          "q": "Where might a Copilot choice be made?",
+          "options": ["Sometimes in another service, such as Microsoft Purview", "Only on each person's device", "Only inside Copilot Studio"],
+          "answer": 0,
+          "why": "Some Copilot settings link to other services where the change is made."
+        }
+      ],
+      "terms": ["microsoft-copilot", "copilot-chat", "copilot-controls", "purview", "agent"],
+      "learn": [
+        { "title": "Copilot controls overview", "url": "https://learn.microsoft.com/copilot/implement/copilot-controls-overview" },
+        { "title": "Configure Microsoft Copilot settings in the Microsoft 365 admin center", "url": "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center" },
+        { "title": "Manage Copilot Chat", "url": "https://learn.microsoft.com/copilot/manage/manage-copilot-chat" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-overview",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar",
+        "https://learn.microsoft.com/copilot/plan/manage-public-web-access",
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "agent-lifecycle": {
+      "definition": "Agent lifecycle means following each agent from the day it is made to the day it is retired, with ways to block, delete, or reassign it.",
+      "blocks": [
+        { "label": "Agent Registry", "plain": "The list of every agent the company can use, with owners and status." },
+        { "label": "Owner", "plain": "The person who maintains an agent. An agent can lose its owner." },
+        { "label": "Lifecycle actions", "plain": "Block or unblock, delete and restore, and assign a new owner." },
+        { "label": "Rules", "plain": "Rules that find agents meeting a condition and act on many at once." },
+        { "label": "Tags and feedback", "plain": "Labels to organize agents, and a choice about sharing feedback with developers." }
+      ],
+      "flow": [
+        { "label": "Created", "plain": "People and teams create agents, and shared or published agents show up in the registry." },
+        { "label": "Review", "plain": "An administrator reviews agents, owners, and status." },
+        { "label": "Block", "plain": "An unsafe or unwanted agent can be blocked for everyone." },
+        { "label": "Delete", "plain": "A deleted agent is kept for 30 days, then removed for good." },
+        { "label": "Reassign", "plain": "When an owner leaves, an administrator or a rule assigns a new one." }
+      ],
+      "example": {
+        "input": "A Contoso employee who built an Agent Builder agent leaves the company.",
+        "output": "The agent has no owner. An administrator can assign a new one. For Agent Builder agents, a rule can pass ownership to the former owner's manager."
+      },
+      "whenToUse": [
+        "An agent looks unsafe or out of policy and must stop quickly.",
+        "An agent lost its owner and needs someone responsible.",
+        "You manage many agents and want rules, not one-by-one work."
+      ],
+      "whenNot": [
+        "Blocking an agent does not always remove its access to connected services.",
+        "Actions on one agent do not automatically cover the tools it uses.",
+        "Ownership can be reassigned only for Agent Builder and Copilot Studio agents."
+      ],
+      "dataNote": "A deleted agent is soft deleted: its details and related resources are kept for 30 days. It can be restored, or removed for good.",
+      "needToKnow": "Agents sit in a registry with owners, publishers, and status. Administrators act on one agent at a time, or on many with rules. Blocking changes who can use an agent, but it does not by itself change what the agent was allowed to reach.",
+      "demo": "Show an agent list with owners, then a block and a restore of a sample agent.",
+      "askTheRoom": "Who owns the agents your teams build today, and what happens to an agent when its owner leaves?",
+      "sayOutLoud": "At Contoso, people build agents all the time. IT needs to know who owns each one, to stop one that looks unsafe, and to bring back one that was deleted by mistake. That is agent lifecycle management.",
+      "quiz": [
+        {
+          "q": "How long can a deleted agent be restored?",
+          "options": ["30 days", "Never", "One year"],
+          "answer": 0,
+          "why": "A deleted agent is kept for 30 days. After that it is removed for good."
+        },
+        {
+          "q": "What does an agent management rule do?",
+          "options": ["Finds agents that match a condition and acts on many at once", "Writes an agent's instructions", "Trains an agent's model"],
+          "answer": 0,
+          "why": "Rules identify agents that meet conditions, let an administrator review them, and apply an action in bulk."
+        },
+        {
+          "q": "Does blocking an agent always remove its permissions to connected services?",
+          "options": ["Yes, always", "No, not necessarily"],
+          "answer": 1,
+          "why": "Learn notes that blocking an agent does not necessarily revoke connected-service permissions."
+        }
+      ],
+      "terms": ["agent", "agent-registry", "soft-delete", "agent-builder", "copilot-controls", "agent-365"],
+      "learn": [
+        { "title": "Governance and lifecycle actions for agents available in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions" },
+        { "title": "Agent settings in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings" },
+        { "title": "Manage agent registry in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps",
+        "https://learn.microsoft.com/microsoft-agent-365/overview"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "copilot-data-protection": {
+      "definition": "Copilot data protection is a set of tools that find files shared too widely, limit what Copilot sees, and keep a log.",
+      "analogy": "Think of it like a building: some tools find doors left open, some keep visitors from wandering in, and some keep a visitor log.",
+      "blocks": [
+        { "label": "Find oversharing", "plain": "Reports show sites that more people can reach than need to." },
+        { "label": "Limit discovery", "plain": "Keeps chosen sites out of Copilot answers and organization-wide search." },
+        { "label": "Block risky use", "plain": "Data loss prevention rules can stop Copilot from using sensitive prompts or labeled files." },
+        { "label": "Keep records", "plain": "Audit logs show who used Copilot and which files it touched." },
+        { "label": "Watch risk", "plain": "A dashboard shows data risks for Copilot and agents." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person asks Copilot a question." },
+        { "label": "Permissions", "plain": "Copilot works only with content that person is allowed to reach." },
+        { "label": "Restrictions", "plain": "Sites the organization has restricted stay out of its answers." },
+        { "label": "Rules", "plain": "A data loss prevention rule can stop sensitive prompts or labeled files." },
+        { "label": "Record", "plain": "The interaction is written to the audit log." },
+        { "label": "Watch", "plain": "Dashboards flag data risk so the organization can act." }
+      ],
+      "example": {
+        "input": "A Contoso employee asks Copilot about a payroll site that too many people can open.",
+        "output": "Reports can flag that site as overshared. Restricting discovery keeps it out of Copilot answers while owners fix access."
+      },
+      "whenToUse": [
+        "You are preparing to roll out Copilot and agents.",
+        "You suspect files are shared more widely than needed.",
+        "You must show auditors what Copilot did."
+      ],
+      "whenNot": [
+        "These tools do not fix permissions by themselves; access still needs review.",
+        "Some tools need extra licenses or admin roles, so check what applies.",
+        "Use restricted discovery sparingly. Too much of it hides useful content from Copilot."
+      ],
+      "dataNote": "These tools change what Copilot can find or use, not who has permission. Restricted discovery leaves permissions and the search index unchanged.",
+      "needToKnow": "Copilot works with what a person can already reach, so oversharing becomes a Copilot problem. Reports find it. Restricted discovery limits it while you fix it. Data loss prevention blocks sensitive use. Audit logs and dashboards show what happened.",
+            "demo": "Show a sample oversharing report, then a sample audit record for one Copilot use.",
+      "askTheRoom": "If Copilot could read everything you can open today, what would surprise you?",
+      "sayOutLoud": "Copilot works with what each person can already open. So before Contoso turns it on, the team looks for files and sites that are shared too widely, and sets up a record of how Copilot is used.",
+      "quiz": [
+        {
+          "q": "Why does oversharing matter for Copilot?",
+          "options": ["Copilot can use content a person can reach, even if it was shared too widely", "Copilot ignores permissions", "Copilot deletes shared files"],
+          "answer": 0,
+          "why": "Copilot access is scoped by user permissions, so content that is open to many people can show up for them."
+        },
+        {
+          "q": "What does Restricted Content Discovery change?",
+          "options": ["Whether a site's content shows up in organization-wide search and Copilot", "Who has permission to the site", "The size of the site"],
+          "answer": 0,
+          "why": "It affects discovery, not permissions. People who already have access can still open the content."
+        },
+        {
+          "q": "Which tool records Copilot interactions?",
+          "options": ["Audit logs in Microsoft Purview", "Autofill columns", "Pinning"],
+          "answer": 0,
+          "why": "Audit records note who used Copilot, when, where, and which files or sites it used."
+        }
+      ],
+      "terms": ["oversharing", "purview", "restricted-content-discovery", "dspm", "data-policy", "sensitivity-label", "permissions", "sharepoint-advanced-management", "microsoft-copilot"],
+      "learn": [
+        { "title": "Copilot controls security and governance", "url": "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance" },
+        { "title": "Data access governance reports for SharePoint and OneDrive sites", "url": "https://learn.microsoft.com/sharepoint/data-access-governance-reports" },
+        { "title": "Restrict discovery of SharePoint sites and content", "url": "https://learn.microsoft.com/sharepoint/restricted-content-discovery" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+        "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
+        "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about",
+        "https://learn.microsoft.com/purview/audit-copilot",
+        "https://learn.microsoft.com/purview/data-security-posture-management-learn-about",
+        "https://learn.microsoft.com/copilot/plan/copilot-overview"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "copilot-metering": {
+      "definition": "Pay-as-you-go billing charges for Copilot services by how much they are used, not by a license for each person.",
+      "analogy": "Think of it like a utility bill: you pay for what you use, and a budget sends alerts as you near your limit.",
+      "blocks": [
+        { "label": "Billing policy", "plain": "Links a group of users to an Azure subscription that pays for their use." },
+        { "label": "Connection", "plain": "Joins the policy to a Copilot service, such as Copilot Chat or SharePoint agents." },
+        { "label": "Budget", "plain": "An optional limit that sends email alerts. It does not stop usage." },
+        { "label": "Meter", "plain": "Azure measures usage and charges it to the subscription." },
+        { "label": "Cost reports", "plain": "Reports show costs and usage for each service." }
+      ],
+      "flow": [
+        { "label": "Create policy", "plain": "An admin creates a billing policy linked to an Azure subscription." },
+        { "label": "Add people", "plain": "They add the users or groups the policy covers." },
+        { "label": "Connect", "plain": "They connect the policy to a Copilot service." },
+        { "label": "Use", "plain": "People in the group use the service, and their use is metered." },
+        { "label": "Watch cost", "plain": "Cost reports and budget alerts show how spending is going." }
+      ],
+      "example": {
+        "input": "Contoso wants to try Copilot Chat agents with a few teams before buying licenses.",
+        "output": "A billing policy covers those teams. They use the agents, Contoso pays only for use, and the usage shows how much people adopt them."
+      },
+      "whenToUse": [
+        "You want to try Copilot services before buying licenses.",
+        "Usage will rise and fall, so a fixed fee does not fit.",
+        "You want costs assigned to a department."
+      ],
+      "whenNot": [
+        "A budget only sends alerts; spending can go past it.",
+        "Creating a policy is not enough; it must be connected to a service.",
+        "Pay-as-you-go is off by default."
+      ],
+      "dataNote": null,
+      "needToKnow": "Billing happens in two steps: create a billing policy, then connect it to a service. The policy links users to an Azure subscription. A budget warns but does not stop use, and disconnecting the policy ends access for its users.",
+      "demo": "Show a sample billing policy with its subscription, budget, and connected service.",
+      "askTheRoom": "Which of your teams would try Copilot only if they could pay for what they actually use?",
+      "sayOutLoud": "Contoso is not sure every team needs a license. So it sets up pay-as-you-go: one billing policy, one Azure subscription, and a budget that warns when spending gets high.",
+      "quiz": [
+        {
+          "q": "What does a billing policy link together?",
+          "options": ["Users and an Azure subscription", "Agents and their instructions", "Models and playgrounds"],
+          "answer": 0,
+          "why": "A billing policy ties a set of users to the Azure subscription that is billed for their use."
+        },
+        {
+          "q": "What does a budget do?",
+          "options": ["Sends email alerts as spending grows", "Stops all use at the limit", "Pays the bill automatically"],
+          "answer": 0,
+          "why": "The system does not enforce the budget. Usage can continue after it is passed."
+        },
+        {
+          "q": "After creating a billing policy, what else is needed?",
+          "options": ["Connect it to a Copilot service", "Nothing more", "Delete older policies"],
+          "answer": 0,
+          "why": "Creating a policy does not finish setup. It must be connected to the service."
+        }
+      ],
+      "terms": ["pay-as-you-go", "billing-policy", "azure-subscription", "microsoft-copilot", "copilot-chat", "agent", "sharepoint"],
+      "learn": [
+        { "title": "Set up Microsoft Copilot pay-as-you-go services", "url": "https://learn.microsoft.com/copilot/implement/setup-pay-as-you-go" },
+        { "title": "Microsoft Copilot pay-as-you-go service overview", "url": "https://learn.microsoft.com/copilot/plan/pay-as-you-go-overview" },
+        { "title": "Copilot controls for management", "url": "https://learn.microsoft.com/copilot/implement/copilot-controls-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/implement/setup-pay-as-you-go",
+        "https://learn.microsoft.com/copilot/plan/pay-as-you-go-overview",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "ai-capability-selection": {
+      "definition": "Choosing an AI capability means matching a business problem to the AI Builder model or prompt that fits, before you build.",
+      "blocks": [
+        { "label": "Data type", "plain": "What the AI works on: documents, text, structured data, or images." },
+        { "label": "Prebuilt model", "plain": "Ready to use with no training, for jobs common to many businesses." },
+        { "label": "Custom model", "plain": "Trained on your own data, for needs unique to your business." },
+        { "label": "Prompt", "plain": "Instructions to a generative AI model, such as a request to summarize text." },
+        { "label": "Region", "plain": "Where your environment runs decides which models are available." }
+      ],
+      "flow": [
+        { "label": "Start", "plain": "A maker starts with the business problem, such as expense reports." },
+        { "label": "Data type", "plain": "They find the data type: documents, text, structured data, or images." },
+        { "label": "Prebuilt or custom", "plain": "They decide between a ready-made model and a custom model." },
+        { "label": "Check region", "plain": "They check that the model is available in their region." },
+        { "label": "Build", "plain": "Then they try the model or build it." }
+      ],
+      "example": {
+        "input": "Contoso wants to sort customer feedback by how positive it sounds.",
+        "output": "A prebuilt sentiment model fits. For Contoso's own topics, a custom model that sorts text fits better."
+      },
+      "whenToUse": [
+        "You are not sure which AI Builder model fits your problem.",
+        "You want a prebuilt model when the job is common to many businesses.",
+        "You need to check whether a model is available in your region."
+      ],
+      "whenNot": [
+        "Prebuilt models may not fit data unique to your business; consider custom.",
+        "Some features are in preview; check release status before relying on them."
+      ],
+      "dataNote": "AI Builder models run in the region that hosts your Power Platform environment, so what is available follows that region.",
+      "needToKnow": "AI Builder offers prebuilt models that work right away and custom models you train on your data. Each model works on one kind of data. Availability and release status depend on the region of your environment.",
+      "demo": "Show the list of model types grouped by data type, then pick one for a sample business problem.",
+      "askTheRoom": "Name one repetitive task in your team that involves reading text or documents. Which model type might help?",
+      "sayOutLoud": "Contoso gets hundreds of expense receipts a week. A prebuilt model reads receipts, so nobody has to train anything. A different problem, like predicting late shipments, needs a custom model trained on Contoso's own history.",
+      "quiz": [
+        {
+          "q": "What is a prebuilt model?",
+          "options": ["A model that is ready to use, with no training", "A model you train on your own data", "A model that only works offline"],
+          "answer": 0,
+          "why": "Prebuilt models let you go straight to using AI for common business scenarios."
+        },
+        {
+          "q": "Which model type fits predicting whether an account will pay its invoices on time?",
+          "options": ["Prediction, a custom model", "Receipt processing", "Language detection"],
+          "answer": 0,
+          "why": "Prediction models learn from historical data that you provide and predict outcomes such as yes or no."
+        },
+        {
+          "q": "Why does the region of your environment matter?",
+          "options": ["Models are deployed there, and release status varies by region", "It decides the color of the app", "It only affects price"],
+          "answer": 0,
+          "why": "Your AI Builder models run in the region that hosts your environment, and each region has its own availability."
+        }
+      ],
+      "terms": ["ai-builder", "prebuilt-model", "custom-model", "ai-hub", "environment", "prompt"],
+      "learn": [
+        { "title": "AI models and business scenarios", "url": "https://learn.microsoft.com/ai-builder/model-types" },
+        { "title": "Overview of AI Builder", "url": "https://learn.microsoft.com/ai-builder/overview" },
+        { "title": "Feature availability by region", "url": "https://learn.microsoft.com/ai-builder/availability-region" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/ai-builder/overview",
+        "https://learn.microsoft.com/ai-builder/availability-region",
+        "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
+        "https://learn.microsoft.com/ai-builder/prediction-overview"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "prebuilt-ai-models": {
+      "definition": "A prebuilt model is an AI Builder model that is ready to use, with no training, for common jobs such as reading receipts.",
+      "blocks": [
+        { "label": "Input", "plain": "Text, or a file such as a receipt, that you give the model." },
+        { "label": "Model", "plain": "A ready-made model, such as one that reads receipts." },
+        { "label": "Output", "plain": "Labels, scores, or fields, often with a confidence value." },
+        { "label": "Flow or app", "plain": "Where the model is called and its result is used." }
+      ],
+      "flow": [
+        { "label": "Send", "plain": "A person, a flow, or an app gives the model text or a file." },
+        { "label": "Read", "plain": "The model reads it. No training is needed." },
+        { "label": "Return", "plain": "It returns results, such as a sentiment label or receipt fields." },
+        { "label": "Confidence", "plain": "Confidence scores show how sure the model is." },
+        { "label": "Use", "plain": "The flow or app uses the results in later steps." }
+      ],
+      "example": {
+        "input": "A Contoso customer review: 'The delivery was late, but support was great.'",
+        "output": "An overall label, such as mixed, plus a label and a confidence score for each sentence."
+      },
+      "whenToUse": [
+        "The job is common across many businesses, such as receipts or reviews.",
+        "You want results without collecting training data.",
+        "You want to try a model before building a flow."
+      ],
+      "whenNot": [
+        "Your data is unique to your business; a custom model may fit better.",
+        "Models have limits, such as file size or text length, so check them first.",
+        "Some prebuilt models are in preview; check release status."
+      ],
+      "dataNote": null,
+      "needToKnow": "Prebuilt models work out of the box, but each has rules about the language, file type, and size it accepts. They return results with confidence scores that show how sure the model is.",
+      "demo": "Show the sentiment model scoring a short sample review, with its label and confidence scores.",
+      "askTheRoom": "Where do your people read piles of text or paper, such as reviews or receipts, that a model could sort?",
+      "sayOutLoud": "Contoso gets customer reviews every day. A prebuilt sentiment model can mark each one as positive, negative, neutral, or mixed, without anyone training it first.",
+      "quiz": [
+        {
+          "q": "What makes a model prebuilt?",
+          "options": ["It needs no training", "It is trained on your data", "It only runs in Teams"],
+          "answer": 0,
+          "why": "Prebuilt models are ready for common business scenarios right away."
+        },
+        {
+          "q": "What does a confidence score show?",
+          "options": ["How sure the model is about a result", "How long the model took", "How much the call costs"],
+          "answer": 0,
+          "why": "Scores run from 0 to 1. Values close to 1 mean greater confidence."
+        },
+        {
+          "q": "Which of these is a prebuilt model?",
+          "options": ["Receipt processing", "Prediction", "Object detection"],
+          "answer": 0,
+          "why": "Receipt processing is prebuilt. Prediction and object detection are custom models you train."
+        }
+      ],
+      "terms": ["prebuilt-model", "ai-builder", "ai-model", "agent-flow"],
+      "learn": [
+        { "title": "Sentiment analysis prebuilt model", "url": "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis" },
+        { "title": "Receipt processing prebuilt model", "url": "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing" },
+        { "title": "AI models and business scenarios", "url": "https://learn.microsoft.com/ai-builder/model-types" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis",
+        "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/flow-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/ai-builder/overview"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "ai-consumption": {
+      "definition": "Using AI in apps and flows means calling a prompt or model from a flow or canvas app, then using its result in later steps.",
+      "blocks": [
+        { "label": "Prompt or model", "plain": "The AI piece you built or picked, ready to be called." },
+        { "label": "Flow action", "plain": "A flow step that runs a prompt or model and passes on the result." },
+        { "label": "App formula", "plain": "In a canvas app, a Power Fx formula calls the model." },
+        { "label": "Output", "plain": "The text, label, or fields that later steps use." },
+        { "label": "Access", "plain": "People need access to the model, flow, or app to run it." }
+      ],
+      "flow": [
+        { "label": "Start", "plain": "Something starts the flow, such as a button or a new file." },
+        { "label": "Send input", "plain": "The flow or app sends input to the prompt or model." },
+        { "label": "Get result", "plain": "The AI returns text, labels, or fields." },
+        { "label": "Review", "plain": "Optionally, a person reviews the result before it is used." },
+        { "label": "Use it", "plain": "The flow or app uses the result, such as posting a message." }
+      ],
+      "example": {
+        "input": "A Contoso team wants a short summary of each support email posted to a chat.",
+        "output": "A flow sends the email text to a saved prompt and posts the generated summary to a chat."
+      },
+      "whenToUse": [
+        "You already have flows or apps and want to add AI to them.",
+        "You want a person to approve generated text before it is used.",
+        "You want one saved prompt reused in more than one place."
+      ],
+      "whenNot": [
+        "AI output can be wrong; keep a person in the loop for important text.",
+        "Prompts run only in some regions and can be limited by capacity."
+      ],
+      "dataNote": null,
+      "needToKnow": "A model or prompt is only useful once something calls it. Flows use an action for each model. Canvas apps call models with Power Fx formulas. People also need permission to use the model, and a model must be shared before others can run it.",
+      "demo": "Show a flow that sends sample text to a prompt and posts the answer to a chat.",
+      "askTheRoom": "Which flow or app you already use would be better with one AI step added?",
+      "sayOutLoud": "Contoso already has a flow that handles new support emails. Adding one prompt step to summarize each email puts AI into work people already do.",
+      "quiz": [
+        {
+          "q": "How does a canvas app call an AI Builder model?",
+          "options": ["With a Power Fx formula", "By email", "By training it again"],
+          "answer": 0,
+          "why": "Power Fx expressions let a canvas app use AI Builder models."
+        },
+        {
+          "q": "Why add a person to review AI text in a flow?",
+          "options": ["To check quality and make sure it meets standards", "To make the flow run faster", "To avoid saving the flow"],
+          "answer": 0,
+          "why": "Human review helps make sure generated output is high quality and meets requirements."
+        },
+        {
+          "q": "By default, who can use a model you create?",
+          "options": ["Only you, until it is shared", "Everyone in the company", "Nobody"],
+          "answer": 0,
+          "why": "A model or prompt is only available to its owner until it is shared."
+        }
+      ],
+      "terms": ["prompt", "prompt-builder", "agent-flow", "canvas-app", "power-fx", "ai-builder", "prebuilt-model", "permissions"],
+      "learn": [
+        { "title": "Use your prompt in Power Automate", "url": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow" },
+        { "title": "AI Builder in Power Apps overview", "url": "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview" },
+        { "title": "AI Builder in Power Automate overview", "url": "https://learn.microsoft.com/ai-builder/use-in-flow-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview",
+        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps",
+        "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/security"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "content-ai": {
+      "definition": "Content AI reads documents and files and pulls out structured details, such as dates, names, and totals, so they can be saved and searched.",
+      "blocks": [
+        { "label": "Document", "plain": "The input: a file in a library, or a document sent to a model." },
+        { "label": "Model or prompt", "plain": "A prebuilt or custom model, or a plain-language prompt." },
+        { "label": "Fields", "plain": "Where the extracted details are saved, such as library columns." },
+        { "label": "Review", "plain": "A person checks results, because AI output can be wrong." }
+      ],
+      "flow": [
+        { "label": "Add file", "plain": "A file is added to a library, or sent into a flow." },
+        { "label": "Read", "plain": "The AI reads the content of the file." },
+        { "label": "Extract", "plain": "It finds the details it was asked for, using a model or a prompt." },
+        { "label": "Save", "plain": "It saves the results as columns or fields." },
+        { "label": "Use", "plain": "People or flows use them for search, sorting, or the next step." }
+      ],
+      "example": {
+        "input": "Contoso receives hundreds of vendor contracts as files in a SharePoint library.",
+        "output": "AI can fill in columns like the party name and end date from each contract. People can then search and sort instead of reading every file."
+      },
+      "whenToUse": [
+        "You have many files with the same kinds of details inside.",
+        "You want details in columns so you can search and filter.",
+        "A prebuilt model already matches your document type."
+      ],
+      "whenNot": [
+        "AI-generated content might be wrong, so check the results.",
+        "Some file types, library types, and column types are not supported.",
+        "Layouts that prebuilt models miss may need a custom model."
+      ],
+      "dataNote": "Autofill reads the text of a file and saves the answer to a column. Encrypted files are not analyzed.",
+      "needToKnow": "Content AI comes in three forms. Prebuilt models handle common documents such as invoices and contracts. Custom models learn your own layouts from examples. Autofill uses a plain-language prompt. All of them save what they find so it can be searched and reused.",
+      "demo": "Show a library where autofill columns have filled in details from a few sample files.",
+      "askTheRoom": "Which documents does your team read again and again just to copy details into a list?",
+      "sayOutLoud": "Think of a stack of Contoso invoices. Instead of someone typing each due date and amount into a list, an AI model reads each invoice and fills in those fields. A person then checks the results.",
+      "quiz": [
+        {
+          "q": "What does content AI produce from a document?",
+          "options": ["Structured details such as dates and totals", "A new Word template", "A voice recording"],
+          "answer": 0,
+          "why": "It extracts or generates details and saves them, for example to library columns."
+        },
+        {
+          "q": "What does an autofill column use to decide what to extract?",
+          "options": ["A plain-language prompt", "A model trained on five documents", "A connector"],
+          "answer": 0,
+          "why": "Autofill columns use natural language prompts. Trained document models are a different option."
+        },
+        {
+          "q": "Why should people check the results?",
+          "options": ["AI-generated content might be incorrect", "Models never read text", "Results are always final"],
+          "answer": 0,
+          "why": "Learn reminds readers to check autofill results because generated content can be wrong."
+        }
+      ],
+      "terms": ["document-processing", "autofill-column", "prebuilt-model", "custom-model", "ai-builder", "sharepoint", "prompt"],
+      "learn": [
+        { "title": "Overview of autofill columns", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview" },
+        { "title": "Overview of document processing model types", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview" },
+        { "title": "Document processing model overview", "url": "https://learn.microsoft.com/ai-builder/form-processing-model-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-overview",
+        "https://learn.microsoft.com/ai-builder/create-form-processing-model"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "custom-ai-models": {
+      "definition": "A custom model is an AI Builder model you train on your own data, then check, improve, and publish so people can use it.",
+      "blocks": [
+        { "label": "Training data", "plain": "Your own examples, such as tagged text or past outcomes, kept in Dataverse." },
+        { "label": "Training", "plain": "An automatic step that teaches the model from your data." },
+        { "label": "Performance score", "plain": "A score on the details page that helps you compare versions." },
+        { "label": "Version", "plain": "You can hold a published version and a last trained version." },
+        { "label": "Publish", "plain": "Lets everyone in the environment use that version." }
+      ],
+      "flow": [
+        { "label": "Set up", "plain": "A maker picks a model type and points it at their data." },
+        { "label": "Train", "plain": "AI Builder trains the model." },
+        { "label": "Evaluate", "plain": "The maker reviews performance and can test it on real examples." },
+        { "label": "Improve", "plain": "If it falls short, they create a new version or retrain on fresh data." },
+        { "label": "Publish", "plain": "They publish the version they want people to run." },
+        { "label": "Use", "plain": "Flows and apps call the published model." }
+      ],
+      "example": {
+        "input": "Contoso has years of support tickets tagged by topic.",
+        "output": "A category classification model learns from those tags. Once published, it sorts new tickets into the same topics."
+      },
+      "whenToUse": [
+        "Your data or categories are unique to your business.",
+        "You have past examples with known tags or outcomes.",
+        "You want to predict a result from historical records."
+      ],
+      "whenNot": [
+        "A prebuilt model may already do the job without training.",
+        "A model is only as good as its data; poor data gives poor results.",
+        "Only two trained versions are kept: one published and one last trained."
+      ],
+      "dataNote": "Training data and model settings are stored in Dataverse. A model belongs to its owner until it is shared, and its training files can be seen only by its creator and administrators.",
+      "needToKnow": "Training builds a version of the model. You can hold two versions: the published one and the last trained one. Training with new settings creates a new version, and retraining reuses the same settings on new data. Publishing makes a version available.",
+      "demo": "Show a trained model's details page with its performance score, a published version, and a newer trained version.",
+      "askTheRoom": "What past outcomes or tagged records does your team already keep that a model could learn from?",
+      "sayOutLoud": "Contoso has years of orders and knows which ones arrived late. A custom prediction model can learn from that history and flag new orders likely to be late. Before anyone relies on it, the team checks its score and publishes the version they trust.",
+      "quiz": [
+        {
+          "q": "What does training do?",
+          "options": ["Teaches the model from your data", "Publishes the model", "Deletes older data"],
+          "answer": 0,
+          "why": "Training is an automatic process that teaches the model to solve your business problem."
+        },
+        {
+          "q": "What is retraining?",
+          "options": ["A new version that uses the same settings on new data", "Deleting the model", "Sharing the model"],
+          "answer": 0,
+          "why": "Retraining studies new data so the model stays accurate over time."
+        },
+        {
+          "q": "A prediction model scores near perfect in training but fails on new records. What is a likely cause?",
+          "options": ["A column gives away the answer", "The model has too few users", "The flow is too short"],
+          "answer": 0,
+          "why": "A column that only exists after the outcome, such as a delivered date, makes the model look better than it is."
+        }
+      ],
+      "terms": ["custom-model", "model-training", "target-leakage", "dataverse", "environment", "publish", "ai-builder"],
+      "learn": [
+        { "title": "Manage your model in AI Builder", "url": "https://learn.microsoft.com/ai-builder/manage-model" },
+        { "title": "Overview of the category classification custom model", "url": "https://learn.microsoft.com/ai-builder/text-classification-overview" },
+        { "title": "Overview of the prediction model", "url": "https://learn.microsoft.com/ai-builder/prediction-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/manage-model",
+        "https://learn.microsoft.com/ai-builder/train-model",
+        "https://learn.microsoft.com/ai-builder/publish-model",
+        "https://learn.microsoft.com/ai-builder/security",
+        "https://learn.microsoft.com/ai-builder/text-classification-overview",
+        "https://learn.microsoft.com/ai-builder/create-text-classification-model",
+        "https://learn.microsoft.com/ai-builder/prediction-overview",
+        "https://learn.microsoft.com/ai-builder/prediction-prereq",
+        "https://learn.microsoft.com/ai-builder/prediction-create-model"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "copilot-in-app": {
+      "definition": "Copilot in an app brings AI help to where people already work, such as SharePoint sites, files, pages, and lists.",
+      "blocks": [
+        { "label": "Copilot in SharePoint", "plain": "AI help inside SharePoint for questions, content, and files." },
+        { "label": "Everyday work", "plain": "Included with the Microsoft 365 Copilot license." },
+        { "label": "Advanced work", "plain": "Larger jobs that use Copilot Credits through usage-based billing." },
+        { "label": "Site AI settings", "plain": "Choices that site owners make about AI on their site." },
+        { "label": "Restricted discovery", "plain": "A site setting that hides AI entry points and content." }
+      ],
+      "flow": [
+        { "label": "Work", "plain": "A person with a Copilot license works in a SharePoint site." },
+        { "label": "Ask", "plain": "They ask Copilot a question or request a page, list, or file." },
+        { "label": "Respond", "plain": "Copilot works with the site's content to answer or create." },
+        { "label": "Larger jobs", "plain": "For advanced work, Copilot asks before it spends Copilot Credits." },
+        { "label": "Limits", "plain": "If the site restricts AI, Copilot does not appear there." }
+      ],
+      "example": {
+        "input": "A Contoso site owner asks Copilot to draft a new page about the team offsite.",
+        "output": "Copilot drafts a page in the site, using the request and the site's content."
+      },
+      "whenToUse": [
+        "People already work in SharePoint and want help with their content.",
+        "You want to create pages, lists, or files with natural language.",
+        "A large content job might call for advanced work."
+      ],
+      "whenNot": [
+        "Advanced work needs usage-based billing and Copilot Credits.",
+        "Some government clouds and other environments do not support it yet.",
+        "Prompts work best in languages that both SharePoint and Copilot support."
+      ],
+      "dataNote": null,
+      "needToKnow": "Everyday help in SharePoint comes with a Microsoft 365 Copilot license. Larger, automated jobs are called advanced work and use Copilot Credits. Site owners and administrators can limit where Copilot shows up.",
+      "demo": "Show a SharePoint site where Copilot answers a question and drafts a page from the site's content.",
+      "askTheRoom": "What do people on your site spend the most time doing: finding content, writing it, or organizing it?",
+      "sayOutLoud": "Many Contoso teams already keep their files, pages, and lists in SharePoint. Copilot in SharePoint helps them where they already work: ask a question, draft a page, or build a list, all in plain language.",
+      "quiz": [
+        {
+          "q": "What do everyday Copilot in SharePoint features require?",
+          "options": ["A Microsoft 365 Copilot license", "Copilot Credits only", "A special kind of site"],
+          "answer": 0,
+          "why": "Everyday capabilities are included with the Microsoft 365 Copilot license."
+        },
+        {
+          "q": "What do advanced work features use?",
+          "options": ["Copilot Credits through usage-based billing", "Nothing extra", "A paper form"],
+          "answer": 0,
+          "why": "Advanced work needs usage-based billing and available Copilot Credits."
+        },
+        {
+          "q": "What does a site with Restricted Content Discovery show?",
+          "options": ["No Copilot button or AI entry points", "Extra Copilot buttons", "A second copy of the site"],
+          "answer": 0,
+          "why": "If Restricted Content Discovery is on, Copilot in SharePoint and AI actions do not appear on that site."
+        }
+      ],
+      "terms": ["microsoft-copilot", "copilot-credits", "sharepoint", "restricted-content-discovery", "sharepoint-advanced-management", "pay-as-you-go"],
+      "learn": [
+        { "title": "Get started with Copilot in SharePoint", "url": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started" },
+        { "title": "Restrict discovery of SharePoint sites and content", "url": "https://learn.microsoft.com/sharepoint/restricted-content-discovery" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery"
+      ],
+      "verifiedOn": "2026-11-21"
+    }
+  },
+  "featureOverrides": {
+    "fdy-orient-foundry": {
+      "definition": "Orienting means learning the two Foundry portals, then picking a first build: a prompt agent, a hosted agent, or a direct model call.",
+      "blocks": [
+        { "label": "Prompt agent", "plain": "You set instructions, a model, and tools. Foundry hosts and runs it." },
+        { "label": "Hosted agent", "plain": "Your own code or framework, packaged so Foundry can run it." },
+        { "label": "Model call", "plain": "A prompt sent straight to a model, with no tools or orchestration." },
+        { "label": "Two portals", "plain": "The new portal shows Foundry projects. The classic portal shows all project types." }
+      ],
+      "flow": [
+        { "label": "Sign in", "plain": "A person opens Foundry and sees which portal version they are in." },
+        { "label": "Set a goal", "plain": "They decide whether they want an agent or just a model response." },
+        { "label": "Pick a style", "plain": "For an agent, they pick declarative (prompt agent) or full code (hosted agent)." },
+        { "label": "Grow", "plain": "They can start declarative and move to code as their needs grow." }
+      ],
+      "example": {
+        "input": "A Contoso developer wants a first agent with the least to manage.",
+        "output": "A prompt agent: instructions, a model, and tools that Foundry hosts and runs, with no application code or containers to maintain."
+      },
+      "whenToUse": [
+        "You want an agent with no runtime to manage: pick a prompt agent.",
+        "You have your own agent code: pick a hosted agent.",
+                "You only need to send prompts to a model: use a single call."
+      ],
+      "whenNot": [
+        "If instructions and tools are enough, a prompt agent is simpler.",
+                "A single model call has no tools or orchestration. It is not an agent."
+      ],
+      "learn": [
+        { "title": "What is Microsoft Foundry?", "url": "https://learn.microsoft.com/azure/foundry/what-is-foundry" },
+        { "title": "Microsoft Foundry product and capability map", "url": "https://learn.microsoft.com/azure/foundry/concepts/capabilities" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry/concepts/capabilities",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ]
+    },
+    "fdy-create-hub-based-project": {
+      "definition": "A hub-based project lives in a hub, an Azure resource whose settings are shared by all the projects inside it.",
+      "blocks": [
+        { "label": "Hub", "plain": "An Azure resource that holds shared settings for a group of projects." },
+        { "label": "Project", "plain": "One team's workspace, created inside a hub in the classic portal." },
+        { "label": "Connections", "plain": "Links to outside data and models. Hubs share them; projects can add their own." },
+        { "label": "Supporting services", "plain": "Storage and secret storage, set up once per hub for its projects." }
+      ],
+      "flow": [
+        { "label": "Hub", "plain": "Someone creates a hub, or a default hub is made with the first project." },
+        { "label": "Project", "plain": "A project is created inside the hub, in the hub's location." },
+        { "label": "Settings pass down", "plain": "Security settings set on the hub pass down to every project." },
+        { "label": "Build", "plain": "The team builds in the project, using hub-only features if they need them." }
+      ],
+      "example": {
+        "input": "Contoso wants several teams to share one set of security settings and connections.",
+        "output": "One hub holds the shared settings. Each team gets its own hub-based project that follows them."
+      },
+      "whenToUse": [
+        "You need features only hubs have, such as prompt flow.",
+        "You want shared security settings and connections for many projects.",
+        "An admin team already built a hub for you."
+      ],
+      "whenNot": [
+        "Learn calls this legacy support and describes how to move to a Foundry project.",
+        "New agents and model features are built for Foundry projects."
+      ],
+      "dataNote": "Projects in a hub share its security settings, but their files and secrets are kept apart.",
+      "learn": [
+        { "title": "Hub resources overview (classic)", "url": "https://learn.microsoft.com/azure/foundry-classic/concepts/ai-resources" },
+        { "title": "Create a hub project for Microsoft Foundry (classic)", "url": "https://learn.microsoft.com/azure/foundry-classic/how-to/hub-create-projects" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry-classic/concepts/ai-resources",
+        "https://learn.microsoft.com/azure/foundry-classic/how-to/hub-create-projects",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ]
+    },
+    "fdy-explore-model-catalog": {
+      "definition": "The model catalog lets you search thousands of models, read each model card, and pick one sold by Azure or from a partner.",
+      "blocks": [
+        { "label": "Sold by Azure", "plain": "Microsoft hosts and sells these, with Microsoft support and service level agreements." },
+        { "label": "Partners and community", "plain": "Most models. Providers build and support them, and often check them themselves." },
+        { "label": "Filters", "plain": "Narrow the list by provider, region, features, and task." },
+        { "label": "Model card", "plain": "Quick facts, details, deployments, benchmarks, and license for one model." }
+      ],
+      "flow": [
+        { "label": "Search", "plain": "A person searches by keyword or narrows the list with filters." },
+        { "label": "Read", "plain": "They read the model card for facts, benchmarks, and the license." },
+        { "label": "Compare", "plain": "They compare models using leaderboard and benchmark data, where it exists." },
+        { "label": "Decide", "plain": "They weigh Azure support against partner innovation and pick a model." }
+      ],
+      "example": {
+        "input": "Fabrikam needs a model that can reason through hard questions and call tools.",
+        "output": "A shortlist of models with those features. Each model card helps the team check benchmarks, license, and region."
+      },
+      "whenToUse": [
+        "You need guaranteed Microsoft support: look at models sold by Azure.",
+        "You need a niche or very new capability: look at partner and community models."
+      ],
+      "whenNot": [
+        "You are responsible for choosing a model that fits your use case.",
+        "Models from other providers follow the terms that come with them."
+      ],
+      "learn": [
+        { "title": "Overview of Microsoft Foundry Models", "url": "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview"
+      ]
+    },
+    "fdy-manage-quota": {
+      "definition": "Quota is the usage allowance Azure gives you for each model and region, in tokens per minute, which you can view, share out, and ask to raise.",
+      "blocks": [
+        { "label": "Allowance", "plain": "The total tokens per minute Azure gives your subscription for one model and region." },
+        { "label": "Deployment share", "plain": "The part of that allowance you give to each deployment." },
+        { "label": "Shared pool", "plain": "A shared pool for temporary test endpoints. It is not for production." },
+        { "label": "Request", "plain": "A request for more quota when you reach your limit." }
+      ],
+      "flow": [
+        { "label": "View", "plain": "A person with the right role views quota and usage for each deployment." },
+        { "label": "Notice", "plain": "They see that a deployment, or a new one, needs more than is left." },
+        { "label": "Free up", "plain": "They move unused quota from other deployments to the one that needs it." },
+        { "label": "Request", "plain": "If that is not enough, they submit a request for more quota." },
+        { "label": "Wait", "plain": "Changes can take up to 15 minutes to show." }
+      ],
+      "example": {
+        "input": "A Contoso team's new deployment fails because the model has no quota left.",
+        "output": "The team frees tokens from a deployment it no longer uses, or requests more quota, then deploys again."
+      },
+      "whenToUse": [
+        "A deployment fails because no quota is left.",
+        "You want to give a busy deployment a bigger share.",
+        "You want to see usage across projects in one subscription."
+      ],
+      "whenNot": [
+        "Shared quota is only for temporary tests, not production endpoints.",
+        "Some model and region pairs do not allow quota increases."
+      ],
+      "learn": [
+        { "title": "Manage and increase quotas for resources with Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/how-to/quota" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/how-to/quota",
+        "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models"
+      ]
+    },
+    "dca-agent-builder-vs-copilot-studio": {
+      "definition": "Copying an Agent Builder agent to Copilot Studio makes a separate snapshot that adds features but does not stay in sync.",
+      "blocks": [
+        { "label": "Original", "plain": "Stays available in Microsoft 365 Copilot after the copy." },
+        { "label": "Snapshot", "plain": "A copy kept in Copilot Studio. Edits to the original do not reach it." },
+        { "label": "Copied items", "plain": "Name, description, instructions, suggested prompts, icon, and SharePoint and website knowledge." },
+        { "label": "Not copied", "plain": "Some knowledge, such as embedded files and connector content, needs rework." }
+      ],
+      "flow": [
+        { "label": "Outgrow", "plain": "An Agent Builder agent needs workflows, outside actions, or more channels." },
+        { "label": "Copy", "plain": "The owner copies it into a Copilot Studio environment that stores agents." },
+        { "label": "Rework", "plain": "Items that did not copy, such as embedded files, are set up again." },
+        { "label": "Test", "plain": "The owner tests the copy before publishing it." },
+        { "label": "Decide", "plain": "The owner decides whether to delete the original and tells its users." }
+      ],
+      "example": {
+        "input": "Contoso's onboarding agent now needs a workflow that updates another system.",
+        "output": "A Copilot Studio copy with the same instructions and supported knowledge, ready for workflows. Embedded files must be uploaded again."
+      },
+      "whenToUse": [
+        "An Agent Builder agent needs workflows, connectors, or more channels.",
+        "You want versioning, staged deployments, and analytics."
+      ],
+      "whenNot": [
+        "Each copy creates a new agent, so avoid copying again and again.",
+        "Do not expect the copy to follow later changes to the original."
+      ],
+      "learn": [
+        { "title": "Copy an agent from Agent Builder to Copilot Studio", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio" },
+        { "title": "Choose between Agent Builder and Copilot Studio to build your agent", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience"
+      ]
+    },
+    "m365h-control-web-search": {
+      "definition": "Web search lets Copilot add fresh public web facts to its answers, if a company allows it and the person leaves it on.",
+      "blocks": [
+        { "label": "Search query", "plain": "A few words Copilot builds from the prompt and sends to Bing." },
+        { "label": "Web content", "plain": "Public results that Copilot can add to an answer." },
+        { "label": "Company choice", "plain": "Web search can be allowed or turned off for people or groups." },
+        { "label": "Personal switch", "plain": "A toggle people use to leave web content out of answers." },
+        { "label": "Query citations", "plain": "A list of the exact web queries sent, shown in Copilot Chat." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person asks Copilot a question." },
+        { "label": "Check", "plain": "Copilot checks whether web search is allowed and would improve the answer." },
+        { "label": "Query", "plain": "If so, it builds a short search query and sends it to Bing." },
+        { "label": "Answer", "plain": "It combines web results with work data the person can access." },
+        { "label": "Show", "plain": "Copilot Chat lists the web queries it used." }
+      ],
+      "example": {
+        "input": "A Contoso employee asks Copilot to compare an internal document with Fabrikam's public news.",
+        "output": "Copilot sends Bing only a short query about Fabrikam, not the document. The answer combines the document with public results."
+      },
+      "whenToUse": [
+        "You want answers that include current public information.",
+        "Your company needs a clear rule about public web use in Copilot.",
+        "Auditors want to see which web queries Copilot sent."
+      ],
+      "whenNot": [
+        "A company may turn it off to follow its own policies or laws.",
+        "With web search off, answers can be less up to date."
+      ],
+      "dataNote": "Bing works separately from Microsoft 365 and has its own data-handling rules. Learn lists commitments for these queries, such as no use to train generative AI foundation models.",
+      "learn": [
+        { "title": "Data, privacy, and security for web search in Microsoft Copilot and Microsoft Copilot Chat", "url": "https://learn.microsoft.com/copilot/plan/manage-public-web-access" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/plan/manage-public-web-access",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat"
+      ]
+    },
+    "m365h-restrict-copilot-chat-access": {
+      "definition": "Managing Copilot Chat access means choosing who may use it, such as only licensed people.",
+      "blocks": [
+        { "label": "Sign-in account", "plain": "Work or school accounts get enterprise protections. Personal accounts stay separate." },
+        { "label": "Where it appears", "plain": "Copilot Chat shows in the Copilot app, Teams, Outlook, and on the web." },
+        { "label": "Blocking", "plain": "A block can cover chosen users or groups, including licensed users." },
+        { "label": "Blocked message", "plain": "Blocked people see that Copilot Chat is off, with an optional company link." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "A company decides who should have Copilot Chat." },
+        { "label": "Limit", "plain": "It limits or blocks access for the people who should not." },
+        { "label": "Blocked", "plain": "A blocked person who opens Copilot Chat sees a note that it is off." },
+        { "label": "Guidance", "plain": "The note can link to company guidance." }
+      ],
+      "example": {
+        "input": "Fabrikam wants Copilot Chat only for people who hold a Copilot license.",
+        "output": "The Copilot app and Teams chat stop reaching unlicensed people, and licensed people keep access."
+      },
+      "whenToUse": [
+        "A group is not ready for Copilot Chat yet.",
+        "Company policy limits who may use AI chat."
+      ],
+      "whenNot": [
+        "A block that covers everyone also stops people with a Copilot license.",
+        "Unpinning Copilot Chat does not stop people from reaching it on the web."
+      ],
+      "learn": [
+        { "title": "Manage Copilot Chat", "url": "https://learn.microsoft.com/copilot/manage/manage-copilot-chat" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar"
+      ]
+    },
+    "m365h-troubleshoot-copilot-access": {
+      "definition": "Troubleshooting access means finding why someone cannot reach Copilot, such as blocked web addresses, the wrong account, or a new change.",
+      "blocks": [
+        { "label": "Network rules", "plain": "Rules that block Copilot's web addresses can stop it from loading." },
+        { "label": "Account type", "plain": "Work or school and personal accounts get different experiences and protections." },
+        { "label": "Timing", "plain": "Policy changes, such as pinning, can take up to 48 hours." },
+        { "label": "Diagnostics logs", "plain": "Details an admin can send to Microsoft for people who cannot send feedback." }
+      ],
+      "flow": [
+        { "label": "Report", "plain": "A person reports that Copilot will not open or is missing." },
+        { "label": "Account", "plain": "The helper checks which kind of account the person signed in with." },
+        { "label": "Network", "plain": "Next they check whether network rules block Copilot's web addresses." },
+        { "label": "Wait", "plain": "They allow time if a policy changed recently." },
+        { "label": "Escalate", "plain": "If it still fails, they send diagnostic logs to Microsoft." }
+      ],
+      "example": {
+        "input": "A Contoso employee says Copilot Chat will not load on the office network.",
+        "output": "The first checks are whether network rules block Copilot's web addresses and whether the person signed in with a work account."
+      },
+      "whenToUse": [
+        "Someone cannot reach Copilot but should be able to.",
+        "A new policy should be in effect but is not working yet."
+      ],
+      "whenNot": [
+        "A 'turned off for your organization' note means a block, not a fault.",
+        "Diagnostics logs can include prompts and responses, so review them first."
+      ],
+      "learn": [
+        { "title": "Manage Copilot Chat", "url": "https://learn.microsoft.com/copilot/manage/manage-copilot-chat" },
+        { "title": "Configure Microsoft Copilot settings in the Microsoft 365 admin center", "url": "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar"
+      ]
+    },
+    "m365h-pin-copilot-chat": {
+      "definition": "Pinning puts Copilot Chat in the navigation bar of Microsoft 365 apps such as Teams and Outlook, so people find it quickly.",
+      "blocks": [
+        { "label": "Pinned chat", "plain": "Copilot Chat shown in the navigation bar of an app." },
+        { "label": "Teams pinning", "plain": "Teams has its own way to pin and allow apps." },
+        { "label": "Personal choice", "plain": "A person who sees it pinned can unpin it, and it stays unpinned." },
+        { "label": "Taskbar", "plain": "The Copilot app can also be pinned to the Windows taskbar on managed devices." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "A company decides whether Copilot Chat is pinned." },
+        { "label": "Default", "plain": "For most eligible people it is pinned by default." },
+        { "label": "Personal", "plain": "A person who prefers can unpin it." },
+        { "label": "Wait", "plain": "Changes to the company choice can take up to 48 hours." }
+      ],
+      "example": {
+        "input": "Contoso wants people to find Copilot Chat in Teams and Outlook without searching.",
+        "output": "Copilot Chat appears in the navigation bar of those apps, and people can still unpin it themselves."
+      },
+      "whenToUse": [
+        "You want people to find Copilot Chat quickly.",
+        "You want the Copilot app on the Windows taskbar of managed devices."
+      ],
+      "whenNot": [
+        "Pinning is about visibility. It does not give or remove access.",
+        "Only people with a work or school account can have it pinned."
+      ],
+      "learn": [
+        { "title": "Pin Microsoft Copilot Chat in the Microsoft 365 apps", "url": "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar",
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat"
+      ]
+    },
+    "m365h-agent-management-rules": {
+      "definition": "Agent management rules find agents that meet a condition, show which ones will change, and then act on many agents at once.",
+      "blocks": [
+        { "label": "Condition", "plain": "What an agent must match for the rule to apply." },
+        { "label": "Review", "plain": "A list of affected agents to check before the rule runs." },
+        { "label": "Bulk action", "plain": "The change applied to every chosen agent at once." },
+        { "label": "Tags", "plain": "Labels, up to 50 per organization, that make agents easier to find." },
+        { "label": "Feedback sharing", "plain": "A choice about whether developers get ratings and comments." }
+      ],
+      "flow": [
+        { "label": "Define", "plain": "An administrator defines which agents a rule should find." },
+        { "label": "List", "plain": "The rule lists the matching agents." },
+        { "label": "Review", "plain": "The administrator reviews the list and picks all or some." },
+        { "label": "Run", "plain": "The rule runs one action, such as blocking or reassigning." }
+      ],
+      "example": {
+        "input": "Fabrikam wants to block old agents that have no owner and no usage.",
+        "output": "A rule finds ownerless agents with no use, shows the list, and blocks the ones the administrator confirms."
+      },
+      "whenToUse": [
+        "You need to act on many agents, not one at a time.",
+        "You want to apply the same safety template to existing agents.",
+        "You want to organize agents with tags."
+      ],
+      "whenNot": [
+        "Rules that reassign owners only cover agents made in Agent Builder.",
+        "A template rule runs once. It is not a schedule."
+      ],
+      "learn": [
+        { "title": "Agent settings in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
+      ]
+    },
+    "m365h-data-access-governance-reports": {
+      "definition": "Data access governance reports show which SharePoint and OneDrive sites are shared too widely, today and over the last 28 days.",
+      "blocks": [
+        { "label": "Snapshot reports", "plain": "Show who can reach each site as of the day you run them." },
+        { "label": "Activity reports", "plain": "Show new sharing links and wide sharing in the last 28 days." },
+        { "label": "Site permissions", "plain": "Finds sites open to thousands of people, guests, or everyone inside." },
+        { "label": "Label report", "plain": "Finds sites that hold files with chosen sensitivity labels." },
+        { "label": "Fixes", "plain": "Options such as limiting access to a group or asking site owners to review." }
+      ],
+      "flow": [
+        { "label": "Snapshot", "plain": "An admin runs a snapshot report to see how widely sites are shared." },
+        { "label": "Find sites", "plain": "The report lists the sites with the broadest access." },
+        { "label": "Watch activity", "plain": "Activity reports add recent sharing, so new risks show early." },
+        { "label": "Fix", "plain": "The administrator chooses a fix, such as asking site owners to review." },
+        { "label": "Repeat", "plain": "Reports run again later to check progress." }
+      ],
+      "example": {
+        "input": "Contoso wants to know which sites everyone in the company can open.",
+        "output": "A report lists sites shared with everyone inside the company, so the team can pick which to review first."
+      },
+      "whenToUse": [
+        "You are preparing for Copilot and need to find sites open too widely.",
+        "You want to catch new oversharing as it happens."
+      ],
+      "whenNot": [
+        "Reports find risk. They do not change access on their own.",
+        "Reports need SharePoint Advanced Management prerequisites, which Learn lists."
+      ],
+      "learn": [
+        { "title": "Data access governance reports for SharePoint and OneDrive sites", "url": "https://learn.microsoft.com/sharepoint/data-access-governance-reports" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ]
+    },
+    "m365h-restricted-content-discovery": {
+      "definition": "This setting keeps chosen SharePoint sites out of company-wide search and Copilot answers, without changing who has access.",
+      "blocks": [
+        { "label": "Site setting", "plain": "A setting applied to one SharePoint site." },
+        { "label": "Hidden content", "plain": "The site's content stays out of organization-wide search and Copilot." },
+        { "label": "Permissions", "plain": "Unchanged. People who already have access can still open the content." },
+        { "label": "AI buttons", "plain": "AI entry points, such as the Copilot button, are removed on that site." },
+        { "label": "Reports and audit", "plain": "Administrators can report on which sites use it and audit changes." }
+      ],
+      "flow": [
+        { "label": "Mark", "plain": "An administrator marks a site as restricted." },
+        { "label": "Spread", "plain": "Search systems pass the setting along, which can take time." },
+        { "label": "Hidden", "plain": "The site's content stops showing up in company-wide search and Copilot answers." },
+        { "label": "Access", "plain": "People with access still open the files directly." },
+        { "label": "Remove", "plain": "Later, the restriction is removed once access is reviewed." }
+      ],
+      "example": {
+        "input": "Contoso wants to review Finance and HR site permissions before Copilot can surface them.",
+        "output": "Those sites drop out of Copilot answers and company-wide search during the review. They return when the restriction ends."
+      },
+      "whenToUse": [
+        "Sites carry a high risk of oversharing.",
+        "A phased Copilot rollout needs more time for review."
+      ],
+      "whenNot": [
+        "Too much use can leave Copilot answers thin and less useful.",
+        "It does not stop Copilot from summarizing a file someone already has open.",
+        "It applies to SharePoint sites only, not OneDrive."
+      ],
+      "dataNote": "It does not remove content from the search index, so other Microsoft Purview tools still work on it.",
+      "learn": [
+        { "title": "Restrict discovery of SharePoint sites and content", "url": "https://learn.microsoft.com/sharepoint/restricted-content-discovery" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ]
+    },
+    "m365h-dlp-for-copilot": {
+      "definition": "A Data Loss Prevention (DLP) rule can stop Copilot from using sensitive prompts or labeled files.",
+      "blocks": [
+        { "label": "Rule target", "plain": "The Copilot experiences that the rule covers." },
+        { "label": "Sensitive info", "plain": "Patterns such as card, passport, or Social Security numbers." },
+        { "label": "Labels", "plain": "Tags on files and emails that Copilot can be told to skip." },
+        { "label": "Action", "plain": "What Copilot is stopped from doing, such as answering or searching the web." }
+      ],
+      "flow": [
+        { "label": "Prompt", "plain": "A person writes a prompt, or Copilot gathers files and emails to answer." },
+        { "label": "Check", "plain": "The rule checks the prompt or content for sensitive data or labels." },
+        { "label": "Block", "plain": "On a match, Copilot is blocked from that use." },
+        { "label": "Fall back", "plain": "For web search, Copilot still answers from allowed internal sources." }
+      ],
+      "example": {
+        "input": "Contoso does not want customer card numbers sent to a web search provider.",
+        "output": "When a prompt has card numbers, Copilot skips web search and answers only from allowed internal Microsoft 365 data."
+      },
+      "whenToUse": [
+        "You must keep sensitive numbers out of prompts and web searches.",
+        "You want labeled files and emails kept out of Copilot answers."
+      ],
+      "whenNot": [
+        "One rule cannot check both sensitive data and labels.",
+        "Learn marks some of these controls as preview, so check their status."
+      ],
+      "learn": [
+        { "title": "Use Microsoft Purview Data Loss Prevention to protect interactions with Microsoft 365 Copilot, Copilot Chat, and Cowork", "url": "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ]
+    },
+    "m365h-audit-copilot-interactions": {
+      "definition": "Audit logs record each Copilot and agent interaction: who used it, when, where, and which files or sites it used to answer.",
+      "blocks": [
+        { "label": "Audit record", "plain": "One log entry for an interaction, made automatically." },
+        { "label": "Details", "plain": "Facts such as the app, the agent, and the resources it used." },
+        { "label": "Label info", "plain": "Whether Copilot touched a file that has a sensitivity label." },
+        { "label": "Web search", "plain": "Whether Copilot searched the web, and the exact queries." }
+      ],
+      "flow": [
+        { "label": "Use", "plain": "A person uses Copilot or an agent." },
+        { "label": "Log", "plain": "The system logs the interaction automatically." },
+        { "label": "Search", "plain": "An administrator searches the logs." },
+        { "label": "Read", "plain": "They read details such as who, when, which agent, and which files." },
+        { "label": "Check web", "plain": "They can also check whether web search was used." }
+      ],
+      "example": {
+        "input": "Fabrikam's compliance team asks which files Copilot used for one answer.",
+        "output": "The audit record lists the user, the time, the app, and the files or sites Copilot accessed."
+      },
+      "whenToUse": [
+        "You need evidence of how Copilot and agents are used.",
+        "You are investigating a possible data leak."
+      ],
+      "whenNot": [
+        "Auditing must be on for the organization. No extra Copilot setup is needed.",
+        "Logs for non-Microsoft AI apps use pay-as-you-go billing."
+      ],
+      "learn": [
+        { "title": "Audit logs for Copilot and AI applications", "url": "https://learn.microsoft.com/purview/audit-copilot" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/purview/audit-copilot",
+        "https://learn.microsoft.com/copilot/plan/manage-public-web-access"
+      ]
+    },
+    "m365h-dspm-copilot-risk": {
+      "definition": "A Microsoft Purview dashboard shows where sensitive data is, who can reach it, and how well it is guarded, even for Copilot and agents.",
+      "blocks": [
+        { "label": "Dashboard", "plain": "A dashboard of key data security measures and 30-day trends." },
+                { "label": "Goals", "plain": "Goals such as preventing oversharing, each with guided steps." },
+                { "label": "AI app list", "plain": "A list of AI apps and agents with recent activity and risk." },
+                { "label": "Activity view", "plain": "A view of AI activity, including prompts, responses, and sensitive content." },
+                { "label": "Risk checks", "plain": "Checks that find possible oversharing and suggest fixes." }
+      ],
+      "flow": [
+        { "label": "Use", "plain": "People use Copilot and agents as usual." },
+        { "label": "Scan", "plain": "The service keeps scanning for sensitive data and risky activity." },
+        { "label": "Dashboards", "plain": "Dashboards show risk, policy coverage, and trends." },
+        { "label": "Review", "plain": "An administrator reviews suggested actions for each goal." },
+        { "label": "Act", "plain": "They apply policies or start investigations, and track progress." }
+      ],
+      "example": {
+        "input": "Contoso wants to know which agents handle sensitive data.",
+        "output": "A list of agents with recent activity, showing how many are high risk and how many touched sensitive data."
+      },
+      "whenToUse": [
+        "You want one view of data risk across Copilot, agents, and data.",
+        "You want guided steps to reduce oversharing."
+      ],
+      "whenNot": [
+        "A new setup needs about a day before data appears.",
+        "Some capabilities need extra roles or licenses."
+      ],
+      "learn": [
+        { "title": "Learn about Data Security Posture Management", "url": "https://learn.microsoft.com/purview/data-security-posture-management-learn-about" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/purview/data-security-posture-management-learn-about",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ]
+    },
+    "ppai-check-region-and-prerequisites": {
+      "definition": "Before you build, check which AI Builder models your region offers and that your environment has what it needs.",
+      "blocks": [
+        { "label": "Region", "plain": "Models run in the region that hosts your environment." },
+        { "label": "Release status", "plain": "Each model is generally available or in preview in a region." },
+        { "label": "Environment", "plain": "A Power Platform environment with a Dataverse database." },
+        { "label": "License", "plain": "An AI Builder license, trial or paid, for features that need one." }
+      ],
+      "flow": [
+        { "label": "Find region", "plain": "A maker notes the region of their environment." },
+        { "label": "Look up", "plain": "They look up each model they want in that region's table." },
+        { "label": "Read marks", "plain": "A dash means the model is not available there." },
+        { "label": "Check status", "plain": "They note whether it is generally available or in preview." },
+        { "label": "Confirm", "plain": "They confirm the environment has a database and the right license." }
+      ],
+      "example": {
+        "input": "Fabrikam wants to use a model, but its environment is in a region that may not offer it.",
+        "output": "The table shows if the model is offered there, and if it is generally available or in preview."
+      },
+      "whenToUse": [
+        "You are planning a project around one model.",
+        "A model you expected is missing from the list."
+      ],
+      "whenNot": [
+        "Prompt availability is listed on a separate page.",
+        "Preview features are not meant for production use."
+      ],
+      "learn": [
+        { "title": "Feature availability by region", "url": "https://learn.microsoft.com/ai-builder/availability-region" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/availability-region",
+        "https://learn.microsoft.com/ai-builder/overview",
+        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps"
+      ]
+    },
+    "ppai-migrate-from-text-generation": {
+      "definition": "The Text generation model is retired, and Learn points makers to prompts in prompt builder instead.",
+      "blocks": [
+        { "label": "Old model", "plain": "An older preview model, deprecated and no longer visible." },
+        { "label": "Prompt builder", "plain": "The replacement: you write a prompt, add inputs, and test it." },
+        { "label": "Renamed actions", "plain": "Some flow actions have new names since May 2025." },
+        { "label": "Existing work", "plain": "Flows and apps that used the old model should move to prompts." }
+      ],
+      "flow": [
+        { "label": "Spot it", "plain": "A maker finds an older flow or app that mentions text generation." },
+        { "label": "Recognize", "plain": "They recognize that the model is retired." },
+        { "label": "Rebuild", "plain": "They recreate the task as a prompt in prompt builder." },
+        { "label": "Test", "plain": "They test the prompt with sample inputs." },
+        { "label": "Switch", "plain": "They point the flow or app at the new prompt." }
+      ],
+      "example": {
+        "input": "Contoso has an old flow that used text generation to summarize emails.",
+        "output": "The task becomes a prompt that takes the email text as an input. The flow runs that prompt instead of the retired model."
+      },
+      "whenToUse": [
+        "You find an old flow or app that uses text generation.",
+        "You need generated text in a flow or app today."
+      ],
+      "whenNot": [
+        "Do not start new work on the retired Text generation model.",
+        "Prompts run only in some regions, so check availability first."
+      ],
+      "learn": [
+        { "title": "Text generation model (preview) (deprecated)", "url": "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai" },
+        { "title": "Use your prompt in Power Automate", "url": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview"
+      ]
+    },
+    "ppai-prebuilt-sentiment-analysis": {
+      "definition": "The sentiment analysis model reads text and says if it sounds positive, negative, neutral, or mixed.",
+      "blocks": [
+        { "label": "Text input", "plain": "Text up to 5,120 characters, in a supported language." },
+        { "label": "Document result", "plain": "An overall label: positive, negative, neutral, or mixed." },
+        { "label": "Sentence results", "plain": "A label and a confidence score for each sentence." },
+        { "label": "Confidence", "plain": "A value from 0 to 1. Closer to 1 means more sure." }
+      ],
+      "flow": [
+        { "label": "Send text", "plain": "A person, a flow, or an app gives the model some text." },
+        { "label": "Read", "plain": "The model reads the text sentence by sentence." },
+        { "label": "Score", "plain": "It scores each sentence as positive, negative, or neutral." },
+        { "label": "Combine", "plain": "The sentence scores add up to a label for the whole document." },
+        { "label": "Use", "plain": "The flow or app uses the label and scores." }
+      ],
+      "example": {
+        "input": "A review: 'Fast shipping, but the box was damaged.'",
+        "output": "A label for the whole review, plus a label and confidence score for each of the two sentences."
+      },
+      "whenToUse": [
+        "You want to sort reviews, social posts, or emails by tone.",
+        "You need scores for each sentence and for the whole text."
+      ],
+      "whenNot": [
+        "It will not sort text into your own custom categories.",
+        "One call cannot take text longer than 5,120 characters."
+      ],
+      "learn": [
+        { "title": "Sentiment analysis prebuilt model", "url": "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis",
+        "https://learn.microsoft.com/ai-builder/model-types"
+      ]
+    },
+    "ppai-prebuilt-receipt-processing-flow": {
+      "definition": "The receipt processing model reads printed and handwritten receipts and returns fields such as merchant, date, and total.",
+      "blocks": [
+        { "label": "Receipt file", "plain": "An image or PDF of one receipt. One clear photo or scan works best." },
+        { "label": "Fields", "plain": "Merchant, date, time, items, subtotal, tax, tip, and total." },
+        { "label": "Confidence", "plain": "A score for each field shows how sure the model is." },
+        { "label": "Page range", "plain": "For long files, you can point the model at the pages with the receipt." }
+      ],
+      "flow": [
+        { "label": "Start", "plain": "A flow starts with a receipt file." },
+        { "label": "Send", "plain": "The flow sends the file to the receipt model." },
+        { "label": "Read", "plain": "The model reads printed and handwritten text and finds key fields." },
+        { "label": "Return", "plain": "It returns the values as text, with confidence scores." },
+        { "label": "Use", "plain": "Later steps in the flow use those values." }
+      ],
+      "example": {
+        "input": "A Contoso employee sends a photo of a lunch receipt for an expense report.",
+        "output": "The flow reads the merchant, date, and total from the receipt and passes them to later steps in the flow."
+      },
+      "whenToUse": [
+        "You process expense receipts that arrive as photos or scans.",
+        "You want fields pulled out without training a model."
+      ],
+      "whenNot": [
+        "It does not handle receipts that span several pages.",
+        "Other document types may need invoice processing or a custom model."
+      ],
+      "learn": [
+        { "title": "Receipt processing prebuilt model", "url": "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing" },
+        { "title": "Use the receipt processing prebuilt model in Power Automate", "url": "https://learn.microsoft.com/ai-builder/flow-receipt-processing" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/flow-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/model-types"
+      ]
+    },
+    "ppai-powerfx-ai-models-in-canvas-app": {
+      "definition": "Power Fx lets a canvas app call an AI Builder model with a short formula, such as one that finds the language of text a person typed.",
+      "blocks": [
+        { "label": "Data source", "plain": "The AI model added to the app so formulas can reach it." },
+        { "label": "Formula", "plain": "A Power Fx formula that calls the model and reads its result." },
+        { "label": "Control", "plain": "A text box, label, or button that shows or triggers the result." },
+        { "label": "Saved result", "plain": "A stored result, so the app can reuse it without calling again." }
+      ],
+      "flow": [
+        { "label": "Type", "plain": "A person types text into the app." },
+        { "label": "Trigger", "plain": "A button or action runs the formula." },
+        { "label": "Predict", "plain": "The model returns a result, such as a language code." },
+        { "label": "Show", "plain": "A label shows the result." }
+      ],
+      "example": {
+        "input": "A person types 'bonjour' into a Contoso app.",
+        "output": "The app shows the language code for French."
+      },
+      "whenToUse": [
+        "You build a canvas app and want AI results in its controls.",
+        "You want to reuse one model result in several places."
+      ],
+      "whenNot": [
+        "Calling the model on every keystroke can waste credits; a button press is better.",
+              "An app moved to another environment needs the model added again.",
+              "One Learn page marks this feature as preview, so check its status."
+      ],
+      "learn": [
+        { "title": "Use AI Builder models in Power Apps", "url": "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview"
+      ]
+    },
+    "ppai-predict-action-dynamic-model": {
+      "definition": "A flow can pass a model ID in a variable, so it can pick a different document model for each file.",
+      "blocks": [
+        { "label": "Predict action", "plain": "One flow action that can call many kinds of AI Builder models." },
+        { "label": "Model ID", "plain": "A value, held in a variable, that names the model to use." },
+        { "label": "Document type", "plain": "The kind of document that decides which model fits." },
+        { "label": "Request", "plain": "The file and its type, sent to the model with the call." }
+      ],
+      "flow": [
+        { "label": "File arrives", "plain": "A file arrives in the flow." },
+        { "label": "Decide", "plain": "The flow decides which model suits that document." },
+        { "label": "Set ID", "plain": "It sets the model ID variable to that model." },
+        { "label": "Predict", "plain": "The Predict action runs the chosen model." },
+        { "label": "Use", "plain": "Later steps use the model output." }
+      ],
+      "example": {
+        "input": "Fabrikam receives invoices in two different layouts.",
+        "output": "The flow picks the model trained for each layout and runs it, so each invoice is read by the right model."
+      },
+      "whenToUse": [
+        "Different documents need different models.",
+        "The model should be chosen while the flow runs."
+      ],
+      "whenNot": [
+        "Dynamic model IDs work for document processing, not for prompts.",
+        "Most flows do not need this. It is for complex cases."
+      ],
+      "learn": [
+        { "title": "Use predict action in Power Automate", "url": "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+      ]
+    },
+    "spai-autofill-columns": {
+      "definition": "An autofill column uses a plain-language prompt to get details from each file in a SharePoint library and save them.",
+      "blocks": [
+        { "label": "Prompt", "plain": "The question you ask of each file, such as the due date." },
+        { "label": "Column", "plain": "The library column that stores the answer." },
+        { "label": "Test", "plain": "You can try the prompt on a sample file before saving it." },
+        { "label": "New files", "plain": "After setup, new files are processed automatically." },
+        { "label": "Check", "plain": "A person reviews results, because they might be wrong." }
+      ],
+      "flow": [
+        { "label": "Add file", "plain": "Someone adds a file to the library." },
+        { "label": "Read", "plain": "The AI reads the file's text and answers each autofill prompt." },
+        { "label": "Save", "plain": "The answer is saved in the matching column." },
+        { "label": "Existing files", "plain": "Files that were already there can be processed on request." },
+        { "label": "Review", "plain": "A person checks the results." }
+      ],
+      "example": {
+        "input": "A Contoso library holds contracts, and the prompt asks for the renewal date.",
+        "output": "Each contract gets a renewal date in its own column, ready for sorting and search."
+      },
+      "whenToUse": [
+        "You want columns filled in without building a trained model.",
+        "Your questions are simple, such as dates, names, or choices."
+      ],
+      "whenNot": [
+        "Learn suggests no more than 65 pages per file and 10 columns per library.",
+        "A changed file is processed again only when a person reprocesses it."
+      ],
+      "learn": [
+        { "title": "Overview of autofill columns", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview" },
+        { "title": "Create an autofill column", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill"
+      ]
+    },
+    "spai-prebuilt-document-processing": {
+      "definition": "Ready-made models read common documents, such as invoices and contracts, with no training needed.",
+      "blocks": [
+        { "label": "Prebuilt model", "plain": "Ready-made for contracts, invoices, receipts, and more." },
+        { "label": "Custom model", "plain": "Trained by your team for layouts that prebuilt models miss." },
+        { "label": "Content type", "plain": "The set of columns a model fills in for a library." },
+        { "label": "Billing", "plain": "Pay-as-you-go through a linked Azure subscription." },
+        { "label": "Site scope", "plain": "An organization can limit it to selected sites." }
+      ],
+      "flow": [
+        { "label": "Pick", "plain": "Someone picks a prebuilt model that matches the documents in a library." },
+        { "label": "Apply", "plain": "They apply it to the library, linked to a content type." },
+        { "label": "Extract", "plain": "Files are read, and the model saves details to columns." },
+        { "label": "Bill", "plain": "Use is billed through the Azure subscription." },
+        { "label": "Limit", "plain": "An organization can turn it off or limit it to chosen sites." }
+      ],
+      "example": {
+        "input": "Fabrikam's finance team keeps invoices in one library.",
+        "output": "An invoice model fills columns such as customer name, due date, and amount due for each invoice."
+      },
+      "whenToUse": [
+        "Your files are common business documents, such as invoices.",
+        "You want results without collecting training examples."
+      ],
+      "whenNot": [
+        "It needs pay-as-you-go billing set up first.",
+        "Unusual layouts may need a custom model."
+      ],
+      "learn": [
+        { "title": "Set up and manage prebuilt document processing", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup" },
+        { "title": "Overview of document processing model types", "url": "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-overview"
+      ]
+    },
+    "ppai-document-processing-model": {
+      "definition": "An AI Builder document processing model learns where your fields sit from a few sample documents, then reads new documents of that kind.",
+      "blocks": [
+        { "label": "Fields to find", "plain": "The fields, tables, and checkboxes you want the model to extract." },
+        { "label": "Collection", "plain": "A group of sample documents that share the same layout." },
+        { "label": "Training", "plain": "The step where the model learns from at least five samples per layout." },
+        { "label": "Publish", "plain": "Makes the trained model available to others in the environment." },
+        { "label": "Flow call", "plain": "A flow or app sends new documents to the published model." }
+      ],
+      "flow": [
+        { "label": "Define", "plain": "A maker lists what to extract." },
+        { "label": "Add samples", "plain": "They add sample documents, grouped by layout." },
+        { "label": "Train", "plain": "They train the model, then try it with a quick test." },
+        { "label": "Publish", "plain": "They publish it." },
+        { "label": "Use", "plain": "A flow or app sends new documents and gets fields back." }
+      ],
+      "example": {
+        "input": "Contoso has a vendor form that always has the same layout.",
+        "output": "After training on five samples and publishing, a flow reads new forms and returns the fields the maker named."
+      },
+      "whenToUse": [
+        "Your documents have a layout that prebuilt models do not cover.",
+        "You can supply at least five sample documents per layout."
+      ],
+      "whenNot": [
+        "A prebuilt model may already fit common documents such as invoices.",
+        "Training takes time, and general-document models train more slowly."
+      ],
+      "learn": [
+        { "title": "Create a document processing custom model", "url": "https://learn.microsoft.com/ai-builder/create-form-processing-model" },
+        { "title": "Document processing model overview", "url": "https://learn.microsoft.com/ai-builder/form-processing-model-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-overview",
+        "https://learn.microsoft.com/ai-builder/train-model"
+      ]
+    },
+    "ppai-category-classification-model": {
+      "definition": "Category classification learns from text you have tagged, then sorts new text into your own groups.",
+      "blocks": [
+        { "label": "Tagged text", "plain": "Text entries with tags, stored in Dataverse." },
+        { "label": "Categories", "plain": "Your own labels, such as topics or request types." },
+        { "label": "Model", "plain": "Learns from your tags in the language you choose." },
+        { "label": "Published model", "plain": "The version a flow can call to tag new text." }
+      ],
+      "flow": [
+        { "label": "Prepare", "plain": "A maker prepares text with tags in Dataverse." },
+        { "label": "Create", "plain": "They create the model, pointing it at the text and the tags." },
+        { "label": "Train", "plain": "They pick the language and train the model." },
+        { "label": "Publish", "plain": "They publish the model." },
+        { "label": "Categorize", "plain": "A flow calls it to categorize new text." }
+      ],
+      "example": {
+        "input": "Contoso tags support emails as billing, shipping, or returns.",
+        "output": "After training and publishing, the model gives new emails one of those tags, with confidence scores."
+      },
+      "whenToUse": [
+        "You need to route text by your own categories.",
+        "You already have tagged text to learn from."
+      ],
+      "whenNot": [
+        "The training text must be in Dataverse, with tags, before you start.",
+        "A prebuilt model may be enough for general topics."
+      ],
+      "learn": [
+        { "title": "Overview of the category classification custom model", "url": "https://learn.microsoft.com/ai-builder/text-classification-overview" },
+        { "title": "Create a category classification custom model", "url": "https://learn.microsoft.com/ai-builder/create-text-classification-model" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/text-classification-overview",
+        "https://learn.microsoft.com/ai-builder/create-text-classification-model",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview"
+      ]
+    },
+    "ppai-prediction-model": {
+      "definition": "A prediction model learns from past records in Dataverse, then guesses the outcome for new ones: yes or no, a choice, or a number.",
+      "blocks": [
+        { "label": "Historical outcome", "plain": "The column that holds the known answer, such as late or on time." },
+        { "label": "Training columns", "plain": "Columns the model learns from. Leave out any that give away the answer." },
+        { "label": "Filter", "plain": "An optional filter to train on part of the data." },
+        { "label": "Predictions", "plain": "Predicted outcomes for rows where the answer is not known yet." }
+      ],
+      "flow": [
+        { "label": "Choose outcome", "plain": "A maker picks the table and the outcome column." },
+        { "label": "Pick columns", "plain": "They pick training columns and avoid target leakage." },
+        { "label": "Filter", "plain": "They filter the data if they need to." },
+        { "label": "Train", "plain": "They train and publish the model." },
+        { "label": "Predict", "plain": "The model predicts outcomes for new records." }
+      ],
+      "example": {
+        "input": "Contoso wants to know whether a shipment will arrive on time.",
+        "output": "The model learns from past shipments. It must not use the delivered date, because new shipments will not have one yet."
+      },
+      "whenToUse": [
+        "You have a history of records with known outcomes.",
+        "You want yes or no, a choice among options, or a number."
+      ],
+      "whenNot": [
+        "You need Dataverse data: at least 50 rows, and 1,000 or more is better.",
+        "Columns that reveal the answer make the model look better than it is."
+      ],
+      "learn": [
+        { "title": "Overview of the prediction model", "url": "https://learn.microsoft.com/ai-builder/prediction-overview" },
+        { "title": "Create a prediction model", "url": "https://learn.microsoft.com/ai-builder/prediction-create-model" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prediction-overview",
+        "https://learn.microsoft.com/ai-builder/prediction-create-model",
+        "https://learn.microsoft.com/ai-builder/prediction-prereq"
+      ]
+    },
+    "spai-manage-copilot-availability": {
+      "definition": "Site owners use Site AI settings to manage Copilot in SharePoint, and Restricted Content Discovery hides AI on chosen sites.",
+      "blocks": [
+        { "label": "Site AI settings", "plain": "Owners choose which agent opens and can hide the Copilot button." },
+        { "label": "Restricted discovery", "plain": "When on, Copilot and AI actions do not appear on the site." },
+        { "label": "Older controls", "plain": "Preview-era controls are retiring. Learn gives the date." }
+      ],
+      "flow": [
+        { "label": "Available", "plain": "Copilot in SharePoint is available to licensed people on sites." },
+        { "label": "Owner choices", "plain": "A site owner can change which agent opens or hide the Copilot button." },
+        { "label": "Restrict", "plain": "An admin can limit discovery on risky sites." },
+        { "label": "Hidden", "plain": "On those sites, Copilot and AI actions do not appear." },
+        { "label": "Retire", "plain": "Older preview controls stop working after the date Learn gives." }
+      ],
+      "example": {
+        "input": "A Contoso HR site holds sensitive files and is under review.",
+        "output": "Copilot and AI actions are hidden on that site, whatever other settings say."
+      },
+      "whenToUse": [
+        "A site needs extra review before AI is used on it.",
+        "Visitors should not see the Copilot button on a site."
+      ],
+      "whenNot": [
+        "Restricted Content Discovery does not change who can open files.",
+        "Do not rely on the older preview controls after they retire."
+      ],
+      "learn": [
+        { "title": "Get started with Copilot in SharePoint", "url": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started" },
+        { "title": "Restrict discovery of SharePoint sites and content", "url": "https://learn.microsoft.com/sharepoint/restricted-content-discovery" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery"
+      ]
+    }
+  }
+}

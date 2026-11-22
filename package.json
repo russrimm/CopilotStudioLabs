@@ -15,6 +15,8 @@
     "export-topics": "node tools/lab-builder/export-topics.mjs",
     "export-prerequisites": "node tools/lab-builder/export-prerequisites.mjs",
     "export-admin-guide": "node tools/lab-builder/export-admin-guide.mjs",
+    "export-training-decks": "node tools/lab-builder/export-training-decks.mjs",
+    "check-training-library": "node tools/lab-builder/check-training-library.mjs",
     "capture": "cd tools/screenshot-capture && npm run capture",
     "capture:lab": "node tools/screenshot-capture/capture.js",
     "feature-tour:build": "node tools/feature-tour/build.mjs",

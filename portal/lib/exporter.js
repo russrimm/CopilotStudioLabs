@@ -49,6 +49,7 @@ import {
 import { renderLabMarkdown } from "./markdown.js";
 import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafeManifest } from "./lab-builder/learner-guide.js";
 import { repairRunOnSteps } from "./lab-builder/sub-steps.js";
+import { TRAINING_ZIP_FOLDER, trainingZipEntries } from "./lab-builder/training-decks.js";
 import { buildPrerequisitesChecklist, checklistBaseName, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
 import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
 import { renderPrerequisitesChecklistDocxBuffer } from "./lab-builder/prereq-checklist-docx.js";
@@ -211,13 +212,16 @@ function appendBrandInfo(markdown, brand) {
 }
 
 /** README.md placed at the root of every generated-lab bundle. */
-export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null, hasAdministratorFolder = false } = {}) {
+export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null, hasAdministratorFolder = false, trainingDecks = null } = {}) {
   const b = normalizeBrand(brand);
   const site = getBrandSharepointSite(b);
   const lines = [`# ${title || "Lab bundle"}`, ""];
   lines.push(`${b.companyName}${b.tagline ? ` — ${b.tagline}` : ""}`, "");
   if (b.coverSubtitle) lines.push(`_${b.coverSubtitle}_`, "");
   lines.push("## What is in this bundle", "");
+  if (trainingDecks) {
+    lines.push(`- \`${trainingDecks.folder}/\` — the pre-lab training decks: deliver these first, to people who are new to this. About ${trainingDecks.minutes} minutes, no lab steps. It has a complete deck, a foundations deck for each product, and one deck for each module.`);
+  }
   lines.push("- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
   if (formats.length) {
     lines.push(`- One folder per module with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack.`);
@@ -805,8 +809,9 @@ export function exportGeneratedLab(
         if (stats.isSymbolicLink()) continue;
         if (stats.isDirectory()) {
           const relDir = relative(labDir, fullPath).replace(/\\/g, "/");
-          if (relDir === "topics") {
-            // Per-topic documents are rendered per requested format and branding below.
+          if (relDir === "topics" || relDir === "training") {
+            // Per-topic documents are rendered per requested format and branding below; the pre-lab training
+            // decks go in their own top-level folder.
             continue;
           }
           walkLab(fullPath);
@@ -1153,6 +1158,23 @@ export function exportGeneratedLab(
     }
     addAdminFile(`${checklistBase}.md`, renderPrerequisitesChecklistMarkdown(checklistModel));
 
+    // The pre-lab training decks, in the folder that sorts first. They are PowerPoint files, so they follow the formats asked for.
+    let trainingExport = null;
+    if (selectedFormats.includes("pptx")) {
+      try {
+        trainingExport = trainingZipEntries(labDir, {
+          labId,
+          markdown: htmlSourceMd,
+          manifest: effectiveManifest,
+          branding: docBranding,
+          live: replacementEntries.length > 0 || customizedBranding,
+        });
+        for (const entry of trainingExport.entries) archive.append(entry.data, { name: entry.name });
+      } catch {
+        trainingExport = null;
+      }
+    }
+
     const manifest = {
       exportedAt: new Date().toISOString(),
       source: "generated",
@@ -1160,6 +1182,9 @@ export function exportGeneratedLab(
       title: brandedLabTitle,
       formats: selectedFormats,
       overviewFolder: posix.join(labId, split.overview.folderName),
+      trainingDecksFolder: trainingExport ? TRAINING_ZIP_FOLDER : null,
+      trainingDecks: trainingExport ? trainingExport.files : [],
+      trainingMinutes: trainingExport ? trainingExport.summary.totalMinutes : null,
       administratorFolder: ADMIN_FOLDER_NAME,
       administratorFiles: adminFolderFiles,
       facilitatorGuideFolder: facilitatorFolder,
@@ -1178,6 +1203,7 @@ export function exportGeneratedLab(
         modules: exportedModules,
         customerChecklistFile,
         hasAdministratorFolder: true,
+        trainingDecks: trainingExport ? { folder: TRAINING_ZIP_FOLDER, minutes: trainingExport.summary.totalMinutes } : null,
       }),
       { name: "README.md" },
     );

@@ -300,12 +300,13 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
   const fileBase = escapeHtml(lbSanitizeFileBase(displayTitle, labId));
   const scopePrefix = options.scopePrefix || "lb-zip-fmt-result";
   return `
+    ${options.trainingGroup === false || typeof lbTrainingDecksGroupHtml !== "function" ? "" : lbTrainingDecksGroupHtml(labId, displayTitle, scopePrefix)}
     <div class="lb-download-files-group" role="group" aria-label="Download associated files for ${safeTitle}">
       <span class="lb-download-files-label">Download Lab Files</span>
       <div class="lb-download-files-links">
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=html" download="${fileBase}.html" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download Interactive Web Lab (.html) for ${safeTitle}">🌐 Interactive Web Lab (.html)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=docx" download="${fileBase}.docx" aria-label="Download Word Guide (.docx) for ${safeTitle}">📝 Word Guide (.docx)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download PowerPoint Deck (.pptx) for ${safeTitle}">📊 PowerPoint Deck (.pptx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download Hands-on deck: lab day (.pptx) for ${safeTitle}">📊 Hands-on deck: lab day (.pptx)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pdf" download="${fileBase}.pdf" aria-label="Download PDF Guide (.pdf) for ${safeTitle}">📕 PDF Guide (.pdf)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=md" download="${fileBase}.md" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download Markdown (.md) for ${safeTitle}">📄 Markdown (.md)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-docx" download="${fileBase} - Facilitator Guide.docx" aria-label="Download Facilitator Guide (.docx) for ${safeTitle}">🎓 Facilitator Guide (.docx)</a>
@@ -361,7 +362,7 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
           </div>
           <div class="lb-topic-doc-actions">
             <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📝 Word (.docx)</a>
-            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint deck for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📊 PowerPoint (.pptx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download hands-on deck (lab day) for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📊 Hands-on deck: lab day (.pptx)</a>
           </div>
         </li>`;
     })
@@ -370,15 +371,15 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
   return `
     <section class="lb-topic-docs" aria-labelledby="lb-topic-docs-heading">
       <div class="lb-topic-docs-header">
-        <h4 id="lb-topic-docs-heading">📄 Topic Word Documents &amp; PowerPoint Slides</h4>
+        <h4 id="lb-topic-docs-heading">📄 Hands-on documents &amp; decks: lab day</h4>
         <div class="scenario-pill-list">
           <span class="scenario-pill">${topicDocuments.length} topic${topicDocuments.length === 1 ? "" : "s"}</span>
         </div>
       </div>
       <p class="lb-topic-docs-intro">
-        Download standalone Word guides and PowerPoint training slide decks for individual topics.
+        Download standalone Word guides and hands-on PowerPoint decks for individual topics, for the lab day. The training decks to deliver first are above.
       </p>
-      <ul class="lb-topic-docs-list" aria-label="Per-topic Word documents and PowerPoint slides">${itemsHtml}</ul>
+      <ul class="lb-topic-docs-list" aria-label="Per-topic Word documents and hands-on PowerPoint decks">${itemsHtml}</ul>
     </section>`;
 }
 
@@ -764,7 +765,7 @@ function lbGenItemHtml(lab) {
         <span class="lb-gen-open-note">Open above. Download, print, and validate are in the lab panel.</span>`
     : `<button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
         ${edit}
-        ${lbGeneratedActionButtonsHtml(lab.labId, rawTitle, { scopePrefix: "lb-zip-fmt-item" })}`;
+        ${lbGeneratedActionButtonsHtml(lab.labId, rawTitle, { scopePrefix: "lb-zip-fmt-item", trainingGroup: false })}`;
   return `
     <li class="lb-gen-item" data-lab-id="${id}">
       <h4 class="lb-gen-title">${title}</h4>

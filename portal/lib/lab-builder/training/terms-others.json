@@ -1,0 +1,32 @@
+{
+  "$comment": "Glossary terms for the non-Copilot-Studio products: Microsoft Foundry, Agent Builder and declarative agents, the Microsoft 365 Copilot hub and Copilot controls, SharePoint AI, and AI Builder. Each definition follows Microsoft Learn.",
+  "version": 1,
+  "terms": {
+    "foundry-project": { "term": "Foundry project", "match": ["Foundry projects?"], "plain": "the workspace in Microsoft Foundry where a team builds with models and agents and shares access" },
+    "hub-based-project": { "term": "hub-based project", "match": ["hub-based projects?", "Foundry hubs?"], "plain": "an older kind of Foundry project that lives in a hub, which shares settings with every project inside it" },
+    "foundry-playground": { "term": "playground", "match": ["playgrounds?"], "plain": "a place in Foundry to try a model or an agent with your own prompts before you write any code" },
+    "model-catalog": { "term": "model catalog", "match": ["model catalog"], "plain": "the searchable list of models in Foundry that you can read about, compare, and deploy" },
+    "token": { "term": "token", "match": ["tokens?"], "plain": "a small chunk of text, either a word or part of a word, that an AI model reads or writes" },
+    "prompt-agent": { "term": "prompt agent", "match": ["prompt agents?"], "plain": "a Foundry agent you define with instructions, a model, and tools, which Foundry hosts and runs for you" },
+    "hosted-agent": { "term": "hosted agent", "match": ["hosted agents?"], "plain": "a Foundry agent made from your own code, which Foundry runs for you" },
+    "microsoft-copilot": { "term": "Microsoft Copilot", "match": ["Microsoft Copilot(?! Studio| harness| Chat)"], "plain": "Microsoft's AI assistant for work in Microsoft 365 apps; Learn now uses this name for what was called Microsoft 365 Copilot" },
+    "copilot-chat": { "term": "Copilot Chat", "match": ["Microsoft Copilot Chat", "Copilot Chat"], "plain": "the chat experience for work in Microsoft Copilot, built into Microsoft 365 apps such as Teams and Outlook" },
+    "copilot-controls": { "term": "Copilot controls", "match": ["Copilot controls"], "plain": "a set of tools and settings that help an organization keep Copilot and agents safe, managed, and measured" },
+    "agents-toolkit": { "term": "Agents Toolkit", "match": ["Microsoft 365 Agents Toolkit", "Agents Toolkit"], "plain": "a set of developer tools for building agents and apps for Microsoft 365 Copilot, Teams, and Office; it grew out of Teams Toolkit" },
+    "billing-policy": { "term": "billing policy", "match": ["billing policy", "billing policies"], "plain": "a record that links a group of users to an Azure subscription, so their Copilot use is billed there" },
+    "azure-subscription": { "term": "Azure subscription", "match": ["Azure subscriptions?"], "plain": "an Azure account that services are created in and billed to" },
+    "purview": { "term": "Microsoft Purview", "match": ["Microsoft Purview", "Purview"], "plain": "Microsoft's tools for protecting and governing data, such as audit logs and data loss prevention" },
+    "restricted-content-discovery": { "term": "Restricted Content Discovery", "match": ["Restricted Content Discovery"], "plain": "a SharePoint site setting that keeps its content out of organization-wide search and Copilot answers without changing who has access" },
+    "dspm": { "term": "Data Security Posture Management", "match": ["Data Security Posture Management", "DSPM"], "plain": "a Microsoft Purview view of where sensitive data is, who can reach it, and how well it is protected", "expansion": "Data Security Posture Management" },
+    "soft-delete": { "term": "soft delete", "match": ["soft[- ]delet(?:e|ed|ion)"], "plain": "deleting something so it can still be brought back for a set time before it is removed for good" },
+    "prebuilt-model": { "term": "prebuilt model", "match": ["prebuilt models?"], "plain": "an AI Builder model that is ready to use with no training, for jobs common to many businesses" },
+    "custom-model": { "term": "custom model", "match": ["custom models?"], "plain": "an AI Builder model that you train on your own data so it fits your business" },
+    "ai-hub": { "term": "AI hub", "match": ["AI hub"], "plain": "the area of Power Apps and Power Automate where makers find AI Builder models and prompts" },
+    "model-training": { "term": "training", "match": ["retrain(?:ed|ing|s)?", "train(?:ed|ing|s)?"], "plain": "the automatic step that teaches a model to solve your problem from your own data" },
+    "prompt-builder": { "term": "prompt builder", "match": ["prompt builder"], "plain": "the tool where makers write, test, and save prompts that apps, flows, and agents can reuse" },
+    "document-processing": { "term": "document processing", "match": ["document processing"], "plain": "AI that reads documents such as invoices and forms and saves the fields you care about" },
+    "autofill-column": { "term": "autofill column", "match": ["autofill columns?"], "plain": "a SharePoint library column that uses a plain-language prompt to fill itself in from each file" },
+    "canvas-app": { "term": "canvas app", "match": ["canvas apps?"], "plain": "a custom business app you build in Power Apps by dragging components onto a blank design surface, with no code" },
+    "target-leakage": { "term": "target leakage", "match": ["target leakage", "data leakage"], "plain": "when a training column gives away the answer, so a model looks great in training but fails on real data" }
+  }
+}

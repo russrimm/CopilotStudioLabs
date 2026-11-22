@@ -692,7 +692,7 @@ test("the lab result UI shows Lab Title and clean associated file download links
     assert.match(actionsHtml, /Download Lab Files/);
     assert.match(actionsHtml, /Interactive Web Lab \(\.html\)/);
     assert.match(actionsHtml, /Word Guide \(\.docx\)/);
-    assert.match(actionsHtml, /PowerPoint Deck \(\.pptx\)/);
+    assert.match(actionsHtml, /Hands-on deck: lab day \(\.pptx\)/);
     assert.match(actionsHtml, /PDF Guide \(\.pdf\)/);
     assert.match(actionsHtml, /Markdown \(\.md\)/);
     assert.match(actionsHtml, /Complete Lab Package \(\.zip\)/);
@@ -712,7 +712,7 @@ test("the lab result UI shows Lab Title and clean associated file download links
     );
     const topicVisibleText = topicDocsHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     assert.match(topicDocsHtml, /Word \(\.docx\)/);
-    assert.match(topicDocsHtml, /PowerPoint \(\.pptx\)/);
+    assert.match(topicDocsHtml, /Hands-on deck: lab day \(\.pptx\)/);
     assert.match(topicDocsHtml, /download="Contoso Executive Copilot Workshop - Step 01 - /);
     assert.doesNotMatch(topicVisibleText, /Contoso Executive Copilot Workshop - Step/);
     assert.doesNotMatch(topicVisibleText, /generated-labs\//);

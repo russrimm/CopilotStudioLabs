@@ -1,0 +1,2908 @@
+{
+  "$comment": "Teaching briefs for the publish, testing, monitor, security, governance, and billing concepts. Concept briefs hold what every member feature shares; featureOverrides give a member feature its own wording. Every statement follows the Microsoft Learn pages in verifiedAgainst.",
+  "concepts": {
+    "publish": {
+      "definition": "Publishing turns the saved version of an agent into the live version, so people can reach it through the channels or places you choose.",
+      "analogy": "Think of it like printing a final copy of a document: edits to your draft do not reach readers until you print again.",
+      "blocks": [
+        { "label": "Draft", "plain": "The version you are building and testing. It can keep changing." },
+        { "label": "Live version", "plain": "The published copy that people actually use." },
+        { "label": "Channel", "plain": "A place where people reach the agent, such as Teams or a website." },
+        { "label": "Access", "plain": "Rules about who can use the agent and which channels are allowed." }
+      ],
+      "flow": [
+        { "label": "Save", "plain": "You finish the changes you want and save the agent." },
+        { "label": "Check", "plain": "The product checks that the agent is ready, and organization rules can block some channels." },
+        { "label": "Publish", "plain": "The saved version becomes the live version for the channels you picked." },
+        { "label": "Reach", "plain": "People use the agent where they work, if they have access." },
+        { "label": "Update", "plain": "Later changes stay in draft until you publish again." }
+      ],
+      "example": {
+        "input": "Contoso's help desk team finishes an HR agent and wants employees to chat with it in Teams.",
+        "output": "After publishing and connecting the channel, employees who have access can chat with the live version. New edits wait until the next publish."
+      },
+      "whenToUse": [
+        "You tested the agent and want real users to try it.",
+        "You changed the agent and need people to see the update.",
+        "You want to reach people in a new channel."
+      ],
+      "whenNot": [
+        "The agent is unfinished or untested. Try it in the test chat first.",
+        "You only want to try it yourself. The test chat is enough."
+      ],
+      "dataNote": "When you add an agent to Teams, some agent content and chat content is shared with Teams. That data might flow outside your organization's compliance and regional boundaries.",
+      "needToKnow": "Publishing is what separates a draft from the version people use. Changes you make later stay in draft until you publish again. Where people can reach the agent depends on the channels you connect, the sign-in rules, and your organization's policies.",
+      "demo": "Show a published agent answering in a chat. Then change a small piece of wording and show that the live version stays the same until the agent is published again.",
+      "askTheRoom": "Where do the people you want to help already spend their day, and how would they find your agent there?",
+      "sayOutLoud": "Imagine Fabrikam builds a travel helper agent. Until it is published, only its builders can try it. After it is published and connected to a channel, employees with access can chat with it.",
+      "quiz": [
+        {
+          "q": "You edited a published agent but have not published again. What do channel users see?",
+          "options": ["The new edits right away", "The last published version", "Nothing at all"],
+          "answer": 1,
+          "why": "Edits stay in draft until you publish again, so channel users keep the last published version."
+        },
+        {
+          "q": "What is a channel?",
+          "options": ["A place where people reach the agent", "A kind of AI model", "A score from a test"],
+          "answer": 0,
+          "why": "A channel is where people talk to an agent, such as Teams or a website."
+        },
+        {
+          "q": "Which of these can stop you from using a channel?",
+          "options": ["Your organization's data policy or the agent's sign-in setting", "The color of the agent's icon", "The number of knowledge files"],
+          "answer": 0,
+          "why": "Learn says a channel can be unavailable when a data policy or the sign-in configuration blocks it."
+        }
+      ],
+      "terms": ["publish", "channel", "agent", "harness", "data-policy"],
+      "learn": [
+        { "title": "Key concepts - Publish and deploy your agent", "url": "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels" },
+        { "title": "Publish overview for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels" },
+        { "title": "Deploy overview (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-overview-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "testing": {
+      "definition": "Testing shows how an agent behaves, either in a chat with you or by scoring many sample questions, before and after you publish.",
+      "analogy": "Think of it like a rehearsal plus a graded quiz: you try the agent by hand, then score it on a fixed set of questions.",
+      "blocks": [
+        { "label": "Test chat", "plain": "A chat window where you talk to the agent as a user would." },
+        { "label": "Activity view", "plain": "Shows what the agent did, such as which tools and knowledge it used." },
+        { "label": "Test set", "plain": "A saved group of sample questions or conversations to run again and again." },
+        { "label": "Test method", "plain": "The rule that scores an answer, such as quality or content safety." },
+        { "label": "Results", "plain": "Scores and details for each test case, so you can compare runs." }
+      ],
+      "flow": [
+        { "label": "Try", "plain": "You chat with the agent and watch how it answers." },
+        { "label": "Look", "plain": "You check what the agent did behind the scenes, not just what it said." },
+        { "label": "Build set", "plain": "You write, import, or generate a set of sample questions." },
+        { "label": "Run", "plain": "The product sends each question to the agent and records the answers." },
+        { "label": "Score", "plain": "Each answer is scored by the test methods you picked." },
+        { "label": "Improve", "plain": "You change the agent and run the same set again to compare." }
+      ],
+      "example": {
+        "input": "A maker asks {sampleQuestion} in the test chat, then runs a saved set of similar questions after each change.",
+        "output": "The chat shows how one answer reads and what the agent used. The run gives a result for each question and a summary for the whole set."
+      },
+      "whenToUse": [
+        "You want to see how the agent answers before people use it.",
+        "You changed instructions, knowledge, or tools and need to check nothing broke.",
+        "You need the same questions run the same way every time."
+      ],
+      "whenNot": [
+        "Safety checks help find harmful content but do not guarantee safety.",
+        "Timers and background events may only work after you publish.",
+        "On usage-based harnesses, testing and evaluating can use Copilot Credits."
+      ],
+      "dataNote": "Evaluations run as the person who is signed in, using that person's access. In the standard harness, a saved snapshot of a test chat can hold all of the agent's content, which might include sensitive information.",
+      "needToKnow": "Testing has two jobs: chatting shows one conversation in detail, and a saved set of questions gives repeatable scores you can compare after each change. Use both for a full picture.",
+      "demo": "Chat with a sample agent and show what it did behind the scenes. Then show a saved set of questions with a score for each answer.",
+      "askTheRoom": "What would a wrong answer from your agent cost your team or your customers?",
+      "sayOutLoud": "Contoso changes one instruction and wonders if anything broke. Instead of asking questions by hand, the team runs the same saved questions before and after the change and compares the scores.",
+      "quiz": [
+        {
+          "q": "Why run the same saved set of questions again after you change the agent?",
+          "options": ["To compare results and see what got better or worse", "To make the agent faster", "To publish the agent"],
+          "answer": 0,
+          "why": "Running the same test set gives you an objective standard to compare changes in performance."
+        },
+        {
+          "q": "What does the activity view help you see?",
+          "options": ["What the agent did, such as the tools and knowledge it used", "Who will use the agent next month", "How many people like the agent's name"],
+          "answer": 0,
+          "why": "The activity view shows how the agent handled a message, so you can tell where a wrong answer came from."
+        },
+        {
+          "q": "Can a safety test prove an agent is safe in every situation?",
+          "options": ["Yes, a pass means it is always safe", "No, it helps find harmful content but is not a guarantee", "Only if you run it once"],
+          "answer": 1,
+          "why": "Learn says content safety tests help identify harmful content but do not guarantee safety, so keep using responsible AI reviews."
+        }
+      ],
+      "terms": ["evaluation", "test-set", "agent", "copilot-credits", "harness"],
+      "learn": [
+        { "title": "Test your agent", "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot" },
+        { "title": "About agent evaluation", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro" },
+        { "title": "Preview and test an agent (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-multi-turn",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-test-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-customer-conversation"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "monitor": {
+      "definition": "Monitoring shows how an agent is doing once people use it, so you can spot problems and decide what to improve.",
+      "analogy": "Think of it like a car dashboard: it does not drive for you, but it shows speed, fuel, and warning lights.",
+      "blocks": [
+        { "label": "Sessions", "plain": "Individual conversations or runs, with their length, channel, and status." },
+        { "label": "Outcomes", "plain": "How conversations ended, or how many runs succeeded or failed." },
+        { "label": "Feedback", "plain": "Thumbs up or down reactions and survey scores from users." },
+        { "label": "Tools and sources", "plain": "Which tools and knowledge the agent used, and how often they worked." },
+        { "label": "Usage and credits", "plain": "How often the agent is used and how many Copilot Credits it consumed." }
+      ],
+      "flow": [
+        { "label": "Go live", "plain": "People start using the agent, and the product records each conversation or run." },
+        { "label": "Collect", "plain": "The product gathers outcomes, feedback, tool use, and credits over time." },
+        { "label": "Refresh", "plain": "Reports update after a delay, so very recent activity may not show yet." },
+        { "label": "Review", "plain": "You look at a time period and compare it with the one before." },
+        { "label": "Drill in", "plain": "You open individual sessions to read what was said and what the agent did." },
+        { "label": "Improve", "plain": "You fix instructions, knowledge, or tools, then watch the numbers again." }
+      ],
+      "example": {
+        "input": "Contoso's help agent has been live for two weeks, and the team wants to know how it is doing.",
+        "output": "A summary of sessions, how they ended, user reactions, tool use, and credits used. Drilling in shows which conversations failed or were handed to a person."
+      },
+      "whenToUse": [
+        "The agent is live and you want to know if it helps people.",
+        "You want to find failed or abandoned sessions to fix.",
+        "You need to watch usage and credit use over time."
+      ],
+      "whenNot": [
+        "In the standard harness, test chat activity does not appear in reports.",
+        "Reports lag by a few hours, so they are not a live alarm.",
+        "Numbers show trends, not reasons. Read sessions to learn why."
+      ],
+      "dataNote": "Reports can include conversation transcripts. In the standard harness, feedback data is stored in Dataverse, and reading transcripts needs a specific security role.",
+      "needToKnow": "Monitoring shows what is happening in live use. Pair it with testing: reports show where to look, and tests show whether a fix worked. Reports can lag by a few hours.",
+      "demo": "Show the monitoring view of an agent that has some history, with one session transcript.",
+      "askTheRoom": "If you could see one number about your agent each week, which would you pick?",
+      "sayOutLoud": "Fabrikam's agent has been live for a month. The team opens its monitoring view and sees that most chats end well, but many conversations about one subject end unfinished. That tells them where to improve first.",
+      "quiz": [
+        {
+          "q": "When does monitoring have real usage to show?",
+          "options": ["After people start using the published agent", "Before you write instructions", "Only after you move the agent to another environment"],
+          "answer": 0,
+          "why": "You can look at monitoring early, but production usage, feedback, and credit data appear after you publish and people use the agent."
+        },
+        {
+          "q": "Which question can monitoring help answer?",
+          "options": ["Are people finishing their conversations or giving up?", "Will it rain tomorrow?", "Which font looks best?"],
+          "answer": 0,
+          "why": "Outcomes such as resolved, escalated, and abandoned show whether conversations end well."
+        },
+        {
+          "q": "Why might a report not show a conversation from an hour ago?",
+          "options": ["Reports update after a delay", "The agent was deleted", "Monitoring only works on weekends"],
+          "answer": 0,
+          "why": "Learn says some numbers refresh within hours, and AI-based numbers refresh daily or weekly."
+        }
+      ],
+      "terms": ["agent-session", "conversation-transcript", "copilot-credits", "dataverse", "harness"],
+      "learn": [
+        { "title": "Monitor agent performance in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview" },
+        { "title": "Monitor agent performance overview (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview" },
+        { "title": "Monitor an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-effectiveness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "security": {
+      "definition": "Security controls decide who can talk to an agent, what it can reach, and what it may say.",
+      "analogy": "Think of it like a building with a front desk, keycards, and house rules: who gets in, which rooms they can enter, and how everyone behaves inside.",
+      "blocks": [
+        { "label": "Sign-in", "plain": "Proof of who the person is before the agent shares private information." },
+        { "label": "Access", "plain": "Rules about who can use the agent and which content each person can reach." },
+        { "label": "Content filters", "plain": "Checks that limit harmful content in what the agent says." },
+        { "label": "Agent identity", "plain": "The account an agent uses to prove itself to channels and services." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person starts a conversation with the agent." },
+        { "label": "Sign in", "plain": "If sign-in is required, the person proves who they are first." },
+        { "label": "Check access", "plain": "The agent only uses content and tools that person is allowed to use." },
+        { "label": "Filter", "plain": "Safety filters check answers for harmful content and can block them." },
+        { "label": "Answer", "plain": "The agent replies, or declines if the request is blocked or not allowed." },
+        { "label": "Log", "plain": "Sign-in and activity can be logged so admins can review what happened." }
+      ],
+      "example": {
+        "input": "A Contoso employee asks an HR agent for their own pay details.",
+        "output": "The agent asks the person to sign in, shows only what that person may see, and applies its safety filters before replying."
+      },
+      "whenToUse": [
+        "The agent reaches private or business data.",
+        "People outside your own team will use the agent.",
+        "You need to control which people and channels can reach the agent."
+      ],
+      "whenNot": [
+        "Skipping sign-in lets anyone with the link chat. Avoid it for private data.",
+        "Stricter safety settings can mean fewer answers; looser ones raise the risk of harm."
+      ],
+      "dataNote": null,
+      "needToKnow": "Security answers three questions: who is the person, what may they reach, and what may the agent say. Each question has its own control. In the standard and Microsoft Copilot harnesses, changes to these settings take effect after you publish.",
+      "demo": "Show how the agent treats a signed-in employee compared with a stranger.",
+      "askTheRoom": "Which of your agent ideas would handle information you would not want a stranger to see?",
+      "sayOutLoud": "Think of a Contoso benefits agent. It should know who is asking, show only what that person may see, and refuse unsafe requests. Those three jobs are what these controls cover.",
+      "quiz": [
+        {
+          "q": "What happens if an agent uses no sign-in at all?",
+          "options": ["Only your team can chat with it", "Anyone who has the link can chat with it", "It stops answering questions"],
+          "answer": 1,
+          "why": "Learn warns that with no authentication, anyone who has the link can chat with the agent."
+        },
+        {
+          "q": "Why does an agent respect each person's own permissions?",
+          "options": ["So people only get content they are already allowed to see", "So the agent runs faster", "So the agent can skip safety checks"],
+          "answer": 0,
+          "why": "Knowledge sources that use the person's sign-in only surface content that the specific person can access."
+        },
+        {
+          "q": "What does a stricter safety setting usually mean?",
+          "options": ["Fewer answers and tighter filtering of harmful content", "More answers with fewer limits", "No change at all"],
+          "answer": 0,
+          "why": "Learn says the highest moderation level gives fewer answers and a stricter filter, and the lowest gives the most answers with more risk."
+        }
+      ],
+      "terms": ["user-authentication", "single-sign-on", "entra-id", "permissions", "content-moderation", "agent-identity"],
+      "learn": [
+        { "title": "Configure user authentication in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication" },
+        { "title": "Key concepts - Copilot Studio security and governance", "url": "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance" },
+        { "title": "Agent identities and authentication for Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication",
+        "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance",
+        "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/configure-sso",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "governance": {
+      "definition": "Governance is how a company keeps agents in check: rules for what they may connect to, a list of agents, and safe ways to move them.",
+      "analogy": "Think of it like a company policy plus an asset list: the policy says what is allowed, and the list shows what you have.",
+      "blocks": [
+        { "label": "Policies", "plain": "Admin rules that allow or block connectors, channels, and other features." },
+        { "label": "Environments", "plain": "Separate spaces where agents are built, tested, and used." },
+        { "label": "Solutions", "plain": "Packages that carry an agent from one environment to another." },
+        { "label": "Inventory", "plain": "A list of agents with owner, channels, and how they sign in." },
+        { "label": "Roles", "plain": "Permissions that decide who may build, share, or manage agents." }
+      ],
+      "flow": [
+        { "label": "Build", "plain": "A maker builds an agent in an environment the company manages." },
+        { "label": "Policy check", "plain": "Data policies are checked as the agent connects to services or channels." },
+        { "label": "Package", "plain": "The agent is added to a solution so it can move between environments." },
+        { "label": "Move", "plain": "You export the solution from one environment and import it in another." },
+        { "label": "Record", "plain": "The agent appears in the inventory with its owner and settings." },
+        { "label": "Review", "plain": "Admins review the inventory and adjust policies as needs change." }
+      ],
+      "example": {
+        "input": "Contoso wants makers to build agents but not publish them to certain channels.",
+        "output": "An admin sets a data policy that blocks those channels. Makers see that the channel is unavailable, and the agent cannot be published there."
+      },
+      "whenToUse": [
+        "Many people build agents and you need one shared set of rules.",
+        "You move agents from a test space to a live space.",
+        "You must know which agents exist, who owns them, and what they reach."
+      ],
+      "whenNot": [
+        "Rules cannot judge whether a single answer is good. Use testing for that.",
+        "Strict rules can block a channel or connector; makers then ask their administrator."
+      ],
+      "dataNote": "Data policies sort connectors into groups. Connectors in different groups cannot share data.",
+      "needToKnow": "Governance has two sides: controls that block risky choices, and records that show what exists. Solutions are the usual way to move an agent between environments, which is called application lifecycle management (ALM).",
+      "demo": "Show a data policy blocking a channel for an agent, then show that agent's entry in the inventory.",
+      "askTheRoom": "Who in your organization would need to approve a new agent before real customers use it?",
+      "sayOutLoud": "Fabrikam has fifty makers building agents. Without rules, nobody knows what each agent can reach. Governance gives IT one list of agents and a set of policies that apply everywhere.",
+      "quiz": [
+        {
+          "q": "What does a data policy do?",
+          "options": ["Limits which connectors and channels agents may use", "Writes the agent's instructions", "Scores the agent's answers"],
+          "answer": 0,
+          "why": "Admins use data policies to govern how agents connect to data and services, including which channels they can publish to."
+        },
+        {
+          "q": "What is a solution used for?",
+          "options": ["Carrying an agent from one environment to another", "Storing chat transcripts", "Choosing a language model"],
+          "answer": 0,
+          "why": "A solution acts as a carrier for agents, so you can export it from one environment and import it into another."
+        },
+        {
+          "q": "What does an agent inventory help an admin see?",
+          "options": ["Which agents exist and how they are set up", "How to write better instructions", "Which user is happiest"],
+          "answer": 0,
+          "why": "The inventory lists agents with details such as who created them, channels, and how they sign in users."
+        }
+      ],
+      "terms": ["data-policy", "environment", "solution", "alm", "rbac", "connector"],
+      "learn": [
+        { "title": "Configure data policies for agents", "url": "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention" },
+        { "title": "Create and manage solutions in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview" },
+        { "title": "Microsoft Copilot Studio Agent inventory", "url": "https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export",
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory",
+        "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance"
+      ],
+      "verifiedOn": "2026-11-21"
+    },
+    "billing": {
+      "definition": "Billing is how an agent's cost is measured, in units such as Copilot Credits, and how an organization pays for and limits that use.",
+      "analogy": "Think of it like a utility meter: usage is measured, and you decide how to pay and where to set limits.",
+      "blocks": [
+        { "label": "Usage", "plain": "What the agent does: model work, tools, knowledge, and conversations." },
+        { "label": "Credits", "plain": "The unit that measures usage, called Copilot Credits." },
+        { "label": "Payment plan", "plain": "How credits are paid for, such as prepaid packs or pay-as-you-go." },
+        { "label": "Controls", "plain": "Limits and allocations that keep usage inside an agreed amount." },
+        { "label": "Reports", "plain": "Views of what each agent and environment used." }
+      ],
+      "flow": [
+        { "label": "Estimate", "plain": "Before launch, a team forecasts credits with an estimator." },
+        { "label": "Build", "plain": "Some harnesses charge while you build; others start after you publish." },
+        { "label": "Run", "plain": "People use the agent, and each task or conversation uses credits." },
+        { "label": "Measure", "plain": "The product adds up credits by agent, environment, and tenant." },
+        { "label": "Limit", "plain": "Admins set allocations and monthly limits, and can stop an agent at its limit." },
+        { "label": "Compare", "plain": "Teams compare real use with the estimate and adjust." }
+      ],
+      "example": {
+        "input": "Fabrikam plans a customer chat agent and wants to know what it will cost each month.",
+        "output": "The team models expected volume in an estimator to forecast monthly credits, then compares the forecast with real use after launch. Estimates are not guarantees."
+      },
+      "whenToUse": [
+        "You need a budget before an agent goes live.",
+        "You want to compare a forecast with real use.",
+        "You need to keep one agent from using too much."
+      ],
+      "whenNot": [
+        "An estimate is not a price quote or a promise of cost.",
+        "A limit on an environment covers every agent in it, not just one."
+      ],
+      "dataNote": null,
+      "needToKnow": "On the Microsoft Copilot and Customer Conversation harnesses, credits are charged to the environment and agent, not to individual people. The Microsoft Copilot harness can use credits while you build and test. Each harness bills in its own way.",
+      "demo": "Show the usage estimator with a low and a high traffic level, then show where real credit use appears for an agent.",
+      "askTheRoom": "What would be a fair monthly budget for your first agent, and who would own it?",
+      "sayOutLoud": "Contoso builds a support agent. Each conversation uses credits, like minutes on a phone plan. The team estimates usage first, then watches real use and sets a monthly limit for the agent.",
+      "quiz": [
+        {
+          "q": "What does a Copilot Credit measure?",
+          "options": ["How much an agent is used", "How long an agent has existed", "How many people can sign in"],
+          "answer": 0,
+          "why": "Copilot Credits are the unit that measures agent usage."
+        },
+        {
+          "q": "Are usage estimates guaranteed?",
+          "options": ["Yes, they are fixed quotes", "No, real use can differ", "Only for voice agents"],
+          "answer": 1,
+          "why": "Learn says the estimator gives informational estimates, and actual consumption depends on real use."
+        },
+        {
+          "q": "Compared with the standard harness, when can the Microsoft Copilot harness start using credits?",
+          "options": ["While you build and test", "Only after a full year", "Never"],
+          "answer": 0,
+          "why": "Learn says the standard harness starts billing after publish, while the Microsoft Copilot harness charges from the moment you start building."
+        },
+        {
+          "q": "Which of these helps keep one agent from using too many credits?",
+          "options": ["A monthly limit on that agent", "A bigger icon", "A longer name"],
+          "answer": 0,
+          "why": "Admins can set a monthly limit for an agent, with notices and an option to stop usage at the limit."
+        }
+      ],
+      "terms": ["copilot-credits", "pay-as-you-go", "environment", "harness"],
+      "learn": [
+        { "title": "Overview of usage-based billing", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview" },
+        { "title": "Licensing for agents powered by the standard harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing" },
+        { "title": "Agent usage estimator", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agent-usage-estimator" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agent-usage-estimator",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/govern-credit-consumption",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-microsoft-copilot-harness",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness"
+      ],
+      "verifiedOn": "2026-11-21"
+    }
+  },
+  "featureOverrides": {
+    "publish-agent": {
+      "definition": "In the standard harness, publishing applies your latest saved changes to every channel connected to the agent.",
+      "blocks": [
+        { "label": "Test chat", "plain": "Always shows your latest changes while you build." },
+        { "label": "Published version", "plain": "What channel users get until you publish again." },
+        { "label": "Channels", "plain": "Every connected channel updates together when you publish." },
+        { "label": "Session", "plain": "A conversation. New content arrives when a new session starts." }
+      ],
+      "flow": [
+        { "label": "Edit", "plain": "You change the agent, and the test chat shows the change at once." },
+        { "label": "Publish", "plain": "Publishing applies the changes to all connected channels and can take a few minutes." },
+        { "label": "New session", "plain": "Chats in progress keep the old content until a new session starts." },
+        { "label": "Restart", "plain": "In Teams-style chats, a person can type start over to begin a new session." },
+        { "label": "Check", "plain": "You try the published agent yourself before sharing it widely." }
+      ],
+      "example": {
+        "input": "A Contoso maker fixes a wrong answer in an agent that is already live in Teams.",
+        "output": "After publishing, new conversations use the fix. A chat already in progress keeps the old answer until a new session starts."
+      },
+      "whenToUse": [
+        "You fixed or added content and want users to get it.",
+        "You want to try the published version yourself before sharing it."
+      ],
+      "whenNot": [
+        "Do not make the agent widely available in Teams before it is tested.",
+        "Do not share the demo website link with customers."
+      ],
+      "terms": ["publish", "channel", "agent"],
+      "learn": [
+        { "title": "Key concepts - Publish and deploy your agent", "url": "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams"
+      ]
+    },
+    "mc-publish-agent": {
+      "definition": "In the Microsoft Copilot harness, publishing creates a new live version from your current draft, after readiness and data policy checks.",
+      "blocks": [
+        { "label": "Draft", "plain": "Your working copy. It can keep changing after a publish." },
+        { "label": "Readiness", "plain": "Needs a name, description, and instructions. Blocking issues stop a publish; warnings do not." },
+        { "label": "Live version", "plain": "Each publish makes a new version of the agent." },
+        { "label": "Channels", "plain": "Learn lists Microsoft Copilot, Teams, a demo website, and a web app as available." }
+      ],
+      "flow": [
+        { "label": "Preview", "plain": "You test the saved draft in the preview chat." },
+        { "label": "Check", "plain": "The product checks that the agent is ready and that your data policies allow it." },
+        { "label": "Publish", "plain": "A new live version is created, and a status shows progress." },
+        { "label": "Distribute", "plain": "You connect channels and share the agent so users can find it." },
+        { "label": "Update", "plain": "Draft changes reach users only after the next publish." },
+        { "label": "Retry", "plain": "If publishing fails, the details show what to fix, and you can try again." }
+      ],
+      "example": {
+        "input": "Contoso finishes a travel booking agent and wants staff to use it in Microsoft Copilot and Teams.",
+        "output": "The product checks the name, description, and instructions, then creates a live version. Staff reach it through the channels you connect."
+      },
+      "whenToUse": [
+        "A draft is ready and tested in the preview chat.",
+        "You updated an agent and want users to get the new version.",
+        "You want a stable live version while the draft keeps changing."
+      ],
+      "whenNot": [
+        "A missing name, description, or instructions blocks publishing.",
+        "A data policy can block a channel. Ask an administrator to review it."
+      ],
+      "dataNote": "Published agents still follow your data policies. The publish step checks them too.",
+      "terms": ["publish", "channel", "data-policy", "harness"],
+      "learn": [
+        { "title": "Publish overview for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels" },
+        { "title": "Publish an agent (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-agent-status"
+      ]
+    },
+    "authentication": {
+      "definition": "User authentication lets people sign in so an agent can reach restricted information for them. Single sign-on (SSO) can skip a second sign-in.",
+      "blocks": [
+        { "label": "No sign-in", "plain": "Anyone with the link can chat, and the agent reaches only public information." },
+        { "label": "Microsoft sign-in", "plain": "Sets up Microsoft Entra ID sign-in for Teams, SharePoint, Power Apps, and Microsoft Copilot." },
+        { "label": "Manual sign-in", "plain": "Lets you use Microsoft Entra ID or another standard OAuth 2.0 provider." },
+        { "label": "Single sign-on", "plain": "Skips a second sign-in when the person is already signed in to the page." }
+      ],
+      "flow": [
+        { "label": "Start", "plain": "A person starts chatting with the agent in a channel." },
+        { "label": "Sign in", "plain": "If sign-in is required, the person signs in with the chosen provider." },
+        { "label": "Identify", "plain": "The agent learns who the person is, such as their name." },
+        { "label": "Use access", "plain": "Tools and knowledge that need the person's credentials work for that person." },
+        { "label": "Skip repeat", "plain": "With single sign-on set up, a person already signed in is not asked again." }
+      ],
+      "example": {
+        "input": "A Fabrikam employee chats with an HR agent in Teams.",
+        "output": "With Microsoft sign-in, Teams users are not asked to sign in unless the agent needs more access. The agent can then reach what that employee may see."
+      },
+      "whenToUse": [
+        "The agent reads or changes private data for each person.",
+        "Only people in your organization should use the agent.",
+        "Your website already signs customers in."
+      ],
+      "whenNot": [
+        "No sign-in suits only public information.",
+        "Automated evaluations do not support manual sign-in."
+      ],
+      "terms": ["user-authentication", "single-sign-on", "entra-id"],
+      "learn": [
+        { "title": "Configure user authentication in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication" },
+        { "title": "Configure single sign-on with Microsoft Entra ID", "url": "https://learn.microsoft.com/microsoft-copilot-studio/configure-sso" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication",
+        "https://learn.microsoft.com/microsoft-copilot-studio/configure-sso",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro"
+      ]
+    },
+    "dlp-governance": {
+      "definition": "Data policies let admins sort connectors into groups and limit what agents can connect to or publish to.",
+      "blocks": [
+        { "label": "Data groups", "plain": "Business, non-business, and blocked groups sort the connectors." },
+        { "label": "Scope", "plain": "The environments a policy applies to." },
+        { "label": "Agent rules", "plain": "Limits on sign-in, tools, web requests, channels, and triggers." },
+        { "label": "Real-time check", "plain": "Makers and users see an error when a rule is broken." }
+      ],
+      "flow": [
+        { "label": "Admin sets", "plain": "An admin builds a policy that groups connectors and covers chosen environments." },
+        { "label": "Maker builds", "plain": "A maker adds connectors, tools, or channels to an agent." },
+        { "label": "Check", "plain": "The policy is checked in real time as the agent is built and published." },
+        { "label": "Block", "plain": "A blocked item shows as unavailable, or an error explains the problem." },
+        { "label": "Fix", "plain": "The maker picks an allowed option or asks an admin to review the policy." }
+      ],
+      "example": {
+        "input": "Contoso wants every agent to require sign-in before it can be published.",
+        "output": "An admin blocks the connector that allows chat without sign-in. Makers can then use only Microsoft sign-in or manual sign-in."
+      },
+      "whenToUse": [
+        "You must keep business data away from personal or public services.",
+        "You want to block certain channels, web requests, or event triggers.",
+        "Many makers build agents in shared environments."
+      ],
+      "whenNot": [
+        "A policy does not allow mixing connectors from different data groups.",
+        "Makers cannot override a block. They need an admin to change the policy."
+      ],
+      "dataNote": "Data policies sort connectors into groups. Connectors in different groups cannot share data.",
+      "terms": ["data-policy", "connector", "environment"],
+      "learn": [
+        { "title": "Configure data policies for agents", "url": "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention",
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent"
+      ]
+    },
+    "alm-solutions": {
+      "definition": "A solution is a package that carries an agent and its parts from one environment to another, such as from testing to live use.",
+      "blocks": [
+        { "label": "Solution", "plain": "The package that carries the agent." },
+        { "label": "Required parts", "plain": "Flows, custom connectors, and variables the agent needs must be added too." },
+        { "label": "Export and import", "plain": "A solution file leaves one environment and arrives in another." },
+        { "label": "After import", "plain": "Sign-in is set up again, and the agent is published before it is shared." }
+      ],
+      "flow": [
+        { "label": "Package", "plain": "The agent is added to a solution you can carry between environments." },
+        { "label": "Add parts", "plain": "Flows, custom connectors, and variables are added so nothing is missing." },
+        { "label": "Export", "plain": "The solution leaves the source environment as a file." },
+        { "label": "Import", "plain": "The solution is brought into the target environment." },
+        { "label": "Set up", "plain": "Sign-in is set up again, and the agent is published before it is shared." }
+      ],
+      "example": {
+        "input": "Fabrikam builds an agent in a test environment and needs it in production.",
+        "output": "The team adds the agent and its flows to a solution, exports it, imports it into production, sets up sign-in again, and publishes."
+      },
+      "whenToUse": [
+        "You use separate environments for testing and live use.",
+        "You need to move or back up an agent between environments.",
+        "You want to automate moving agents between environments."
+      ],
+      "whenNot": [
+        "Not every part comes across. Comments and some channel details stay behind.",
+        "A managed solution cannot be exported from Copilot Studio."
+      ],
+      "terms": ["solution", "environment", "alm"],
+      "learn": [
+        { "title": "Create and manage solutions in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview" },
+        { "title": "Export and import agents using solutions", "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export"
+      ]
+    },
+    "analytics": {
+      "definition": "In the standard harness, the monitoring page shows how an agent is doing, from outcomes to feedback to tool use.",
+      "blocks": [
+        { "label": "Overview", "plain": "Key numbers, such as active users, with change from the last period." },
+        { "label": "Effectiveness", "plain": "Outcomes, reactions, satisfaction scores, and sentiment." },
+        { "label": "Use", "plain": "Themes, answer quality, tool use, and knowledge source use." },
+        { "label": "Sessions", "plain": "Lists of sessions and questions you can drill into." }
+      ],
+      "flow": [
+        { "label": "Users chat", "plain": "People talk to the published agent, and sessions are recorded." },
+        { "label": "Classify", "plain": "Each engaged session ends as resolved, escalated, or abandoned." },
+        { "label": "Feedback", "plain": "Reactions and survey answers add what users think." },
+        { "label": "Refresh", "plain": "Most numbers refresh within hours. AI-based ones refresh daily or weekly." },
+        { "label": "Drill in", "plain": "You open lists of questions and sessions to find weak spots." }
+      ],
+      "example": {
+        "input": "Contoso's agent has been live for a month.",
+        "output": "The page shows how sessions ended, what users thought, and which topics, tools, and knowledge were used."
+      },
+      "whenToUse": [
+        "You want to see where conversations succeed or break down.",
+        "You want to know which knowledge sources and tools help most.",
+        "You need ideas for which topics to improve first."
+      ],
+      "whenNot": [
+        "Active user counts need the agent to require sign-in.",
+        "Test chat activity does not appear in reports.",
+        "Session details and transcripts cover the last 28 days."
+      ],
+      "terms": ["agent-session", "conversation-transcript", "topic"],
+      "learn": [
+        { "title": "Monitor agent performance in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview" },
+        { "title": "Monitor conversational agent effectiveness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-effectiveness" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-effectiveness"
+      ]
+    },
+    "test-agent": {
+      "definition": "The test chat lets you talk to a standard harness agent as a user would, and see which steps ran and what values they held.",
+      "blocks": [
+        { "label": "Test chat", "plain": "A panel where you chat with the agent as a user would." },
+        { "label": "Fired steps", "plain": "Steps that ran are marked, so you can follow the path." },
+        { "label": "Variable values", "plain": "Shows the values the agent held during the chat." },
+        { "label": "Activity map", "plain": "Shows the plan of a generative agent as it happens." },
+        { "label": "Snapshot", "plain": "A saved file of the conversation and its diagnostics." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "You type a question the way a user would." },
+        { "label": "Match", "plain": "The agent starts a topic, or plans which topics, tools, and knowledge to use." },
+        { "label": "Follow", "plain": "You follow the path the conversation took through topics and steps." },
+        { "label": "Inspect", "plain": "You watch variable values change as the chat goes on." },
+        { "label": "Reset", "plain": "You start a new test session to clear the old conversation." }
+      ],
+      "example": {
+        "input": "A Contoso maker asks {sampleQuestion} and wants to see why the agent answered that way.",
+        "output": "The chat shows the answer. The map and the marked steps show which topic, tool, or knowledge the agent used to get there."
+      },
+      "whenToUse": [
+        "You are building topics and want to see them run.",
+        "You need to find out why an answer went wrong.",
+        "You want to check variable values mid-conversation."
+      ],
+      "whenNot": [
+        "The test chat does not fully copy published channels.",
+        "Use test sets when you need to run many questions at once."
+      ],
+      "dataNote": "A saved snapshot holds all of the agent's content, which might include sensitive information.",
+      "terms": ["topic", "variable", "orchestration", "test-set"],
+      "learn": [
+        { "title": "Test your agent", "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro"
+      ]
+    },
+    "evaluations": {
+      "definition": "Agent evaluation runs a saved set of test questions on your agent and scores each answer, so you can compare after every change.",
+      "blocks": [
+        { "label": "Test case", "plain": "One question or conversation, sometimes with the answer you expect." },
+        { "label": "Test set", "plain": "A group of test cases you can run again." },
+        { "label": "Test methods", "plain": "How answers are scored: quality, meaning, keywords, safety, and more." },
+        { "label": "Results", "plain": "A result for each case and a pass rate for the set." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "You generate, import, or write test cases." },
+        { "label": "Choose", "plain": "You pick test methods. General quality is there by default." },
+        { "label": "Run", "plain": "The questions are sent to the agent, and the answers are recorded." },
+        { "label": "Score", "plain": "Each case gets pass, fail, invalid, or error." },
+        { "label": "Compare", "plain": "You run the same set again and see what improved or got worse." }
+      ],
+      "example": {
+        "input": "A maker checks that the agent answers a question about business hours with the right hours.",
+        "output": "The test case holds the question and the expected answer. After a run, the maker sees pass or fail, the reasoning, and what the agent used."
+      },
+      "whenToUse": [
+        "You want repeatable quality checks, not one chat at a time.",
+        "You changed the agent and want to compare scores.",
+        "You want to check answers for harmful content."
+      ],
+      "whenNot": [
+        "Evaluations support only no sign-in or Microsoft sign-in.",
+        "Only one evaluation can run at a time.",
+        "Results stay for 89 days, so export them to keep them longer."
+      ],
+      "dataNote": "Evaluations run as the person who is signed in, using that person's access.",
+      "terms": ["evaluation", "test-set", "user-authentication"],
+      "learn": [
+        { "title": "About agent evaluation", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro" },
+        { "title": "Choose evaluation methods", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results"
+      ]
+    },
+    "mc-credit-billing": {
+      "definition": "On the Microsoft Copilot harness, building, testing, and running an agent can use Copilot Credits, and admins can allocate, limit, and track them.",
+      "blocks": [
+        { "label": "Credits", "plain": "Cover model tokens, tools, knowledge, and the harness itself." },
+        { "label": "Not included", "plain": "This usage is not part of a Microsoft 365 Copilot license." },
+        { "label": "Allocation", "plain": "Admins can give an environment a set amount of prepaid credits." },
+        { "label": "Agent limit", "plain": "A monthly limit can warn about one agent or stop it." },
+        { "label": "Reports", "plain": "Monitor shows credits per agent. Admin reports show tenant and environment use." }
+      ],
+      "flow": [
+        { "label": "Build", "plain": "Creating an agent with natural language uses credits." },
+        { "label": "Test", "plain": "Preview chats and evaluations show running estimates of credits." },
+        { "label": "Run", "plain": "Each task people give the agent uses credits." },
+        { "label": "Total", "plain": "Monitor shows the final total used for billing, not an early estimate." },
+        { "label": "Control", "plain": "Admins allocate credits and set limits to stay within a plan." }
+      ],
+      "example": {
+        "input": "Fabrikam makers are building many Microsoft Copilot harness agents in one environment.",
+        "output": "An admin gives that environment prepaid credits and sets a monthly limit for an agent. Notices warn when usage nears a limit."
+      },
+      "whenToUse": [
+        "You are planning usage for agents in a shared environment.",
+        "You want makers to explore inside a spending boundary."
+      ],
+      "whenNot": [
+        "Agent limits do not cap the total use of an environment.",
+        "Azure budgets send alerts but do not stop usage."
+      ],
+      "terms": ["copilot-credits", "environment", "pay-as-you-go"],
+      "learn": [
+        { "title": "Overview of usage-based billing", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview" },
+        { "title": "Manage costs for agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/power-platform/admin/manage-usage-microsoft-copilot-harness" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-microsoft-copilot-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/govern-credit-consumption",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview"
+      ]
+    },
+    "usage-credits": {
+      "definition": "The estimator forecasts the Copilot Credits your agents will need each month, and monitoring later shows real use to compare.",
+      "blocks": [
+        { "label": "Inputs", "plain": "Agent type, traffic, orchestration, knowledge, and tools shape the estimate." },
+        { "label": "Estimate", "plain": "A forecast with a breakdown by activity, such as knowledge and actions." },
+        { "label": "Export", "plain": "A PDF report for budget and purchase reviews." },
+        { "label": "Real use", "plain": "Reports show the real credits used after launch." }
+      ],
+      "flow": [
+        { "label": "Describe", "plain": "You enter agent types, traffic, and features." },
+        { "label": "Estimate", "plain": "The tool adds up the monthly credits for each agent." },
+        { "label": "Add buffer", "plain": "Learn advises adding a 10 to 20 percent buffer to the estimate." },
+        { "label": "Launch", "plain": "The agent runs, and real credits are recorded." },
+        { "label": "Compare", "plain": "You compare the forecast with actual use and adjust." }
+      ],
+      "example": {
+        "input": "Fabrikam expects heavy chat traffic during a holiday sale.",
+        "output": "The team tests low, medium, and high volume cases and exports a report. After launch, they compare actual credits with the forecast."
+      },
+      "whenToUse": [
+        "You need a budget before buying credits.",
+        "You want to compare different agent setups.",
+        "You are adding up costs for several agents."
+      ],
+      "whenNot": [
+        "The estimator is not a price quote or a guarantee.",
+        "It looks forward only. It does not track past use."
+      ],
+      "terms": ["copilot-credits", "orchestration"],
+      "learn": [
+        { "title": "Agent usage estimator", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agent-usage-estimator" },
+        { "title": "View agent's billing consumption", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agent-usage-estimator",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption",
+        "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing"
+      ]
+    },
+    "content-moderation": {
+      "definition": "Content moderation filters what an agent says for harmful content. A stricter level blocks more harmful content but can mean fewer answers.",
+      "blocks": [
+        { "label": "Moderation level", "plain": "A scale from lowest to highest that sets how strict filtering is." },
+        { "label": "Where set", "plain": "Agent, topic, or prompt level. The topic setting wins at run time." },
+        { "label": "Grounding rule", "plain": "A setting can block answers that used no knowledge or tools." },
+        { "label": "Safety tests", "plain": "Evaluations can check answers for hate, sexual content, violence, and self-harm." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person sends a message to the agent." },
+        { "label": "Generate", "plain": "The model drafts an answer from knowledge, tools, and instructions." },
+        { "label": "Filter", "plain": "Moderation checks the answer against the harm categories." },
+        { "label": "Block or show", "plain": "Blocked content gives no answer and no notice. Safe content is shown." },
+        { "label": "Test", "plain": "Evaluations with safety methods help you check the result." }
+      ],
+      "example": {
+        "input": "A maker wants the Fabrikam help agent to be careful with harmful requests.",
+        "output": "A stricter level gives fewer answers and filters harmful content more. Safety tests then help check the result, but no test guarantees safety."
+      },
+      "whenToUse": [
+        "The agent answers open questions from knowledge sources.",
+        "Real customers, not just your team, will use the agent.",
+        "You want to check safety before and after you publish."
+      ],
+      "whenNot": [
+        "Lower levels allow more answers but raise the risk of harmful content.",
+        "The prompt-level slider is not available for some model types."
+      ],
+      "dataNote": "When content is moderated, the agent may give no answer and no notice. Moderation events can be logged if the agent is connected to Application Insights.",
+      "terms": ["content-moderation", "grounding", "evaluation"],
+      "learn": [
+        { "title": "Knowledge sources summary", "url": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio" },
+        { "title": "Choose evaluation methods", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance"
+      ]
+    },
+    "channel-teams": {
+      "definition": "A published agent can be added to Teams and Microsoft Copilot, so people can install it and chat with it there.",
+      "blocks": [
+        { "label": "Published agent", "plain": "Publish at least once before Teams can use it." },
+        { "label": "Appearance", "plain": "The icon, color, and descriptions people see in the store." },
+        { "label": "Sharing", "plain": "An install link, or a share with people and groups." },
+        { "label": "Admin approval", "plain": "An approved agent is listed as built by your organization." }
+      ],
+      "flow": [
+        { "label": "Publish", "plain": "The agent is published at least once." },
+        { "label": "Connect", "plain": "You connect the Teams and Microsoft 365 channel. Microsoft Copilot is optional." },
+        { "label": "Install", "plain": "You install the agent for yourself first." },
+        { "label": "Share", "plain": "Others install from a link or find it in the agent store." },
+        { "label": "Update", "plain": "New content shows in new conversations. A chat can restart to see it." }
+      ],
+      "example": {
+        "input": "Contoso publishes an HR agent and wants employees to ask it questions in Teams.",
+        "output": "The maker connects the channel, installs the agent first, then shares it. Employees need access to the agent to chat with it."
+      },
+      "whenToUse": [
+        "Your people already work in Teams or Microsoft Copilot.",
+        "You want to share an install link with a team.",
+        "You want the agent listed for the whole organization."
+      ],
+      "whenNot": [
+        "A link alone gives no access. People must also be shared on the agent.",
+        "People who installed from a link must reinstall to see changed details."
+      ],
+      "terms": ["channel", "publish"],
+      "learn": [
+        { "title": "Connect and configure an agent for Teams and Microsoft Copilot", "url": "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams",
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
+      ]
+    },
+    "voice-agents": {
+      "definition": "A real-time voice agent talks with callers in a natural way, and topics can add fixed rules such as greetings and handoff.",
+      "blocks": [
+        { "label": "Voice model", "plain": "A real-time speech model, or a text model with a synthesized voice." },
+        { "label": "Topics", "plain": "Fixed rules for greetings, business rules, and handoff." },
+        { "label": "Contact center", "plain": "Voice runs over Dynamics 365 Contact Center channels." },
+        { "label": "Caller input", "plain": "Speech and keypad tones, with interruptions allowed." }
+      ],
+      "flow": [
+        { "label": "Call", "plain": "A caller reaches the agent through a voice channel." },
+        { "label": "Listen", "plain": "The model hears the caller, and the caller can interrupt it." },
+        { "label": "Decide", "plain": "The model answers, or a topic handles a fixed rule." },
+        { "label": "Act", "plain": "The agent can use knowledge and tools, or hand the caller to a person." }
+      ],
+      "example": {
+        "input": "A Fabrikam customer calls to ask about an order.",
+        "output": "The agent understands the request without menu choices, uses connected knowledge or tools, and can hand the caller to a person when needed."
+      },
+      "whenToUse": [
+        "Customers prefer to call and talk instead of using menus.",
+        "You need both natural talk and fixed rules, such as escalation."
+      ],
+      "whenNot": [
+        "A real-time voice agent cannot switch back to a basic voice agent.",
+        "Voice needs Dynamics 365 Contact Center set up first."
+      ],
+      "dataNote": "Some real-time voice models can process data outside the AI resource's Azure region. Data storage stays in that region.",
+      "terms": ["topic", "channel", "generative-orchestration"],
+      "learn": [
+        { "title": "Real-time agents overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-voice-agents" },
+        { "title": "Configure real-time agents", "url": "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-configure" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-voice-agents",
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-configure"
+      ]
+    },
+    "cc-deploy-channels": {
+      "definition": "On the Customer Conversation harness, one place publishes the agent and connects it to channels, starting with a demo website made for you.",
+      "blocks": [
+        { "label": "Demo website", "plain": "A prebuilt site for testing. Do not share it with customers." },
+        { "label": "Web chat", "plain": "Puts the agent on your own website with a script." },
+        { "label": "Teams Phone", "plain": "Lets customers call the agent on a phone number." },
+        { "label": "Contact center", "plain": "Dynamics 365 Contact Center, Genesys, or your own platform." }
+      ],
+      "flow": [
+        { "label": "Publish", "plain": "Publishing creates a demo website for you." },
+        { "label": "Test", "plain": "Teammates try the agent on the demo website." },
+        { "label": "Guide", "plain": "The demo welcome message tells testers what to try." },
+        { "label": "Go live", "plain": "A script adds web chat to the live website." },
+        { "label": "Add phone", "plain": "Teams Phone needs a Teams admin to add a number and license." }
+      ],
+      "example": {
+        "input": "Fabrikam wants customers to chat with an agent on its support page.",
+        "output": "The team tests on the demo website, then a web developer adds the web chat script to the live page."
+      },
+      "whenToUse": [
+        "Customers will chat on a website or call a phone number.",
+        "You want teammates to test before customers see the agent."
+      ],
+      "whenNot": [
+        "The demo website is not for production use.",
+        "Some contact center channels need an environment with Dynamics 365 apps."
+      ],
+      "terms": ["channel", "publish", "environment"],
+      "learn": [
+        { "title": "Deploy overview (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-overview-customer-conversation" },
+        { "title": "Deploy an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation"
+      ]
+    },
+    "cc-teams-phone": {
+      "definition": "Teams Phone lets customers call the agent on a Teams phone number, set up by a maker and a Teams admin.",
+      "blocks": [
+        { "label": "Maker", "plain": "Turns the channel on for the agent." },
+        { "label": "Resource account", "plain": "The agent's account, which the Teams admin sees." },
+        { "label": "Teams admin", "plain": "Adds a phone number and a license." },
+        { "label": "Licenses", "plain": "Needs Copilot Studio and Teams Phone licenses." }
+      ],
+      "flow": [
+        { "label": "Enable", "plain": "The maker enables the Teams Phone channel for the agent." },
+        { "label": "Hand off", "plain": "The maker tells the Teams admin which agent to set up." },
+        { "label": "Provision", "plain": "The admin sets up a phone number and a license." },
+        { "label": "Call", "plain": "Customers call the number and reach the voice agent." }
+      ],
+      "example": {
+        "input": "Fabrikam wants customers to call and check an order status.",
+        "output": "The maker enables the channel and hands off to a Teams admin, who adds the number. Customers then call and reach the voice agent."
+      },
+      "whenToUse": [
+        "Customers want to call a phone number and talk to the agent.",
+        "You need specialized call flows, such as billing or order status."
+      ],
+      "whenNot": [
+        "Admins can turn off the Teams Phone channel for agents.",
+        "Setup involves two roles, a maker and a Teams admin."
+      ],
+      "terms": ["channel", "publish"],
+      "learn": [
+        { "title": "Deploy an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation"
+      ]
+    },
+    "mc-preview-test": {
+      "definition": "On the Microsoft Copilot harness, the preview chat lets you talk to your draft agent, read its activity trace, and see a running credit estimate.",
+      "blocks": [
+        { "label": "Preview chat", "plain": "A chat that mirrors how users talk to the published agent." },
+        { "label": "Activity trace", "plain": "Shows reasoning steps, knowledge used, tools run, and errors." },
+        { "label": "History", "plain": "Past test conversations you can review and filter." },
+        { "label": "Credit estimate", "plain": "A running total of estimated Copilot Credits for the test." }
+      ],
+      "flow": [
+        { "label": "Chat", "plain": "You send messages and read the replies in real time." },
+        { "label": "Trace", "plain": "The trace shows how the agent handled each message." },
+        { "label": "Rate", "plain": "You rate replies with thumbs up or down and add comments." },
+        { "label": "Review", "plain": "You look back at earlier test conversations." },
+        { "label": "Estimate", "plain": "The credit estimate shows what testing costs." }
+      ],
+      "example": {
+        "input": "A maker asks {sampleQuestion} and wants to know where the answer came from.",
+        "output": "The reply appears in the chat. The trace shows the knowledge sources and tools the agent used to produce it."
+      },
+      "whenToUse": [
+        "You are iterating on instructions or knowledge.",
+        "You need to debug one reply or one tool call."
+      ],
+      "whenNot": [
+        "Preview does not replace saved test sets for many questions.",
+        "Testing can use Copilot Credits."
+      ],
+      "terms": ["copilot-credits", "evaluation"],
+      "learn": [
+        { "title": "Preview and test an agent (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview"
+      ]
+    },
+    "mc-evaluate": {
+      "definition": "On the Microsoft Copilot harness, an evaluation scores your agent on test conversations with the methods you pick, then compares runs after changes.",
+      "blocks": [
+        { "label": "Conversations", "plain": "Test cases with user messages and, optionally, expected replies." },
+        { "label": "Evaluation", "plain": "A named test set with up to five test methods." },
+        { "label": "Test methods", "plain": "General quality, safety, meaning, tool use, keywords, and more." },
+        { "label": "Credit estimate", "plain": "Shows estimated credits for generating and scoring answers." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "You make an evaluation and add conversations." },
+        { "label": "Method", "plain": "You pick test methods. A new evaluation starts with general quality." },
+        { "label": "Run", "plain": "The evaluation runs against the agent version you picked." },
+        { "label": "Review", "plain": "You read scores and find weak spots." },
+        { "label": "Iterate", "plain": "You change the agent and run again to measure the effect." }
+      ],
+      "example": {
+        "input": "A maker changed the instructions of an agent and wants to know if answers got better.",
+        "output": "The maker runs the same evaluation again and compares the new scores with the old ones, and sees the credits the run used."
+      },
+      "whenToUse": [
+        "You want repeatable quality checks before you publish.",
+        "You need to know if a change made answers better or worse."
+      ],
+      "whenNot": [
+        "This feature is in preview, so details can change.",
+        "Agents set to manual sign-in are not supported."
+      ],
+      "terms": ["evaluation", "test-set", "copilot-credits"],
+      "learn": [
+        { "title": "Evaluate an agent (preview)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview"
+      ]
+    },
+    "cc-preview-test": {
+      "definition": "On the Customer Conversation harness, you test the saved agent in web chat and by voice call, and use an activity map to see what it did.",
+      "blocks": [
+        { "label": "Web chat", "plain": "A text chat, where most testing time should go." },
+        { "label": "Voice call", "plain": "A live voice test that finds problems text cannot." },
+        { "label": "Activity map", "plain": "Shows routing, tool calls, and topic runs." },
+        { "label": "Break tests", "plain": "Tests that push the agent to fail on purpose, to see it fail safely." }
+      ],
+      "flow": [
+        { "label": "Happy path", "plain": "You play a realistic user with a complete goal." },
+        { "label": "Break it", "plain": "You skip details, change your mind, or ask something out of scope." },
+        { "label": "Read map", "plain": "The activity map shows where a wrong answer came from." },
+        { "label": "Voice", "plain": "You test voice separately, including interruptions and silence." },
+        { "label": "Retest", "plain": "You fix one thing, start a new session, and run it again." }
+      ],
+      "example": {
+        "input": "A Fabrikam maker tests a travel agent by booking a trip, then asks about something out of scope.",
+        "output": "The agent should finish the booking, then decline the out-of-scope request and steer back to its job."
+      },
+      "whenToUse": [
+        "You want to test chat and voice before customers do.",
+        "You need to find out whether routing or a tool caused a wrong answer."
+      ],
+      "whenNot": [
+        "Preview runs the saved agent, not unsaved edits.",
+        "Chat passing does not cover voice. Test voice separately."
+      ],
+      "terms": ["tool", "knowledge", "agent-session"],
+      "learn": [
+        { "title": "Preview and test an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-test-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-test-customer-conversation"
+      ]
+    },
+    "cc-evaluate": {
+      "definition": "On the Customer Conversation harness, a test set is run against the draft or the published agent and scored with up to five test methods.",
+      "blocks": [
+        { "label": "Test set", "plain": "Single questions, or longer conversations (preview)." },
+        { "label": "Data source", "plain": "Questions come from a file, are generated, or are written by you." },
+        { "label": "Test methods", "plain": "General quality, meaning, keywords, text similarity, and more." },
+        { "label": "User profile", "plain": "An account with connections, so tools can be tested too." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "You make a test set from a file, by generating, or by writing." },
+        { "label": "Configure", "plain": "You name it, pick test methods, and choose the agent version." },
+        { "label": "Run", "plain": "The questions run against the draft or the published agent." },
+        { "label": "Review", "plain": "You read the results to see how the agent did." }
+      ],
+      "example": {
+        "input": "A Contoso team wants to check a support agent before it goes live.",
+        "output": "The team builds a test set of customer questions, runs it against the draft, and reads which answers passed or failed."
+      },
+      "whenToUse": [
+        "You want to measure quality on a batch of questions.",
+        "You want to test the draft before you publish."
+      ],
+      "whenNot": [
+        "Conversation test sets are in preview.",
+        "Generated question sets reach up to 100 questions."
+      ],
+      "terms": ["evaluation", "test-set"],
+      "learn": [
+        { "title": "Evaluate an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-customer-conversation"
+      ]
+    },
+    "multiturn-tests": {
+      "definition": "A conversation test set checks if an agent keeps context, asks questions when needed, and finishes tasks over a longer chat.",
+      "blocks": [
+        { "label": "Test case", "plain": "One conversation of up to 12 messages." },
+        { "label": "Test set", "plain": "Up to 20 test cases in one set." },
+        { "label": "Methods", "plain": "General quality, content safety, keyword match, tool use, or custom." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "You generate conversations, import a spreadsheet, or reuse a test chat." },
+        { "label": "Choose", "plain": "You pick the test methods for the set." },
+        { "label": "Run", "plain": "Each conversation is played against the agent." },
+        { "label": "Review", "plain": "You read the result and reasoning for each conversation." }
+      ],
+      "example": {
+        "input": "A maker wants to know if an agent remembers a customer's earlier answer later in the chat.",
+        "output": "A conversation test case plays several messages in a row. The result shows whether the agent kept context and finished the task."
+      },
+      "whenToUse": [
+        "Your agent must remember earlier answers in a chat.",
+        "You want to test clarifying questions and multi-step tasks."
+      ],
+      "whenNot": [
+        "Compare meaning, text similarity, and exact match work only on single answers.",
+        "You have less control over conversations than in the test chat."
+      ],
+      "terms": ["evaluation", "test-set"],
+      "learn": [
+        { "title": "Create a conversational test set", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-multi-turn" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-multi-turn",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro"
+      ]
+    },
+    "readiness-scorecard": {
+      "definition": "Evaluation results can be exported so a team can review the proof for each question before it releases an agent.",
+      "blocks": [
+        { "label": "Exported results", "plain": "A file with each question, answer, method, result, and analysis." },
+        { "label": "Readiness warnings", "plain": "A review panel can warn that an agent has no evaluation yet." },
+        { "label": "Success rule", "plain": "Your team defines what good enough looks like before testing." }
+      ],
+      "flow": [
+        { "label": "Define", "plain": "The team decides what success looks like before running tests." },
+        { "label": "Run", "plain": "The agent is evaluated with the same test set each time." },
+        { "label": "Export", "plain": "Results are exported to a file for review." },
+        { "label": "Review", "plain": "The team reads the results and any readiness warnings together." },
+        { "label": "Decide", "plain": "The team decides whether to release or keep improving." }
+      ],
+      "example": {
+        "input": "Contoso wants proof before an agent goes live.",
+        "output": "The team runs its test set, exports the results, and reviews each failed case. Warnings do not block publishing, so the team sets its own bar."
+      },
+      "whenToUse": [
+        "You want a record of how the agent did before release.",
+        "You want to compare runs before and after a change."
+      ],
+      "whenNot": [
+        "Learn defines no release scorecard. The go or no-go rule is your team's call.",
+        "Results stay in the product for 89 days, so export them."
+      ],
+      "terms": ["evaluation", "test-set"],
+      "learn": [
+        { "title": "Run evaluations and view results", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results" },
+        { "title": "About agent evaluation", "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results",
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro"
+      ]
+    },
+    "mc-monitor": {
+      "definition": "On the Microsoft Copilot harness, monitoring shows sessions, success and fail rates, reactions, tool use, and the credits the agent used.",
+      "blocks": [
+        { "label": "Overview", "plain": "Total sessions, users, runs, average duration, and success rate." },
+        { "label": "Reactions", "plain": "Thumbs up and thumbs down feedback on replies." },
+        { "label": "Credits", "plain": "Total estimated credits, with a split by experience when available." },
+        { "label": "Sessions", "plain": "A list with status, duration, tools used, and credits." }
+      ],
+      "flow": [
+        { "label": "Publish", "plain": "People use the published agent, and sessions are recorded." },
+        { "label": "Review", "plain": "You pick a period and compare it with the one before." },
+        { "label": "Filter", "plain": "You filter sessions by status to find failed ones." },
+        { "label": "Read", "plain": "You open a session to see messages, tools, and knowledge used." },
+        { "label": "Improve", "plain": "You fix what you find and watch the numbers again." }
+      ],
+      "example": {
+        "input": "A Fabrikam team wants to know why some sessions of its agent fail.",
+        "output": "The team filters sessions by failed status, reads the transcripts, and checks for tool connection or sign-in errors."
+      },
+      "whenToUse": [
+        "You want one maker view of an agent's health.",
+        "You need to find failed sessions and see their credits."
+      ],
+      "whenNot": [
+        "Real usage appears only after you publish and people use the agent.",
+        "The session list shows only the last 28 days."
+      ],
+      "terms": ["agent-session", "copilot-credits", "conversation-transcript"],
+      "learn": [
+        { "title": "Monitor agent performance overview (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview"
+      ]
+    },
+    "cc-monitor": {
+      "definition": "On the Customer Conversation harness, monitoring shows how conversations ended, how good answers were, how tools and knowledge were used, and credits billed.",
+      "blocks": [
+        { "label": "Outcomes", "plain": "Conversations sorted as resolved, escalated, abandoned, or unengaged." },
+        { "label": "Answer quality", "plain": "Counts of answered questions, rated for how good they are." },
+        { "label": "Tools and sources", "plain": "Tool success rates and which knowledge sources were used." },
+        { "label": "Billing", "plain": "The Copilot Credits billed for the chosen period." }
+      ],
+      "flow": [
+        { "label": "Deploy", "plain": "Customers use the agent, and conversations are recorded." },
+        { "label": "Summarize", "plain": "An AI summary points out changes, such as session volume." },
+        { "label": "Review", "plain": "You check outcomes, satisfaction, sentiment, and answer quality." },
+        { "label": "Drill in", "plain": "You open questions and sessions behind a number." },
+        { "label": "Download", "plain": "You can download transcripts once a conversation times out." }
+      ],
+      "example": {
+        "input": "A Contoso team wants to see how a support agent handles customer calls and chats.",
+        "output": "The team sees how many conversations resolved or escalated, how good the answers were, and how many credits were billed."
+      },
+      "whenToUse": [
+        "Your agent is deployed and handling customer conversations.",
+        "You want to see which knowledge sources answer questions."
+      ],
+      "whenNot": [
+        "Satisfaction and sentiment panels need enough responses first.",
+        "Custom metrics are still in preview."
+      ],
+      "terms": ["copilot-credits", "conversation-transcript", "agent-session"],
+      "learn": [
+        { "title": "Monitor an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation"
+      ]
+    },
+    "entra-agent-identities": {
+      "definition": "An agent identity is a Microsoft Entra account that lets one agent prove who it is to channels and services.",
+      "blocks": [
+        { "label": "Agent identity", "plain": "A special Microsoft Entra account for the agent, made for you." },
+        { "label": "Sponsor", "plain": "The agent owner is added for accountability." },
+        { "label": "Connector scopes", "plain": "Entra shows which connectors the agent is set up to use." },
+        { "label": "Visibility", "plain": "Admins can watch the agent's sign-in activity in Microsoft Entra." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "Copilot Studio creates the identity. When depends on the harness." },
+        { "label": "Publish", "plain": "Publishing attaches permissions for the connectors the agent uses." },
+        { "label": "Run", "plain": "The agent uses the identity to prove itself to channels and services." },
+        { "label": "Review", "plain": "Admins check its sign-ins and risk state in Microsoft Entra." },
+        { "label": "Delete", "plain": "Deleting the agent removes its identity." }
+      ],
+      "example": {
+        "input": "A Contoso admin wants to know which agents can reach a connector.",
+        "output": "In Microsoft Entra, the admin sees each agent's identity and the connectors it can use."
+      },
+      "whenToUse": [
+        "You need to see which agents exist in Microsoft Entra.",
+        "You need to know what an agent is set up to reach."
+      ],
+      "whenNot": [
+        "Makers cannot bring their own agent identity.",
+        "Today, rules on the identity are enforced at run time only in Teams."
+      ],
+      "dataNote": "Learn says no one in your tenant, including tenant admins, can generate tokens with an Entra Agent ID. Microsoft controls the mechanism.",
+      "terms": ["agent-identity", "entra-id", "connector"],
+      "learn": [
+        { "title": "Agent identities and authentication for Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview" },
+        { "title": "What are agent identities", "url": "https://learn.microsoft.com/entra/agent-id/what-are-agent-identities" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview",
+        "https://learn.microsoft.com/entra/agent-id/what-are-agent-identities"
+      ]
+    },
+    "mc-agent-settings-security": {
+      "definition": "On the Microsoft Copilot harness, one settings area covers moderation, sign-in, feedback, and the greeting.",
+      "blocks": [
+        { "label": "Moderation level", "plain": "Five levels, from minimum to maximum, set how strict filtering is." },
+        { "label": "Sign-in", "plain": "No authentication, or Microsoft sign-in." },
+        { "label": "Web channel security", "plain": "Secrets that protect requests coming from a website." },
+        { "label": "User feedback", "plain": "Thumbs up and down on each reply." },
+        { "label": "Greeting", "plain": "The first message and the suggested prompts." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "You decide how strict filtering and sign-in should be." },
+        { "label": "Save", "plain": "You save the settings." },
+        { "label": "Publish", "plain": "The settings take effect after you save and publish." },
+        { "label": "Users", "plain": "People see the greeting and can rate replies." },
+        { "label": "Watch", "plain": "Reactions show up in monitoring when feedback is on." }
+      ],
+      "example": {
+        "input": "A Fabrikam maker wants an internal agent that signs staff in and filters carefully.",
+        "output": "The maker picks Microsoft sign-in and a higher moderation level, saves, and publishes. The settings apply to the live agent after that."
+      },
+      "whenToUse": [
+        "You need to set how strict filtering and sign-in are.",
+        "You want users to rate replies."
+      ],
+      "whenNot": [
+        "Manual sign-in is not supported on this harness.",
+        "Some identity details can only be set before the first save."
+      ],
+      "terms": ["content-moderation", "user-authentication", "publish"],
+      "learn": [
+        { "title": "Configure settings for agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ]
+    },
+    "cc-authentication": {
+      "definition": "On the Customer Conversation harness, sign-in and voice authentication are set once and apply to every agent in the orchestration.",
+      "blocks": [
+        { "label": "Sign-in mode", "plain": "How users sign in to all agents in the orchestration." },
+        { "label": "Voice authentication", "plain": "Requires caller verification on voice channels." },
+        { "label": "Dynamics 365 apps", "plain": "Voice authentication needs an environment where Dynamics 365 apps are turned on." },
+        { "label": "Details options", "plain": "Settings for ungrounded answers, web information, and file uploads." }
+      ],
+      "flow": [
+        { "label": "Pick mode", "plain": "A maker picks how users sign in for the whole orchestration." },
+        { "label": "Call", "plain": "On a voice channel, a caller reaches the agent." },
+        { "label": "Verify", "plain": "The caller is checked with biometrics, policies, and one-time passcodes." },
+        { "label": "Proceed", "plain": "The agent continues once the caller is verified." }
+      ],
+      "example": {
+        "input": "A Fabrikam customer calls about account details.",
+        "output": "With voice authentication on, the caller is verified first. The same rule applies to every agent in the setup."
+      },
+      "whenToUse": [
+        "Callers must be verified before the agent shares account details.",
+        "You want one sign-in rule for all agents in the orchestration."
+      ],
+      "whenNot": [
+        "Speech channels do not support end-user sign-in. Sign-in knowledge works for chat only.",
+        "Voice authentication needs an environment where Dynamics 365 apps are turned on."
+      ],
+      "terms": ["user-authentication", "environment", "knowledge"],
+      "learn": [
+        { "title": "Configure agent details and security (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation"
+      ]
+    },
+    "cc-biometric-auth": {
+      "definition": "Biometric authentication checks a caller by voice, so the agent knows who is calling before it shares details.",
+      "blocks": [
+        { "label": "Identifier", "plain": "The details used to find the caller, such as a phone number." },
+        { "label": "Lookup table", "plain": "The table of customer records that matches the caller." },
+        { "label": "Authentication policy", "plain": "Sets how strong the check must be." },
+        { "label": "Condition", "plain": "A check that the caller passed before other tools run." }
+      ],
+      "flow": [
+        { "label": "Call", "plain": "A customer calls the voice agent." },
+        { "label": "Identify", "plain": "The agent finds the matching customer record." },
+        { "label": "Verify", "plain": "The caller is checked against the chosen policy." },
+        { "label": "Gate", "plain": "Other tools and actions run only if verification passed." }
+      ],
+      "example": {
+        "input": "A Contoso customer calls to change account details.",
+        "output": "The agent identifies the caller from the call, verifies the caller, and only then runs tools that touch the account."
+      },
+      "whenToUse": [
+        "Callers must be verified before the agent discusses account details.",
+        "You want a smoother identity check for callers."
+      ],
+      "whenNot": [
+        "Voice biometrics uses extra Copilot Credits.",
+        "It needs an environment with Dynamics 365 apps."
+      ],
+      "dataNote": "Voice biometrics can fall under biometric and privacy laws. Learn says you are responsible for notice, consent, and how that data is handled.",
+      "terms": ["user-authentication", "dataverse", "copilot-credits"],
+      "learn": [
+        { "title": "Prebuilt contact center tools (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-customer-conversation" },
+        { "title": "Biometric authentication overview", "url": "https://learn.microsoft.com/contact-center-intelligence/administer/biometric-authentication-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-add-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation",
+        "https://learn.microsoft.com/contact-center-intelligence/administer/biometric-authentication-overview",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness"
+      ]
+    },
+    "agent-inventory": {
+      "definition": "The agent inventory gives IT and security admins one list of all agents made in Copilot Studio or Agent Builder, with their key details.",
+      "blocks": [
+        { "label": "Inventory", "plain": "A central list of draft and published agents in the tenant." },
+        { "label": "Properties", "plain": "Creator, owner, last published, channels, and sign-in type." },
+        { "label": "Capabilities", "plain": "The connectors used, and whether web search is on." },
+        { "label": "Access", "plain": "Admins read it in the admin center or with code and queries." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "Makers create and publish agents across the tenant." },
+        { "label": "Refresh", "plain": "The inventory updates on its own, and changes usually show within 20 minutes." },
+        { "label": "Review", "plain": "Admins look at who made each agent and what it can reach." },
+        { "label": "Follow up", "plain": "Admins act on owners and risks, then adjust policies." }
+      ],
+      "example": {
+        "input": "A Contoso admin wants to know which agents are published to Teams and which are not signed in.",
+        "output": "The inventory lists each agent with its channels and sign-in mode, so the admin can find agents that need attention."
+      },
+      "whenToUse": [
+        "You need to know which agents exist and who owns them.",
+        "You want to find agents with no sign-in or risky connectors."
+      ],
+      "whenNot": [
+        "The inventory shows the published version, not unpublished edits.",
+        "It does not include classic chatbots, and some properties are in preview."
+      ],
+      "terms": ["agent-registry", "entra-id", "connector"],
+      "learn": [
+        { "title": "Microsoft Copilot Studio Agent inventory", "url": "https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory"
+      ]
+    },
+    "cc-export-import": {
+      "definition": "An agent on the Customer Conversation harness moves between environments in an unmanaged solution, and some parts do not come along.",
+      "blocks": [
+        { "label": "Solution", "plain": "The package that carries the agent." },
+        { "label": "Extra parts", "plain": "Flows, custom connectors, and variables must be added too." },
+        { "label": "Left behind", "plain": "Comments, the conversation ID, and sometimes the icon or channel details." },
+        { "label": "After import", "plain": "Sign-in is set up again, and the agent is deployed before it is shared." }
+      ],
+      "flow": [
+        { "label": "Package", "plain": "The agent is added to an unmanaged solution." },
+        { "label": "Export", "plain": "The solution is exported from the source environment." },
+        { "label": "Import", "plain": "The solution is imported into the target environment." },
+        { "label": "Set up", "plain": "Sign-in is set up again, and the agent is deployed." }
+      ],
+      "example": {
+        "input": "Fabrikam needs its agent in an environment with Dynamics 365 apps for a contact center channel.",
+        "output": "The team exports the agent in a solution, imports it there, sets up sign-in again, and deploys it."
+      },
+      "whenToUse": [
+        "A channel or feature needs a different environment.",
+        "You move an agent from testing to live use."
+      ],
+      "whenNot": [
+        "A managed solution cannot be exported.",
+        "The imported agent may be missing its icon or channel details."
+      ],
+      "terms": ["solution", "environment", "alm"],
+      "learn": [
+        { "title": "Export and import an agent (Customer Conversation)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-solutions-import-export-customer-conversation" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-solutions-import-export-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export"
+      ]
+    },
+    "cc-credit-billing": {
+      "definition": "On the Customer Conversation harness, each customer conversation uses Copilot Credits based on how complex it is and how it takes place.",
+      "blocks": [
+        { "label": "Complexity", "plain": "Conversations are light, medium, or heavy, and use different credits." },
+        { "label": "Modality", "plain": "Digital chat, GenAI voice, and premium voice use different amounts." },
+        { "label": "Voice biometrics", "plain": "Adds credits for each enrollment or authentication check." },
+        { "label": "Admin controls", "plain": "Allocation, monthly agent limits, and usage reports." }
+      ],
+      "flow": [
+        { "label": "Plan", "plain": "Admins plan for light, medium, and heavy conversations." },
+        { "label": "Talk", "plain": "Customers talk to the agent, and each conversation uses credits." },
+        { "label": "Watch", "plain": "Monitoring shows credits for an agent. Admin reports show more." },
+        { "label": "Limit", "plain": "Admins set agent limits, and can stop usage at a limit." },
+        { "label": "Compare", "plain": "Real use is compared with the estimate, and settings are adjusted." }
+      ],
+      "example": {
+        "input": "Contoso plans a customer support agent for chat and voice.",
+        "output": "An admin estimates the conversations and sets a monthly limit for the agent. Later, real credits are compared with the estimate."
+      },
+      "whenToUse": [
+        "You are planning capacity for customer conversations.",
+        "You use voice biometrics and need to count its credits."
+      ],
+      "whenNot": [
+        "This usage is not covered by a Microsoft 365 Copilot license.",
+        "Costs are tracked by environment and agent, not by user."
+      ],
+      "terms": ["copilot-credits", "environment", "pay-as-you-go"],
+      "learn": [
+        { "title": "Overview of usage-based billing", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview" },
+        { "title": "Manage costs for agents powered by the Customer Conversation harness", "url": "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation"
+      ]
+    },
+    "fdy-publish-agent-copilot-teams": {
+      "definition": "Publishing a Foundry agent adds its stable address to Microsoft Copilot and Teams, so people can find and use it.",
+      "blocks": [
+        { "label": "Active version", "plain": "The agent version that people reach through the stable address." },
+        { "label": "Publish scope", "plain": "Just you, or people in your organization." },
+        { "label": "Admin approval", "plain": "An admin must approve company-wide publishing." },
+        { "label": "Store listing", "plain": "Just-you agents show only for you. Approved agents show for everyone." }
+      ],
+      "flow": [
+        { "label": "Test", "plain": "You test the agent version you want people to use." },
+        { "label": "Pick version", "plain": "You choose the active version, or always use the latest." },
+        { "label": "Publish", "plain": "Foundry checks your details, builds the app package, and submits it to the catalogs." },
+        { "label": "Choose who", "plain": "Just you works at once. Organization scope waits for admin approval." },
+        { "label": "Update", "plain": "New versions can roll out through the same address without publishing again." }
+      ],
+      "example": {
+        "input": "Fabrikam finishes testing a support agent in Foundry and wants staff to use it in Teams.",
+        "output": "The team publishes it for the organization. After an admin approves it, staff can find the agent in Microsoft Copilot and Teams."
+      },
+      "whenToUse": [
+        "A tested Foundry agent is ready for people in Teams or Microsoft Copilot.",
+        "You want new versions to reach users without publishing again."
+      ],
+      "whenNot": [
+        "The portal cannot publish when the project turns off public network access.",
+        "Check data flows first. Microsoft 365 and Teams store some publishing data."
+      ],
+      "dataNote": "Microsoft 365 and Teams process and store some data from publishing and from the agent's replies. Check that this fits your compliance and data residency rules.",
+      "terms": ["foundry", "publish", "channel"],
+      "learn": [
+        { "title": "Publish agents to Microsoft Copilot and Microsoft Teams in the Foundry portal", "url": "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot",
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot"
+      ]
+    },
+    "fdy-troubleshoot-publishing": {
+      "definition": "Publishing problems fall into three groups: details that fail checks, agents missing from the store, and agents that fail after people start chatting.",
+      "blocks": [
+        { "label": "Validation", "plain": "The version, name, description, and links must meet set rules." },
+        { "label": "Store search", "plain": "Scope and approval decide where an agent appears. The store refreshes about hourly." },
+        { "label": "After publish", "plain": "An agent can work in testing but fail once it is published." },
+        { "label": "Reset", "plain": "A stuck conversation is fixed by starting a new one." }
+      ],
+      "flow": [
+        { "label": "Read", "plain": "The publish check names the field that failed." },
+        { "label": "Fix", "plain": "You correct that field and try again." },
+        { "label": "Find", "plain": "You check the scope, the approval status, and the store refresh." },
+        { "label": "Check access", "plain": "If it fails after publishing, you check the agent's permissions on Azure resources." },
+        { "label": "Reset", "plain": "For a stuck chat, you start a new conversation." }
+      ],
+      "example": {
+        "input": "A Contoso agent works in the Foundry playground but fails in Teams.",
+        "output": "A likely cause is that the agent's identity lacks permission on an Azure resource it uses. Assigning the needed roles fixes it."
+      },
+      "whenToUse": [
+        "Publishing fails with a message about a field.",
+        "The agent is missing from the store.",
+        "The agent fails after people start using it."
+      ],
+      "whenNot": [
+        "A reset conversation cannot be restored.",
+        "Guest users cannot use agents in projects with public network access off."
+      ],
+      "terms": ["foundry", "publish", "permissions"],
+      "learn": [
+        { "title": "Troubleshoot publishing agents to Microsoft Copilot and Microsoft Teams", "url": "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot",
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot"
+      ]
+    },
+    "fdy-evaluate-agent": {
+      "definition": "A Foundry evaluation runs an agent on test data and scores the results with checks called evaluators.",
+      "blocks": [
+        { "label": "Test data", "plain": "A dataset, made-up scenarios, or real conversations to score." },
+        { "label": "Evaluators", "plain": "Agent, quality, and safety checks that each give a score." },
+        { "label": "Scope", "plain": "Score single turns, or whole conversations (preview)." },
+        { "label": "Results", "plain": "Scores for the whole run and for each result." }
+      ],
+      "flow": [
+        { "label": "Choose", "plain": "You pick what to score and which test data to use." },
+        { "label": "Pick checks", "plain": "You pick agent, quality, and safety evaluators." },
+        { "label": "Run", "plain": "Foundry runs the agent on the test data and scores the outputs." },
+        { "label": "Review", "plain": "You read overall scores and individual results." },
+        { "label": "Compare", "plain": "You compare versions and find repeated failures." }
+      ],
+      "example": {
+        "input": "A Fabrikam team wants to know if its Foundry agent picks the right tool.",
+        "output": "The team runs an evaluation on a test dataset with an agent evaluator, then reads the score for each test question."
+      },
+      "whenToUse": [
+        "You want scores before an agent goes live.",
+        "You want to check quality on real conversations."
+      ],
+      "whenNot": [
+        "Scoring whole conversations is still in preview.",
+        "You need the right project role to run an evaluation."
+      ],
+      "terms": ["foundry", "evaluation"],
+      "learn": [
+        { "title": "Evaluation in Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/concepts/evaluation-overview" },
+        { "title": "Run evaluations from the Microsoft Foundry portal", "url": "https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/concepts/evaluation-overview",
+        "https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app"
+      ]
+    },
+    "fdy-trace-agent": {
+      "definition": "Tracing records, in order, what a Foundry agent did for each request, so you can find and fix problems.",
+      "blocks": [
+        { "label": "Application Insights", "plain": "The Azure service where Foundry stores traces." },
+        { "label": "Server-side traces", "plain": "Foundry records traces for hosted agents with no code changes." },
+        { "label": "Conversation view", "plain": "Shows history, tokens, run steps, and tool calls for one conversation." },
+        { "label": "Retention", "plain": "The portal shows ready-made traces from the past 90 days." }
+      ],
+      "flow": [
+        { "label": "Connect", "plain": "A project is connected to an Application Insights resource." },
+        { "label": "Run", "plain": "The agent runs, and Foundry logs traces on its own." },
+        { "label": "Search", "plain": "You search or filter traces from the last 90 days." },
+        { "label": "Step through", "plain": "You open a trace and look at each part of the work." },
+        { "label": "Read", "plain": "You read the conversation, the tool calls, and the tokens." }
+      ],
+      "example": {
+        "input": "A Contoso agent answers slowly for one customer.",
+        "output": "The team finds the trace for that conversation and sees which tool call or step took the time."
+      },
+      "whenToUse": [
+        "You need to debug a slow or wrong agent run.",
+        "You want to watch agent behavior in production."
+      ],
+      "whenNot": [
+        "Do not put secrets in prompts or tool arguments, because traces can capture them.",
+        "Tracing for workflow agents is still in preview."
+      ],
+      "dataNote": "Traces can capture user inputs, model outputs, and tool details. Retention and billing follow your Application Insights setup.",
+      "terms": ["foundry", "agent-trace"],
+      "learn": [
+        { "title": "Set up tracing in Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup"
+      ]
+    },
+    "fdy-monitor-agent-dashboard": {
+      "definition": "The dashboard shows how a Foundry agent runs in production: token use, delay, success rate, and scores.",
+      "blocks": [
+        { "label": "Token usage", "plain": "How many tokens the agent traffic used." },
+        { "label": "Latency", "plain": "How long runs take. Over 10 seconds can signal a problem." },
+        { "label": "Run success rate", "plain": "The share of runs that finish. Under 95 percent needs a look." },
+        { "label": "Evaluations", "plain": "Scores from checks that run on sampled outputs." },
+        { "label": "Settings", "plain": "Recurring evaluations, red team scans, and alerts, some in preview." }
+      ],
+      "flow": [
+        { "label": "Connect", "plain": "Application Insights is connected to the project." },
+        { "label": "Collect", "plain": "Agent traffic sends data to that resource." },
+        { "label": "View", "plain": "You pick a time range and read the summary cards and charts." },
+        { "label": "Investigate", "plain": "You look into failed runs or slow replies." },
+        { "label": "Automate", "plain": "You add recurring evaluations or alerts." }
+      ],
+      "example": {
+        "input": "Fabrikam notices that agent replies feel slower this week.",
+        "output": "The dashboard shows delay over time, token use, and run success rate for the chosen period, which helps the team decide where to look."
+      },
+      "whenToUse": [
+        "You want a quick view of an agent's health in production.",
+        "You want alerts when quality or speed changes."
+      ],
+      "whenNot": [
+        "Charts stay empty until the agent has recent traffic.",
+        "Red team scans and alerts are in preview."
+      ],
+      "dataNote": "Monitoring data is stored in your Application Insights resource. Its setup sets how long data stays and what it costs.",
+      "terms": ["foundry", "agent-trace", "evaluation"],
+      "learn": [
+        { "title": "Monitor agents with the Agent Monitoring Dashboard", "url": "https://learn.microsoft.com/azure/foundry/observability/how-to/how-to-monitor-agents-dashboard" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/how-to-monitor-agents-dashboard",
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup"
+      ]
+    },
+    "fdy-configure-guardrails": {
+      "definition": "A guardrail is a set of safety controls for Foundry models and agents, and each control names a risk, where to check, and what to do.",
+      "blocks": [
+        { "label": "Risk", "plain": "The kind of harm to watch for, such as violence or hate." },
+        { "label": "Check point", "plain": "Where to check, such as the user input or the output." },
+        { "label": "Action", "plain": "What happens when the risk is found." },
+        { "label": "Assignment", "plain": "A guardrail is assigned to models and agents." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "You create a guardrail and add controls." },
+        { "label": "Add controls", "plain": "Each control sets a risk, check points, and one action." },
+        { "label": "Assign", "plain": "You assign the guardrail to models and agents." },
+        { "label": "Test", "plain": "You test it in the playground before production." },
+        { "label": "Adjust", "plain": "You edit or override controls as needed." }
+      ],
+      "example": {
+        "input": "A Contoso team wants its Foundry agent to block violent content in user input and output.",
+        "output": "The team adds controls for the violence risk at the input and output points, assigns the guardrail to the agent, and tests it."
+      },
+      "whenToUse": [
+        "You want safety checks on a model or agent.",
+        "You want to test guardrail behavior before production."
+      ],
+      "whenNot": [
+        "Microsoft default guardrails cannot be edited. Make a custom one.",
+        "Some controls can only be overridden, not deleted."
+      ],
+      "terms": ["foundry", "foundry-guardrail", "content-moderation"],
+      "learn": [
+        { "title": "How to configure guardrails and controls in Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/guardrails/how-to-create-guardrails" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/guardrails/how-to-create-guardrails"
+      ]
+    },
+    "fdy-foundry-rbac": {
+      "definition": "Foundry roles give people only the access they need, at the right scope, when they sign in with Microsoft Entra ID.",
+      "blocks": [
+        { "label": "Role", "plain": "A named group of permissions, such as Foundry User." },
+        { "label": "Scope", "plain": "Where a role applies: the resource, a project, or one agent." },
+        { "label": "Agent Consumer", "plain": "A least-privilege role for people who only chat with agents." },
+        { "label": "Key sign-in", "plain": "Keys give full access with no role limits." }
+      ],
+      "flow": [
+        { "label": "List people", "plain": "You sort people into builders, managers, and agent users." },
+        { "label": "Pick roles", "plain": "You match each person to the least-privilege role." },
+        { "label": "Pick scope", "plain": "You assign it at the right level, down to a single agent." },
+        { "label": "Verify", "plain": "You check that access works as planned." }
+      ],
+      "example": {
+        "input": "Fabrikam wants support staff to chat with a Foundry agent but not change it.",
+        "output": "The team gives them the Foundry Agent Consumer role, which lets them interact with agents and nothing more."
+      },
+      "whenToUse": [
+        "You need different access for builders and agent users.",
+        "You want to grant access to one agent only."
+      ],
+      "whenNot": [
+        "Key-based sign-in skips roles and gives full access.",
+        "The Azure AI Developer role is not for Foundry projects."
+      ],
+      "terms": ["rbac", "entra-id", "foundry", "permissions"],
+      "learn": [
+        { "title": "Role-based access control for Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry"
+      ]
+    },
+    "fdy-manage-costs": {
+      "definition": "Foundry cost tools help you estimate, track, and limit what AI workloads cost, using the same data that finance teams see.",
+      "blocks": [
+        { "label": "Plan", "plain": "Estimate costs before you deploy with the Azure pricing calculator." },
+        { "label": "Track", "plain": "See cost by subscription, project, agent, and model deployment." },
+        { "label": "Control", "plain": "Budgets send alerts. Cost controls (preview) can also block requests." },
+        { "label": "Delay", "plain": "Usage shows in minutes. Cost appears 8 to 24 hours later." }
+      ],
+      "flow": [
+        { "label": "Estimate", "plain": "A team estimates costs with the Azure pricing calculator." },
+        { "label": "Run", "plain": "Agents and models run, and usage shows up within minutes." },
+        { "label": "Bill", "plain": "Cost data arrives 8 to 24 hours after the usage." },
+        { "label": "Track", "plain": "Teams see costs by project, agent, and model deployment." },
+        { "label": "Control", "plain": "Budgets alert. Preview cost controls can alert or block requests." }
+      ],
+      "example": {
+        "input": "Contoso wants to know what one Foundry agent costs each month.",
+        "output": "The team checks the project and agent cost pages, which use Azure Cost Management data, and sets a budget alert for the month."
+      },
+      "whenToUse": [
+        "You need to know what a project or agent costs.",
+        "You want an alert before spending runs over."
+      ],
+      "whenNot": [
+        "Current-month cost is an estimate until the invoice is final.",
+        "Azure budgets alert but do not block requests."
+      ],
+      "terms": ["foundry"],
+      "learn": [
+        { "title": "Cost and FinOps in Microsoft Foundry", "url": "https://learn.microsoft.com/azure/foundry/concepts/manage-costs" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/azure/foundry/concepts/manage-costs"
+      ]
+    },
+    "dca-agent-builder-share-agent": {
+      "definition": "Sharing gives chosen people direct access to an Agent Builder agent, as owners who can edit or as chat users who can only talk to it.",
+      "blocks": [
+        { "label": "Can edit", "plain": "Owners can edit, share, and manage the agent." },
+        { "label": "Can chat", "plain": "Chat users can only talk to the agent." },
+        { "label": "Update", "plain": "Changes save on their own but reach users after an update." },
+        { "label": "Admin limits", "plain": "Admins can limit who may share with the whole organization." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "A new agent starts private to its creator." },
+        { "label": "Share", "plain": "The owner adds people or groups, or copies a link." },
+        { "label": "Chat", "plain": "Chat users talk to the agent, which respects each person's access." },
+        { "label": "Update", "plain": "The owner updates the agent, and changes can take several minutes to appear." }
+      ],
+      "example": {
+        "input": "A Contoso team lead builds a policy helper agent and wants her team to try it.",
+        "output": "She shares it with her team as chat users. They can ask questions, and they only get content they are allowed to see."
+      },
+      "whenToUse": [
+        "You are piloting an agent with a known group.",
+        "You want teammates to co-own and edit an agent."
+      ],
+      "whenNot": [
+        "Sharing does not publish the agent across the organization or other channels.",
+        "A group can only be a chat user, never an owner."
+      ],
+      "dataNote": "The agent follows each person's own permissions and labels. Someone without access to a source gets answers without that content.",
+      "terms": ["agent-builder", "permissions", "sensitivity-label"],
+      "learn": [
+        { "title": "Share and manage agents built in Agent Builder", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "dca-agent-builder-share-and-catalog": {
+      "definition": "Submitting to the company catalog asks an admin to review an agent and add it to the Agent Store.",
+      "blocks": [
+        { "label": "Shared version", "plain": "What you update. Changes reach shared users right away." },
+        { "label": "Store version", "plain": "The listing an admin manages. It changes only after approval." },
+        { "label": "Admin review", "plain": "Admins check the name, capabilities, knowledge sources, and label." },
+        { "label": "Status", "plain": "Waiting, approved, or rejected with the reviewer's comment." }
+      ],
+      "flow": [
+        { "label": "Publish", "plain": "You publish the agent at least once." },
+        { "label": "Submit", "plain": "You fill in the display details and submit." },
+        { "label": "Review", "plain": "An admin reviews the agent and approves or rejects it." },
+        { "label": "List", "plain": "If approved, it appears in the store as built by your organization." },
+        { "label": "Resubmit", "plain": "Later updates need a new submission and a new approval." }
+      ],
+      "example": {
+        "input": "A Fabrikam team wants its tested agent available to the whole company.",
+        "output": "The team submits it for admin review. After approval, the people the admin allows can find it in the store."
+      },
+      "whenToUse": [
+        "The agent is production-ready and needs broad availability.",
+        "You want an admin to review it before wide use."
+      ],
+      "whenNot": [
+        "Updates do not reach the store until an admin approves a resubmission.",
+        "Only one submission can be pending at a time."
+      ],
+      "terms": ["agent-builder", "publish"],
+      "learn": [
+        { "title": "Submit agents from Agent Builder to your org catalog", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-submit-to-org-catalog" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-submit-to-org-catalog",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "dca-toolkit-developer-mode": {
+      "definition": "Developer mode shows a debug card that tells you what Copilot's orchestrator used to answer a message.",
+      "blocks": [
+        { "label": "Debug card", "plain": "Appears when the orchestrator searches knowledge or uses actions." },
+        { "label": "Capabilities", "plain": "Whether each capability was used, with a downloadable log." },
+        { "label": "Actions", "plain": "Which functions matched the prompt, and which were selected." },
+        { "label": "Local preview", "plain": "A test of the agent in a browser-based Copilot Chat." }
+      ],
+      "flow": [
+        { "label": "Preview", "plain": "You start the agent in a browser-based Copilot Chat." },
+        { "label": "Switch on", "plain": "You switch developer mode on in the chat." },
+        { "label": "Ask", "plain": "You send a prompt, and the orchestrator picks what to use." },
+        { "label": "Read card", "plain": "A card shows the knowledge, capabilities, and actions it considered." },
+        { "label": "Fix", "plain": "You fix unclear descriptions or broken actions." }
+      ],
+      "example": {
+        "input": "A developer sends a test question and gets a wrong answer.",
+        "output": "The debug card shows whether the orchestrator found the agent's knowledge or actions, so the developer can see where it went wrong."
+      },
+      "whenToUse": [
+        "You want to know why an action was not chosen.",
+        "You want to debug an agent locally before sharing it."
+      ],
+      "whenNot": [
+        "No card appears if the orchestrator needs no Microsoft 365 data or skills.",
+        "Developer mode works only in the licensed Microsoft 365 Copilot experience."
+      ],
+      "terms": ["declarative-agent", "orchestration"],
+      "learn": [
+        { "title": "Use developer mode to test and debug agents in Microsoft 365 Agents Toolkit", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ]
+    },
+    "dca-agent-builder-troubleshooting": {
+      "definition": "When an Agent Builder agent cannot be shared or updated, the message points to the cause, such as harmful content or an unsupported label.",
+      "blocks": [
+        { "label": "Safety check", "plain": "Agents that might encourage harmful actions cannot be updated." },
+        { "label": "Labels", "plain": "Files with unsupported labels stop the agent from being created." },
+        { "label": "Policy changes", "plain": "If sharing no longer fits admin policy, fix it before updating." },
+        { "label": "Sharing errors", "plain": "A failed share can leave people without access to knowledge files." }
+      ],
+      "flow": [
+        { "label": "Try", "plain": "An owner creates, shares, or updates an agent." },
+        { "label": "Check", "plain": "The product checks content, labels, and sharing rules." },
+        { "label": "Message", "plain": "If a check fails, a message names the problem." },
+        { "label": "Fix", "plain": "The owner edits the details, files, or sharing settings." },
+        { "label": "Retry", "plain": "The owner tries again." }
+      ],
+      "example": {
+        "input": "A Contoso maker cannot update an agent.",
+        "output": "The message says the agent might encourage harmful actions. The maker removes the harmful content and tries again."
+      },
+      "whenToUse": [
+        "An update or a share fails and you need to know why.",
+        "An uploaded file is rejected."
+      ],
+      "whenNot": [
+        "Fixing file access may need the file owner or a site admin.",
+        "Some errors are service errors. Wait a few minutes or contact support."
+      ],
+      "terms": ["agent-builder", "sensitivity-label"],
+      "learn": [
+        { "title": "Share and manage agents built in Agent Builder", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "dca-admin-agent-settings": {
+      "definition": "The agent settings page lets admins decide which kinds of agents people can use, who may share them, who can use them, and whether feedback is shared.",
+      "blocks": [
+        { "label": "Agent types", "plain": "Allow agents from Microsoft, your own teams, or outside publishers." },
+        { "label": "Sharing", "plain": "All users, no users, or specific users may share org-wide." },
+        { "label": "User access", "plain": "All users, no users, or specific users or groups may use agents." },
+        { "label": "Feedback", "plain": "Decides whether developers get ratings and comments." },
+        { "label": "Rules and tags", "plain": "Management rules, templates, and tags keep agents organized." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "An admin decides who may build, share, and use agents." },
+        { "label": "Apply", "plain": "The settings apply to the whole organization." },
+        { "label": "Share", "plain": "Sharing limits cover only agents built with Agent Builder." },
+        { "label": "Notice", "plain": "Changes to sharing apply to new sharing actions, not old ones." }
+      ],
+      "example": {
+        "input": "Contoso wants only a few people to share agents across the company.",
+        "output": "An admin limits org-wide sharing to specific users or groups. Agents already shared stay available unless owners change them."
+      },
+      "whenToUse": [
+        "You need to control who can install or use agents.",
+        "You want to manage how sharing works across the organization."
+      ],
+      "whenNot": [
+        "The sharing control covers only Agent Builder agents.",
+        "Microsoft's terms do not cover data handled by other companies."
+      ],
+      "terms": ["agent-builder", "permissions"],
+      "learn": [
+        { "title": "Agent settings in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "dca-admin-agent-registry": {
+      "definition": "The agent registry lists the company's agents so admins can see owners, find ownerless ones, and block or delete them.",
+      "blocks": [
+        { "label": "Registry", "plain": "A central list of agents, with filters by publisher type." },
+        { "label": "Publisher types", "plain": "Microsoft, external partner, published by your org, or shared by creator." },
+        { "label": "No owner", "plain": "Shared agents become ownerless when their creator is deleted." },
+        { "label": "Actions", "plain": "Admins can block or delete an agent, or change its owner." }
+      ],
+      "flow": [
+        { "label": "List", "plain": "Admins open the registry and see every agent." },
+        { "label": "Filter", "plain": "They filter by publisher type, owner, or other details." },
+        { "label": "Spot", "plain": "A card counts agents that no longer have an owner." },
+        { "label": "Act", "plain": "They block or delete those agents, or give them a new owner." }
+      ],
+      "example": {
+        "input": "A Contoso employee who built several shared agents leaves the company.",
+        "output": "Those shared agents become ownerless. An admin finds them in the registry and blocks, deletes, or reassigns them."
+      },
+      "whenToUse": [
+        "You need to see which agents exist and who owns them.",
+        "You want to clean up agents that nobody owns."
+      ],
+      "whenNot": [
+        "The same agent can appear in more than one row. This is by design.",
+        "Groups cannot own agents built in Agent Builder."
+      ],
+      "terms": ["agent-registry", "agent-builder"],
+      "learn": [
+        { "title": "Manage agent registry in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "dca-licensing-and-environment": {
+      "definition": "Which agent features people can use depends on their license or on usage-based billing, so check early.",
+      "blocks": [
+        { "label": "Copilot license", "plain": "Full agent features, including agents grounded in tenant data." },
+        { "label": "Usage-based billing", "plain": "Lets people use agents without a full license, measured in Copilot Credits." },
+        { "label": "No license", "plain": "Agent access is limited or turned off." },
+        { "label": "Dev environment", "plain": "A sandbox, a licensed work tenant, or a basic tenant for testing." }
+      ],
+      "flow": [
+        { "label": "Plan", "plain": "You list the capabilities your agent needs." },
+        { "label": "Match", "plain": "You match them to the licensing models in your tenant." },
+        { "label": "Pick", "plain": "You pick a development environment that supports them." },
+        { "label": "Check", "plain": "You confirm that a test user has the license the agent needs." }
+      ],
+      "example": {
+        "input": "A Fabrikam team wants an agent grounded in SharePoint data, but most users lack a Copilot license.",
+        "output": "The team enables usage-based billing for the tenant, so people can use the agent without a full license. Usage is measured in Copilot Credits."
+      },
+      "whenToUse": [
+        "You are planning which agent features your tenant can use.",
+        "You need to choose a development environment."
+      ],
+      "whenNot": [
+        "Usage-based billing is not supported in the government clouds.",
+        "Email, people, and Teams knowledge need a Microsoft 365 Copilot license."
+      ],
+      "terms": ["m365-copilot", "copilot-credits", "usage-based-billing"],
+      "learn": [
+        { "title": "Set up your development environment for your plugin", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ]
+    },
+    "m365h-assign-copilot-licenses": {
+      "definition": "Microsoft Copilot is an add-on for eligible plans, and an admin gives each person a license.",
+      "blocks": [
+        { "label": "Eligible plan", "plain": "A prerequisite license that qualifies people for the add-on." },
+        { "label": "Add-on", "plain": "The Microsoft Copilot license bought on top of a plan." },
+        { "label": "Business option", "plain": "Copilot Business fits companies with up to 300 users." },
+        { "label": "Assignment", "plain": "Admins assign licenses to users." }
+      ],
+      "flow": [
+        { "label": "Check", "plain": "An admin checks that the organization's plans are eligible." },
+        { "label": "Buy", "plain": "The organization buys Copilot licenses." },
+        { "label": "Assign", "plain": "An admin assigns each license to a user." },
+        { "label": "Verify", "plain": "A diagnostic tool can check a person's access." }
+      ],
+      "example": {
+        "input": "Contoso buys Copilot licenses for its finance team.",
+        "output": "An admin assigns the licenses to the finance users. People with a license can use agents grounded in tenant data."
+      },
+      "whenToUse": [
+        "People need Copilot features in Microsoft 365 apps.",
+        "You need to confirm that a plan is eligible before buying."
+      ],
+      "whenNot": [
+        "Licensing terms can change, so confirm eligibility before you buy.",
+        "Copilot Business supports up to 300 licensed users per tenant."
+      ],
+      "terms": ["m365-copilot"],
+      "learn": [
+        { "title": "License options for Microsoft Copilot", "url": "https://learn.microsoft.com/copilot/plan/copilot-license-options" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/plan/copilot-license-options",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ]
+    },
+    "m365h-measure-copilot-adoption": {
+      "definition": "Copilot reports show how many people have a license, how many use it, and how often, so you can see where adoption lags.",
+      "blocks": [
+        { "label": "Enabled users", "plain": "People who have a Copilot license." },
+        { "label": "Active users", "plain": "Licensed people who tried a Copilot feature." },
+        { "label": "Active rate", "plain": "Active users divided by enabled users." },
+        { "label": "Dashboard", "plain": "The Copilot Dashboard adds readiness, adoption, and impact." }
+      ],
+      "flow": [
+        { "label": "Use", "plain": "People use Copilot in their apps." },
+        { "label": "Report", "plain": "A day's activity typically shows in the usage report within 48 hours." },
+        { "label": "Read", "plain": "Admins read enabled users, active users, and the active rate." },
+        { "label": "Trend", "plain": "They view trends over 7, 28, 90, or 180 days." },
+        { "label": "Explore", "plain": "They use the Copilot Dashboard to look at readiness, adoption, and impact." }
+      ],
+      "example": {
+        "input": "A Contoso IT lead wants to know if people with Copilot licenses really use it.",
+        "output": "The usage report shows enabled users, active users, and the active users rate, with trends over time."
+      },
+      "whenToUse": [
+        "You need to see how many licensed people use Copilot.",
+        "You want trends over weeks or months."
+      ],
+      "whenNot": [
+        "A day's data typically appears only after about 48 hours.",
+        "Use agent monitoring to see how one agent performs."
+      ],
+      "terms": ["m365-copilot"],
+      "learn": [
+        { "title": "Microsoft Copilot usage report", "url": "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage"
+      ]
+    },
+    "m365h-secure-copilot-data": {
+      "definition": "The Copilot security blueprint has three parts: fix oversharing, set guardrails, and meet AI rules.",
+      "blocks": [
+        { "label": "Fix oversharing", "plain": "Find content that too many people can reach, and tighten access." },
+        { "label": "Guardrails", "plain": "Enforceable safeguards that protect Copilot interactions." },
+        { "label": "Regulations", "plain": "Close gaps in AI rules, audit needs, and data hygiene." },
+        { "label": "Tools", "plain": "Microsoft Purview and SharePoint Advanced Management support the work." }
+      ],
+      "flow": [
+        { "label": "Find", "plain": "Admins identify high-risk sites and files." },
+        { "label": "Limit", "plain": "They apply interim access limits if needed." },
+        { "label": "Fix", "plain": "They fix the access issues for good." },
+        { "label": "Enforce", "plain": "They keep guardrails in place over time." }
+      ],
+      "example": {
+        "input": "Contoso plans a Copilot rollout and worries that old sites are shared too widely.",
+        "output": "The team finds high-risk sites, limits access for now, fixes permissions, and then turns on lasting guardrails."
+      },
+      "whenToUse": [
+        "You are preparing for a Copilot rollout.",
+        "You want a simple order of steps for securing data."
+      ],
+      "whenNot": [
+        "The blueprint is a plan to follow, not a single setting.",
+        "Specific roles and tools vary by task. Check each linked guide."
+      ],
+      "terms": ["oversharing", "sharepoint-advanced-management", "m365-copilot"],
+      "learn": [
+        { "title": "Secure and govern Microsoft Copilot: Foundational deployment guidance", "url": "https://learn.microsoft.com/copilot/plan/secure-govern-copilot-foundational-deployment-guidance" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/copilot/plan/secure-govern-copilot-foundational-deployment-guidance"
+      ]
+    },
+    "m365h-review-agent-inventory": {
+      "definition": "The agent overview and registry show admins which agents exist, who owns them, and which need attention.",
+      "blocks": [
+        { "label": "Registry", "plain": "A central list of agents that admins can filter." },
+        { "label": "Publisher types", "plain": "Microsoft, external partner, published by your org, or shared by creator." },
+        { "label": "Overview cards", "plain": "Counts, such as agents that have no owner." },
+        { "label": "Duplicate rows", "plain": "One agent can show in several rows by design." }
+      ],
+      "flow": [
+        { "label": "Open", "plain": "Admins open the overview and the registry." },
+        { "label": "Filter", "plain": "They filter by publisher type, owner, or state." },
+        { "label": "Review", "plain": "They look for agents that need attention, such as ownerless ones." },
+        { "label": "Act", "plain": "They block, delete, or reassign those agents." }
+      ],
+      "example": {
+        "input": "A Fabrikam admin wants to see every agent that employees have shared.",
+        "output": "The registry lists agents shared by their creators, with owners and status, so the admin can follow up on any that need care."
+      },
+      "whenToUse": [
+        "You need an organization-wide list of agents.",
+        "You want to find agents that need attention."
+      ],
+      "whenNot": [
+        "The same Copilot Studio agent can appear twice with different publisher types.",
+        "The registry also lists agents built by Microsoft and outside partners."
+      ],
+      "terms": ["agent-registry", "agent-365"],
+      "learn": [
+        { "title": "Manage agent registry in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview"
+      ]
+    },
+    "m365h-control-agent-availability": {
+      "definition": "Admins decide which agent types people can install, who can use agents, and who gets an approved agent.",
+      "blocks": [
+        { "label": "Agent types", "plain": "Allow agents from Microsoft, your own teams, or outside publishers." },
+        { "label": "User access", "plain": "All users, no users, or specific users or groups." },
+        { "label": "Sharing", "plain": "Who may share Agent Builder agents with the organization." },
+        { "label": "Audience", "plain": "Publishing picks who can install an agent and who gets it preinstalled." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "An admin decides which agent types and users are allowed." },
+        { "label": "Set", "plain": "The settings apply across the organization." },
+        { "label": "Publish", "plain": "For a requested agent, the admin picks the audience." },
+        { "label": "Adjust", "plain": "The admin can change access as needs change." }
+      ],
+      "example": {
+        "input": "Contoso wants only approved agents from its own teams to be installable.",
+        "output": "An admin allows agents built by the organization and turns off agents from outside publishers."
+      },
+      "whenToUse": [
+        "You need to control which agents people can find and install.",
+        "You want to pick the audience for an approved agent."
+      ],
+      "whenNot": [
+        "The sharing control covers only Agent Builder agents.",
+        "Review non-Microsoft publishers' terms before allowing their agents."
+      ],
+      "terms": ["agent-builder", "agent-registry"],
+      "learn": [
+        { "title": "Agent settings in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings" },
+        { "title": "Manage agent requests in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests"
+      ]
+    },
+    "m365h-approve-agent-requests": {
+      "definition": "An admin reviews each agent sent in for the company, picks a policy template, and then publishes or rejects it.",
+      "blocks": [
+        { "label": "Requests list", "plain": "Shows agents waiting for review, update, or activation." },
+        { "label": "Review", "plain": "Admins check what the agent can do and what it can reach." },
+        { "label": "Policy template", "plain": "A bundle of policies from Entra, Purview, SharePoint, and Defender." },
+        { "label": "Decision", "plain": "Publish to the store for chosen users, or reject." }
+      ],
+      "flow": [
+        { "label": "Submit", "plain": "A maker submits an agent for the organization." },
+        { "label": "Review", "plain": "An admin reads the agent's details and permissions." },
+        { "label": "Template", "plain": "The admin picks a policy template for the agent." },
+        { "label": "Decide", "plain": "The admin publishes it to chosen users or rejects it." },
+        { "label": "Update", "plain": "Later updates wait for approval, so users keep the old version." }
+      ],
+      "example": {
+        "input": "A Fabrikam maker submits a new agent built in Copilot Studio.",
+        "output": "An admin reviews the agent's data and tools, applies a template, and publishes it to the chosen users."
+      },
+      "whenToUse": [
+        "You need a review step before agents reach the organization.",
+        "You want security policies applied to each new agent."
+      ],
+      "whenNot": [
+        "Template changes apply to new activations, not agents already approved.",
+        "Custom templates need an Agent 365 license."
+      ],
+      "terms": ["agent-365", "agent-registry"],
+      "learn": [
+        { "title": "Manage agent requests in Microsoft 365 admin center", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests" },
+        { "title": "Policy templates", "url": "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template"
+      ]
+    },
+    "ppai-human-review-prompt-output": {
+      "definition": "Human review adds a person to an automated flow, so text from a prompt is approved before the flow uses it.",
+      "blocks": [
+        { "label": "Prompt output", "plain": "Text that a generative AI model writes inside a flow." },
+        { "label": "Approval", "plain": "A person approves or rejects that text." },
+        { "label": "Outcome check", "plain": "The flow continues based on the approval result." },
+        { "label": "Risks", "plain": "Models can invent facts, and hidden instructions can mislead them." }
+      ],
+      "flow": [
+        { "label": "Generate", "plain": "A prompt in a flow writes some text." },
+        { "label": "Ask", "plain": "The flow sends the text to a person for approval." },
+        { "label": "Decide", "plain": "The person approves or rejects it." },
+        { "label": "Continue", "plain": "The flow uses the text only if it was approved." }
+      ],
+      "example": {
+        "input": "A flow drafts replies to customer complaints.",
+        "output": "A person reads each draft and approves it before it is sent, which helps catch made-up or injected content."
+      },
+      "whenToUse": [
+        "A flow sends AI-written text to customers.",
+        "A mistake in the text would be costly."
+      ],
+      "whenNot": [
+        "Filters alone do not remove made-up or injected content.",
+        "It slows the flow, because a person must respond."
+      ],
+      "terms": ["generative-ai", "prompt", "agent-flow"],
+      "learn": [
+        { "title": "Human review for automation with a prompt", "url": "https://learn.microsoft.com/microsoft-copilot-studio/azure-openai-human-review" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/azure-openai-human-review"
+      ]
+    },
+    "ppai-admin-governance-security": {
+      "definition": "AI Builder governance lets admins turn AI prompts and preview models on or off per environment, and control who can create, use, and share models.",
+      "blocks": [
+        { "label": "Feature switches", "plain": "AI prompts and preview models can be turned off per environment." },
+        { "label": "Data policies", "plain": "AI Builder is part of the Dataverse connector in data policies." },
+        { "label": "Roles", "plain": "Makers create, basic users use shared items, and admins see all." },
+        { "label": "Sharing", "plain": "A model or prompt is private to its owner until shared." }
+      ],
+      "flow": [
+        { "label": "Decide", "plain": "An admin decides which AI features each environment gets." },
+        { "label": "Set roles", "plain": "Security roles decide who can create and who can use." },
+        { "label": "Share", "plain": "Owners share models and prompts with other users." },
+        { "label": "Enforce", "plain": "Data policies stop blocked connectors from being used." }
+      ],
+      "example": {
+        "input": "Contoso wants makers to try AI prompts but not preview models.",
+        "output": "An admin keeps AI prompts on and turns off the preview and experimental models setting for that environment."
+      },
+      "whenToUse": [
+        "You need to control AI features by environment.",
+        "You need makers and users to have different access."
+      ],
+      "whenNot": [
+        "Turning a feature off breaks flows and apps that already use it.",
+        "Business and non-business connectors cannot share data in one flow."
+      ],
+      "terms": ["ai-builder", "data-policy", "dataverse", "environment"],
+      "learn": [
+        { "title": "Administer AI Builder", "url": "https://learn.microsoft.com/ai-builder/administer" },
+        { "title": "Roles and security in AI Builder", "url": "https://learn.microsoft.com/ai-builder/security" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/administer",
+        "https://learn.microsoft.com/ai-builder/security"
+      ]
+    },
+    "ppai-alm-distribute-models": {
+      "definition": "An AI model moves between environments inside a solution that you export and then import.",
+      "blocks": [
+        { "label": "Published version", "plain": "Only a published version can go into a solution." },
+        { "label": "Solution", "plain": "The package that carries the model between environments." },
+        { "label": "Not included", "plain": "Training data stays behind. Only the model itself moves." },
+        { "label": "Dependencies", "plain": "Apps and flows that use the model must be added too." }
+      ],
+      "flow": [
+        { "label": "Publish", "plain": "The model gets a published version." },
+        { "label": "Package", "plain": "The model is added to a solution." },
+        { "label": "Export", "plain": "The solution is exported as a file." },
+        { "label": "Import", "plain": "The solution is imported in the target environment." },
+        { "label": "Protect", "plain": "Customizing can be turned off to keep the model from being changed." }
+      ],
+      "example": {
+        "input": "Fabrikam builds a model in a test environment and needs it in production.",
+        "output": "The team packages the published model in a solution, exports it, and imports it as managed in production, where it can be used at once."
+      },
+      "whenToUse": [
+        "You develop models in one environment and use them in another.",
+        "You want to automate how models move between environments."
+      ],
+      "whenNot": [
+        "Some imported model types cannot be retrained, because training data stays behind.",
+        "A model is not counted as an app or flow dependency."
+      ],
+      "terms": ["solution", "environment", "ai-builder", "alm"],
+      "learn": [
+        { "title": "Distribute your model using a solution", "url": "https://learn.microsoft.com/ai-builder/distribute-model" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/distribute-model",
+        "https://learn.microsoft.com/ai-builder/administer"
+      ]
+    },
+    "ppai-credits-licensing-transition": {
+      "definition": "Running AI Builder models and prompts uses AI Builder credits or Copilot Credits, and admins allocate and watch them to avoid capacity errors.",
+      "blocks": [
+        { "label": "Free to try", "plain": "Building and testing models and prompts does not use credits." },
+        { "label": "Runs use credits", "plain": "Running them in flows and apps uses credits." },
+        { "label": "Overage", "plain": "When AI Builder credits run out, Copilot Credits are tried next." },
+        { "label": "Transition", "plain": "New customers buy Copilot Credits, not AI Builder credits." }
+      ],
+      "flow": [
+        { "label": "Build", "plain": "Building and testing does not use credits." },
+        { "label": "Run", "plain": "Running a model in a flow or app uses credits." },
+        { "label": "Overage", "plain": "If AI Builder credits run out, the system tries Copilot Credits." },
+        { "label": "Block", "plain": "If neither is available, runs fail with capacity errors." },
+        { "label": "Fix", "plain": "Admins move credits around or add Copilot Credits." }
+      ],
+      "example": {
+        "input": "A Contoso flow that uses an AI Builder prompt suddenly fails.",
+        "output": "The environment may be out of credits. An admin moves credits or adds Copilot Credits so the flow can run again."
+      },
+      "whenToUse": [
+        "You plan credits for AI Builder in an environment.",
+        "You see capacity errors in a flow or app."
+      ],
+      "whenNot": [
+        "Usage is counted only from time to time, sometimes days apart.",
+        "AI Builder credits are being phased out in favor of Copilot Credits."
+      ],
+      "terms": ["ai-builder", "copilot-credits", "environment"],
+      "learn": [
+        { "title": "Licensing and AI Builder credits", "url": "https://learn.microsoft.com/ai-builder/credit-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/credit-management"
+      ]
+    },
+    "ppai-monitor-ai-activity": {
+      "definition": "The AI Builder activity page lists runs of AI models and prompts from flows, apps, and Copilot Studio, and admins can export and clean up that data.",
+      "blocks": [
+        { "label": "Activity list", "plain": "Shows time, tool name, input, output, and consumption." },
+        { "label": "Sources", "plain": "Power Automate, Power Apps, and Copilot Studio." },
+        { "label": "Who sees what", "plain": "Admins see all activity. Makers and basic users see their own." },
+        { "label": "Data cleanup", "plain": "A scheduled bulk delete keeps the table from growing too large." }
+      ],
+      "flow": [
+        { "label": "Run", "plain": "A model or prompt runs in a flow, an app, or an agent." },
+        { "label": "Record", "plain": "The run is saved in a Dataverse table." },
+        { "label": "View", "plain": "People see the activity their role allows." },
+        { "label": "Export", "plain": "The data can be exported to a file." },
+        { "label": "Clean up", "plain": "A bulk delete job removes old records." }
+      ],
+      "example": {
+        "input": "A Fabrikam admin wants to see which AI models and prompts use the most capacity.",
+        "output": "The activity page lists each run with its source and consumption. The admin can export the data to a file."
+      },
+      "whenToUse": [
+        "You want to see how AI models and prompts are used.",
+        "The activity table is growing and needs cleanup."
+      ],
+      "whenNot": [
+        "Deleted records cannot be recovered, so test the filter first.",
+        "The table holds the input of text scenarios only."
+      ],
+      "dataNote": "Activity data is stored in a Dataverse table and stays even if the model, flow, or app is deleted. It holds the input for text scenarios only.",
+      "terms": ["ai-builder", "dataverse"],
+      "learn": [
+        { "title": "Monitor AI Builder models and prompts activity", "url": "https://learn.microsoft.com/ai-builder/activity-monitoring" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/activity-monitoring",
+        "https://learn.microsoft.com/ai-builder/security"
+      ]
+    },
+    "spai-share-agent-and-manage-access": {
+      "definition": "Sharing an agent that uses SharePoint content gives people direct access, but the agent shows only what each person can see.",
+      "blocks": [
+        { "label": "Can edit", "plain": "Owners edit, share, and manage the agent." },
+        { "label": "Can chat", "plain": "Chat users only talk to the agent." },
+        { "label": "Knowledge sharing", "plain": "Owners can also share chosen SharePoint files and folders." },
+        { "label": "Site access", "plain": "Full site access is not shared. A site admin must grant it." }
+      ],
+      "flow": [
+        { "label": "Share", "plain": "The owner adds owners and chat users." },
+        { "label": "Share files", "plain": "Chosen SharePoint files and folders can be shared with them." },
+        { "label": "Chat", "plain": "Each person gets answers based on what they can access." },
+        { "label": "Fix", "plain": "If sharing fails, the owner asks the file owner or site admin for access." }
+      ],
+      "example": {
+        "input": "A Contoso owner shares a policy agent with a team, but one teammate cannot open one of its SharePoint sites.",
+        "output": "That teammate can still chat with the agent, but the answers leave out content from the site they cannot access."
+      },
+      "whenToUse": [
+        "You want a team to try an agent grounded in SharePoint content.",
+        "You want co-owners who can edit the agent."
+      ],
+      "whenNot": [
+        "Sharing the agent does not publish it to other channels.",
+        "Removing someone's agent access does not remove their file access."
+      ],
+      "terms": ["agent-builder", "sharepoint", "permissions"],
+      "learn": [
+        { "title": "Share and manage agents built in Agent Builder", "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ]
+    },
+    "spai-sam-overview-and-licensing": {
+      "definition": "SharePoint Advanced Management is a toolset that helps admins tidy, track, and protect content in SharePoint and OneDrive.",
+      "blocks": [
+        { "label": "Content sprawl", "plain": "Find and reduce unneeded or unmanaged content." },
+        { "label": "Content lifecycle", "plain": "Track changes and group sites in categories." },
+        { "label": "Oversharing", "plain": "Reports, reviews, and limits on who can reach content." },
+        { "label": "Prerequisites", "plain": "Licenses and roles are listed on a separate page." }
+      ],
+      "flow": [
+        { "label": "Assess", "plain": "Admins assess how content is shared and kept." },
+        { "label": "Reduce", "plain": "They reduce unneeded or unowned content." },
+        { "label": "Limit", "plain": "They limit access with reports, reviews, and policies." },
+        { "label": "Repeat", "plain": "They repeat the checks as content changes." }
+      ],
+      "example": {
+        "input": "Contoso wants cleaner SharePoint content before a Copilot rollout.",
+        "output": "Admins use these reports to find inactive, ownerless, or overshared sites, then act on the findings."
+      },
+      "whenToUse": [
+        "You want to tidy SharePoint and OneDrive content.",
+        "You want to prevent oversharing before a Copilot rollout."
+      ],
+      "whenNot": [
+        "Some controls need extra licenses. Check the prerequisites first.",
+        "It is built for SharePoint and Microsoft 365 admins."
+      ],
+      "terms": ["sharepoint-advanced-management", "oversharing", "sharepoint"],
+      "learn": [
+        { "title": "What is SharePoint Advanced Management?", "url": "https://learn.microsoft.com/sharepoint/advanced-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/advanced-management"
+      ]
+    },
+    "spai-copilot-credits-advanced-work": {
+      "definition": "Copilot in SharePoint is a mix: everyday work comes with the Microsoft 365 Copilot license, and advanced work uses Copilot Credits.",
+      "blocks": [
+        { "label": "Everyday work", "plain": "Questions, drafting, and organizing come with the license." },
+        { "label": "Advanced work", "plain": "Work at scale, such as whole sites, uses Copilot Credits." },
+        { "label": "Spending policy", "plain": "An admin sets who may use credits, with limits and alerts." },
+        { "label": "Who needs credits", "plain": "Content and site managers first. Most others likely do not." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person asks Copilot in SharePoint for help." },
+        { "label": "Everyday", "plain": "Everyday tasks are covered by the license." },
+        { "label": "Confirm", "plain": "For advanced work, a person with credits is asked to confirm." },
+        { "label": "Track", "plain": "Users can check how many credits a task used." },
+        { "label": "Warn", "plain": "Users are warned when 20 percent of the monthly limit remains." }
+      ],
+      "example": {
+        "input": "A Fabrikam site manager asks Copilot to build a whole site and process a large set of documents.",
+        "output": "That is advanced work. The manager confirms the credit use first, and the admin's spending policy sets the limits."
+      },
+      "whenToUse": [
+        "People manage sites and content at scale.",
+        "You need a spending limit for advanced work."
+      ],
+      "whenNot": [
+        "Everyday use does not need credits.",
+        "Credit use varies with task type, complexity, and content volume."
+      ],
+      "terms": ["copilot-credits", "usage-based-billing", "m365-copilot"],
+      "learn": [
+        { "title": "Get started with Copilot in SharePoint", "url": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started"
+      ]
+    },
+    "spai-upgrade-agent-files": {
+      "definition": "The old .agent file format is being retired, so each agent should move to a new path that fits what it does.",
+      "blocks": [
+        { "label": "Site questions", "plain": "Use Copilot in SharePoint directly." },
+        { "label": "Repeatable task", "plain": "Turn the agent into a skill." },
+        { "label": "Custom Q&A", "plain": "Rebuild it with Agent Builder." },
+        { "label": "Copilot Studio agent", "plain": "Publish it to the Microsoft Copilot app instead." }
+      ],
+      "flow": [
+        { "label": "List", "plain": "You list your existing agent files." },
+        { "label": "Match", "plain": "You match each agent to the path that fits its job." },
+        { "label": "Upgrade", "plain": "You rebuild or convert it on that path." },
+        { "label": "Share", "plain": "You share it, and admins manage it centrally." }
+      ],
+      "example": {
+        "input": "Contoso has an agent file that answers questions about its HR policy library.",
+        "output": "Because it gives a customized Q&A experience, the team upgrades it with Agent Builder and shares it again."
+      },
+      "whenToUse": [
+        "You have agents saved as .agent files.",
+        "You want your agents managed with central admin tools."
+      ],
+      "whenNot": [
+        "Only the file format is retiring, not agents in SharePoint.",
+        "Existing files keep working for a while, so plan the upgrade."
+      ],
+      "terms": ["agent-builder", "skill", "sharepoint"],
+      "learn": [
+        { "title": "Upgrade agents in SharePoint and OneDrive", "url": "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents"
+      ]
+    },
+    "spai-content-management-assessment": {
+      "definition": "The content management assessment runs a set of reports and lists what to fix before a Copilot rollout.",
+      "blocks": [
+        { "label": "Reports", "plain": "Inactive sites, ownership, broken inheritance, and risky sharing." },
+        { "label": "Dashboard", "plain": "Shows affected sites, findings, and recommended actions." },
+        { "label": "No auto action", "plain": "The reports take no action without the admin's consent." },
+        { "label": "Rerun", "plain": "Run again about every 30 days to track progress." }
+      ],
+      "flow": [
+        { "label": "Start", "plain": "An admin starts the assessment." },
+        { "label": "Run", "plain": "It runs the reports, which can take from 2 to 72 hours." },
+        { "label": "Review", "plain": "The admin reviews impacted sites and findings." },
+        { "label": "Act", "plain": "The admin follows the recommended steps." },
+        { "label": "Repeat", "plain": "The admin reruns it about every 30 days." }
+      ],
+      "example": {
+        "input": "Fabrikam wants to know how ready its SharePoint content is for Copilot.",
+        "output": "The dashboard flags inactive sites, ownerless sites, and broad sharing, with suggested next steps for each."
+      },
+      "whenToUse": [
+        "You are preparing for a Copilot rollout.",
+        "You do not know where to start with governance."
+      ],
+      "whenNot": [
+        "Reports can take hours to run, depending on tenant size.",
+        "The assessment finds issues. It does not fix them for you."
+      ],
+      "terms": ["sharepoint-advanced-management", "oversharing"],
+      "learn": [
+        { "title": "Assess your organization's content management status", "url": "https://learn.microsoft.com/sharepoint/content-management-assessment" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/content-management-assessment"
+      ]
+    },
+    "spai-restricted-content-discovery": {
+      "definition": "Restricted Content Discovery hides a site from search and Copilot answers while its access is checked.",
+      "blocks": [
+        { "label": "Site setting", "plain": "A setting on one SharePoint site." },
+        { "label": "Permissions", "plain": "They stay the same. People who have access keep it." },
+        { "label": "Search index", "plain": "Content stays in the index, so Purview tools still work." },
+        { "label": "Temporary", "plain": "Meant as a short-term control, used selectively." }
+      ],
+      "flow": [
+        { "label": "Pick", "plain": "An admin picks sites that need review." },
+        { "label": "Apply", "plain": "The setting is applied, and it takes time to spread." },
+        { "label": "Hide", "plain": "The site's content stops showing in company-wide search and Copilot." },
+        { "label": "Review", "plain": "Owners review and fix permissions." },
+        { "label": "Remove", "plain": "The admin removes the setting when the review is done." }
+      ],
+      "example": {
+        "input": "Contoso is reviewing permissions on its finance sites before a Copilot rollout.",
+        "output": "An admin restricts discovery for those sites. Their content stops appearing in company-wide search and Copilot while owners clean up access."
+      },
+      "whenToUse": [
+        "A site has a high risk of oversharing.",
+        "A phased Copilot rollout needs time to review sites."
+      ],
+      "whenNot": [
+        "It does not change permissions, so direct access still works.",
+        "Too much use can make search and AI answers less complete.",
+        "It covers SharePoint sites only, not OneDrive."
+      ],
+      "dataNote": "It does not remove content from the search index, and Microsoft Purview tools such as eDiscovery keep working.",
+      "terms": ["sharepoint-advanced-management", "oversharing", "permissions"],
+      "learn": [
+        { "title": "Restrict discovery of SharePoint sites and content", "url": "https://learn.microsoft.com/sharepoint/restricted-content-discovery" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery"
+      ]
+    },
+    "spai-restricted-access-control": {
+      "definition": "Restricted access control limits a site to members of chosen groups, so others cannot open it or see it in search or Copilot.",
+      "blocks": [
+        { "label": "Control groups", "plain": "Up to 10 Microsoft 365 or Entra security groups per site." },
+        { "label": "Two checks", "plain": "A person needs site permission and membership in a control group." },
+        { "label": "Search and Copilot", "plain": "They honor the policy, so outsiders see nothing." },
+        { "label": "Channel sites", "plain": "Shared and private channel sites need their own setup." }
+      ],
+      "flow": [
+        { "label": "Allow", "plain": "An admin allows the policy across the company." },
+        { "label": "Choose", "plain": "Groups are chosen for a site." },
+        { "label": "Apply", "plain": "People outside the groups lose access, even with a link." },
+        { "label": "Wait", "plain": "Search and Copilot take time to reflect the change." }
+      ],
+      "example": {
+        "input": "Fabrikam wants a legal site open only to the legal team.",
+        "output": "An admin sets the legal group as the control group. Others cannot open the site, and its content stays out of their search and Copilot."
+      },
+      "whenToUse": [
+        "A site must be limited to a known group.",
+        "You want search and Copilot to honor that limit."
+      ],
+      "whenNot": [
+        "Adding someone to the group does not give them site access.",
+        "Larger sites take longer to reflect the policy."
+      ],
+      "terms": ["sharepoint-advanced-management", "entra-id", "permissions"],
+      "learn": [
+        { "title": "Restrict SharePoint site access with Microsoft 365 groups and Microsoft Entra security groups", "url": "https://learn.microsoft.com/sharepoint/restricted-access-control" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/restricted-access-control"
+      ]
+    },
+    "spai-site-access-review": {
+      "definition": "Site access reviews let admins ask site owners to check who can reach a site, using reports that flag oversharing.",
+      "blocks": [
+        { "label": "Access reports", "plain": "Snapshot and activity reports that show where sharing is wide." },
+        { "label": "Access review", "plain": "A request for a site owner to check who has access." },
+        { "label": "Owners", "plain": "Site owners complete the review." },
+        { "label": "AI insights", "plain": "AI suggests patterns and next steps from a report." }
+      ],
+      "flow": [
+        { "label": "Report", "plain": "An admin generates a data access governance report." },
+        { "label": "Spot", "plain": "The report points to sites that may be overshared." },
+        { "label": "Request", "plain": "The admin starts a site access review." },
+        { "label": "Review", "plain": "Site owners check who has access and fix what is too wide." }
+      ],
+      "example": {
+        "input": "Contoso finds that many sites are shared with everyone except external users.",
+        "output": "An admin starts site access reviews from the report, and site owners check who should still have access."
+      },
+      "whenToUse": [
+        "A report shows sites that may be overshared.",
+        "You want owners, not IT, to confirm who needs access."
+      ],
+      "whenNot": [
+        "A report alone does not change access.",
+        "Sharing link reports cover the last 28 days."
+      ],
+      "terms": ["sharepoint-advanced-management", "oversharing"],
+      "learn": [
+        { "title": "What is SharePoint Advanced Management?", "url": "https://learn.microsoft.com/sharepoint/advanced-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/advanced-management"
+      ]
+    },
+    "spai-site-lifecycle-policies": {
+      "definition": "Site lifecycle policies find sites with no owner or activity, and ask owners to confirm the sites are still needed.",
+      "blocks": [
+        { "label": "Ownership policy", "plain": "Sets who is responsible for each site." },
+        { "label": "Inactive site policy", "plain": "Finds sites with no recent activity and notifies owners." },
+        { "label": "Attestation", "plain": "Asks owners or admins to confirm the site's details." },
+        { "label": "Enforcement", "plain": "Actions taken when there is no response." }
+      ],
+      "flow": [
+        { "label": "Define", "plain": "An admin creates a policy." },
+        { "label": "Detect", "plain": "The policy checks activity across SharePoint, Teams, Viva Engage, and Exchange." },
+        { "label": "Notify", "plain": "Owners or admins are told and asked to confirm the site is needed." },
+        { "label": "Enforce", "plain": "If nobody responds, the policy can take an enforcement action." }
+      ],
+      "example": {
+        "input": "Fabrikam has hundreds of abandoned team sites.",
+        "output": "An inactive site policy notifies each site's owners, asks them to confirm the site is needed, and can act if nobody replies."
+      },
+      "whenToUse": [
+        "Many sites are unused or have no owner.",
+        "You want regular owner reviews of sites."
+      ],
+      "whenNot": [
+        "OneDrive sites are out of scope for inactive site checks.",
+        "Activity through an app token does not count as site activity."
+      ],
+      "terms": ["sharepoint-advanced-management", "sharepoint"],
+      "learn": [
+        { "title": "Manage inactive sites by using inactive site policies", "url": "https://learn.microsoft.com/sharepoint/inactive-site-policy" },
+        { "title": "What is SharePoint Advanced Management?", "url": "https://learn.microsoft.com/sharepoint/advanced-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/inactive-site-policy",
+        "https://learn.microsoft.com/sharepoint/advanced-management"
+      ]
+    },
+    "spai-control-agent-access": {
+      "definition": "To govern agents that use SharePoint content, admins answer three questions: who can use them, what they can reach, and where they are available.",
+      "blocks": [
+        { "label": "Who", "plain": "Copilot licenses, or pay-as-you-go billing for a group." },
+        { "label": "What", "plain": "Agents follow each person's access. Labels and data loss prevention can keep files out." },
+        { "label": "Where", "plain": "Site owners pick a main agent. Restricted content discovery turns agents off." },
+        { "label": "Block", "plain": "Admins can block agents from being used in Copilot Chat." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "A person asks an agent a question." },
+        { "label": "Check", "plain": "The agent uses only content that person can access." },
+        { "label": "Filter", "plain": "Labels and policies can keep chosen files out of answers." },
+        { "label": "Place", "plain": "Site settings decide where the agent shows up." }
+      ],
+      "example": {
+        "input": "Contoso wants a finance site to stay out of agents for now.",
+        "output": "An admin turns on restricted content discovery for the site. Its agent features disappear, and its content stops surfacing in Copilot."
+      },
+      "whenToUse": [
+        "You need to decide who can use agents.",
+        "You need to keep chosen content away from agents."
+      ],
+      "whenNot": [
+        "The page describes .agent files, which are being upgraded.",
+        "Agent access does not widen what people can already see."
+      ],
+      "terms": ["permissions", "sensitivity-label", "sharepoint"],
+      "learn": [
+        { "title": "Manage access to agents in SharePoint", "url": "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint",
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery"
+      ]
+    },
+    "spai-agent-insights-reports": {
+      "definition": "Agent insights reports show which agents exist in SharePoint and OneDrive and how agents reach their content.",
+      "blocks": [
+        { "label": "Agents in SharePoint", "plain": "Shows recently created agents and the sites with the most agents." },
+        { "label": "Agent access", "plain": "Shows how agents interact with SharePoint and OneDrive content." },
+        { "label": "Reports", "plain": "SharePoint admins generate these reports." }
+      ],
+      "flow": [
+        { "label": "Create", "plain": "An admin creates an agent insights report." },
+        { "label": "Review", "plain": "The report lists agents and the sites that hold the most." },
+        { "label": "Check access", "plain": "The access report shows how agents reach site content." },
+        { "label": "Act", "plain": "Admins use what they learn to tighten access." }
+      ],
+      "example": {
+        "input": "Contoso wants to know how many agents were created on its sites.",
+        "output": "The report lists recently created agents and the sites with the most agents."
+      },
+      "whenToUse": [
+        "You want to see where agents exist in SharePoint.",
+        "You want to know how agents reach site content."
+      ],
+      "whenNot": [
+        "These reports show agent activity, not whether answers are good.",
+        "Check the prerequisites page for the licenses and roles you need."
+      ],
+      "terms": ["sharepoint-advanced-management", "agent"],
+      "learn": [
+        { "title": "What is SharePoint Advanced Management?", "url": "https://learn.microsoft.com/sharepoint/advanced-management" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/advanced-management"
+      ]
+    },
+    "spai-sharepoint-admin-agent": {
+      "definition": "The SharePoint Admin Agent lets admins ask questions in plain language about content risks and get guided help to fix them.",
+      "blocks": [
+        { "label": "Plain prompts", "plain": "Admins ask questions instead of running reports by hand." },
+        { "label": "Data sources", "plain": "It analyzes data from SharePoint and SharePoint Advanced Management." },
+        { "label": "Topics", "plain": "Content sprawl, lifecycle, oversharing, and permissions." },
+        { "label": "Where", "plain": "Available in the Microsoft Copilot app, the SharePoint admin center, and Teams." }
+      ],
+      "flow": [
+        { "label": "Ask", "plain": "An admin asks a question, such as which sites are overshared." },
+        { "label": "Gather", "plain": "The agent gathers the relevant data and reports." },
+        { "label": "Advise", "plain": "It gives analysis and recommendations." },
+        { "label": "Next", "plain": "It suggests other prompts, and the admin picks next steps." }
+      ],
+      "example": {
+        "input": "A Fabrikam admin asks which sites are overshared and how risky they are.",
+        "output": "The agent gathers the data, explains the risk levels, and suggests next steps for the admin to choose."
+      },
+      "whenToUse": [
+        "You want fast answers about content risk.",
+        "You want guided steps instead of manual reports."
+      ],
+      "whenNot": [
+        "It needs SharePoint Advanced Management and a specific admin role.",
+        "It guides remediation, so admins still decide what to do."
+      ],
+      "terms": ["agent", "sharepoint-advanced-management", "oversharing"],
+      "learn": [
+        { "title": "What is the SharePoint Admin Agent?", "url": "https://learn.microsoft.com/sharepoint/content-governance-agent" }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/sharepoint/content-governance-agent"
+      ]
+    }
+  }
+}

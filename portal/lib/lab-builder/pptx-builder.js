@@ -1492,6 +1492,8 @@ class SlideBuilder {
     this.imagesByMediaIndex = new Map();
     this.nextRelSeq = 2; // rId1 is reserved for slideLayout1.xml
     this.notesParagraphs = [];
+    // Chrome that must be read last (the footer and slide number) when a deck asks for it with `footerLast`.
+    this.trailingXml = [];
 
     if (meta.notes) {
       this.setNotes(meta.notes);
@@ -1697,7 +1699,8 @@ class SlideBuilder {
         .join("  ·  "),
       115,
     );
-    this.chromeXml.push(
+    const footerTarget = this.meta.footerLast ? this.trailingXml : this.chromeXml;
+    footerTarget.push(
       this.renderShapeXml({
         name: "Footer Context",
         x: 640080,
@@ -1714,7 +1717,7 @@ class SlideBuilder {
         insets: { l: 0, t: 0, r: 0, b: 0 },
       })
     );
-    this.chromeXml.push(
+    footerTarget.push(
       this.renderShapeXml({
         name: "Slide Counter",
         x: SLIDE_CX - 2400000,
@@ -2142,7 +2145,7 @@ class SlideBuilder {
 
   renderXml() {
     const bgHex = normalizeHexColor(this.meta.bgHex || COLORS.canvasBg);
-    const bodyShapes = [...this.chromeXml, ...this.elementsXml].join("\n      ");
+    const bodyShapes = [...this.chromeXml, ...this.elementsXml, ...this.trailingXml].join("\n      ");
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
   xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -4182,3 +4185,7 @@ function appendGenericTopicOrMarkdown(deck, src, options) {
 
 export const buildPptxFromLabMarkdown = renderMarkdownToPptxBuffer;
 export const buildTopicPptxFromMarkdown = renderTopicToPptxBuffer;
+
+// The deck assembler and its drawing helpers, for the pre-lab training decks (training-pptx.js), which draw
+// their own slides on the same theme, notes, and package code as every other deck.
+export { PptxDeckAssembler, SlideBuilder, SLIDE_CX, SLIDE_CY, COLORS, blendHex, normalizeHexColor, xmlEscape, stripMarkdownFormatting };
