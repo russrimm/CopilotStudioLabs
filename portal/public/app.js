@@ -1,5 +1,5 @@
 /**
- * Microsoft AI Training Generator — Provisioning Portal (Frontend)
+ * Agentic Microsoft Training and Lab Generator — Provisioning Portal (Frontend)
  */
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ const SCENARIO_LAB_MAP = {
 
 function getDefaultBranding() {
   return {
-    companyName: "Microsoft AI Training Generator",
+    companyName: "Agentic Microsoft Training and Lab Generator",
     logo: null,
     primaryColor: "#4f8ff7",
     tagline: "Provisioning Portal",

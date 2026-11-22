@@ -5,10 +5,12 @@
  * Everything that decides what a "brand" is lives here: the field catalog and
  * validation rules, the font allowlist, WCAG contrast math, {{TOKEN}}
  * substitution, and the shared "More information" / "Need help?" content model.
- * Keep this file free of imports other than `./sharepoint-site.js` so
- * `tools/lab-builder/build.mjs` keeps working in bare Node before `npm ci`.
+ * Keep this file free of imports other than `./sharepoint-site.js` and
+ * `../product-name.js` (both dependency-free) so `tools/lab-builder/build.mjs`
+ * keeps working in bare Node before `npm ci`.
  */
 
+import { PRODUCT_NAME, currentProductName } from "../product-name.js";
 import { normalizeSharepointSiteName, validateSharepointSiteUrl } from "./sharepoint-site.js";
 
 const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F]/g;
@@ -18,7 +20,7 @@ export const LIGHT_SURFACE = "#ffffff";
 export const MAX_URL_LENGTH = 2048;
 
 export const DEFAULT_BRAND = Object.freeze({
-  companyName: "Microsoft AI Training Generator",
+  companyName: PRODUCT_NAME,
   tagline: "Provisioning Portal",
   logo: null,
   primaryColor: "#4f8ff7",
@@ -316,7 +318,7 @@ export function normalizeBrand(input = {}) {
 
   for (const key of Object.keys(TEXT_FIELD_LIMITS)) {
     const text = cleanText(src[key]).slice(0, TEXT_FIELD_LIMITS[key]);
-    out[key] = text || DEFAULT_BRAND[key];
+    out[key] = (key === "companyName" ? currentProductName(text) : text) || DEFAULT_BRAND[key];
   }
   for (const key of COLOR_FIELDS) {
     out[key] = normalizeHexColor6(src[key]) || DEFAULT_BRAND[key];

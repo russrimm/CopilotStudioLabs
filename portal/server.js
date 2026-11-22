@@ -1,5 +1,5 @@
 /**
- * Microsoft AI Training Generator — Provisioning Portal Server
+ * Agentic Microsoft Training and Lab Generator — Provisioning Portal Server
  */
 
 import "dotenv/config";
@@ -2495,7 +2495,7 @@ try {
 
 const server = app.listen(PORT, HOST, () => {
   const auth = authConfigSummary();
-  console.log(`\n⚡ Microsoft AI Training Generator Portal running at http://${HOST}:${PORT}`);
+  console.log(`\n⚡ Agentic Microsoft Training and Lab Generator Portal running at http://${HOST}:${PORT}`);
   console.log(
     `   Auth: ${auth.enabled ? "enabled" : "DISABLED"} ` +
     `(tenant: ${auth.tenantConfigured ? "set" : "MISSING"}, ` +

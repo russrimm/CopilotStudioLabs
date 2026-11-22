@@ -1,4 +1,4 @@
-# Lab Builder — the Microsoft AI Training Generator
+# Lab Builder — the Agentic Microsoft Training and Lab Generator
 
 The 40 labs in `labs/` are fixed walkthroughs of Microsoft Copilot Studio. The lab builder is the opposite:
 you pick the **products** you are teaching (Copilot Studio, declarative agents for Microsoft 365 Copilot, SharePoint AI,
@@ -3067,6 +3067,14 @@ four classic fields, so older readers and rollbacks keep working. Up to 50 profi
 are allowed, names are unique, and the **last profile cannot be deleted**. Deleting
 the active profile activates another one. A logo file is removed only when no other
 profile and no lab snapshot still uses it.
+
+**The product's own name.** The built-in Default profile uses the product name, Agentic Microsoft Training and Lab
+Generator, as its company name, and a brand that is just that name counts as unbranded (no company header in
+Word or PDF files). Profiles and labs saved before the product was renamed keep its earlier name in their files.
+It is never rewritten on disk: whenever a brand is read it is mapped to the current name
+(`currentProductName()` in `portal/lib/product-name.js`, applied by `normalizeBrand()`), and the copy of a lab's
+`manifest.json` that goes into a learner bundle shows the current name too. Only that exact earlier name is
+mapped; a customer's own company name is never touched.
 
 ### How a lab resolves its brand
 

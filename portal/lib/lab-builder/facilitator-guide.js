@@ -16,6 +16,7 @@ import path from "node:path";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { buildAdministratorSetupGuide } from "./admin-guide.js";
 import { ADMIN_GUIDE_TITLE } from "./learner-guide.js";
+import { PRODUCT_NAME, currentProductName } from "../product-name.js";
 import { getFeature, getHarnesses } from "./catalog.js";
 import { buildDocxFromLabMarkdown } from "./docx-builder.js";
 import {
@@ -1238,7 +1239,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
   const primaryColor = /^#[0-9a-fA-F]{6}$/.test(String(branding.primaryColor || ""))
     ? branding.primaryColor
     : "#0f6cbd";
-  const companyName = cleanText(branding.companyName || "Microsoft AI Training Generator");
+  const companyName = cleanText(currentProductName(branding.companyName) || PRODUCT_NAME);
   const tagline = cleanText(branding.tagline || "Instructor & Facilitator Delivery Pack");
   const coverSubtitle = cleanText(branding.coverSubtitle);
   const secondaryHex = normalizeHexColor6(branding.secondaryColor);

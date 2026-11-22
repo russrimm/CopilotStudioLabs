@@ -1122,7 +1122,7 @@ test("a sign-in that merely times out closes its window and reports a diagnosis 
 // ── The command line ─────────────────────────────────────────────────────────
 
 test("the new options parse, and the version and help describe them", () => {
-  assert.equal(COMPANION_VERSION, "1.6.3");
+  assert.equal(COMPANION_VERSION, "1.6.4");
   assert.equal(parseArgs(["--check-signin"]).checkSignin, "copilot-studio");
   assert.equal(parseArgs(["--check-signin", "ai-foundry"]).checkSignin, "ai-foundry");
   assert.equal(parseArgs(["--check-signin=sharepoint-ai", "--launch=attach"]).checkSignin, "sharepoint-ai");

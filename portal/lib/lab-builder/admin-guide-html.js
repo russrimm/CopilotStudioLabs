@@ -8,6 +8,7 @@
  */
 
 import { contrastRatio, ensureReadableColor, escapeHtmlText, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
+import { isDefaultCompanyName } from "../product-name.js";
 import { adminGuideItemParts } from "./admin-guide.js";
 import { checklistInlineSegments, checklistPlainText, formatItemNumbers } from "./prereq-checklist.js";
 
@@ -98,7 +99,7 @@ export function renderAdministratorSetupGuideHtml(model, { branding } = {}) {
   const tint = mixWithWhite(primary, 0.9);
   const fontStack = getBrandFont(brand.font).css || '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif';
   const companyName = String(brand.companyName || "").trim();
-  const showCompany = companyName && companyName !== "Microsoft AI Training Generator";
+  const showCompany = companyName && !isDefaultCompanyName(companyName);
   const footerLeft = cssString([model.title, model.documentTitle].filter(Boolean).join(" \u2014 "), 90);
   const footerExtra = cssString(brand.footerText || model.footerText || "", 80);
   const meta = [

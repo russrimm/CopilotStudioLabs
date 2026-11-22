@@ -8,6 +8,7 @@
 
 import { buildZipBuffer, inspectImageDimensions, stripIllegalXmlChars } from "./docx-builder.js";
 import { contrastRatio, ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
+import { isDefaultCompanyName } from "../product-name.js";
 import { adminGuideItemParts } from "./admin-guide.js";
 import { checklistInlineSegments, checklistPlainText, formatItemNumbers } from "./prereq-checklist.js";
 
@@ -52,7 +53,7 @@ export function renderAdministratorSetupGuideDocxBuffer(model, { branding } = {}
   const tint = mixWithWhite(primaryHex, 0.9);
   const fontName = getBrandFont(brand.font).office || "Segoe UI";
   const companyName = String(brand.companyName || "").trim();
-  const showCompany = companyName && companyName !== "Microsoft AI Training Generator";
+  const showCompany = companyName && !isDefaultCompanyName(companyName);
 
   const hyperlinks = [];
   const images = [];
