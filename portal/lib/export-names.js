@@ -186,24 +186,61 @@ export function shortTitle(text, max, fallback = "Module") {
   return cutAtWordBoundary(cleaned, max) || cleaned.slice(0, Math.max(1, max));
 }
 
-/**
- * The lab folder name: the first meaningful words of the title, at most `max` characters and `maxWords` words.
- * "Retail: Build a Store Support Assistant with Microsoft Copilot Studio" -> "Retail Store Support Assistant".
- */
-export function shortLabName(title, { max = DEFAULT_LAB_FOLDER_CHARS, maxWords = 4, fallback = "Lab" } = {}) {
-  const tokens = asciiFold(title)
+function labTokens(text) {
+  return asciiFold(text)
     .replace(/[*_`~]/g, " ")
     .split(/\s+/)
     .map((token) => token.replace(/[^A-Za-z0-9&+-]/g, "").replace(/^[-+&]+|[-+&]+$/g, ""))
     .filter(Boolean);
+}
+
+function meaningfulTokens(tokens) {
   const meaningful = tokens.filter((token) => !LAB_STOPWORDS.has(token.toLowerCase()));
-  const words = meaningful.length ? meaningful : tokens;
+  return meaningful.length ? meaningful : tokens;
+}
+
+function pickLabWords(words, max, maxWords) {
   const picked = [];
   for (const word of words) {
     if (picked.length >= maxWords) break;
     if ([...picked, word].join(" ").length > max) break;
     picked.push(word);
   }
+  return picked;
+}
+
+/**
+ * The lab folder name: the first meaningful words of the title, at most `max` characters and `maxWords` words.
+ * "Retail: Build a Store Support Assistant with Microsoft Copilot Studio" -> "Retail Store Support Assistant".
+ * A title that starts with an industry ("Energy & Resources: Build an Account Briefing Assistant ...") drops those words
+ * when they would crowd out the words that tell labs of the same industry apart ("Account Briefing Assistant").
+ */
+export function shortLabName(title, { max = DEFAULT_LAB_FOLDER_CHARS, maxWords = 4, fallback = "Lab" } = {}) {
+  const tokens = labTokens(title);
+  const words = meaningfulTokens(tokens);
+  let picked = pickLabWords(words, max, maxWords);
+
+  // Generated titles read "<Industry>: Build a <name> with ..."; any other colon is just punctuation.
+  const split = /^([^:]{2,40}):\s+((?:build|create|design|deploy|implement|configure|launch|run|set up)\b.+)$/i.exec(asciiFold(title));
+  if (split) {
+    const prefix = meaningfulTokens(labTokens(split[1]));
+    // The assistant's own name ends where its description starts ("... Assistant with Microsoft Copilot Studio").
+    const namePart = split[2].split(/\s+(?:with|for|using|that|to|—|–)\s+/i)[0];
+    const core = meaningfulTokens(labTokens(namePart));
+    const candidates = [
+      { prefix: prefix.length, words: [...prefix, ...core] },
+      { prefix: 1, words: [prefix[0], ...core] },
+      { prefix: 0, words: core },
+    ];
+    let best = null;
+    for (const candidate of candidates) {
+      const candidatePicked = pickLabWords(candidate.words, max, maxWords);
+      const coreIncluded = Math.min(3, Math.max(0, candidatePicked.length - Math.min(candidate.prefix, candidatePicked.length)));
+      if (!best || coreIncluded > best.coreIncluded) best = { picked: candidatePicked, coreIncluded };
+    }
+    if (best && best.picked.length) picked = best.picked;
+  }
+
   const name = picked.join(" ") || (words[0] || "").slice(0, max);
   return finishSegment(name, fallback, max);
 }

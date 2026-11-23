@@ -139,7 +139,11 @@ function assertPathsClean(names, label) {
 test("a short lab name keeps the first meaningful words, stays plain ASCII, and is never reserved or dotted", () => {
   assert.equal(shortLabName("Retail: Build a Store Support Assistant with Microsoft Copilot Studio"), "Retail Store Support Assistant");
   assert.equal(shortLabName("Contoso Child Agent Lab"), "Contoso Child Agent Lab");
-  assert.equal(shortLabName("Energy & Resources: Build a Field Operations Assistant with Microsoft Copilot Studio"), "Energy Resources Field");
+  assert.equal(shortLabName("Energy & Resources: Build a Field Operations Assistant with Microsoft Copilot Studio"), "Field Operations Assistant");
+  // Labs of one industry stay apart: the assistant's name wins over the industry words when both do not fit.
+  assert.equal(shortLabName("Energy & Resources: Build an Account Briefing Assistant with Create an agent and SharePoint knowledge"), "Account Briefing Assistant");
+  assert.equal(shortLabName("Energy & Resources: Build a Cross-Functional Assistant with Write effective agent instructions"), "Cross-Functional Assistant");
+  assert.equal(shortLabName("Retail: Build a Store Assistant with Microsoft Copilot Studio"), "Retail Store Assistant", "the industry stays when the name is short");
   const accented = shortLabName(LONG_TITLE);
   assert.equal(accented, "Cafe Reunion Fabrikam Plant", "accents fold, the ampersand and quotes are dropped, case is kept");
   assert.equal(asciiFold("Café Réunion Straße Łódź"), "Cafe Reunion Strasse Lodz");
