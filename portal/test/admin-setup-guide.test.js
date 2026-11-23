@@ -43,7 +43,6 @@ import {
   learnerSafeManifest,
 } from "../lib/lab-builder/learner-guide.js";
 import { buildFacilitatorGuideModel, renderFacilitatorGuideMarkdown } from "../lib/lab-builder/facilitator-guide.js";
-import { capFilesystemSegment, sanitizeFilesystemTitle } from "../lib/lab-builder/module-samples.js";
 import { ensureGeneratedLabTopicDocuments, TOPIC_DOCUMENTS_SCHEMA_VERSION } from "../lib/lab-builder/topic-documents.js";
 import { checkDocxPackage, readZipStrict } from "../../tools/lab-builder/lib/ooxml-strict.mjs";
 
@@ -121,6 +120,9 @@ async function zipEntries(root, labId, options) {
   assert.deepEqual(zip.problems, [], "the ZIP is a clean archive");
   return zip.entries;
 }
+
+/** The short folder the ZIP puts the lab in (the export names it in export-manifest.json). */
+const labFolderOf = (entries) => JSON.parse(entries.get("export-manifest.json").toString("utf8")).labFolder;
 
 // ── Text of every kind of output ────────────────────────────────────────────
 
@@ -268,7 +270,7 @@ test("no learner-facing output carries an administrator setting, and the admin d
     // The ZIP: every module folder, the overview, the root files.
     const entries = await zipEntries(ctx.generatedRoot, built.labId, { formats: "docx,pptx,html" });
     assert.deepEqual(findLeaks(labFiles(key, entries), markers), [], `${key}: ZIP`);
-    const zipManifest = JSON.parse(entries.get(`${built.labId}/manifest.json`).toString("utf8"));
+    const zipManifest = JSON.parse(entries.get(`${labFolderOf(entries)}/manifest.json`).toString("utf8"));
     assert.ok(!("adminPrerequisites" in zipManifest), "the ZIP's manifest does not carry the administrator model");
 
     // The administrator documents say what the learner guides do not.
@@ -390,26 +392,27 @@ test("the learner manifest copy drops the administrator model and older saved go
 // ── The ZIP ─────────────────────────────────────────────────────────────────
 
 test("the ZIP has a learner overview, a 'For the administrator' folder, and the customer checklist at the top", async () => {
-  const { built, manifest } = labOf("studio");
+  const { built } = labOf("studio");
   const entries = await zipEntries(ctx.generatedRoot, built.labId, { formats: "all" });
   const names = [...entries.keys()];
+  const labFolder = labFolderOf(entries);
   assert.ok(!names.some((name) => /Admin Prerequisites/.test(name)), "the old folder name is gone");
-  for (const ext of ["docx", "pptx", "pdf", "html"]) assert.ok(entries.has(`${built.labId}/00 - Overview/Lab Overview.${ext}`), `overview .${ext}`);
-  assert.doesNotMatch(officeText(entries.get(`${built.labId}/00 - Overview/Lab Overview.docx`), "docx"), /Connectors, Environment|Required By/);
+  for (const ext of ["docx", "pptx", "pdf", "html"]) assert.ok(entries.has(`${labFolder}/00 - Overview/Lab Overview.${ext}`), `overview .${ext}`);
+  assert.doesNotMatch(officeText(entries.get(`${labFolder}/00 - Overview/Lab Overview.docx`), "docx"), /Connectors, Environment|Required By/);
 
-  const safeTitle = capFilesystemSegment(sanitizeFilesystemTitle(manifest.title, "Lab"), 80, "Lab");
+  // The administrator folder uses short fixed names; the full lab title is inside each document, not in the file name.
   const folder = names.filter((name) => name.startsWith(`${ADMIN_FOLDER_NAME}/`)).map((name) => name.slice(ADMIN_FOLDER_NAME.length + 1)).sort();
   const wanted = [];
   for (const ext of ["docx", "pdf", "html", "md"]) wanted.push(`Administrator setup guide.${ext}`, `Prerequisites checklist.${ext}`);
   assert.equal(folder.length, 8);
-  for (const suffix of wanted) assert.ok(folder.includes(`${safeTitle} - ${suffix}`), `the folder holds ${safeTitle} - ${suffix}`);
+  for (const name of wanted) assert.ok(folder.includes(name), `the folder holds ${name}`);
   assert.ok(names.some((name) => /^Send to Customer - Prerequisites Checklist - .+\.docx$/.test(name)), "the customer's file is still at the top");
   assert.ok(names.filter((name) => !name.includes("/")).includes("README.md"));
 
   const exportManifest = JSON.parse(entries.get("export-manifest.json").toString("utf8"));
   assert.equal(exportManifest.administratorFolder, ADMIN_FOLDER_NAME);
   assert.equal(exportManifest.administratorFiles.length, 8);
-  assert.equal(exportManifest.overviewFolder, `${built.labId}/00 - Overview`);
+  assert.equal(exportManifest.overviewFolder, `${labFolder}/00 - Overview`);
   assert.match(entries.get("README.md").toString("utf8"), /For the administrator\/` — the Administrator setup guide and the Prerequisites checklist\. Admin settings only/);
   const guideDocx = names.find((name) => name.endsWith("Administrator setup guide.docx"));
   assert.deepEqual(checkDocxPackage(entries.get(guideDocx)), []);
@@ -560,7 +563,7 @@ test("a selected administrator topic stays a lab module, labeled for administrat
 
   // The lab-setup settings are in the guide, not in the learner module folders.
   const entries = await zipEntries(ctx.generatedRoot, built.labId, { formats: "docx" });
-  const moduleDocs = [...entries.keys()].filter((n) => /\/Module \d+ - .+\.docx$/.test(n));
+  const moduleDocs = [...entries.keys()].filter((n) => /\/\d{2}(?: .+)? - Handout\.docx$/.test(n));
   assert.equal(moduleDocs.length, manifest.modules.length);
   const guide = buildAdministratorSetupGuide({ manifest, markdown, now: NOW });
   assert.ok(guide.sections.flatMap((s) => s.items).some((i) => i.adminId === "dlp-business-group-alignment"));

@@ -26,6 +26,7 @@ import {
   selectRelevantLearnSource,
 } from "./learn-citations.js";
 import { buildModuleSampleFiles, splitGeneratedLabModules } from "./module-samples.js";
+import { planLabFolder, planModuleNames } from "../export-names.js";
 import { buildPdfFromLabMarkdown } from "./pdf-builder.js";
 import { parseTopicMarkdownStructure } from "./pptx-builder.js";
 import { closeLead } from "./sub-steps.js";
@@ -552,6 +553,7 @@ function buildModulePlaybookEntry({
   spSite,
   replacementEntries,
   learnerKnowledgeCheckEnabled,
+  names = null,
 }) {
   const levelNum = matchedMeta?.level || feature?.level || null;
   const levelLabel = levelNum
@@ -572,8 +574,11 @@ function buildModulePlaybookEntry({
     manifest,
     labTitle,
     replacementEntries,
+    fileNameMax: names?.sampleNameMax,
   });
-  const sampleFilesPath = `${mod.folderName}/sample-files/`;
+  // The folder and file names the ZIP export writes (short, so the package extracts on Windows).
+  const sampleFilesPath = `${names?.folder || mod.folderName}/sample-files/`;
+  const starterFileName = sampleFiles.find((f) => /^starter-inputs/.test(f.filename))?.filename || "starter-inputs-and-prompts.md";
   const primarySampleFiles = sampleFiles.filter((f) => f.filename !== "README.txt");
 
   // 1. Teaching Objective & Opening Framing
@@ -669,12 +674,12 @@ function buildModulePlaybookEntry({
     const prereqNames = feature.prereqs.map((id) => getFeature(id)?.name || id).join(", ");
     roadblocksAndFastRescues.push({
       roadblock: `Attendee missed or broke an earlier prerequisite (${prereqNames}).`,
-      fastRescue: `Have the attendee open \`${sampleFilesPath}starter-inputs-and-prompts.md\`, paste the baseline configuration values into their existing ${agentName} workspace (or clone your pre-staged backup solution/agent), and resume from Step 1 of ${mod.stepLabel} within 90 seconds.`,
+      fastRescue: `Have the attendee open \`${sampleFilesPath}${starterFileName}\`, paste the baseline configuration values into their existing ${agentName} workspace (or clone your pre-staged backup solution/agent), and resume from Step 1 of ${mod.stepLabel} within 90 seconds.`,
     });
   } else {
     roadblocksAndFastRescues.push({
       roadblock: `Attendee is working in the Default environment instead of the designated workshop sandbox.`,
-      fastRescue: `Use the top-right environment picker in ${prodLabel} to switch immediately to the workshop environment before saving connectors or knowledge sources; copy any typed text from \`${sampleFilesPath}starter-inputs-and-prompts.md\`.`,
+      fastRescue: `Use the top-right environment picker in ${prodLabel} to switch immediately to the workshop environment before saving connectors or knowledge sources; copy any typed text from \`${sampleFilesPath}${starterFileName}\`.`,
     });
   }
 
@@ -810,6 +815,13 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
   });
 
   const labTitle = cleanText(ctx.title || manifest.title || split.labTitle || labId);
+  // Module folder names as the ZIP export writes them; the export passes its own plan so the two always agree.
+  const exportNames =
+    ctx.exportNames ||
+    planModuleNames(
+      split.modules.map((m) => ({ order: m.order, title: m.title, isRecap: m.isRecap })),
+      { labFolder: planLabFolder(labTitle, { labId }) },
+    );
   const rawProducts =
     (Array.isArray(manifest.products) && manifest.products.length && manifest.products) ||
     (manifest.product ? [manifest.product] : [DEFAULT_PRODUCT]);
@@ -914,6 +926,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
       spSite,
       replacementEntries,
       learnerKnowledgeCheckEnabled,
+      names: exportNames.get(Number(mod.order)) || null,
     });
   });
 
@@ -960,7 +973,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     requiresSharepoint
       ? `Validate SharePoint site permissions and search indexing (${spSite.url || spSite.name || "target workshop SharePoint site"}) with a non-admin attendee account.`
       : `Confirm sandbox sample data and starter prompts open cleanly without external network blocks.`,
-    `Distribute or stage the Complete Lab Package (\`.zip\`) so every attendee has local access to each \`Module NN .../sample-files/\` directory before class starts.`,
+    `Distribute or stage the Complete Lab Package (\`.zip\`) so every attendee has local access to each module folder's \`sample-files/\` directory before class starts.`,
     `Open the workshop PowerPoint deck (\`.pptx\`) in PowerPoint Presenter View to verify speaker notes, live-demo talking points, and Knowledge Check rationales on your secondary monitor.`,
   ];
 

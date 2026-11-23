@@ -70,24 +70,26 @@ export function createExportService({ generatedRoot, tempDir }) {
 
   /**
    * Build a lab's ZIP in a worker and return the staged file. The caller streams `file` and then calls `remove()`.
-   * `options.formats` is the list normalizeDocFormats accepted.
+   * `options.formats` is the list normalizeDocFormats accepted. `fileName` is the short name the download should carry,
+   * and `summary` the exporter's own account of the ZIP (lab folder, entry count, longest entry, path-budget warnings).
    */
   async function buildZip(labId, replacements, options) {
     mkdirSync(tempDir, { recursive: true });
     const file = path.join(tempDir, `export-${randomUUID()}.zip.blob-tmp-export`);
     const remove = () => rmSync(file, { force: true });
     try {
+      let summary;
       if (!pool) {
         const { createWriteStream } = await import("node:fs");
         const { once } = await import("node:events");
         const out = createWriteStream(file, { flags: "wx" });
         const done = once(out, "close");
-        await exporter.exportGeneratedLab(generatedRoot, labId, replacements, out, { ...options, resolveAsset: resolveGeneratedAsset });
+        summary = await exporter.exportGeneratedLab(generatedRoot, labId, replacements, out, { ...options, resolveAsset: resolveGeneratedAsset });
         await done;
       } else {
-        await pool.run("exportGeneratedLabToFile", [generatedRoot, labId, replacements, { ...options, resolveAsset: true }, file]);
+        summary = await pool.run("exportGeneratedLabToFile", [generatedRoot, labId, replacements, { ...options, resolveAsset: true }, file]);
       }
-      return { file, remove };
+      return { file, remove, fileName: summary?.zipFileName || null, summary };
     } catch (err) {
       remove();
       throw err;

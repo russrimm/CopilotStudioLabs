@@ -19,6 +19,7 @@ import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { DEFAULT_PRODUCT, getProduct, getProducts, joinNames, productHasHarnesses, productName } from "./products.js";
 import { UNCATEGORIZED } from "./topic-snapshot.js";
+import { shortenDownloadFileName } from "../export-names.js";
 
 export const EXPORT_FORMATS = ["csv", "markdown", "json"];
 export const EXPORT_SCHEMA_VERSION = 1;
@@ -419,8 +420,8 @@ export function serialize(format, dataset, selection) {
 export const EXPORT_MIME = { csv: "text/csv; charset=utf-8", markdown: "text/markdown; charset=utf-8", json: "application/json; charset=utf-8" };
 export const EXPORT_EXTENSION = { csv: "csv", markdown: "md", json: "json" };
 
-/** `all-topics-copilot-studio-sharepoint-ai-2026-11-18.csv` */
+/** `all-topics-copilot-studio-sharepoint-ai-2026-11-18.csv`, held to 120 characters like every download name. */
 export function exportFileName(dataset, format) {
   const slug = dataset.scope.products.map((p) => p.id).join("-").replace(/[^a-z0-9-]+/g, "-").slice(0, 80);
-  return `all-topics-${slug}-${dataset.generatedAt.slice(0, 10)}.${EXPORT_EXTENSION[format] || "json"}`;
+  return shortenDownloadFileName(`all-topics-${slug}-${dataset.generatedAt.slice(0, 10)}.${EXPORT_EXTENSION[format] || "json"}`);
 }

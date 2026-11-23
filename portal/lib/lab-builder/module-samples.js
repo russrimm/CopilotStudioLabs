@@ -13,6 +13,7 @@ import { getFeature } from "./catalog.js";
 import { learnerGuideMarkdown, isAdminAudienceTopic } from "./learner-guide.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { fitFileName } from "../export-names.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROFILES = JSON.parse(readFileSync(join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -284,9 +285,39 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
   const actions = profile.sampleActions || ["look up a record", "create a follow-up request", "notify an approver"];
 
   const files = [];
+  // A name that would push the path past the export budget is shortened (the domain prefix first, then filler words),
+  // and the README below lists the names as they are written.
+  const maxFileName = Number(options.fileNameMax) > 0 ? Number(options.fileNameMax) : Infinity;
+  const usedFileNames = new Set();
+  const sampleFileName = (filename) => {
+    let out = filename;
+    if (out.length > maxFileName) {
+      const prefix = `${domainSlug}-`;
+      if (out.startsWith(prefix)) {
+        const rest = out.slice(prefix.length);
+        const room = maxFileName - rest.length - 1;
+        const tokens = domainSlug.split("-");
+        const kept = [];
+        for (const token of tokens) {
+          if ([...kept, token].join("-").length > room) break;
+          kept.push(token);
+        }
+        out = kept.length ? `${kept.join("-")}-${rest}` : out;
+      }
+      if (out.length > maxFileName) out = fitFileName(out, maxFileName);
+    }
+    for (let n = 2; usedFileNames.has(out.toLowerCase()); n += 1) {
+      const dot = out.lastIndexOf(".");
+      const stem = dot > 0 ? out.slice(0, dot) : out;
+      const ext = dot > 0 ? out.slice(dot) : "";
+      out = `${stem.slice(0, Math.max(3, maxFileName - ext.length - 2))}-${n}${ext}`;
+    }
+    usedFileNames.add(out.toLowerCase());
+    return out;
+  };
   const addFile = (filename, description, rawContent) => {
     files.push({
-      filename,
+      filename: sampleFileName(filename),
       description,
       content: applyTextReplacements(rawContent, replacementEntries),
     });
@@ -768,7 +799,7 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
   ];
 
   files.unshift({
-    filename: "README.txt",
+    filename: sampleFileName("README.txt"),
     description: "Index of sample files included for this module.",
     content: readmeLines.join("\n"),
   });
@@ -958,29 +989,33 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
     };
   });
 
-  const moduleIndexRows = modules.length
-    ? [
-        "## Module Folders in This Archive",
-        "",
-        "| Module | Folder | Sample Files |",
-        "|---|---|---|",
-        ...modules.map(
-          (m) => `| ${m.stepLabel} — ${m.title.replace(/\|/g, "\\|")} | \`${m.folderName}/\` | \`${m.folderName}/sample-files/\` |`,
-        ),
-        "",
-      ].join("\n")
-    : "";
+  // The folder names in the table are the ones the export writes. They differ from `folderName` when a ZIP shortens them.
+  const buildOverviewMarkdown = (folderNameOf = (m) => m.folderName) => {
+    const moduleIndexRows = modules.length
+      ? [
+          "## Module Folders in This Archive",
+          "",
+          "| Module | Folder | Sample Files |",
+          "|---|---|---|",
+          ...modules.map(
+            (m) => `| ${m.stepLabel} — ${m.title.replace(/\|/g, "\\|")} | \`${folderNameOf(m)}/\` | \`${folderNameOf(m)}/sample-files/\` |`,
+          ),
+          "",
+        ].join("\n")
+      : "";
+    return [preStepsText, moduleIndexRows, postStepsText].filter(Boolean).join("\n\n").trim() + "\n";
+  };
 
-  const overviewParts = [preStepsText, moduleIndexRows, postStepsText].filter(Boolean);
-
-  return {
+  const result = {
     labTitle,
     overview: {
       folderName: OVERVIEW_FOLDER_NAME,
       fileBaseName: "Lab Overview",
       title: `${labTitle} — Overview`,
-      markdown: overviewParts.join("\n\n").trim() + "\n",
+      markdown: buildOverviewMarkdown(),
     },
     modules,
   };
+  Object.defineProperty(result, "renderOverviewMarkdown", { value: buildOverviewMarkdown, enumerable: false });
+  return result;
 }

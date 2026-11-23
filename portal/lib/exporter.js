@@ -4,7 +4,6 @@
 
 import { readFileSync, readdirSync, existsSync, lstatSync } from "fs";
 import { dirname, extname, isAbsolute, join, posix, relative, resolve } from "path";
-import { ZipArchive } from "archiver";
 import { getLabPath, isValidLabId } from "./labs.js";
 import {
   applyBrandingToMarkdown,
@@ -36,10 +35,20 @@ import {
 } from "./lab-builder/pptx-builder.js";
 import {
   buildModuleSampleFiles,
-  capFilesystemSegment,
   sanitizeFilesystemTitle,
   splitGeneratedLabModules,
 } from "./lab-builder/module-samples.js";
+import {
+  EXTRACT_ON_WINDOWS_TIP,
+  ExportBudgetError,
+  docKind,
+  planLabFolder,
+  planModuleNames,
+  resolveExportBudget,
+  zipDownloadName,
+} from "./export-names.js";
+import { createExportZip } from "./export-zip.js";
+import { buildIndexRows, renderContentsMarkdown } from "./export-index.js";
 import {
   buildFacilitatorGuideModel,
   renderFacilitatorGuideDocxBuffer,
@@ -52,7 +61,7 @@ import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafe
 import { repairRunOnSteps } from "./lab-builder/sub-steps.js";
 import { repairConnectorNames, rewriteConnectorValue } from "./lab-builder/connector-names.js";
 import { TRAINING_ZIP_FOLDER, trainingZipEntries } from "./lab-builder/training-decks.js";
-import { buildPrerequisitesChecklist, checklistBaseName, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
+import { buildPrerequisitesChecklist, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
 import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
 import { renderPrerequisitesChecklistDocxBuffer } from "./lab-builder/prereq-checklist-docx.js";
 import { renderPrerequisitesChecklistPdfBuffer } from "./lab-builder/prereq-checklist-pdf.js";
@@ -61,7 +70,7 @@ import {
   normalizePrerequisitesFormat,
   renderPrerequisitesChecklistFile,
 } from "./lab-builder/prereq-checklist-render.js";
-import { adminGuideBaseName, buildAdministratorSetupGuide, renderAdministratorSetupGuideMarkdown } from "./lab-builder/admin-guide.js";
+import { buildAdministratorSetupGuide, renderAdministratorSetupGuideMarkdown } from "./lab-builder/admin-guide.js";
 import { renderAdministratorSetupGuideDocxBuffer } from "./lab-builder/admin-guide-docx.js";
 import { renderAdministratorSetupGuideHtml } from "./lab-builder/admin-guide-html.js";
 import { renderAdministratorSetupGuidePdfBuffer } from "./lab-builder/admin-guide-pdf.js";
@@ -73,6 +82,7 @@ import {
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const ALLOWED_DOC_FORMATS = ["docx", "pptx", "pdf", "html"];
+const PICTURE_NAME = /\.(png|jpe?g|gif|webp|svg)$/i;
 
 /**
  * Normalize requested per-module export document formats (`all`, `docx`, `pptx`,
@@ -214,30 +224,32 @@ function appendBrandInfo(markdown, brand) {
 }
 
 /** README.md placed at the root of every generated-lab bundle. */
-export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null, hasAdministratorFolder = false, trainingDecks = null } = {}) {
+export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null, hasAdministratorFolder = false, trainingDecks = null, labFolder = null, contents = "" } = {}) {
   const b = normalizeBrand(brand);
   const site = getBrandSharepointSite(b);
   const lines = [`# ${title || "Lab bundle"}`, ""];
   lines.push(`${b.companyName}${b.tagline ? ` — ${b.tagline}` : ""}`, "");
   if (b.coverSubtitle) lines.push(`_${b.coverSubtitle}_`, "");
+  lines.push(`> ${EXTRACT_ON_WINDOWS_TIP}`, "");
   lines.push("## What is in this bundle", "");
   if (trainingDecks) {
     lines.push(`- \`${trainingDecks.folder}/\` — the pre-lab training decks: deliver these first, to people who are new to this. About ${trainingDecks.minutes} minutes, no lab steps. It has a complete deck, a foundations deck for each product, and one deck for each module.`);
   }
-  lines.push("- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
+  lines.push(labFolder ? `- \`${labFolder}/index.md\` and \`${labFolder}/index.html\` — the complete lab guide (Markdown and a single-file web page).` : "- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
   if (formats.length) {
-    lines.push(`- One folder per module with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack.`);
+    lines.push(`- One folder per module${labFolder ? ` inside \`${labFolder}/\`` : ""} with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack. Folders start with the module's number, so they list in teaching order.`);
   }
   if (hasAdministratorFolder) {
     lines.push(`- \`${ADMIN_FOLDER_NAME}/\` — the ${ADMIN_GUIDE_TITLE} and the Prerequisites checklist. Admin settings only: hand this folder to your administrator and keep it out of the learner materials.`);
   }
   if (customerChecklistFile) lines.push(`- \`${customerChecklistFile}\` — only the prerequisites, safe to send to the customer hosting the workshop.`);
-  if (hasFacilitatorGuide) lines.push("- `Facilitator Guide/` — the instructor pack for delivering the lab.");
-  lines.push("- `assets/` — screenshots used by the guide.");
+  if (hasFacilitatorGuide) lines.push(`- \`${labFolder ? `${labFolder}/` : ""}Facilitator Guide/\` — the instructor pack for delivering the lab.`);
+  lines.push(`- \`${labFolder ? `${labFolder}/` : ""}assets/\` — screenshots used by the guide.`);
   if (modules.length) {
     lines.push("", "## Modules", "");
     for (const mod of modules) lines.push(`${mod.order}. ${mod.title}`);
   }
+  if (contents) lines.push("", String(contents).trim());
   const resources = [];
   if (site.url) resources.push(`SharePoint site: ${site.name ? `${site.name} — ` : ""}${site.url}`);
   resources.push(...getBrandInfoLines(b));
@@ -309,7 +321,32 @@ function findMdFiles(dir) {
 }
 
 /**
+ * Every file of a static lab, in the order the ZIP lists them: `{dir: true, rel}` for a folder, `{full, rel}` for a file.
+ * The lab's own Markdown files are left out: they are read, branded, and added as text.
+ */
+function listStaticLabFiles(rootDir) {
+  const out = [];
+  const walk = (current, rel) => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = join(current, entry.name);
+      const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        out.push({ dir: true, rel: relPath });
+        walk(full, relPath);
+      } else if (entry.isFile() && !entry.name.endsWith(".md")) {
+        out.push({ full, rel: relPath });
+      }
+    }
+  };
+  walk(rootDir, "");
+  return out;
+}
+
+/**
  * Create a ZIP archive of selected labs.
+ *
+ * Every entry goes through the shared path guard (see export-names.js). The labs' own folder names are short ids, so
+ * nothing is renamed here; a path that ever went over the budget would be shortened and recorded in export-manifest.json.
  *
  * @param {string[]} labIds          - Lab folder names to include
  * @param {Object}   [replacements]  - { search: replace } text substitutions
@@ -330,60 +367,71 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
   });
 
   return new Promise((resolve, reject) => {
-    const archive = new ZipArchive({ zlib: { level: 9 } });
+    const zip = createExportZip();
+    const archive = zip.archive;
     const branding = loadBranding();
     const logoSourcePath = getBrandingLogoAbsolutePath(branding.logo);
     const logoArchivePath = logoSourcePath
       ? posix.join("_branding", `logo${extname(logoSourcePath).toLowerCase()}`)
       : null;
+    let summary = null;
 
     archive.on("error", reject);
-    archive.on("end", () => resolve({ bytes: archive.pointer(), labCount: labIds.length }));
+    archive.on("end", () => resolve({ bytes: archive.pointer(), labCount: labIds.length, ...summary }));
 
     archive.pipe(outputStream);
 
-    const replacementEntries = Object.entries(replacements).filter(([k, v]) => k && v && k !== v);
+    try {
+      const replacementEntries = Object.entries(replacements).filter(([k, v]) => k && v && k !== v);
 
-    if (logoSourcePath && existsSync(logoSourcePath) && logoArchivePath) {
-      archive.file(logoSourcePath, { name: logoArchivePath });
-    }
+      if (logoSourcePath && existsSync(logoSourcePath) && logoArchivePath) {
+        zip.addFile(logoArchivePath, logoSourcePath, { group: "lab", kind: "Logo", title: "Company logo" });
+      }
 
-    for (const { labId, labDir } of labDirectories) {
-      archive.directory(labDir, labId, (entry) => {
-        return entry.name.endsWith(".md") ? false : entry;
-      });
-
-      for (const mdFile of findMdFiles(labDir)) {
-        let content = readFileSync(mdFile, "utf-8");
-        // A lab built while sub-steps were one sentence is repaired as it is exported; the file on disk is not touched.
-        if (relative(labDir, mdFile) === "index.md") content = repairRunOnSteps(content);
-        // A lab saved with a connector's internal name shows the display name in the export.
-        content = repairConnectorNames(content);
-        for (const [search, replace] of replacementEntries) {
-          content = content.split(search).join(replace);
+      for (const { labId, labDir } of labDirectories) {
+        for (const item of listStaticLabFiles(labDir)) {
+          if (item.dir) zip.addDirectory(posix.join(labId, item.rel));
+          else zip.addFile(posix.join(labId, item.rel), item.full, { group: PICTURE_NAME.test(item.rel) ? "picture" : "lab" });
         }
 
-        const relativePath = relative(labDir, mdFile).replace(/\\/g, "/");
-        const archiveName = posix.join(labId, relativePath);
-        const logoRelativePath = logoArchivePath
-          ? relative(dirname(archiveName), logoArchivePath).replace(/\\/g, "/")
-          : null;
+        for (const mdFile of findMdFiles(labDir)) {
+          let content = readFileSync(mdFile, "utf-8");
+          // A lab built while sub-steps were one sentence is repaired as it is exported; the file on disk is not touched.
+          if (relative(labDir, mdFile) === "index.md") content = repairRunOnSteps(content);
+          // A lab saved with a connector's internal name shows the display name in the export.
+          content = repairConnectorNames(content);
+          for (const [search, replace] of replacementEntries) {
+            content = content.split(search).join(replace);
+          }
 
-        content = prependBrandingBanner(content, branding, logoRelativePath, { infoBlocks: relativePath === "index.md" });
-        archive.append(content, { name: archiveName });
+          const relativePath = relative(labDir, mdFile).replace(/\\/g, "/");
+          const archiveName = posix.join(labId, relativePath);
+          const logoRelativePath = logoArchivePath
+            ? relative(dirname(archiveName), logoArchivePath).replace(/\\/g, "/")
+            : null;
+
+          content = prependBrandingBanner(content, branding, logoRelativePath, { infoBlocks: relativePath === "index.md" });
+          zip.add(archiveName, content, { group: "lab", kind: relativePath === "index.md" ? "Lab guide" : "Notes", format: "md" });
+        }
       }
+
+      // Add a manifest
+      const manifest = {
+        exportedAt: new Date().toISOString(),
+        labs: labIds,
+        customized: replacementEntries.length > 0 || isCustomBranding(branding),
+        branding: buildManifestBranding(branding, logoArchivePath),
+        pathBudget: zip.budgetReport(),
+        index: buildIndexRows(zip.entries),
+      };
+      summary = { entryCount: zip.guard.count + 1, longestEntry: zip.guard.longest, warnings: zip.guard.warnings };
+      zip.add("export-manifest.json", JSON.stringify(manifest, null, 2), { group: "lab", kind: "Data", title: "Export manifest" });
+
+      archive.finalize();
+    } catch (err) {
+      archive.abort();
+      reject(err);
     }
-
-    // Add a manifest
-    const manifest = {
-      exportedAt: new Date().toISOString(),
-      labs: labIds,
-      customized: replacementEntries.length > 0 || isCustomBranding(branding),
-      branding: buildManifestBranding(branding, logoArchivePath),
-    };
-    archive.append(JSON.stringify(manifest, null, 2), { name: "export-manifest.json" });
-
-    archive.finalize();
   });
 }
 
@@ -754,11 +802,56 @@ export function renderGeneratedLabPrerequisites(
     now,
   });
 }
+/** The files of a generated lab folder that go into the ZIP as they are named on disk (pictures, the saved guide, the shot list). */
+function listLabFiles(labDir) {
+  const out = [];
+  const walk = (currentDir) => {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      if (entry.name.startsWith(".")) continue;
+      const fullPath = join(currentDir, entry.name);
+      let stats;
+      try {
+        stats = lstatSync(fullPath);
+      } catch {
+        continue;
+      }
+      if (stats.isSymbolicLink()) continue;
+      if (stats.isDirectory()) {
+        const relDir = relative(labDir, fullPath).replace(/\\/g, "/");
+        // Per-topic documents are rendered per requested format and branding; the pre-lab training decks go in their own
+        // top-level folder. Neither is copied from its name on disk.
+        if (relDir === "topics" || relDir === "training") continue;
+        walk(fullPath);
+        continue;
+      }
+      if (!stats.isFile()) continue;
+      out.push({ full: fullPath, rel: relative(labDir, fullPath).replace(/\\/g, "/"), name: entry.name });
+    }
+  };
+  walk(labDir);
+  return out;
+}
+
+/** What the README and the manifest index say about a file of the lab folder. */
+function labFileMeta(rel, title) {
+  if (rel === "index.md") return { group: "lab", kind: "Lab guide", format: "md", title };
+  if (rel === "index.html") return { group: "lab", kind: "Lab guide", format: "html", title };
+  if (rel === "manifest.json") return { group: "lab", kind: "Data", title: "Lab manifest" };
+  if (rel === "SHOTLIST.md" || rel === "shots.json" || rel.startsWith("screenshots/")) return { group: "lab", kind: "Screenshot list", title: "Screenshot checklist and capture record" };
+  if (PICTURE_NAME.test(rel)) return { group: "picture", kind: "Picture", title: rel.split("/").pop() };
+  return { group: "lab" };
+}
+
 /**
  * Create a ZIP archive of a single generated lab, resolving captured assets
  * when available, applying custom branding when configured, and packaging each
- * module in its own titled folder with `.docx`, `.pdf`, `.html` guides and
+ * module in its own folder with `.docx`, `.pdf`, `.html` guides and
  * scenario-tailored `sample-files/`.
+ *
+ * Every folder and file name in the ZIP is short (see export-names.js) so it extracts on Windows, and every entry
+ * goes through the shared path guard. The README.md and export-manifest.json at the top map each short path to the
+ * full title. Resolves with `{ bytes, labCount, labId, labFolder, zipFileName, entryCount, longestEntry, warnings }`;
+ * `zipFileName` is the name the download should carry.
  */
 export function exportGeneratedLab(
   generatedRoot,
@@ -780,51 +873,67 @@ export function exportGeneratedLab(
   const branding = resolveLabBrand(found.manifest, { brand: brandingOption });
 
   return new Promise((resolveArchive, reject) => {
-    const archive = new ZipArchive({ zlib: { level: 9 } });
-    const customizedBranding = isCustomBranding(branding);
-    const logoSourcePath = customizedBranding
-      ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
-      : null;
-    const logoArchivePath = logoSourcePath && existsSync(logoSourcePath)
-      ? posix.join("_branding", `logo${extname(logoSourcePath).toLowerCase()}`)
-      : null;
+    const budget = resolveExportBudget();
+    const zip = createExportZip({ budget });
+    const archive = zip.archive;
+    let summary = null;
 
     archive.on("error", reject);
-    archive.on("end", () => resolveArchive({ bytes: archive.pointer(), labCount: 1, labId }));
-
+    archive.on("end", () => resolveArchive({ bytes: archive.pointer(), labCount: 1, labId, ...summary }));
     archive.pipe(outputStream);
 
-    const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
+    try {
+      const customizedBranding = isCustomBranding(branding);
+      const logoSourcePath = customizedBranding
+        ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+        : null;
+      const logoArchivePath = logoSourcePath && existsSync(logoSourcePath)
+        ? posix.join("_branding", `logo${extname(logoSourcePath).toLowerCase()}`)
+        : null;
+      const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
 
-    if (logoArchivePath) {
-      archive.file(logoSourcePath, { name: logoArchivePath });
-    }
+      // The saved text with replacements and branding tokens applied. The administrator documents read this as it is;
+      // every learner-facing file below reads `htmlSourceMd`, which has the administrator section taken out.
+      let rawSourceMd = readFileSync(join(labDir, "index.md"), "utf-8");
+      for (const [search, replace] of replacementEntries) {
+        rawSourceMd = rawSourceMd.split(search).join(replace);
+      }
+      rawSourceMd = applyBrandingTokens(rawSourceMd, branding);
+      const htmlSourceMd = learnerGuideMarkdown(rawSourceMd);
 
-    function walkLab(currentDir) {
-      for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
-        if (entry.name.startsWith(".")) continue;
-        const fullPath = join(currentDir, entry.name);
-        let stats;
-        try {
-          stats = lstatSync(fullPath);
-        } catch {
-          continue;
-        }
-        if (stats.isSymbolicLink()) continue;
-        if (stats.isDirectory()) {
-          const relDir = relative(labDir, fullPath).replace(/\\/g, "/");
-          if (relDir === "topics" || relDir === "training") {
-            // Per-topic documents are rendered per requested format and branding below; the pre-lab training
-            // decks go in their own top-level folder.
-            continue;
-          }
-          walkLab(fullPath);
-          continue;
-        }
-        if (!stats.isFile()) continue;
+      let brandedLabTitle = found.manifest?.title || labId;
+      for (const [search, replace] of replacementEntries) {
+        brandedLabTitle = brandedLabTitle.split(search).join(replace);
+      }
+      brandedLabTitle = applyBrandingTokens(brandedLabTitle, branding);
 
-        const relPath = relative(labDir, fullPath).replace(/\\/g, "/");
-        const archiveName = posix.join(labId, relPath);
+      const effectiveManifest = { ...(found.manifest || {}), title: brandedLabTitle };
+      const split = splitGeneratedLabModules(htmlSourceMd, effectiveManifest, { labId });
+
+      // Names: short lab folder, "NN <short title>" module folders (see export-names.js). The lab folder is as short as the
+      // pictures and saved guide inside it need, because those keep the names the guide's links use.
+      const labFiles = listLabFiles(labDir);
+      const longestFixedRelPath = Math.max("index.html".length, ...labFiles.map((file) => file.rel.length));
+      const reservedTopLevel = new Set([ADMIN_FOLDER_NAME, TRAINING_ZIP_FOLDER, "_branding", "readme.md", "export-manifest.json"].map((name) => name.toLowerCase()));
+      const labFolder = planLabFolder(brandedLabTitle, { labId, used: reservedTopLevel, longestFixedRelPath, budget });
+      const moduleNames = planModuleNames(
+        split.modules.map((m) => ({ order: m.order, title: m.title, isRecap: m.isRecap })),
+        { labFolder, budget },
+      );
+      const folderNameOf = (m) => moduleNames.get(Number(m.order)).folder;
+      const zipFileName = zipDownloadName(brandedLabTitle, {
+        labName: labFolder,
+        variant: selectedFormats.length === ALLOWED_DOC_FORMATS.length ? "" : selectedFormats.join("+"),
+        max: budget.zipNameMax,
+      });
+
+      if (logoArchivePath) {
+        zip.addFile(logoArchivePath, logoSourcePath, { group: "lab", kind: "Logo", title: "Company logo" });
+      }
+
+      for (const { full: fullPath, rel: relPath, name: fileName } of labFiles) {
+        const archiveName = posix.join(labFolder, relPath);
+        const meta = labFileMeta(relPath, brandedLabTitle);
 
         if (relPath === "index.html") {
           // Rendered fresh below from index.md so replacements and branding match.
@@ -835,14 +944,15 @@ export function exportGeneratedLab(
           // The administrator model is not part of the learner folder; the Administrator setup guide rebuilds it.
           try {
             const safe = learnerSafeManifest(JSON.parse(readFileSync(fullPath, "utf-8")));
-            archive.append(`${JSON.stringify(safe, null, 2)}\n`, { name: archiveName });
+            zip.add(archiveName, `${JSON.stringify(safe, null, 2)}\n`, meta);
             continue;
-          } catch {
+          } catch (err) {
+            if (err instanceof ExportBudgetError) throw err;
             // An unreadable manifest is copied as it is.
           }
         }
 
-        if (entry.name.endsWith(".md")) {
+        if (fileName.endsWith(".md")) {
           let content = readFileSync(fullPath, "utf-8");
           if (relPath === "index.md") content = learnerGuideMarkdown(content);
           else content = repairConnectorNames(content);
@@ -857,365 +967,354 @@ export function exportGeneratedLab(
           } else {
             content = applyBrandingTokens(content, branding);
           }
-          archive.append(content, { name: archiveName });
+          zip.add(archiveName, content, meta);
           continue;
         }
 
-        if (entry.name.endsWith(".json")) {
+        if (fileName.endsWith(".json")) {
           // The shot list and the Learn record of an older lab may carry a connector's internal name; the copy shows the display name.
+          let repairedText = null;
           try {
             const parsed = JSON.parse(readFileSync(fullPath, "utf-8"));
             const repaired = rewriteConnectorValue(parsed);
-            if (JSON.stringify(repaired) !== JSON.stringify(parsed)) {
-              archive.append(`${JSON.stringify(repaired, null, 2)}\n`, { name: archiveName });
-              continue;
-            }
+            if (JSON.stringify(repaired) !== JSON.stringify(parsed)) repairedText = `${JSON.stringify(repaired, null, 2)}\n`;
           } catch {
             // An unreadable file is copied as it is.
+          }
+          if (repairedText !== null) {
+            zip.add(archiveName, repairedText, meta);
+            continue;
           }
         }
 
         if (relPath.startsWith("assets/") && !relPath.slice("assets/".length).includes("/")) {
           if (typeof resolveAsset === "function") {
-            const resolved = resolveAsset(generatedRoot, labId, entry.name);
+            const resolved = resolveAsset(generatedRoot, labId, fileName);
             if (resolved?.status === 200 && resolved.path && existsSync(resolved.path)) {
-              archive.file(resolved.path, { name: archiveName });
+              zip.addFile(archiveName, resolved.path, meta);
               continue;
             }
           }
-          const captured = resolveLabScreenshot(labDir, entry.name);
+          const captured = resolveLabScreenshot(labDir, fileName);
           if (captured?.file && existsSync(captured.file)) {
-            archive.file(captured.file, { name: archiveName });
+            zip.addFile(archiveName, captured.file, meta);
             continue;
           }
         }
 
-        archive.file(fullPath, { name: archiveName });
+        zip.addFile(archiveName, fullPath, meta);
       }
-    }
 
-    walkLab(labDir);
+      const htmlArchiveName = posix.join(labFolder, "index.html");
+      const htmlLogoRel = logoArchivePath
+        ? relative(dirname(htmlArchiveName), logoArchivePath).replace(/\\/g, "/")
+        : null;
+      const standaloneHtml = renderStandaloneLabHtml(applyBrandingToMarkdown(htmlSourceMd, branding), {
+        title: found.manifest?.title || labId,
+        labId,
+        renderMarkdown: renderLabMarkdown,
+        branding: buildHtmlBranding(branding, customizedBranding, htmlLogoRel),
+      });
+      zip.add(htmlArchiveName, standaloneHtml, labFileMeta("index.html", brandedLabTitle));
 
-    // The saved text with replacements and branding tokens applied. The administrator documents read this as it is;
-    // every learner-facing file below reads `htmlSourceMd`, which has the administrator section taken out.
-    let rawSourceMd = readFileSync(join(labDir, "index.md"), "utf-8");
-    for (const [search, replace] of replacementEntries) {
-      rawSourceMd = rawSourceMd.split(search).join(replace);
-    }
-    rawSourceMd = applyBrandingTokens(rawSourceMd, branding);
-    const htmlSourceMd = learnerGuideMarkdown(rawSourceMd);
-    const htmlArchiveName = posix.join(labId, "index.html");
-    const htmlLogoRel = logoArchivePath
-      ? relative(dirname(htmlArchiveName), logoArchivePath).replace(/\\/g, "/")
-      : null;
-    const standaloneHtml = renderStandaloneLabHtml(applyBrandingToMarkdown(htmlSourceMd, branding), {
-      title: found.manifest?.title || labId,
-      labId,
-      renderMarkdown: renderLabMarkdown,
-      branding: buildHtmlBranding(branding, customizedBranding, htmlLogoRel),
-    });
-    archive.append(standaloneHtml, { name: htmlArchiveName });
-
-    // Build per-module titled folders (`Module NN - <Module Title>/`) + sample files +
-    // `00 - Overview/` in the requested format(s).
-    const logoBuffer = logoSourcePath && existsSync(logoSourcePath) ? readFileSync(logoSourcePath) : null;
-    const inlineLogoUri = logoSourcePath ? fileToDataUri(logoSourcePath) : null;
-    const resolveImgBuffer = (src) => resolveLabAssetBuffer(generatedRoot, labId, labDir, src, resolveAsset);
-    const resolveInlineImgUri = (assetName) => {
-      if (typeof resolveAsset === "function") {
-        const resolved = resolveAsset(generatedRoot, labId, assetName);
-        if (resolved?.status === 200 && resolved.path) {
-          const uri = fileToDataUri(resolved.path, resolved.type);
+      // Build per-module folders (`NN <short title>/`) + sample files + `00 - Overview/` in the requested format(s).
+      const logoBuffer = logoSourcePath && existsSync(logoSourcePath) ? readFileSync(logoSourcePath) : null;
+      const inlineLogoUri = logoSourcePath ? fileToDataUri(logoSourcePath) : null;
+      const resolveImgBuffer = (src) => resolveLabAssetBuffer(generatedRoot, labId, labDir, src, resolveAsset);
+      const resolveInlineImgUri = (assetName) => {
+        if (typeof resolveAsset === "function") {
+          const resolved = resolveAsset(generatedRoot, labId, assetName);
+          if (resolved?.status === 200 && resolved.path) {
+            const uri = fileToDataUri(resolved.path, resolved.type);
+            if (uri) return uri;
+          }
+        }
+        const captured = resolveLabScreenshot(labDir, assetName);
+        if (captured?.file) {
+          const uri = fileToDataUri(captured.file);
           if (uri) return uri;
         }
-      }
-      const captured = resolveLabScreenshot(labDir, assetName);
-      if (captured?.file) {
-        const uri = fileToDataUri(captured.file);
-        if (uri) return uri;
-      }
-      return null;
-    };
+        return null;
+      };
 
-    const docBranding = buildDocBranding(branding, customizedBranding, logoBuffer);
-    const htmlBranding = buildHtmlBranding(branding, customizedBranding, inlineLogoUri);
+      const docBranding = buildDocBranding(branding, customizedBranding, logoBuffer);
+      const htmlBranding = buildHtmlBranding(branding, customizedBranding, inlineLogoUri);
 
-    const appendFormattedDocs = (folderRelPath, baseFileName, docTitle, docMarkdown, topicContext = null) => {
-      // DOCX, PDF, and HTML get the closing "More information" / "Need help?" blocks as Markdown;
-      // PPTX renders the same content as a dedicated closing slide instead.
-      const docMarkdownWithInfo = appendBrandInfo(docMarkdown, branding);
-      if (selectedFormats.includes("docx")) {
-        const docxBuf = renderMarkdownToDocxBuffer(docMarkdownWithInfo, {
-          title: docTitle,
-          branding: docBranding,
-          resolveImageBuffer: resolveImgBuffer,
+      /** Writes the document in every requested format and returns the paths written, in format order. */
+      const appendFormattedDocs = (folderRelPath, nameFor, docTitle, docMarkdown, topicContext = null, meta = {}) => {
+        // DOCX, PDF, and HTML get the closing "More information" / "Need help?" blocks as Markdown;
+        // PPTX renders the same content as a dedicated closing slide instead.
+        const docMarkdownWithInfo = appendBrandInfo(docMarkdown, branding);
+        const written = [];
+        const put = (fmt, data) => written.push(zip.add(posix.join(labFolder, folderRelPath, nameFor(fmt)), data, { ...meta, kind: docKind(fmt), format: fmt }));
+        if (selectedFormats.includes("docx")) {
+          put("docx", renderMarkdownToDocxBuffer(docMarkdownWithInfo, {
+            title: docTitle,
+            branding: docBranding,
+            resolveImageBuffer: resolveImgBuffer,
+          }));
+        }
+        if (selectedFormats.includes("pptx")) {
+          put("pptx", topicContext
+            ? renderTopicToPptxBuffer(docMarkdown, {
+                title: docTitle,
+                branding: docBranding,
+                resolveImageBuffer: resolveImgBuffer,
+                topic: topicContext,
+              })
+            : renderMarkdownToPptxBuffer(docMarkdown, {
+                title: docTitle,
+                manifest: found.manifest || {},
+                branding: docBranding,
+                resolveImageBuffer: resolveImgBuffer,
+              }));
+        }
+        if (selectedFormats.includes("pdf")) {
+          put("pdf", renderMarkdownToPdfBuffer(docMarkdownWithInfo, {
+            title: docTitle,
+            branding: docBranding,
+            resolveImageBuffer: resolveImgBuffer,
+          }));
+        }
+        if (selectedFormats.includes("html")) {
+          put("html", renderStandaloneLabHtml(docMarkdownWithInfo, {
+            title: docTitle,
+            labId,
+            renderMarkdown: renderLabMarkdown,
+            branding: htmlBranding,
+            resolveImageSrc: resolveInlineImgUri,
+          }));
+        }
+        return written;
+      };
+
+      // The overview table names the folders as this ZIP writes them.
+      appendFormattedDocs(
+        split.overview.folderName,
+        (fmt) => `${sanitizeFilesystemTitle(split.overview.fileBaseName, "Lab Overview")}.${fmt}`,
+        split.overview.title,
+        split.renderOverviewMarkdown(folderNameOf),
+        null,
+        { group: "overview", title: split.overview.title },
+      );
+
+      const manifestMods = Array.isArray(effectiveManifest.modules) ? effectiveManifest.modules : [];
+      const productsText = Array.isArray(effectiveManifest.products)
+        ? effectiveManifest.products.join(", ")
+        : "";
+
+      const exportedModules = [];
+      for (const mod of split.modules) {
+        const mMeta =
+          manifestMods.find((m) => Number(m.order) === Number(mod.order)) || {};
+        const names = moduleNames.get(Number(mod.order));
+        const moduleMeta = {
+          group: "module",
+          order: mod.order,
+          stepLabel: mod.stepLabel,
+          moduleTitle: mod.title,
+          minutes: mMeta.minutes ?? null,
+          folder: names.folder,
+          title: `${mod.stepLabel} — ${mod.title}`,
+        };
+        const documents = appendFormattedDocs(
+          names.folder,
+          (fmt) => names.docName(fmt),
+          `${brandedLabTitle} - ${mod.stepLabel} - ${mod.title}`,
+          mod.markdown,
+          {
+            featureId: mMeta.id || mod.id || null,
+            labTitle: brandedLabTitle,
+            stepLabel: mod.stepLabel,
+            topicTitle: mod.title,
+            levelText: mMeta.level ? `Level ${mMeta.level}` : "",
+            estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
+            products: productsText,
+            agentName: effectiveManifest?.options?.agentName || effectiveManifest?.request?.agentName || "",
+            harness:
+              effectiveManifest?.request?.harness ||
+              effectiveManifest?.differences?.labHarness ||
+              null,
+            trainingDigest: mMeta.trainingDigest || null,
+            manifest: effectiveManifest,
+          },
+          moduleMeta,
+        );
+
+        const sampleFiles = buildModuleSampleFiles(mod.moduleInfo, {
+          manifest: effectiveManifest,
+          labTitle: brandedLabTitle,
+          replacementEntries,
+          fileNameMax: names.sampleNameMax,
         });
-        archive.append(docxBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.docx`) });
+        const sampleFilePaths = [];
+        for (const sample of sampleFiles) {
+          const brandedSampleContent = applyBrandingTokens(sample.content, branding);
+          sampleFilePaths.push(
+            zip.add(posix.join(labFolder, names.folder, "sample-files", sample.filename), brandedSampleContent, {
+              ...moduleMeta,
+              kind: "Sample file",
+              title: sample.description,
+            }),
+          );
+        }
+
+        exportedModules.push({
+          order: mod.order,
+          id: mod.id,
+          stepLabel: mod.stepLabel,
+          title: mod.title,
+          isRecap: Boolean(mod.isRecap),
+          minutes: mMeta.minutes ?? null,
+          // The lab's own name for this module's documents (also the name of its cached files on disk), not a name in this ZIP.
+          fileBaseName: mod.fileBaseName,
+          folder: posix.join(labFolder, names.folder),
+          documents,
+          sampleFiles: sampleFilePaths,
+        });
       }
-      if (selectedFormats.includes("pptx")) {
-        const pptxBuf = topicContext
-          ? renderTopicToPptxBuffer(docMarkdown, {
-              title: docTitle,
-              branding: docBranding,
-              resolveImageBuffer: resolveImgBuffer,
-              topic: topicContext,
-            })
-          : renderMarkdownToPptxBuffer(docMarkdown, {
-              title: docTitle,
-              manifest: found.manifest || {},
-              branding: docBranding,
-              resolveImageBuffer: resolveImgBuffer,
-            });
-        archive.append(pptxBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.pptx`) });
+
+      // Bundle dedicated Instructor / Facilitator Guide Pack inside `<lab folder>/Facilitator Guide/`
+      const facilitatorModel = buildFacilitatorGuideModel({
+        labId,
+        labDir,
+        manifest: effectiveManifest,
+        markdown: htmlSourceMd,
+        exportNames: moduleNames,
+      });
+      const facilitatorFolder = posix.join(labFolder, "Facilitator Guide");
+      const facilitatorFiles = [];
+      const addFacilitatorFile = (fmt, data) =>
+        facilitatorFiles.push(
+          zip.add(posix.join(facilitatorFolder, `Facilitator guide.${fmt}`), data, {
+            group: "facilitator",
+            kind: "Facilitator guide",
+            format: fmt,
+            title: `${brandedLabTitle} — Facilitator Guide`,
+          }),
+        );
+
+      let facilitatorMd = renderFacilitatorGuideMarkdown(facilitatorModel);
+      if (customizedBranding) {
+        const facLogoRel = logoArchivePath
+          ? relative(facilitatorFolder, logoArchivePath).replace(/\\/g, "/")
+          : null;
+        facilitatorMd = prependBrandingBanner(facilitatorMd, branding, facLogoRel);
+      } else {
+        facilitatorMd = applyBrandingTokens(facilitatorMd, branding);
+      }
+      addFacilitatorFile("md", facilitatorMd);
+
+      if (selectedFormats.includes("docx")) {
+        addFacilitatorFile("docx", renderFacilitatorGuideDocxBuffer(facilitatorModel, {
+          title: `${brandedLabTitle} — Facilitator Guide`,
+          branding: docBranding,
+        }));
       }
       if (selectedFormats.includes("pdf")) {
-        const pdfBuf = renderMarkdownToPdfBuffer(docMarkdownWithInfo, {
-          title: docTitle,
+        addFacilitatorFile("pdf", renderFacilitatorGuidePdfBuffer(facilitatorModel, {
+          title: `${brandedLabTitle} — Facilitator Guide`,
           branding: docBranding,
-          resolveImageBuffer: resolveImgBuffer,
-        });
-        archive.append(pdfBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.pdf`) });
+        }));
       }
       if (selectedFormats.includes("html")) {
-        const modHtml = renderStandaloneLabHtml(docMarkdownWithInfo, {
-          title: docTitle,
-          labId,
-          renderMarkdown: renderLabMarkdown,
-          branding: htmlBranding,
-          resolveImageSrc: resolveInlineImgUri,
-        });
-        archive.append(modHtml, { name: posix.join(labId, folderRelPath, `${baseFileName}.html`) });
+        addFacilitatorFile("html", renderFacilitatorGuideHtml(facilitatorModel, {
+          branding: htmlBranding || { primaryColor: branding?.primaryColor },
+        }));
       }
-    };
 
-    let brandedLabTitle = found.manifest?.title || labId;
-    for (const [search, replace] of replacementEntries) {
-      brandedLabTitle = brandedLabTitle.split(search).join(replace);
-    }
-    brandedLabTitle = applyBrandingTokens(brandedLabTitle, branding);
-
-    const effectiveManifest = { ...(found.manifest || {}), title: brandedLabTitle };
-    const split = splitGeneratedLabModules(htmlSourceMd, effectiveManifest, { labId });
-    appendFormattedDocs(
-      split.overview.folderName,
-      sanitizeFilesystemTitle(split.overview.fileBaseName, "Lab Overview"),
-      split.overview.title,
-      split.overview.markdown,
-    );
-
-    const manifestMods = Array.isArray(effectiveManifest.modules) ? effectiveManifest.modules : [];
-    const productsText = Array.isArray(effectiveManifest.products)
-      ? effectiveManifest.products.join(", ")
-      : "";
-
-    const exportedModules = [];
-    for (const mod of split.modules) {
-      const mMeta =
-        manifestMods.find((m) => Number(m.order) === Number(mod.order)) || {};
-      appendFormattedDocs(
-        mod.folderName,
-        mod.fileBaseName,
-        `${brandedLabTitle} - ${mod.stepLabel} - ${mod.title}`,
-        mod.markdown,
-        {
-          featureId: mMeta.id || mod.id || null,
-          labTitle: brandedLabTitle,
-          stepLabel: mod.stepLabel,
-          topicTitle: mod.title,
-          levelText: mMeta.level ? `Level ${mMeta.level}` : "",
-          estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
-          products: productsText,
-          agentName: effectiveManifest?.options?.agentName || effectiveManifest?.request?.agentName || "",
-          harness:
-            effectiveManifest?.request?.harness ||
-            effectiveManifest?.differences?.labHarness ||
-            null,
-          trainingDigest: mMeta.trainingDigest || null,
-          manifest: effectiveManifest,
-        },
-      );
-
-      const sampleFiles = buildModuleSampleFiles(mod.moduleInfo, {
+      // The one file that is safe to send to the customer: only the prerequisites, at the top of the archive.
+      const checklistFormat = selectedFormats.includes("docx") ? "docx" : selectedFormats.includes("pdf") ? "pdf" : "html";
+      const checklistModel = buildPrerequisitesChecklist({
         manifest: effectiveManifest,
-        labTitle: brandedLabTitle,
-        replacementEntries,
+        markdown: rawSourceMd,
+        brand: customizedBranding ? branding : null,
+        replacements,
       });
-      const sampleFileNames = [];
-      for (const sample of sampleFiles) {
-        const brandedSampleContent = applyBrandingTokens(sample.content, branding);
-        archive.append(brandedSampleContent, {
-          name: posix.join(labId, mod.folderName, "sample-files", sample.filename),
-        });
-        sampleFileNames.push(sample.filename);
-      }
-
-      exportedModules.push({
-        order: mod.order,
-        id: mod.id,
-        stepLabel: mod.stepLabel,
-        title: mod.title,
-        fileBaseName: mod.fileBaseName,
-        folder: posix.join(labId, mod.folderName),
-        documents: selectedFormats.map((fmt) => posix.join(labId, mod.folderName, `${mod.fileBaseName}.${fmt}`)),
-        sampleFiles: sampleFileNames.map((fn) => posix.join(labId, mod.folderName, "sample-files", fn)),
-      });
-    }
-
-    // Bundle dedicated Instructor / Facilitator Guide Pack inside `<labId>/Facilitator Guide/`
-    const facilitatorModel = buildFacilitatorGuideModel({
-      labId,
-      labDir,
-      manifest: effectiveManifest,
-      markdown: htmlSourceMd,
-    });
-    const facilitatorSafeTitle = capFilesystemSegment(
-      sanitizeFilesystemTitle(brandedLabTitle, "Lab"),
-      80,
-      "Lab",
-    );
-    const facilitatorBaseName = `${facilitatorSafeTitle} - Facilitator Guide`;
-    const facilitatorFolder = posix.join(labId, "Facilitator Guide");
-    const facilitatorFiles = [];
-
-    let facilitatorMd = renderFacilitatorGuideMarkdown(facilitatorModel);
-    if (customizedBranding) {
-      const facLogoRel = logoArchivePath
-        ? relative(facilitatorFolder, logoArchivePath).replace(/\\/g, "/")
-        : null;
-      facilitatorMd = prependBrandingBanner(facilitatorMd, branding, facLogoRel);
-    } else {
-      facilitatorMd = applyBrandingTokens(facilitatorMd, branding);
-    }
-    const facilitatorMdPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.md`);
-    archive.append(facilitatorMd, { name: facilitatorMdPath });
-    facilitatorFiles.push(facilitatorMdPath);
-
-    if (selectedFormats.includes("docx")) {
-      const facDocx = renderFacilitatorGuideDocxBuffer(facilitatorModel, {
-        title: `${brandedLabTitle} — Facilitator Guide`,
-        branding: docBranding,
-      });
-      const facDocxPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.docx`);
-      archive.append(facDocx, { name: facDocxPath });
-      facilitatorFiles.push(facDocxPath);
-    }
-    if (selectedFormats.includes("pdf")) {
-      const facPdf = renderFacilitatorGuidePdfBuffer(facilitatorModel, {
-        title: `${brandedLabTitle} — Facilitator Guide`,
-        branding: docBranding,
-      });
-      const facPdfPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.pdf`);
-      archive.append(facPdf, { name: facPdfPath });
-      facilitatorFiles.push(facPdfPath);
-    }
-    if (selectedFormats.includes("html")) {
-      const facHtml = renderFacilitatorGuideHtml(facilitatorModel, {
-        branding: htmlBranding || { primaryColor: branding?.primaryColor },
-      });
-      const facHtmlPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.html`);
-      archive.append(facHtml, { name: facHtmlPath });
-      facilitatorFiles.push(facHtmlPath);
-    }
-
-    // The one file that is safe to send to the customer: only the prerequisites, at the top of the archive.
-    const checklistFormat = selectedFormats.includes("docx") ? "docx" : selectedFormats.includes("pdf") ? "pdf" : "html";
-    const checklistModel = buildPrerequisitesChecklist({
-      manifest: effectiveManifest,
-      markdown: rawSourceMd,
-      brand: customizedBranding ? branding : null,
-      replacements,
-    });
-    const customerChecklistFile = `Send to Customer - Prerequisites Checklist - ${facilitatorSafeTitle}.${checklistFormat}`;
-    archive.append(
-      checklistFormat === "docx"
-        ? renderPrerequisitesChecklistDocxBuffer(checklistModel, { branding: docBranding })
-        : checklistFormat === "pdf"
-          ? renderPrerequisitesChecklistPdfBuffer(checklistModel, { branding: docBranding })
-          : renderPrerequisitesChecklistHtml(checklistModel, { branding: htmlBranding || { primaryColor: branding?.primaryColor } }),
-      { name: customerChecklistFile },
-    );
-
-    // Everything for the administrator in one folder at the top of the archive, so it can be handed over on its
-    // own: the Administrator setup guide and the Prerequisites checklist, in the requested formats plus Markdown.
-    const adminFormats = ["docx", "pdf", "html"].filter((fmt) => selectedFormats.includes(fmt));
-    if (!adminFormats.length) adminFormats.push("docx");
-    const guideModel = buildAdministratorSetupGuide({
-      manifest: effectiveManifest,
-      markdown: rawSourceMd,
-      brand: customizedBranding ? branding : null,
-      replacements,
-    });
-    const adminFolderFiles = [];
-    const addAdminFile = (fileName, data) => {
-      const archivePath = posix.join(ADMIN_FOLDER_NAME, fileName);
-      archive.append(data, { name: archivePath });
-      adminFolderFiles.push(archivePath);
-    };
-    const guideBase = adminGuideBaseName(facilitatorSafeTitle);
-    const checklistBase = checklistBaseName(facilitatorSafeTitle);
-    const htmlOptions = { branding: htmlBranding || { primaryColor: branding?.primaryColor } };
-    for (const fmt of adminFormats) {
-      addAdminFile(
-        `${guideBase}.${fmt}`,
-        fmt === "docx"
-          ? renderAdministratorSetupGuideDocxBuffer(guideModel, { branding: docBranding })
-          : fmt === "pdf"
-            ? renderAdministratorSetupGuidePdfBuffer(guideModel, { branding: docBranding })
-            : renderAdministratorSetupGuideHtml(guideModel, htmlOptions),
-      );
-    }
-    addAdminFile(`${guideBase}.md`, renderAdministratorSetupGuideMarkdown(guideModel));
-    for (const fmt of adminFormats) {
-      addAdminFile(
-        `${checklistBase}.${fmt}`,
-        fmt === "docx"
+      const customerChecklistFile = zip.add(
+        `Send to Customer - Prerequisites Checklist - ${labFolder}.${checklistFormat}`,
+        checklistFormat === "docx"
           ? renderPrerequisitesChecklistDocxBuffer(checklistModel, { branding: docBranding })
-          : fmt === "pdf"
+          : checklistFormat === "pdf"
             ? renderPrerequisitesChecklistPdfBuffer(checklistModel, { branding: docBranding })
-            : renderPrerequisitesChecklistHtml(checklistModel, htmlOptions),
+            : renderPrerequisitesChecklistHtml(checklistModel, { branding: htmlBranding || { primaryColor: branding?.primaryColor } }),
+        { group: "customer", kind: "Prerequisites checklist (for the customer)", format: checklistFormat, title: checklistModel.title || `${brandedLabTitle} — Prerequisites checklist` },
       );
-    }
-    addAdminFile(`${checklistBase}.md`, renderPrerequisitesChecklistMarkdown(checklistModel));
 
-    // The pre-lab training decks, in the folder that sorts first. They are PowerPoint files, so they follow the formats asked for.
-    let trainingExport = null;
-    if (selectedFormats.includes("pptx")) {
-      try {
-        trainingExport = trainingZipEntries(labDir, {
-          labId,
-          markdown: htmlSourceMd,
-          manifest: effectiveManifest,
-          branding: docBranding,
-          live: replacementEntries.length > 0 || customizedBranding,
-        });
-        for (const entry of trainingExport.entries) archive.append(entry.data, { name: entry.name });
-      } catch {
-        trainingExport = null;
+      // Everything for the administrator in one folder at the top of the archive, so it can be handed over on its
+      // own: the Administrator setup guide and the Prerequisites checklist, in the requested formats plus Markdown.
+      const adminFormats = ["docx", "pdf", "html"].filter((fmt) => selectedFormats.includes(fmt));
+      if (!adminFormats.length) adminFormats.push("docx");
+      const guideModel = buildAdministratorSetupGuide({
+        manifest: effectiveManifest,
+        markdown: rawSourceMd,
+        brand: customizedBranding ? branding : null,
+        replacements,
+      });
+      const adminFolderFiles = [];
+      const addAdminFile = (fileName, data, kind, title) => {
+        const format = fileName.split(".").pop();
+        adminFolderFiles.push(zip.add(posix.join(ADMIN_FOLDER_NAME, fileName), data, { group: "administrator", kind, format, title }));
+      };
+      const htmlOptions = { branding: htmlBranding || { primaryColor: branding?.primaryColor } };
+      for (const fmt of adminFormats) {
+        addAdminFile(
+          `Administrator setup guide.${fmt}`,
+          fmt === "docx"
+            ? renderAdministratorSetupGuideDocxBuffer(guideModel, { branding: docBranding })
+            : fmt === "pdf"
+              ? renderAdministratorSetupGuidePdfBuffer(guideModel, { branding: docBranding })
+              : renderAdministratorSetupGuideHtml(guideModel, htmlOptions),
+          "Administrator setup guide",
+          guideModel.title || `${brandedLabTitle} — ${ADMIN_GUIDE_TITLE}`,
+        );
       }
-    }
+      addAdminFile("Administrator setup guide.md", renderAdministratorSetupGuideMarkdown(guideModel), "Administrator setup guide", guideModel.title || `${brandedLabTitle} — ${ADMIN_GUIDE_TITLE}`);
+      for (const fmt of adminFormats) {
+        addAdminFile(
+          `Prerequisites checklist.${fmt}`,
+          fmt === "docx"
+            ? renderPrerequisitesChecklistDocxBuffer(checklistModel, { branding: docBranding })
+            : fmt === "pdf"
+              ? renderPrerequisitesChecklistPdfBuffer(checklistModel, { branding: docBranding })
+              : renderPrerequisitesChecklistHtml(checklistModel, htmlOptions),
+          "Prerequisites checklist",
+          checklistModel.title || `${brandedLabTitle} — Prerequisites checklist`,
+        );
+      }
+      addAdminFile("Prerequisites checklist.md", renderPrerequisitesChecklistMarkdown(checklistModel), "Prerequisites checklist", checklistModel.title || `${brandedLabTitle} — Prerequisites checklist`);
 
-    const manifest = {
-      exportedAt: new Date().toISOString(),
-      source: "generated",
-      labs: [labId],
-      title: brandedLabTitle,
-      formats: selectedFormats,
-      overviewFolder: posix.join(labId, split.overview.folderName),
-      trainingDecksFolder: trainingExport ? TRAINING_ZIP_FOLDER : null,
-      trainingDecks: trainingExport ? trainingExport.files : [],
-      trainingMinutes: trainingExport ? trainingExport.summary.totalMinutes : null,
-      administratorFolder: ADMIN_FOLDER_NAME,
-      administratorFiles: adminFolderFiles,
-      facilitatorGuideFolder: facilitatorFolder,
-      facilitatorGuideFiles: facilitatorFiles,
-      customerPrerequisitesChecklist: customerChecklistFile,
-      modules: exportedModules,
-      customized: replacementEntries.length > 0 || customizedBranding,
-      branding: buildManifestBranding(branding, logoArchivePath),
-    };
-    archive.append(JSON.stringify(manifest, null, 2), { name: "export-manifest.json" });
-    archive.append(
-      renderBundleReadme({
+      // The pre-lab training decks, in the folder that sorts first. They are PowerPoint files, so they follow the formats asked for.
+      let trainingExport = null;
+      if (selectedFormats.includes("pptx")) {
+        try {
+          trainingExport = trainingZipEntries(labDir, {
+            labId,
+            markdown: htmlSourceMd,
+            manifest: effectiveManifest,
+            branding: docBranding,
+            live: replacementEntries.length > 0 || customizedBranding,
+          });
+        } catch {
+          trainingExport = null;
+        }
+        if (trainingExport) {
+          const deckKinds = { complete: "Training deck (complete)", foundations: "Training deck (foundations)", topic: "Training deck" };
+          for (const entry of trainingExport.entries) {
+            const isDeck = entry.name.endsWith(".pptx");
+            zip.add(entry.name, entry.data, {
+              group: "training",
+              kind: isDeck ? deckKinds[entry.kind] || "Training deck" : entry.kind || "Training notes",
+              format: isDeck ? "pptx" : "md",
+              title: entry.stepLabel ? `${entry.stepLabel} — ${entry.title}` : entry.title,
+              order: entry.order ?? null,
+              minutes: entry.minutes ?? null,
+            });
+          }
+        }
+      }
+
+      const readme = renderBundleReadme({
         title: brandedLabTitle,
         brand: branding,
         formats: selectedFormats,
@@ -1223,10 +1322,42 @@ export function exportGeneratedLab(
         customerChecklistFile,
         hasAdministratorFolder: true,
         trainingDecks: trainingExport ? { folder: TRAINING_ZIP_FOLDER, minutes: trainingExport.summary.totalMinutes } : null,
-      }),
-      { name: "README.md" },
-    );
+        labFolder,
+        contents: renderContentsMarkdown(zip.entries, { labFolder }),
+      });
+      zip.add("README.md", readme, { group: "readme", kind: "Guide", format: "md", title: "README" });
 
-    archive.finalize();
+      const manifest = {
+        exportedAt: new Date().toISOString(),
+        source: "generated",
+        labs: [labId],
+        title: brandedLabTitle,
+        formats: selectedFormats,
+        labFolder,
+        zipFileName,
+        overviewFolder: posix.join(labFolder, split.overview.folderName),
+        trainingDecksFolder: trainingExport ? TRAINING_ZIP_FOLDER : null,
+        trainingDecks: trainingExport ? trainingExport.files : [],
+        trainingMinutes: trainingExport ? trainingExport.summary.totalMinutes : null,
+        administratorFolder: ADMIN_FOLDER_NAME,
+        administratorFiles: adminFolderFiles,
+        facilitatorGuideFolder: facilitatorFolder,
+        facilitatorGuideFiles: facilitatorFiles,
+        customerPrerequisitesChecklist: customerChecklistFile,
+        modules: exportedModules,
+        customized: replacementEntries.length > 0 || customizedBranding,
+        branding: buildManifestBranding(branding, logoArchivePath),
+        // Added with the path budget: what the ZIP held to, and every short path with its full title.
+        pathBudget: zip.budgetReport(),
+        index: buildIndexRows(zip.entries),
+      };
+      summary = { labFolder, zipFileName, entryCount: zip.guard.count + 1, longestEntry: zip.guard.longest, warnings: zip.guard.warnings };
+      zip.add("export-manifest.json", JSON.stringify(manifest, null, 2), { group: "readme", kind: "Data", format: "json", title: "Export manifest" });
+
+      archive.finalize();
+    } catch (err) {
+      archive.abort();
+      reject(err);
+    }
   });
 }

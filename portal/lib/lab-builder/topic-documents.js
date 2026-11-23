@@ -16,6 +16,7 @@ import { resolveLabScreenshot } from "./captured.js";
 import { inspectImageDimensions, renderMarkdownToDocxBuffer } from "./docx-builder.js";
 import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
+import { shortenDownloadFileName } from "../export-names.js";
 import { CONNECTOR_NAMES_VERSION, needsConnectorRepair, repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
@@ -351,7 +352,8 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
  * header value with an ASCII fallback and UTF-8 `filename*` parameter.
  */
 export function buildAttachmentContentDisposition(exactFileName) {
-  const raw = String(exactFileName || "topic-document").replace(/[\r\n"]/g, "");
+  // Held to 120 characters (word boundary, extension kept) so saving into a deep folder works.
+  const raw = shortenDownloadFileName(String(exactFileName || "topic-document").replace(/[\r\n"]/g, ""));
   const asciiFallback = raw
     .replace(/[^\x20-\x7E]/g, "-")
     .replace(/[\\";]/g, "-")

@@ -11,7 +11,8 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { ZipArchive } from "archiver";
+import { createExportZip } from "../export-zip.js";
+import { zipDownloadName } from "../export-names.js";
 import { getBrandingLogoAbsolutePath } from "../branding.js";
 import { resolveLabBrand } from "../branding-profiles.js";
 import { isCustomBranding, resolveSafeGeneratedLabDir } from "../exporter.js";
@@ -156,18 +157,24 @@ export async function sendTrainingExport(res, { generatedLabsDir, labId, format 
   try {
     const brand = brandingFor(found.manifest);
     const built = trainingZipEntries(found.labDir, { labId: found.labId, branding: brand.branding, live: brand.custom });
-    const wanted = format === "training-foundations" ? built.entries.filter((e) => /\/Training deck - 00 Foundations - /.test(e.name)) : built.entries;
-    const title = String(found.manifest?.title || found.labId).replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || found.labId;
+    // Deck names inside the ZIP are the short ones ("Training 00 Foundations <product>.pptx"); see export-names.js.
+    const wanted = format === "training-foundations" ? built.entries.filter((e) => /\/Training 00 Foundations /.test(e.name)) : built.entries;
+    const title = String(found.manifest?.title || found.labId);
+    const zipName = zipDownloadName(title, { kind: format === "training-foundations" ? "Foundations decks" : "Training decks" });
     res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", buildAttachmentContentDisposition(`${title} - ${format === "training-foundations" ? "Foundations training decks" : "Training decks"}.zip`));
+    res.setHeader("Content-Disposition", buildAttachmentContentDisposition(zipName));
     res.setHeader("X-Content-Type-Options", "nosniff");
-    const archive = new ZipArchive({ zlib: { level: 6 } });
+    const zip = createExportZip({ level: 6 });
+    const archive = zip.archive;
     const finished = new Promise((resolve, reject) => {
       archive.on("error", reject);
       res.on("close", resolve);
     });
     archive.pipe(res);
-    for (const entry of wanted) archive.append(entry.data, { name: entry.name });
+    for (const entry of wanted) {
+      const isDeck = entry.name.endsWith(".pptx");
+      zip.add(entry.name, entry.data, { group: "training", kind: isDeck ? "Training deck" : "Training notes", format: isDeck ? "pptx" : "md", title: entry.title, minutes: entry.minutes ?? null, order: entry.order ?? null });
+    }
     await archive.finalize();
     return finished;
   } catch (err) {

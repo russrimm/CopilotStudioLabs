@@ -234,7 +234,7 @@ test("the matrix includes the pre-lab training decks: plain, branded, and inside
   assert.ok(training.filter((c) => /\(plain\)/.test(c.label)).length >= 6, "the complete, foundations, and topic decks of the sample labs");
   assert.ok(training.filter((c) => /\(branded\)/.test(c.label)).length >= 6, "the same decks with a brand profile and a logo");
   assert.ok(training.filter((c) => /\((?:plain|branded)\)/.test(c.label)).every((c) => c.expectNotes === true), "every training slide has speaker notes");
-  assert.ok(matrix.cases.some((c) => /ZIP bundle entry 1 - Training decks \(deliver first\)\/Training deck - Complete\.pptx/.test(c.label)), "the ZIP's training folder");
+  assert.ok(matrix.cases.some((c) => /ZIP bundle entry 1 - Training decks \(deliver first\)\/Training - complete\.pptx/.test(c.label)), "the ZIP's training folder");
 });
 
 test("the Open XML SDK validator reports zero schema errors for the whole matrix (skips without the .NET SDK)", { timeout: 300000 }, (t) => {

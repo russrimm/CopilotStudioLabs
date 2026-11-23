@@ -693,20 +693,21 @@ test("HTTP export endpoints serve facilitator-docx/pdf/md/html, bundle Facilitat
     );
     assert.equal(zipRes.status, 200);
     const zipEntries = parseZipArchive(Buffer.from(await zipRes.arrayBuffer()));
-    const basePrefix = `${built.labId}/Facilitator Guide/Tailspin Copilot Readiness Lab - Facilitator Guide`;
+    const exportManifest = JSON.parse(zipEntries.get("export-manifest.json").toString("utf8"));
+    const labFolder = exportManifest.labFolder;
+    const basePrefix = `${labFolder}/Facilitator Guide/Facilitator guide`;
     assert.ok(zipEntries.has(`${basePrefix}.md`), "ZIP missing Facilitator Guide .md");
     assert.ok(zipEntries.has(`${basePrefix}.docx`), "ZIP missing Facilitator Guide .docx");
     assert.ok(zipEntries.has(`${basePrefix}.pdf`), "ZIP missing Facilitator Guide .pdf");
     assert.ok(zipEntries.has(`${basePrefix}.html`), "ZIP missing Facilitator Guide .html");
 
-    const exportManifest = JSON.parse(zipEntries.get("export-manifest.json").toString("utf8"));
-    assert.equal(exportManifest.facilitatorGuideFolder, `${built.labId}/Facilitator Guide`);
+    assert.equal(exportManifest.facilitatorGuideFolder, `${labFolder}/Facilitator Guide`);
     assert.ok(exportManifest.facilitatorGuideFiles.includes(`${basePrefix}.docx`));
     assert.ok(exportManifest.facilitatorGuideFiles.includes(`${basePrefix}.pdf`));
 
     // Verify per-module .pptx inside the ZIP also includes ECMA-376 Speaker Notes
     const modulePptxKey = [...zipEntries.keys()].find(
-      (k) => k.startsWith(`${built.labId}/Module 01`) && k.endsWith(".pptx"),
+      (k) => k.startsWith(`${labFolder}/01 `) && k.endsWith(".pptx"),
     );
     assert.ok(modulePptxKey, "Expected per-module .pptx inside ZIP export");
     assertValidPptxSpeakerNotes(zipEntries.get(modulePptxKey), "zip-module-pptx");

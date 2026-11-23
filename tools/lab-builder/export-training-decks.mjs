@@ -93,9 +93,10 @@ try {
   if (!flags.lab) throw new Error("--lab is required. Run with --help.");
   const { buildTrainingPlan } = await lib("lab-builder/training-plan.js");
   const { loadTrainingLibrary } = await lib("lab-builder/training-library.js");
-  const { planDecks, resolveDeckKey, summarizePlan } = await lib("lab-builder/training-decks.js");
+  const { planDecks, resolveDeckKey, summarizePlan, trainingExportFileName } = await lib("lab-builder/training-decks.js");
   const { renderTrainingDeck } = await lib("lab-builder/training-pptx.js");
   const { brandingFor } = await lib("lab-builder/training-routes.js");
+  const { shortLabName } = await lib("export-names.js");
 
   const root = flags.root ? path.resolve(flags.root) : path.join(REPO_ROOT, "generated-labs");
   const labDir = findLabFolder(flags.lab, root);
@@ -114,7 +115,8 @@ try {
     chosen = all.filter((d) => d.descriptor.key === resolved.key);
   }
 
-  const safeTitle = String(plan.labTitle).replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Lab";
+  // Short names, the same ones the portal's ZIP uses, so the folder extracts and opens anywhere on Windows.
+  const safeTitle = shortLabName(plan.labTitle);
   const outArg = flags.out ? path.resolve(flags.out) : null;
   const singleFile = flags.topic !== undefined && outArg && /\.pptx$/i.test(outArg);
   const folder = singleFile ? path.dirname(outArg) : outArg || path.resolve(`${safeTitle} - Training decks`);
@@ -123,7 +125,7 @@ try {
   let written = 0;
   for (const { descriptor, spec } of chosen) {
     const { buffer, overflow } = renderTrainingDeck(spec, { branding: brand.branding, library });
-    const file = singleFile ? outArg : path.join(folder, descriptor.fileName);
+    const file = singleFile ? outArg : path.join(folder, trainingExportFileName(plan, descriptor));
     fs.writeFileSync(file, buffer);
     written += 1;
     const flag = descriptor.unreviewed ? "  (review before you present)" : "";

@@ -940,6 +940,25 @@ async function lbOpenGenerated(labId) {
   await lbLoadResultPreview(labId);
 }
 
+/**
+ * The file name the server chose for a download (its Content-Disposition), so the saved file carries the short name the
+ * server holds to the Windows path budget instead of a name built here from the long title.
+ */
+function lbDownloadNameFrom(res, fallback) {
+  const header = String(res?.headers?.get?.("content-disposition") || "");
+  const star = /filename\*\s*=\s*UTF-8''([^;]+)/i.exec(header);
+  if (star) {
+    try {
+      const decoded = decodeURIComponent(star[1].trim());
+      if (decoded) return decoded;
+    } catch {
+      /* fall through to the plain name */
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(header);
+  return plain && plain[1].trim() ? plain[1].trim() : fallback;
+}
+
 async function lbDownloadGeneratedHtml(labId) {
   if (!labId) return;
   try {
@@ -955,7 +974,7 @@ async function lbDownloadGeneratedHtml(labId) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${fileBase}.html`;
+    link.download = lbDownloadNameFrom(res, `${fileBase}.html`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -986,8 +1005,9 @@ async function lbExportGeneratedZip(labId, triggerEl) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const suffix = formats !== "all" ? `-${formats}` : "";
-    const fileName = `${fileBase}${suffix}.zip`;
+    const suffix = formats !== "all" ? ` (${formats.replace(/,/g, "+")})` : "";
+    // The server names the ZIP "<short lab name> - Lab package.zip" (at most 50 characters); this is only the fallback.
+    const fileName = lbDownloadNameFrom(res, `${fileBase.slice(0, 24).trim()} - Lab package${suffix}.zip`);
     link.href = url;
     link.download = fileName;
     document.body.appendChild(link);

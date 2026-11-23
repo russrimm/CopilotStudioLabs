@@ -73,6 +73,8 @@ import * as blobPersistence from "./lib/blob-persistence.js";
 import { registerCaptureRoutes } from "./lib/capture/routes.js";
 import { ownerOf } from "./lib/capture/owner.js";
 import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
+import { shortenDownloadFileName } from "./lib/export-names.js";
+import { buildAttachmentContentDisposition } from "./lib/lab-builder/topic-documents.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
 import { createBuildQueue, BuildQueueError, isTicket } from "./lib/concurrency/build-queue.js";
@@ -988,7 +990,8 @@ async function handleGeneratedLabExport(req, res) {
       preferredBase = "";
     }
     const fallbackName = `${found.labId}${suffix}.${ext}`;
-    const preferredName = preferredBase ? `${preferredBase}${suffix}.${ext}` : fallbackName;
+    // A downloaded file name is held to 120 characters (word boundary, extension kept) so saving into a deep folder works.
+    const preferredName = shortenDownloadFileName(preferredBase ? `${preferredBase}${suffix}.${ext}` : fallbackName);
     const encodedUtf8 = encodeURIComponent(preferredName).replace(
       /['()*]/g,
       (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
@@ -1015,7 +1018,7 @@ async function handleGeneratedLabExport(req, res) {
       }
     }
     const cleanBase = baseTitle || found.labId;
-    const preferredName = `${cleanBase} - Facilitator Guide.${ext}`;
+    const preferredName = shortenDownloadFileName(`${cleanBase} - Facilitator Guide.${ext}`);
     const asciiSafeName = preferredName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
     const encodedUtf8 = encodeURIComponent(preferredName).replace(
       /['()*]/g,
@@ -1039,7 +1042,7 @@ async function handleGeneratedLabExport(req, res) {
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
-      const preferredName = `${rendered.baseName}.${rendered.ext}`;
+      const preferredName = shortenDownloadFileName(`${rendered.baseName}.${rendered.ext}`);
       const asciiSafeName = preferredName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
       const encodedUtf8 = encodeURIComponent(preferredName).replace(
         /['()*]/g,
@@ -1065,14 +1068,14 @@ async function handleGeneratedLabExport(req, res) {
       if (rendered.status !== 200) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
-      const preferredName = `${rendered.baseName}.${rendered.ext}`;
+      const preferredName = shortenDownloadFileName(`${rendered.baseName}.${rendered.ext}`);
       const asciiSafeName = preferredName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
       const encodedUtf8 = encodeURIComponent(preferredName).replace(
         /['()*]/g,
         (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
       );
       res.setHeader("Content-Type", rendered.contentType);
-      res.setHeader("Content-Disposition", `attachment; filename="${asciiSafeName}"; filename*=UTF-8'${encodedUtf8}`);
+      res.setHeader("Content-Disposition", `attachment; filename="${asciiSafeName}"; filename*=UTF-8''${encodedUtf8}`);
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer ?? rendered.text);
     } catch (err) {
@@ -1272,9 +1275,6 @@ async function handleGeneratedLabExport(req, res) {
     }
   }
 
-  const zipSuffix =
-    selectedZipFormats && selectedZipFormats.length === 1 ? `-${selectedZipFormats[0]}` : "";
-
   // The ZIP is built in a worker into a staging file, then streamed, so building it never holds up other people.
   let staged = null;
   try {
@@ -1283,7 +1283,8 @@ async function handleGeneratedLabExport(req, res) {
     return res.status(err.status || 500).json({ error: err.message });
   }
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", buildExportContentDisposition("zip", zipSuffix));
+  // "<short lab name> - Lab package.zip", at most 50 characters, so the folder Explorer makes from it stays short too.
+  res.setHeader("Content-Disposition", buildAttachmentContentDisposition(staged.fileName || `${found.labId.slice(0, 40)}.zip`));
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Content-Length", String(statSync(staged.file).size));
   const source = createReadStream(staged.file);
