@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-20T05:55:20.130Z",
+  "generatedAt": "2026-11-23T06:37:01.350Z",
   "source": "microsoft-learn-mcp",
   "product": "ai-foundry",
   "catalogVersion": 1,
@@ -28,7 +28,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "693f2bb25e0ed46a"
     },
@@ -47,7 +47,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "7ac1202de336dc0a"
     },
@@ -66,7 +66,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "7e928de276e2985c"
     },
@@ -85,7 +85,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b677f717602ecf6e"
     },
@@ -104,9 +104,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "121a0596bdc0d2a5"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "0b8ecb7044a388c6"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-agents-networking-deep-dive",
@@ -123,7 +123,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b1f0a32b732c9dd3"
     },
@@ -142,9 +142,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "6badd870e61d2992"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "4171c7fa1853cdef"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-cli-agent-development",
@@ -161,7 +161,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d7b61c592a99b041"
     },
@@ -180,7 +180,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ce8d1b9368d2bbb3"
     },
@@ -200,7 +200,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "223b1b61bb3afb5c",
       "subtopics": [
@@ -228,7 +228,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "393c719c6ffff35f"
     },
@@ -247,9 +247,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "f3b8217c8594e14e"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "70c8cf655b2dc124"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-hosted-agent-permissions",
@@ -266,9 +266,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "ef3c1b8b19398340"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "345984df4e4db97b"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-hosted-agents",
@@ -285,9 +285,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "ae2bb39c5dc4f3ee"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "9b2fb7670fd3557a"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-identity-access-overview",
@@ -304,7 +304,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0d4dc2733612ba6b"
     },
@@ -323,9 +323,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "742bb85e1d9a618b"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "48c0fdb34bff6ba5"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-long-running-agent-resilience",
@@ -342,9 +342,28 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "23621f6a638752e9"
+    },
+    {
+      "id": "learn-azure-foundry-agents-concepts-native-activity-adapter",
+      "title": "Native Activity protocol overview for Microsoft Foundry",
+      "product": "ai-foundry",
+      "summary": "With the native Activity adapter, your Microsoft Foundry hosted agent handles messages and events from Teams and other supported channels directly. Use it to build custom interactions, such as responding to a card action or welcoming someone who joins a conversation.",
+      "urls": [
+        "https://learn.microsoft.com/azure/foundry/agents/concepts/native-activity-adapter"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-23",
+      "lastSeen": "2026-11-23",
+      "changedAt": null,
+      "contentHash": "2da7c9800074b392"
     },
     {
       "id": "learn-azure-foundry-agents-concepts-prompt-agents",
@@ -361,7 +380,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "895b7c95f3133483"
     },
@@ -380,7 +399,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ffb7768a7b70b3cd"
     },
@@ -399,7 +418,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "64ceaee19887c314"
     },
@@ -418,7 +437,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "60279f8f86be8600"
     },
@@ -441,7 +460,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "60279f8f86be8600"
     },
@@ -460,7 +479,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f274f0eb700650ca"
     },
@@ -479,7 +498,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "12f7adc3ddfe2a12"
     },
@@ -498,7 +517,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d87df8545b181629"
     },
@@ -517,7 +536,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "050fec7a4e389d5b"
     },
@@ -536,7 +555,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c08798a29750819e"
     },
@@ -555,7 +574,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "06aff5885e2ad78b"
     },
@@ -574,7 +593,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0c2b18c7e5c4a465"
     },
@@ -593,7 +612,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "54bf27f612ece649"
     },
@@ -612,7 +631,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4519d6393986f305"
     },
@@ -631,9 +650,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "b6ed29dd4456fc2a"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "f0272440d9f5585c"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-agent-applications",
@@ -650,7 +669,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0709e6c9140098a3"
     },
@@ -669,7 +688,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "db384dc3900234ba"
     },
@@ -688,7 +707,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "371237c06c1e2b0f"
     },
@@ -707,9 +726,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "5087828314cfd469"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "23cdfe5cdf0848fd"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-build-voice-agent",
@@ -726,7 +745,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c48fd618dd7891af"
     },
@@ -745,7 +764,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1ab95b7f80422ad5"
     },
@@ -764,9 +783,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "636664a2f06f74a5"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "f2157cdd0d03c16b"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-configure-voice-agent",
@@ -783,9 +802,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "66c6e7e89f923c60"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "fc49ea2b6ef8d310"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-connected-models",
@@ -802,7 +821,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e5b01d536d9ab5a4"
     },
@@ -821,7 +840,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f9a977d8b93e4846"
     },
@@ -840,9 +859,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "41414df9d6a4c1ee"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "f51f3205130c5774"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-deploy-hosted-agent-code",
@@ -859,7 +878,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "df91aa93e0d5e172"
     },
@@ -878,7 +897,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a5b3f751ddbe92ba"
     },
@@ -897,7 +916,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "9f70596692edd0a6"
     },
@@ -916,7 +935,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e9b279617c2843df"
     },
@@ -935,9 +954,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "c94c12f5d4fa48e4"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "c7d31c5d83a32060"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-install-cli-foundry-extensions",
@@ -954,7 +973,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "44b8577bba91e665"
     },
@@ -973,7 +992,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "cb138b3832038a47"
     },
@@ -992,7 +1011,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "bc10397e36f4f75d"
     },
@@ -1011,7 +1030,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "922cf2c6adc9ea36"
     },
@@ -1030,9 +1049,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "bc1b244e2bd88ee7"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "815dee6858af5670"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-manage-task-state",
@@ -1049,7 +1068,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d2eb15d67cc227d6"
     },
@@ -1068,7 +1087,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "82d8f9b078447456"
     },
@@ -1087,7 +1106,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "02f4c7a7585c0b81"
     },
@@ -1106,7 +1125,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "73fe70a0c7d47e9f"
     },
@@ -1125,7 +1144,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "45c14ea5c18ce958"
     },
@@ -1144,7 +1163,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dbacd7e3bea24634"
     },
@@ -1167,9 +1186,9 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "03388811a57a361f"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "7beb71d12362cca1"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-publish-copilot-virtual-network",
@@ -1186,9 +1205,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "aeeab7b625d568d3"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "6a228ac52a9337a5"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-register-external-agent",
@@ -1205,7 +1224,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c747edb30be1118d"
     },
@@ -1213,7 +1232,7 @@
       "id": "learn-azure-foundry-agents-how-to-run-hosted-agent-locally",
       "title": "Run a hosted agent locally with the Azure Developer CLI",
       "product": "ai-foundry",
-      "summary": "Use azd ai agent run to start your Microsoft Foundry hosted agent on your local machine and azd ai agent invoke --local to test it without deploying to Azure. You also learn how to set ports, choose an agent in a multi-agent project, override startup commands, and pass local runtime secrets.",
+      "summary": "Use azd ai agent run to start your Microsoft Foundry hosted agent locally without deploying to Azure. Test Responses and Invocations with azd ai agent invoke --local , or use the Microsoft 365 Agents Playground for native Activity.",
       "urls": [
         "https://learn.microsoft.com/azure/foundry/agents/how-to/run-hosted-agent-locally"
       ],
@@ -1224,9 +1243,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "48eef1be21b1a791"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "72198a07a30401f9"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-tools-agent-to-agent",
@@ -1243,7 +1262,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "48872a9f12cc1088"
     },
@@ -1264,7 +1283,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d254a87bbbe85728"
     },
@@ -1283,7 +1302,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5e54e7de23681dea"
     },
@@ -1302,7 +1321,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4168bc8fc462b4b7"
     },
@@ -1321,7 +1340,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2d9dd122a58bc375"
     },
@@ -1340,7 +1359,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "06cfd8853c2b32a8"
     },
@@ -1359,7 +1378,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "8ff7125d401f1c9f"
     },
@@ -1378,7 +1397,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dc9a924b57ea11e6"
     },
@@ -1397,7 +1416,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f15cfa8b27d3ec70"
     },
@@ -1418,7 +1437,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c149200fda4890bb"
     },
@@ -1437,7 +1456,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a8e7c21e9edaeed4"
     },
@@ -1456,7 +1475,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4957ca0b2447b88d"
     },
@@ -1475,7 +1494,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "927e0c59d8d7d950"
     },
@@ -1494,7 +1513,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ab8bf5c946b4daf7"
     },
@@ -1513,7 +1532,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "be15edc2f109e7ed"
     },
@@ -1532,7 +1551,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dcae7c40532863eb"
     },
@@ -1551,9 +1570,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "3b23a62bb779fb06"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "9bc83e2332e38a26"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-tools-tool-authentication",
@@ -1570,7 +1589,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "74ae673032e71407"
     },
@@ -1591,9 +1610,9 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "89faff63d7e13223"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "7e8e341225cd67bc"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-tools-use-toolbox-hosted-agent",
@@ -1610,9 +1629,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "cf74967c91322620"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "d4e37848997063ee"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-tools-web-overview",
@@ -1629,7 +1648,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5020c54597a7a227"
     },
@@ -1648,7 +1667,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "edd08cc361eb382f"
     },
@@ -1667,7 +1686,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ef306b6d6a3b1078"
     },
@@ -1686,7 +1705,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5355aa896831e88d"
     },
@@ -1705,7 +1724,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f7083cb069281cd7"
     },
@@ -1724,7 +1743,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f5c0bcc67c8cdf58"
     },
@@ -1743,7 +1762,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b96b10a60d93dd4f"
     },
@@ -1762,7 +1781,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2798d9ee068d00da"
     },
@@ -1781,9 +1800,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "e7df29565f874eda"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "752a10b6c82501af"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-virtual-networks",
@@ -1800,9 +1819,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "560af3edfea46dda"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "76ceb78cb42a4047"
     },
     {
       "id": "learn-azure-foundry-agents-how-to-voice-agent-channels-publish",
@@ -1819,7 +1838,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6b59ff8006f52fed"
     },
@@ -1838,7 +1857,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5e7f67d74857d06c"
     },
@@ -1857,7 +1876,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "cc628625df2f8f7b"
     },
@@ -1876,7 +1895,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "45e30eedb25f65f0"
     },
@@ -1897,7 +1916,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dd3a8121987485e5"
     },
@@ -1916,7 +1935,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "9d5e8a594467769e"
     },
@@ -1935,7 +1954,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0edfe23b5b8a6992"
     },
@@ -1956,7 +1975,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "bb3d5f55c39c3ab4"
     },
@@ -1975,7 +1994,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f10ac61432c4e9a4"
     },
@@ -1994,7 +2013,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "236b81bdbc7b349d"
     },
@@ -2013,7 +2032,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "48e423be1e404f9b"
     },
@@ -2032,9 +2051,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "568aef3f37a0042c"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "de7494381794f97e"
     },
     {
       "id": "learn-azure-foundry-classic-agents-environment-setup",
@@ -2051,7 +2070,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4fc5c5b3a88a8e24"
     },
@@ -2070,7 +2089,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d28d006646ad6e32"
     },
@@ -2089,7 +2108,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e258595ad8228226"
     },
@@ -2108,7 +2127,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "859681ee7284fdae"
     },
@@ -2127,7 +2146,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "098e5eef88175858"
     },
@@ -2146,7 +2165,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "098ddc10d2b22aa4"
     },
@@ -2165,7 +2184,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3df04afc6126abcf"
     },
@@ -2184,9 +2203,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "28cb05435f9e1a69"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "d0364fdca2118bca"
     },
     {
       "id": "learn-azure-foundry-classic-agents-overview",
@@ -2203,7 +2222,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f5aaf9cc0be3d60f"
     },
@@ -2222,9 +2241,9 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "59a0f5dfc9c7d86a"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "46372d1be3aca74a"
     },
     {
       "id": "learn-azure-foundry-classic-concepts-ai-resources",
@@ -2243,7 +2262,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "49da290b67b2bab6"
     },
@@ -2262,7 +2281,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "9a6c0c91ef44d12b"
     },
@@ -2281,7 +2300,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d1d001fb3d8077c9"
     },
@@ -2300,9 +2319,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "3189569207f2d718"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "eb976a3b9791b8e8"
     },
     {
       "id": "learn-azure-foundry-classic-concepts-vulnerability-management",
@@ -2319,7 +2338,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "73700df4e374e395"
     },
@@ -2338,7 +2357,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "55b0520079d7e967"
     },
@@ -2357,7 +2376,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4475c26f6887c067"
     },
@@ -2376,7 +2395,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "497929b5dd82962d"
     },
@@ -2395,7 +2414,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f0834448996b50a3"
     },
@@ -2416,7 +2435,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5eddd73eb7bb20e2"
     },
@@ -2437,7 +2456,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3062500730ac7a96",
       "subtopics": [
@@ -2472,7 +2491,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "61ae1fe2e1749e5f"
     },
@@ -2491,7 +2510,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e03c2d3e3f9b7c99"
     },
@@ -2512,7 +2531,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1eed184a26d5a009"
     },
@@ -2531,7 +2550,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c3371c05ae897cae"
     },
@@ -2550,7 +2569,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "7fe312982a07a23d"
     },
@@ -2569,7 +2588,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4f9bf5c33c1ef4ec"
     },
@@ -2588,7 +2607,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0acbe0750341ba99"
     },
@@ -2609,7 +2628,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e829467f26168711"
     },
@@ -2628,7 +2647,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e7e8c04093ac3793"
     },
@@ -2652,7 +2671,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1286270073d0b7b2"
     },
@@ -2671,7 +2690,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "7a81a196146ee8fd"
     },
@@ -2690,7 +2709,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "538dd6080bbde582"
     },
@@ -2709,7 +2728,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "183a7f84543f4d0e"
     },
@@ -2728,9 +2747,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "77fe9b067d52c1c1"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "f2aa76c84e620bf4"
     },
     {
       "id": "learn-azure-foundry-concepts-built-in-evaluators",
@@ -2747,7 +2766,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b7902602c24b3c01"
     },
@@ -2766,7 +2785,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f2bc42272fbef185"
     },
@@ -2785,7 +2804,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a3bdcde15e57d359"
     },
@@ -2804,7 +2823,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "66229e08b401b178"
     },
@@ -2825,7 +2844,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a2a016a0c63508bf"
     },
@@ -2844,9 +2863,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "123ba2efb1b4fe80"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "9cfabda1cfed20a1"
     },
     {
       "id": "learn-azure-foundry-concepts-cost-management-permissions",
@@ -2863,7 +2882,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "15b16fdea1b8764c"
     },
@@ -2882,7 +2901,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2af80a35a90812d4"
     },
@@ -2901,7 +2920,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ed742aff1cb208f5"
     },
@@ -2922,7 +2941,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "90f43d0850978abe"
     },
@@ -2941,7 +2960,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6dfce7bfaaea885b"
     },
@@ -2962,7 +2981,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d855a9da56479d10"
     },
@@ -2990,7 +3009,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2516ea6815cda74b"
     },
@@ -3009,7 +3028,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "050397b00e1299fe"
     },
@@ -3030,7 +3049,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1f3a1688ee0f52a6"
     },
@@ -3049,7 +3068,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f772dd9903217d03"
     },
@@ -3068,7 +3087,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2655941e012ce5d3"
     },
@@ -3087,7 +3106,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5e5c8d4ebc571125"
     },
@@ -3106,7 +3125,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c8cb4dda3db16c4d"
     },
@@ -3127,7 +3146,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "61f418a86e010053"
     },
@@ -3148,7 +3167,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5ed6aac45b1d754d"
     },
@@ -3167,7 +3186,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5efa384bd1ba436a"
     },
@@ -3186,7 +3205,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "387ad6bb8679ab68"
     },
@@ -3205,7 +3224,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "9ae0f11b89120212"
     },
@@ -3224,7 +3243,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1c75f2fe3aacd677"
     },
@@ -3243,7 +3262,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "04b00168937fa9a1"
     },
@@ -3262,7 +3281,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3d0dec66dfa1eb98"
     },
@@ -3281,7 +3300,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6ca3120100d3160e"
     },
@@ -3300,7 +3319,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "aaad850ccb7005d3"
     },
@@ -3319,7 +3338,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "32d4a608a92277fc"
     },
@@ -3338,7 +3357,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c51dea120f9f5be4"
     },
@@ -3357,7 +3376,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ea08469602da75da"
     },
@@ -3376,7 +3395,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3a45a239d5d20d10"
     },
@@ -3395,7 +3414,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e05cdd2fee8743c5"
     },
@@ -3414,7 +3433,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "39b7ed91b36fa08e"
     },
@@ -3433,7 +3452,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f8cfdceec19ad4cd"
     },
@@ -3452,7 +3471,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6f03af95a2ffd743"
     },
@@ -3471,7 +3490,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4d49a819f9c5b656"
     },
@@ -3490,7 +3509,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "34f4c22d0d0fd2e2"
     },
@@ -3513,7 +3532,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2ce357e5d32e94e3"
     },
@@ -3532,7 +3551,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "de02c64cb90c87ed"
     },
@@ -3551,7 +3570,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "8277dd93b4a4acd6"
     },
@@ -3570,7 +3589,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "63d0aad001e07aa2"
     },
@@ -3589,7 +3608,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2f8201e7c0516087"
     },
@@ -3608,7 +3627,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e7cf8c702dbf22ac"
     },
@@ -3627,7 +3646,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "785915282876ceba"
     },
@@ -3648,7 +3667,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e90ece3ae6c19e29"
     },
@@ -3667,7 +3686,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "058b5cd649d447fe"
     },
@@ -3686,7 +3705,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5df717aae2491785"
     },
@@ -3705,9 +3724,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "0dd59731f6505500"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "af993ca0074551fd"
     },
     {
       "id": "learn-azure-foundry-how-to-create-projects",
@@ -3726,7 +3745,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6ab038f7b7a15b9c"
     },
@@ -3745,7 +3764,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b7acb66c6ac52802"
     },
@@ -3764,7 +3783,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "99df93f5795ed676"
     },
@@ -3783,7 +3802,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "efcf8e73cfc849bd"
     },
@@ -3802,7 +3821,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "9cc986b70eaecdb4"
     },
@@ -3821,9 +3840,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "ed9ed1edd0f30c65"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "371448837bc1dfec"
     },
     {
       "id": "learn-azure-foundry-how-to-develop-install-cli-sdk",
@@ -3840,7 +3859,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a0129048265493c4"
     },
@@ -3859,7 +3878,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "57c9704d668c1c57"
     },
@@ -3878,7 +3897,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ef563d21ab666a84"
     },
@@ -3897,7 +3916,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "423bb61c0b22ef3c"
     },
@@ -3916,7 +3935,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "812143b02e037e26"
     },
@@ -3936,7 +3955,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4633cf5f23c8b726",
       "subtopics": [
@@ -3964,7 +3983,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "73a796a0b85b33ea"
     },
@@ -3983,7 +4002,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "02b76e092762580f"
     },
@@ -4002,7 +4021,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "54e615524d521e61"
     },
@@ -4021,7 +4040,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "cf8a1b383eb98c40"
     },
@@ -4040,7 +4059,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f3914d7252bdde45"
     },
@@ -4059,7 +4078,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dc5d9e716c270a20"
     },
@@ -4078,7 +4097,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c3be496f1b721340"
     },
@@ -4099,7 +4118,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "28f67d7fc89430d2"
     },
@@ -4118,7 +4137,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "4b2e635f51d82c56"
     },
@@ -4137,7 +4156,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f7fb08fc0237ac15"
     },
@@ -4156,7 +4175,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "94834872cbca2297"
     },
@@ -4175,7 +4194,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "19823b3476909076"
     },
@@ -4194,7 +4213,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "159f11eef319eac8"
     },
@@ -4213,7 +4232,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6e78f8ec9eb5713d"
     },
@@ -4232,7 +4251,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "08bd366dd98589ec"
     },
@@ -4251,7 +4270,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ac505bd5262805b9"
     },
@@ -4272,7 +4291,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5a29276610234bc7"
     },
@@ -4291,7 +4310,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ffae8b8d1297448e"
     },
@@ -4310,7 +4329,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "104a8f16afb12d82"
     },
@@ -4329,7 +4348,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "fca4664635f98cf9"
     },
@@ -4348,7 +4367,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2ea10269dc970fe5"
     },
@@ -4367,9 +4386,9 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "163992d18b4aaf3b"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "cd79e9c0d02ce757"
     },
     {
       "id": "learn-azure-foundry-mcp-get-started",
@@ -4386,7 +4405,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "8aa5f3ff33053e2e"
     },
@@ -4405,7 +4424,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dac35cddc915b378"
     },
@@ -4424,7 +4443,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "086bffdcc22049b4"
     },
@@ -4443,7 +4462,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "266489dcadd037eb"
     },
@@ -4462,7 +4481,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ba84d7937da5c913"
     },
@@ -4481,7 +4500,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b65f21541c3ae112"
     },
@@ -4500,7 +4519,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "8c8e03090087c5bc"
     },
@@ -4519,7 +4538,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "dd0d392680b578fe"
     },
@@ -4538,7 +4557,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0240aa4c99a796b0"
     },
@@ -4559,7 +4578,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a959bf0d9e386d36"
     },
@@ -4578,7 +4597,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "da21218431d4943e"
     },
@@ -4597,7 +4616,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "5d34e3d1edfcc475"
     },
@@ -4616,7 +4635,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d03efbf824cbd522"
     },
@@ -4638,7 +4657,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3c0f3dcee33b0ce1"
     },
@@ -4657,7 +4676,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e616b1f67bb1e37a"
     },
@@ -4676,7 +4695,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "88bab9bfb796b45d"
     },
@@ -4695,7 +4714,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "3a45a239d5d20d10"
     },
@@ -4714,7 +4733,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "64636cd75ef729c3"
     },
@@ -4733,7 +4752,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "53314b6a4acc36fc"
     },
@@ -4752,7 +4771,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6a8c3636cd1bda99"
     },
@@ -4771,7 +4790,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f5f765c7a663ec2f"
     },
@@ -4790,7 +4809,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f7603ba0175dc70e"
     },
@@ -4812,7 +4831,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b6e81fda0aa0a3a8"
     },
@@ -4836,7 +4855,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "05ea8b059eaa4689"
     }
@@ -4865,9 +4884,9 @@
     },
     {
       "featureId": "fdy-connect-agent-to-copilot-studio",
-      "status": "current",
-      "contentHash": "6e6fa607f0576bf7",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "99f0887200711438",
+      "changedAt": "2026-11-23",
       "missing": []
     },
     {
@@ -4956,16 +4975,16 @@
     },
     {
       "featureId": "fdy-publish-agent-copilot-teams",
-      "status": "current",
-      "contentHash": "6937fc445de31dbd",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "afe0936cd7eb945d",
+      "changedAt": "2026-11-23",
       "missing": []
     },
     {
       "featureId": "fdy-toolbox-tools",
-      "status": "current",
-      "contentHash": "e9277e1501a3b088",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "1a1dcd5e74b40a08",
+      "changedAt": "2026-11-23",
       "missing": []
     },
     {
@@ -4977,16 +4996,16 @@
     },
     {
       "featureId": "fdy-troubleshoot-publishing",
-      "status": "current",
-      "contentHash": "94cb950c909bc786",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "7e2de9886fcc6036",
+      "changedAt": "2026-11-23",
       "missing": []
     }
   ],
   "pageHashes": {
     "https://learn.microsoft.com/azure/foundry": "693f2bb25e0ed46a",
     "https://learn.microsoft.com/azure/foundry-classic": "48e423be1e404f9b",
-    "https://learn.microsoft.com/azure/foundry-classic/agents/concepts/standard-agent-setup": "568aef3f37a0042c",
+    "https://learn.microsoft.com/azure/foundry-classic/agents/concepts/standard-agent-setup": "de7494381794f97e",
     "https://learn.microsoft.com/azure/foundry-classic/agents/environment-setup": "4fc5c5b3a88a8e24",
     "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/connected-agents": "d28d006646ad6e32",
     "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/tools-classic/bing-grounding": "e258595ad8228226",
@@ -4994,14 +5013,14 @@
     "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/tools-classic/file-search": "098e5eef88175858",
     "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/tools-classic/model-context-protocol": "098ddc10d2b22aa4",
     "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/tools-classic/openapi-spec": "3df04afc6126abcf",
-    "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/use-your-own-resources": "28cb05435f9e1a69",
+    "https://learn.microsoft.com/azure/foundry-classic/agents/how-to/use-your-own-resources": "d0364fdca2118bca",
     "https://learn.microsoft.com/azure/foundry-classic/agents/overview": "f5aaf9cc0be3d60f",
-    "https://learn.microsoft.com/azure/foundry-classic/agents/quickstart": "59a0f5dfc9c7d86a",
+    "https://learn.microsoft.com/azure/foundry-classic/agents/quickstart": "46372d1be3aca74a",
     "https://learn.microsoft.com/azure/foundry-classic/concepts/ai-resources": "49da290b67b2bab6",
     "https://learn.microsoft.com/azure/foundry-classic/concepts/encryption-keys-portal": "9a6c0c91ef44d12b",
     "https://learn.microsoft.com/azure/foundry-classic/concepts/hub-rbac-foundry": "dac6d93d8dc5067c",
     "https://learn.microsoft.com/azure/foundry-classic/concepts/planning": "d1d001fb3d8077c9",
-    "https://learn.microsoft.com/azure/foundry-classic/concepts/rbac-foundry": "3189569207f2d718",
+    "https://learn.microsoft.com/azure/foundry-classic/concepts/rbac-foundry": "eb976a3b9791b8e8",
     "https://learn.microsoft.com/azure/foundry-classic/concepts/vulnerability-management": "73700df4e374e395",
     "https://learn.microsoft.com/azure/foundry-classic/how-to/azure-policy": "55b0520079d7e967",
     "https://learn.microsoft.com/azure/foundry-classic/how-to/configure-private-link": "4475c26f6887c067",
@@ -5024,20 +5043,21 @@
     "https://learn.microsoft.com/azure/foundry/agents/concepts/agent-365-integration": "7ac1202de336dc0a",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/agent-identity": "7e928de276e2985c",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/agent-optimizer-overview": "b677f717602ecf6e",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/agent-state-store": "121a0596bdc0d2a5",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/agent-state-store": "0b8ecb7044a388c6",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/agents-networking-deep-dive": "b1f0a32b732c9dd3",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/azure-yaml-reference": "6badd870e61d2992",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/azure-yaml-reference": "4171c7fa1853cdef",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/cli-agent-development": "d7b61c592a99b041",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/development-lifecycle": "ce8d1b9368d2bbb3",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/foundry-agent-canvas": "8edcf589dcdb4970",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/foundry-canvas": "8edcf589dcdb4970",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/foundry-iq-faq": "393c719c6ffff35f",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agent-contract": "f3b8217c8594e14e",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agent-permissions": "ef3c1b8b19398340",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents": "ae2bb39c5dc4f3ee",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agent-contract": "70c8cf655b2dc124",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agent-permissions": "345984df4e4db97b",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/hosted-agents": "9b2fb7670fd3557a",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/identity-access-overview": "0d4dc2733612ba6b",
-    "https://learn.microsoft.com/azure/foundry/agents/concepts/limits-quotas-regions": "742bb85e1d9a618b",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/limits-quotas-regions": "48c0fdb34bff6ba5",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/long-running-agent-resilience": "23621f6a638752e9",
+    "https://learn.microsoft.com/azure/foundry/agents/concepts/native-activity-adapter": "2da7c9800074b392",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/prompt-agents": "895b7c95f3133483",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/routines": "ffb7768a7b70b3cd",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/runtime-components": "64ceaee19887c314",
@@ -5052,38 +5072,38 @@
     "https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-memory": "0c2b18c7e5c4a465",
     "https://learn.microsoft.com/azure/foundry/agents/concepts/workflow": "54bf27f612ece649",
     "https://learn.microsoft.com/azure/foundry/agents/environment-setup": "4519d6393986f305",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/add-hosted-agent-guardrails": "b6ed29dd4456fc2a",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/add-hosted-agent-guardrails": "f0272440d9f5585c",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/agent-applications": "0709e6c9140098a3",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/agent-doctor": "db384dc3900234ba",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/agent-inspector": "371237c06c1e2b0f",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/author-azure-yaml": "5087828314cfd469",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/author-azure-yaml": "23cdfe5cdf0848fd",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/build-voice-agent": "c48fd618dd7891af",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/cli-project-context": "1ab95b7f80422ad5",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/configure-hosted-agent-env-variables": "636664a2f06f74a5",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/configure-voice-agent": "66c6e7e89f923c60",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/configure-hosted-agent-env-variables": "f2157cdd0d03c16b",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/configure-voice-agent": "fc49ea2b6ef8d310",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/connected-models": "e5b01d536d9ab5a4",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/create-optimizer-dataset": "f9a977d8b93e4846",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent": "41414df9d6a4c1ee",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent": "f51f3205130c5774",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/deploy-hosted-agent-code": "df91aa93e0d5e172",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/enable-agent-to-agent-endpoint": "a5b3f751ddbe92ba",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/foundry-iq-connect": "9f70596692edd0a6",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/govern-hosted-agent-egress-azure-policy": "e9b279617c2843df",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/init-agent-project": "c94c12f5d4fa48e4",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/init-agent-project": "c7d31c5d83a32060",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/install-cli-foundry-extensions": "44b8577bba91e665",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/invoke-hosted-agent": "cb138b3832038a47",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-agent": "bc10397e36f4f75d",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-agent-compute": "922cf2c6adc9ea36",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-sessions": "bc1b244e2bd88ee7",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/manage-hosted-sessions": "815dee6858af5670",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/manage-task-state": "d2eb15d67cc227d6",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/migrate": "82d8f9b078447456",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/migrate-from-voice-live": "02f4c7a7585c0b81",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/monitor-hosted-agent-logs": "73fe70a0c7d47e9f",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-agent-targets": "45c14ea5c18ce958",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/optimize-voice-agent-instructions": "dbacd7e3bea24634",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot": "03388811a57a361f",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot-virtual-network": "aeeab7b625d568d3",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot": "7beb71d12362cca1",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot-virtual-network": "6a228ac52a9337a5",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/register-external-agent": "c747edb30be1118d",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/run-hosted-agent-locally": "48eef1be21b1a791",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/run-hosted-agent-locally": "72198a07a30401f9",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/agent-to-agent": "48872a9f12cc1088",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/ai-search": "d254a87bbbe85728",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/azure-ai-speech": "5e54e7de23681dea",
@@ -5100,21 +5120,21 @@
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/model-context-protocol": "ab8bf5c946b4daf7",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/monitor-toolbox": "be15edc2f109e7ed",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/openapi": "dcae7c40532863eb",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/skills": "3b23a62bb779fb06",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/skills": "9bc83e2332e38a26",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/tool-authentication": "74ae673032e71407",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox": "89faff63d7e13223",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/use-toolbox-hosted-agent": "cf74967c91322620",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox": "7e8e341225cd67bc",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/use-toolbox-hosted-agent": "d4e37848997063ee",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/web-overview": "5020c54597a7a227",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/work-iq": "edd08cc361eb382f",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot": "e5503f18d76d1846",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot": "7c23911075854665",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/update-agent-endpoint-cli": "ef306b6d6a3b1078",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/use-cli-with-coding-agents": "5355aa896831e88d",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/use-hosted-agent-memory-snapshots": "f7083cb069281cd7",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/use-inline-subagent-voice-agent": "f5c0bcc67c8cdf58",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/use-routines": "b96b10a60d93dd4f",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/use-tools-skills-copilot-harness": "2798d9ee068d00da",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/use-your-own-resources": "e7df29565f874eda",
-    "https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks": "560af3edfea46dda",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/use-your-own-resources": "752a10b6c82501af",
+    "https://learn.microsoft.com/azure/foundry/agents/how-to/virtual-networks": "76ceb78cb42a4047",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/voice-agent-channels-publish": "6b59ff8006f52fed",
     "https://learn.microsoft.com/azure/foundry/agents/how-to/voice-agent-telephony-channels": "5e7f67d74857d06c",
     "https://learn.microsoft.com/azure/foundry/agents/overview": "cc628625df2f8f7b",
@@ -5128,13 +5148,13 @@
     "https://learn.microsoft.com/azure/foundry/concepts/ai-red-teaming-agent": "7a81a196146ee8fd",
     "https://learn.microsoft.com/azure/foundry/concepts/architecture": "538dd6080bbde582",
     "https://learn.microsoft.com/azure/foundry/concepts/authentication-authorization-foundry": "183a7f84543f4d0e",
-    "https://learn.microsoft.com/azure/foundry/concepts/billing-concepts": "77fe9b067d52c1c1",
+    "https://learn.microsoft.com/azure/foundry/concepts/billing-concepts": "f2aa76c84e620bf4",
     "https://learn.microsoft.com/azure/foundry/concepts/built-in-evaluators": "b7902602c24b3c01",
     "https://learn.microsoft.com/azure/foundry/concepts/capabilities": "f2bc42272fbef185",
     "https://learn.microsoft.com/azure/foundry/concepts/capability-reference": "a3bdcde15e57d359",
     "https://learn.microsoft.com/azure/foundry/concepts/concept-notification-center": "66229e08b401b178",
     "https://learn.microsoft.com/azure/foundry/concepts/concept-playgrounds": "a2a016a0c63508bf",
-    "https://learn.microsoft.com/azure/foundry/concepts/cost-controls": "123ba2efb1b4fe80",
+    "https://learn.microsoft.com/azure/foundry/concepts/cost-controls": "9cfabda1cfed20a1",
     "https://learn.microsoft.com/azure/foundry/concepts/cost-management-permissions": "15b16fdea1b8764c",
     "https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/agent-evaluators": "2af80a35a90812d4",
     "https://learn.microsoft.com/azure/foundry/concepts/evaluation-evaluators/custom-evaluators": "ed742aff1cb208f5",
@@ -5178,13 +5198,13 @@
     "https://learn.microsoft.com/azure/foundry/guardrails/how-to-create-guardrails": "e90ece3ae6c19e29",
     "https://learn.microsoft.com/azure/foundry/how-to/agent-deployment-policy": "058b5cd649d447fe",
     "https://learn.microsoft.com/azure/foundry/how-to/configure-private-link": "5df717aae2491785",
-    "https://learn.microsoft.com/azure/foundry/how-to/create-cost-controls": "0dd59731f6505500",
+    "https://learn.microsoft.com/azure/foundry/how-to/create-cost-controls": "af993ca0074551fd",
     "https://learn.microsoft.com/azure/foundry/how-to/create-projects": "6ab038f7b7a15b9c",
     "https://learn.microsoft.com/azure/foundry/how-to/deploy-models-managed": "b7acb66c6ac52802",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/ai-template-get-started": "99df93f5795ed676",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/create-agent-visual-studio-code": "efcf8e73cfc849bd",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/create-prompt-agent-visual-studio-code": "9cc986b70eaecdb4",
-    "https://learn.microsoft.com/azure/foundry/how-to/develop/framework-hosted-agents": "ed9ed1edd0f30c65",
+    "https://learn.microsoft.com/azure/foundry/how-to/develop/framework-hosted-agents": "371448837bc1dfec",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/get-started-projects-visual-studio-code": "ffefdec24673acd4",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/get-started-projects-vs-code": "ffefdec24673acd4",
     "https://learn.microsoft.com/azure/foundry/how-to/develop/install-cli-sdk": "a0129048265493c4",
@@ -5214,7 +5234,7 @@
     "https://learn.microsoft.com/azure/foundry/how-to/upgrade-azure-openai": "104a8f16afb12d82",
     "https://learn.microsoft.com/azure/foundry/how-to/upgrade-azure-openai-auto": "fca4664635f98cf9",
     "https://learn.microsoft.com/azure/foundry/how-to/view-subscription-costs": "2ea10269dc970fe5",
-    "https://learn.microsoft.com/azure/foundry/how-to/voice-first-with-hosted-agent": "163992d18b4aaf3b",
+    "https://learn.microsoft.com/azure/foundry/how-to/voice-first-with-hosted-agent": "cd79e9c0d02ce757",
     "https://learn.microsoft.com/azure/foundry/mcp/get-started": "8aa5f3ff33053e2e",
     "https://learn.microsoft.com/azure/foundry/mcp/security-best-practices": "dac35cddc915b378",
     "https://learn.microsoft.com/azure/foundry/observability/concepts/trace-agent-concept": "086bffdcc22049b4",
@@ -5241,6 +5261,6 @@
     "https://learn.microsoft.com/azure/foundry/what-is-foundry": "05ea8b059eaa4689",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-foundry": "404ec6cc9ae0f43f"
   },
-  "listHash": "1c617a97abc826cd",
+  "listHash": "f09bed5488e66d34",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

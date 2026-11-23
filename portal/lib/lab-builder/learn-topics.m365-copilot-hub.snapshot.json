@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-20T05:55:34.774Z",
+  "generatedAt": "2026-11-23T06:37:12.582Z",
   "source": "microsoft-learn-mcp",
   "product": "m365-copilot-hub",
   "catalogVersion": 1,
@@ -36,7 +36,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ca51f7fad0147110"
     },
@@ -44,7 +44,7 @@
       "id": "learn-copilot-implement-connect-to-ai-subprocessor",
       "title": "Claude models from Anthropic in Microsoft Online Services",
       "product": "m365-copilot-hub",
-      "summary": "Microsoft is introducing a new offering with Claude models from Anthropic as part of Microsoft Online Services, delivering enterprise-grade commitments and safeguards to ensure secure and responsible use of Claude models within your organization.",
+      "summary": "Microsoft offers Claude models from Anthropic as part of Microsoft Online Services, delivering enterprise-grade commitments and safeguards to ensure secure and responsible use of Claude models within your organization.",
       "urls": [
         "https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor"
       ],
@@ -55,9 +55,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "b61037bc8bd9ed62"
+      "lastSeen": "2026-11-23",
+      "changedAt": "2026-11-23",
+      "contentHash": "ed99dd4e2e654057"
     },
     {
       "id": "learn-copilot-implement-copilot-controls-management",
@@ -78,7 +78,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e23ffa8aa7454388"
     },
@@ -100,7 +100,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c81c4663cf9a07d0"
     },
@@ -121,7 +121,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e9029bd58186e77c"
     },
@@ -147,7 +147,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ccf325e82b652d1f"
     },
@@ -166,7 +166,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e535797a2a9fa7ab"
     },
@@ -185,7 +185,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "896e211c4f494760"
     },
@@ -208,7 +208,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2b2ab6f654d4fa65"
     },
@@ -227,7 +227,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "687e882c27f0386a"
     },
@@ -246,7 +246,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1fe54786212f1748"
     },
@@ -265,7 +265,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "73c716aa77668f17"
     },
@@ -284,7 +284,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ddfa0802e3158925"
     },
@@ -303,7 +303,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "697c84d9406b6f78"
     },
@@ -322,7 +322,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "592b59086ad90c19"
     },
@@ -341,7 +341,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "8738d72d87499f57"
     },
@@ -360,7 +360,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1a1ad918a0abf9dd"
     },
@@ -381,7 +381,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c8aa89e323c82ab8"
     },
@@ -400,7 +400,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0f251c04083bba1a"
     },
@@ -419,7 +419,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "7404a26521b7e000"
     },
@@ -438,7 +438,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "225fffccae92e93f"
     },
@@ -457,7 +457,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a4156fde70244186"
     },
@@ -478,7 +478,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d6211b3ebb92a758"
     },
@@ -497,7 +497,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f13b85631276f876"
     },
@@ -516,7 +516,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2ee5e6c08c1ba77d"
     },
@@ -535,7 +535,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "15ad79bc9e033226"
     },
@@ -554,7 +554,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "68d4f5eefd53f78e"
     },
@@ -575,7 +575,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "03b8bb6ff326e182"
     },
@@ -596,7 +596,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2e12d9cf78b6be7e"
     },
@@ -615,7 +615,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "2b07360148c12e86"
     },
@@ -634,7 +634,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "119bf2dae489a47f"
     },
@@ -654,7 +654,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "09dbbbe74da0fbe5",
       "subtopics": [
@@ -682,7 +682,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6cb76ff67cec52b6"
     },
@@ -701,7 +701,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "beef52b1ad994fcf"
     },
@@ -720,7 +720,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "fc37195f71213457"
     },
@@ -739,7 +739,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c9ff6d9c3aa912e8"
     },
@@ -758,7 +758,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "df83af5f93e44233"
     },
@@ -777,7 +777,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "183bab31cfad82d9"
     },
@@ -796,7 +796,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e913c7e1fca77a51"
     },
@@ -815,7 +815,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d5caf8f0ae8405c3"
     },
@@ -834,7 +834,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "79b7a766c79d66fd"
     },
@@ -853,7 +853,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "737ebec8519af9d5"
     },
@@ -872,7 +872,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f923c559a0ca59bb"
     },
@@ -893,7 +893,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c3d5555aedddaa68"
     },
@@ -912,7 +912,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "174226980bddf417"
     },
@@ -933,7 +933,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "0d621633df604b47"
     },
@@ -952,7 +952,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "217d24fcc44696c0"
     },
@@ -971,7 +971,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b8add8b4e99eda9c"
     },
@@ -990,7 +990,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "08b2599a661019dc"
     },
@@ -1009,7 +1009,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b9806c68ee8687a5"
     },
@@ -1028,7 +1028,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "568b9116fb9bba3d"
     },
@@ -1047,7 +1047,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "66a73b54f1cc6738"
     },
@@ -1066,7 +1066,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "319ff4a5e53819fc"
     },
@@ -1085,7 +1085,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e10fbc1dab3ffd6e"
     },
@@ -1104,7 +1104,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "beff4ab29c7af29c"
     },
@@ -1123,7 +1123,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c9b5413fbe96d47d"
     },
@@ -1142,7 +1142,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a1a36c4382d76a5d"
     },
@@ -1161,7 +1161,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "00cd780a10a77334"
     },
@@ -1180,7 +1180,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "a685e85f6db81bbf"
     },
@@ -1199,7 +1199,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b83d9a61038429b6"
     },
@@ -1218,7 +1218,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b3d5fe5451edd92e"
     },
@@ -1237,7 +1237,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "6e631f8d167e9ff9"
     },
@@ -1256,7 +1256,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "10a264ba0fc70c0e"
     },
@@ -1275,7 +1275,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "e6ff815de1cdf9d3"
     },
@@ -1294,7 +1294,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "66b6349c6aac7f7d"
     },
@@ -1313,7 +1313,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "507bf6d4707d4d28"
     },
@@ -1332,7 +1332,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "51a8fda5b6145236"
     },
@@ -1351,7 +1351,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "d0e3187302d8ec59"
     },
@@ -1370,7 +1370,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "fdde52f5b84168e7"
     },
@@ -1389,7 +1389,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1e7ce399f8888195"
     },
@@ -1408,7 +1408,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "aca258984829961c"
     },
@@ -1427,7 +1427,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b433aa65ca4b30ad"
     },
@@ -1446,7 +1446,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "1c2f1002c2bb7590"
     },
@@ -1465,7 +1465,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "ae2106c88772a9ac"
     },
@@ -1484,7 +1484,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "396e1eee00d367fe"
     },
@@ -1505,7 +1505,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "c48f612a041f0226"
     },
@@ -1529,7 +1529,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "b41881e0ed241bd5"
     },
@@ -1548,7 +1548,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "f5bc2e5158c45337"
     },
@@ -1569,7 +1569,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "545c2a7eb1078c5c"
     },
@@ -1591,7 +1591,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-23",
       "changedAt": null,
       "contentHash": "811fac926605d28b"
     }
@@ -1742,7 +1742,7 @@
     "https://learn.microsoft.com/copilot/adopt/enable-users": "a3f7b438f03f1ffc",
     "https://learn.microsoft.com/copilot/implement": "ceb089a2ae7c6811",
     "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center": "ca51f7fad0147110",
-    "https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor": "b61037bc8bd9ed62",
+    "https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor": "ed99dd4e2e654057",
     "https://learn.microsoft.com/copilot/implement/copilot-controls-management": "e23ffa8aa7454388",
     "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting": "c81c4663cf9a07d0",
     "https://learn.microsoft.com/copilot/implement/copilot-controls-overview": "e9029bd58186e77c",
@@ -1839,6 +1839,6 @@
     "https://learn.microsoft.com/sharepoint/restricted-content-discovery": "ff70069fab3b739b",
     "https://learn.microsoft.com/viva/insights/org-team-insights/copilot-dashboard": "3fefb99fadf1a0e3"
   },
-  "listHash": "dc4a669613e38314",
+  "listHash": "9a4ef4ca4d15c939",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }
