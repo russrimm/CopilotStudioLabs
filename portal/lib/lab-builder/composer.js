@@ -1041,6 +1041,27 @@ function unreviewedTopicsParagraph(plan, stepsByFeature) {
   return `**Topics that are new on Microsoft Learn.** ${topics.length} of ${plan.features.length} module${plan.features.length === 1 ? "" : "s"} cover a topic that is not in this repository's reviewed catalog yet: ${items.join("; ")}. They have no quiz, and nothing in them has been checked against the product by hand, so try each one in your own environment before you teach it.`;
 }
 
+/**
+ * The "Connector names." paragraph. Only present when Microsoft Learn printed a connector's internal name that the builder's
+ * table did not know: it says how each was handled, and lists the ones that could not be resolved so they can be added.
+ */
+function connectorNamesParagraph(info) {
+  const resolved = info?.resolved || [];
+  const unresolved = info?.unresolved || [];
+  if (!resolved.length && !unresolved.length) return null;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const parts = ["**Connector names.** The lab shows each connector by its display name, as Microsoft Learn titles its reference page."];
+  if (resolved.length) {
+    parts.push(`${plural(resolved.length, "connector")} that this builder did not know yet ${resolved.length === 1 ? "was" : "were"} looked up on ${resolved.length === 1 ? "its" : "their"} Microsoft Learn connector reference page during the build.`);
+  }
+  if (unresolved.length) {
+    parts.push(
+      `${plural(unresolved.length, "connector")} could not be resolved, so the lab shows ${unresolved.length === 1 ? "it" : "each"} as "a connector" followed by its internal name in parentheses: ${unresolved.map((id) => `a connector (${id})`).join(", ")}. Add ${unresolved.length === 1 ? "it" : "them"} to the connector table so the next build shows the display name.`,
+    );
+  }
+  return parts.join(" ");
+}
+
 function howToUseSection(plan, generation, stepsByFeature) {
   const grounded = generation.groundedFeatures;
   const derived = generation.docDerivedFeatures ?? 0;
@@ -1081,6 +1102,7 @@ function howToUseSection(plan, generation, stepsByFeature) {
         : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
     "",
     ...(vendorParagraph(generation.vendorDocs, plan) ? [vendorParagraph(generation.vendorDocs, plan), ""] : []),
+    ...(connectorNamesParagraph(generation.connectorNames) ? [connectorNamesParagraph(generation.connectorNames), ""] : []),
     synthesized > 0
       ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider, dated })
       : derived === total

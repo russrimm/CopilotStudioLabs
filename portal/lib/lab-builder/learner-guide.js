@@ -11,6 +11,7 @@
  */
 
 import { currentProductName } from "../product-name.js";
+import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 
 /** The heading the old generator wrote at the end of `index.md`. */
 export const ADMIN_SECTION_HEADING = "Connectors, Environment, and Tenant Prerequisites";
@@ -77,6 +78,8 @@ export function learnerSafeManifest(manifest) {
   if (!manifest || typeof manifest !== "object") return manifest;
   const copy = { ...manifest };
   delete copy.adminPrerequisites;
+  // Text saved by an older build may carry a connector's internal name; the learner copy shows the display name.
+  for (const key of Object.keys(copy)) copy[key] = rewriteConnectorValue({ [key]: copy[key] })[key];
   // A lab saved before the product was renamed carries the earlier name; the copy a learner receives shows the current one.
   if ("generator" in copy) copy.generator = currentProductName(copy.generator);
   const snapshot = copy.customization?.profileSnapshot;
@@ -102,6 +105,11 @@ export function learnerSafeManifest(manifest) {
  * @returns {string}
  */
 export function learnerGuideMarkdown(markdown) {
+  // A lab saved before connector display names existed shows them when read; the file on disk is not rewritten.
+  return repairConnectorNames(withoutAdminSection(markdown));
+}
+
+function withoutAdminSection(markdown) {
   const source = String(markdown ?? "");
   const eol = source.includes("\r\n") ? "\r\n" : "\n";
   const lines = source.split(/\r?\n/);

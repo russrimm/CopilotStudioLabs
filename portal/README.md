@@ -174,6 +174,7 @@ All configuration is provided through environment variables (see `.env.template`
 | `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |
 | `LAB_BUILDER_VENDOR_DOCS` | No | Set to `off` to skip fetching allowlisted third-party vendor documentation |
 | `LAB_BUILDER_VENDOR_TIMEOUT_MS` | No | Vendor documentation fetch timeout (default: `10000`) |
+| `LAB_BUILDER_CONNECTOR_CACHE` | No | Where connector display names looked up on Microsoft Learn are remembered (default: `lab-builder/connector-names-cache.json` in the data folder); see [Connector names](../docs/lab-builder.md#7b-connector-names) |
 | `LAB_BUILDER_TOPICS_FILE` | No | Snapshot cache path for discovered Microsoft Learn topics |
 | `LAB_BUILDER_TOPICS_MAX_AGE_MS` | No | Maximum age before a discovered Learn topic snapshot is treated as stale (default: `604800000` / 7 days) |
 | `LAB_BUILDER_TOPICS_REFRESH_MAX` | No | Topic discovery refreshes allowed per window (default: `6`) |

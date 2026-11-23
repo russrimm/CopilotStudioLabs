@@ -16,6 +16,7 @@
  */
 
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 import { cleanText } from "./brand-theme.js";
 import { isDefaultCompanyName } from "../product-name.js";
 import { DEFAULT_PRODUCT, getProduct, joinNames } from "./products.js";
@@ -165,17 +166,17 @@ const ADMIN_COPY = {
   },
   sharepoint: {
     section: "connectors", role: "power-platform-admin", order: 11, title: "SharePoint and OneDrive for Business",
-    text: "Allow the SharePoint connector so agents can read and search library files.",
+    text: "Allow the SharePoint and OneDrive for Business connectors so agents can read and search library files.",
     why: "Agents look up documents in SharePoint.",
   },
   "office365-teams-outlook": {
-    section: "connectors", role: "power-platform-admin", order: 12, title: "Microsoft Teams, Outlook, and Office 365 Users",
+    section: "connectors", role: "power-platform-admin", order: 12, title: "Microsoft Teams, Office 365 Outlook, and Office 365 Users",
     text: "Allow these three connectors and keep them in the same data policy group as Dataverse and SharePoint.",
     why: "Triggers, notifications, and profile lookups use them.",
   },
   approvals: {
-    section: "connectors", role: "power-platform-admin", order: 13, title: "Approvals",
-    text: "Make sure the Approvals connector is available in the environment and sits in the same data policy group as Dataverse and Teams.",
+    section: "connectors", role: "power-platform-admin", order: 13, title: "Standard approvals",
+    text: "Make sure the Standard approvals connector is available in the environment and sits in the same data policy group as Dataverse and Teams.",
     why: "Approval steps in agents and flows use it.",
   },
   "power-automate-agent-flows": {
@@ -185,7 +186,7 @@ const ADMIN_COPY = {
   },
   "prebuilt-power-platform-connectors": {
     section: "connectors", role: "power-platform-admin", order: 15, title: "Prebuilt connectors used as tools",
-    text: "Allow the prebuilt connectors the workshop uses as tools (for example HTTP with Microsoft Entra ID, MSN Weather, or SQL) in the same data policy group as the other workshop connectors.",
+    text: "Allow the prebuilt connectors the workshop uses as tools (for example HTTP with Microsoft Entra ID (preauthorized), MSN Weather, or SQL Server) in the same data policy group as the other workshop connectors.",
     why: "Agents call these connectors as tools.",
   },
   "custom-connectors-openapi": {
@@ -343,6 +344,12 @@ function vendorCopy(name, order, extra = "") {
     text: `Allow the ${name} connector, and provide a test (non-production) ${name} account or instance with sign-in the workshop can use.${extra ? ` ${extra}` : ""}`,
     why: `Agents call ${name} through this connector.`,
   };
+}
+
+/** "Technical name: shared_x." for one connector, "Technical names: A is shared_a; B is shared_b." for several. */
+export function technicalNameSentence(refs) {
+  if (refs.length === 1) return `Technical name: ${refs[0].apiName}.`;
+  return `Technical names: ${refs.map((ref) => `${ref.displayName} is ${ref.apiName}`).join("; ")}.`;
 }
 
 /** What a "Required if" status means to someone who is not reading the lab. */
@@ -656,7 +663,9 @@ function formatDate(now) {
  * @param {Record<string,string>} [input.replacements] term replacements the export request supplied
  */
 export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", brand = null, now = new Date(), replacements = {} } = {}) {
-  const man = manifest && typeof manifest === "object" ? manifest : {};
+  // A lab saved with a connector's internal name in its text shows the display name here too.
+  markdown = repairConnectorNames(markdown);
+  const man = manifest && typeof manifest === "object" ? rewriteConnectorValue(manifest) : {};
   const title = cleanChecklistText(man.title) || firstHeading(markdown) || "Workshop";
   const products = productRecords(man);
   const admin = man.adminPrerequisites && typeof man.adminPrerequisites === "object"
@@ -725,6 +734,13 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
       const split = splitConfirm(item.text || "");
       item.text = split.text;
       item.confirm = split.confirm;
+      // The display name leads; the technical name is a secondary detail that helps an administrator find the connector in a
+      // solution or a connection reference, and the connector's Microsoft Learn page is the source link.
+      const connectorRefs = Array.isArray(entry.connectors) ? entry.connectors : [];
+      if (connectorRefs.length) {
+        item.text = `${item.text} ${technicalNameSentence(connectorRefs)}`.trim();
+        if (!item.learn) item.learn = { label: `${connectorRefs[0].displayName} connector reference`, url: connectorRefs[0].learnUrl };
+      }
       item.where = cleanChecklistText(entry.adminPath);
       item.neededFor = neededForFrom(entry.requiredBy);
       item.condition = conditionFor(entry.status);

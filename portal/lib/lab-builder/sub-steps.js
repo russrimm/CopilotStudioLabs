@@ -24,6 +24,8 @@
  * Dependency-free: the Markdown renderers, the Office builders, and the lab gate all import it.
  */
 
+import { repairConnectorNames } from "./connector-names.js";
+
 /** The last line of a step whose choices were cut at the cap. Its own line, never part of a letter. */
 export const SUB_STEP_NOTE = "More choices are in the linked article.";
 
@@ -200,7 +202,8 @@ export function repairRunOnStep(text) {
  * spaces that only help GitHub taken off the lines of each sub-step block, so no builder carries them into its text.
  */
 export function normalizeSubSteps(markdown) {
-  const text = repairRunOnSteps(markdown);
+  // A lab saved before connector display names existed shows them here too (the file on disk is not rewritten).
+  const text = repairConnectorNames(repairRunOnSteps(markdown));
   if (!/^[ \t]+a\.[ \t]/m.test(text)) return text;
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);

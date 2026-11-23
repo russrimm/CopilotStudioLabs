@@ -15,6 +15,7 @@ import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./lear
 import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
+import { applyConnectorNames } from "./connector-names-live.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { buildModuleTrainingDigest } from "./topic-training.js";
 import { buildModuleTrainingSources } from "./training-plan.js";
@@ -1201,6 +1202,17 @@ export async function generateLab(request, opts = {}) {
     }
   }
 
+  // ── 3b. Connector names ───────────────────────────────────────────────────
+  // Microsoft Learn prints a connector's internal name (shared_<name>) in a few places. A learner reads the display
+  // name instead, so every id carried by the material below is replaced before anything is composed from it.
+  onProgress?.({ stage: "compose", message: "Checking connector names" });
+  const connectorNames = await applyConnectorNames({ session, plan, groundingByFeature, stepsByFeature, vendorByFeature, enrichment });
+  if (connectorNames.unresolved.length) {
+    plan.warnings.push(
+      `${connectorNames.unresolved.length} connector name${connectorNames.unresolved.length === 1 ? "" : "s"} could not be resolved from Microsoft Learn and ${connectorNames.unresolved.length === 1 ? "is" : "are"} shown as "a connector" followed by ${connectorNames.unresolved.length === 1 ? "its" : "their"} internal name: ${connectorNames.unresolved.join(", ")}. Add ${connectorNames.unresolved.length === 1 ? "it" : "them"} to connectors.json.`,
+    );
+  }
+
   // ── 4. Screenshots ────────────────────────────────────────────────────────
   const screenshots = planScreenshots(plan, { labsDir: LABS_DIR, stepsByFeature });
 
@@ -1226,9 +1238,10 @@ export async function generateLab(request, opts = {}) {
     learnConnected: Boolean(session.ok),
     linkCheck: linkCheckSummary,
     vendorDocs: vendorSummary,
+    connectorNames: { resolved: connectorNames.resolved, unresolved: connectorNames.unresolved },
   };
   await yieldToEventLoop();
-  const markdown = composeLab(
+  const markdown = connectorNames.rewrite(composeLab(
     plan,
     groundingByFeature,
     screenshots.byFeature,
@@ -1236,7 +1249,7 @@ export async function generateLab(request, opts = {}) {
     generation,
     stepsByFeature,
     vendorByFeature,
-  );
+  ));
   await yieldToEventLoop();
   // Advisory only: a low score is reported to the learner and never blocks the build.
   const qa = assessLab(markdown, {
@@ -1458,6 +1471,10 @@ export async function generateLab(request, opts = {}) {
     warnings: plan.warnings,
   };
 
+  // Every id in the manifest (steps, training sources, excerpts) is shown as a display name too; the user's own
+  // selections (`request`, `options`) are left exactly as typed.
+  Object.assign(manifest, connectorNames.rewriteValue(manifest));
+
   const previewTopicDocs = buildTopicDocumentsMeta(markdown, manifest, {
     labId: plan.slug,
   }).topicDocuments;
@@ -1479,7 +1496,7 @@ export async function generateLab(request, opts = {}) {
     html,
     qa,
     warnings: plan.warnings,
-    shots: buildShotsManifest(plan, screenshots.shots),
+    shots: connectorNames.rewriteValue(buildShotsManifest(plan, screenshots.shots)),
     outputDir: null,
     validation: null,
   };

@@ -17,6 +17,7 @@
  */
 
 import { getFeature, getHarnesses } from "./catalog.js";
+import { resolveConnector } from "./connector-names.js";
 import { DEFAULT_PRODUCT, productOf, productsPhrase } from "./products.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
@@ -157,8 +158,12 @@ export function buildAdminPrerequisites(input = {}) {
 
   const addConnector = (entry, matchingMods) => {
     if (!matchingMods.length) return;
+    // `connectorApis` are the Power Platform connectors the entry is about; each carries its display name and the Microsoft
+    // Learn page that names it, so the guides show the display name and can add the technical name as a secondary detail.
+    const { connectorApis = [], ...rest } = entry;
     connectors.push({
-      ...entry,
+      ...rest,
+      connectors: connectorApis.map((apiName) => resolveConnector(apiName)).filter(Boolean),
       requiredBy: uniqueLabels(matchingMods),
     });
   };
@@ -192,6 +197,7 @@ export function buildAdminPrerequisites(input = {}) {
     {
       id: "microsoft-dataverse",
       name: "Microsoft Dataverse",
+      connectorApis: ["shared_commondataserviceforapps"],
       classification: "Standard / Core Platform",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
@@ -223,6 +229,7 @@ export function buildAdminPrerequisites(input = {}) {
     {
       id: "sharepoint",
       name: "SharePoint (and OneDrive for Business)",
+      connectorApis: ["shared_sharepointonline", "shared_onedriveforbusiness"],
       classification: "Standard",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
@@ -262,6 +269,7 @@ export function buildAdminPrerequisites(input = {}) {
     {
       id: "office365-teams-outlook",
       name: "Microsoft Teams, Office 365 Outlook, and Office 365 Users",
+      connectorApis: ["shared_teams", "shared_office365", "shared_office365users"],
       classification: "Standard",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
@@ -283,12 +291,13 @@ export function buildAdminPrerequisites(input = {}) {
   addConnector(
     {
       id: "approvals",
-      name: "Approvals",
+      name: "Standard approvals",
+      connectorApis: ["shared_approvals"],
       classification: "Standard",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
       details:
-        "Ensure the Approvals connector is provisioned in the environment and placed in the Business DLP group alongside Dataverse and Microsoft Teams.",
+        "Ensure the Standard approvals connector is provisioned in the environment and placed in the Business DLP group alongside Dataverse and Microsoft Teams.",
       endpoints: [],
     },
     approvalsMods,
@@ -311,6 +320,7 @@ export function buildAdminPrerequisites(input = {}) {
     {
       id: "power-automate-agent-flows",
       name: "Power Automate Management / Agent Flows Runtime",
+      connectorApis: ["shared_flowmanagement"],
       classification: "Standard",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
@@ -327,12 +337,13 @@ export function buildAdminPrerequisites(input = {}) {
   addConnector(
     {
       id: "prebuilt-power-platform-connectors",
-      name: "Prebuilt Power Platform Connectors (HTTP with Microsoft Entra ID / MSN Weather / SQL)",
+      name: "Prebuilt Power Platform Connectors (HTTP with Microsoft Entra ID (preauthorized), MSN Weather, SQL Server)",
+      connectorApis: ["shared_webcontents", "shared_msnweather", "shared_sql"],
       classification: "Standard / Premium",
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
       details:
-        "Ensure the prebuilt connector used in the tool action (such as MSN Weather for no-auth testing or HTTP with Microsoft Entra ID for internal APIs) is placed in the Business DLP group.",
+        "Ensure the prebuilt connector used in the tool action (such as MSN Weather for no-auth testing or HTTP with Microsoft Entra ID (preauthorized) for internal APIs) is placed in the Business DLP group.",
       endpoints: [],
     },
     genericConnectorMods,
@@ -411,6 +422,7 @@ export function buildAdminPrerequisites(input = {}) {
       featureId: "servicenow-integration",
       id: "servicenow",
       name: "ServiceNow",
+      connectorApis: ["shared_service-now"],
       classification: "Premium Enterprise Connector",
       endpoints: ["https://<instance>.service-now.com/*"],
       details:
@@ -420,6 +432,7 @@ export function buildAdminPrerequisites(input = {}) {
       featureId: "snowflake-integration",
       id: "snowflake",
       name: "Snowflake",
+      connectorApis: ["shared_snowflakev2"],
       classification: "Premium Enterprise Connector",
       endpoints: ["https://<account>.snowflakecomputing.com/*"],
       details:
@@ -428,6 +441,7 @@ export function buildAdminPrerequisites(input = {}) {
     {
       featureId: "sap-integration",
       name: "SAP ERP / SAP OData",
+      connectorApis: ["shared_saperp", "shared_sapodata"],
       id: "sap-erp-odata",
       classification: "Premium Enterprise Connector",
       endpoints: ["https://<sap-gateway-host>/sap/opu/odata/*"],
@@ -438,6 +452,7 @@ export function buildAdminPrerequisites(input = {}) {
       featureId: "salesforce-integration",
       id: "salesforce",
       name: "Salesforce",
+      connectorApis: ["shared_salesforce"],
       classification: "Premium Enterprise Connector",
       endpoints: ["https://*.my.salesforce.com/*"],
       details:
@@ -447,6 +462,7 @@ export function buildAdminPrerequisites(input = {}) {
       featureId: "jira-integration",
       id: "jira",
       name: "Jira",
+      connectorApis: ["shared_jira"],
       classification: "Premium Enterprise Connector",
       endpoints: ["https://api.atlassian.com/*", "https://*.atlassian.net/*"],
       details:
@@ -468,7 +484,7 @@ export function buildAdminPrerequisites(input = {}) {
       classification: "Custom / Premium Connector",
       endpoints: ["https://*.myshopify.com/admin/api/*"],
       details:
-        "Allow Custom Connectors and HTTP with Microsoft Entra ID in the Business DLP group and allowlist your Shopify development store domain.",
+        "Allow Custom Connectors and HTTP with Microsoft Entra ID (preauthorized) in the Business DLP group and allowlist your Shopify development store domain.",
     },
   ];
 
@@ -478,6 +494,7 @@ export function buildAdminPrerequisites(input = {}) {
       {
         id: vendor.id,
         name: vendor.name,
+        connectorApis: vendor.connectorApis,
         classification: vendor.classification,
         dataGroup: "Business",
         adminPath: "Power Platform admin center > Policies > Data policies",

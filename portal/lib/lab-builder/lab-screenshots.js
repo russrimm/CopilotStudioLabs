@@ -21,6 +21,7 @@ import { connect, fetchDocPage } from "./learn-mcp.js";
 import { DEFAULT_PRODUCT, productOf } from "./products.js";
 import { repairGeneratedLabPlaceholders } from "./placeholder-repair.js";
 import { buildShotList } from "./screenshots.js";
+import { repairConnectorNames } from "./connector-names.js";
 import { MIN_CAPTURED_BYTES, describeSlot, slotsForFeature } from "./slots.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
 import { flattenStepLegacy, joinStep, repairRunOnStep, stepLeadSentence, stepPlainLines, stepToMarkdown, takeSubSteps } from "./sub-steps.js";
@@ -999,7 +1000,7 @@ export function instructionList(value) {
     return fixed.includes("\n") ? stepPlainLines(fixed) : [text];
   });
   return expanded
-    .map((line) => String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 300))
+    .map((line) => repairConnectorNames(String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 300)))
     .filter(Boolean)
     .slice(0, 8);
 }
@@ -1234,9 +1235,9 @@ export function getLabScreenshotsStatus(
       assetUrl: `/api/lab-builder/generated/${labId}/assets/${shot.filename}`,
       startUrl: shot.startUrl,
       manual: Boolean(shot.manual),
-      navHint: shot.navHint || null,
-      alt: shot.alt,
-      caption: shot.caption,
+      navHint: repairConnectorNames(shot.navHint || "") || null,
+      alt: repairConnectorNames(shot.alt),
+      caption: repairConnectorNames(shot.caption),
       instructions: instructionList(shot.instructions),
       stepCount: Array.isArray(shot.steps) ? shot.steps.length : 0,
       captured: hasScreenshot,

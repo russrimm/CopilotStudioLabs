@@ -20,6 +20,7 @@ import path from "node:path";
 import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
 import { scopeProblem } from "./topic-scope.js";
 import { RUN_ON_SUB_STEPS } from "./sub-steps.js";
+import { findConnectorIds } from "./connector-names.js";
 
 export const GATE_VERSION = 1;
 
@@ -323,6 +324,34 @@ export function scanLabMarkdown(markdown, options = {}) {
       count: 1,
       message: `The title is ${title.length} characters long; a title this long is hard to read in a list or on a cover page.`,
       fix: "Use a short title that names the scenario and the product.",
+    });
+  }
+
+  // A connector's internal name (shared_<name>) is never learner-facing: the display name replaces it at build time and on read.
+  const connectorHits = findConnectorIds(markdown);
+  const shownIds = connectorHits.filter((hit) => hit.known && !hit.neutral);
+  if (shownIds.length) {
+    const names = [...new Set(shownIds.map((hit) => hit.apiName))];
+    findings.push({
+      code: "connector-id",
+      severity: "gap",
+      module: null,
+      moduleTitle: null,
+      count: shownIds.length,
+      message: `${shownIds.length} connector${shownIds.length === 1 ? "" : "s"} shown by internal name instead of display name (${names.slice(0, 5).join(", ")}${names.length > 5 ? ", ..." : ""}).`,
+      fix: "Rebuild the lab, or open it in the portal, so the display name from the connector table replaces the internal name.",
+    });
+  }
+  const unresolvedIds = [...new Set(connectorHits.filter((hit) => !hit.known || hit.neutral).map((hit) => hit.apiName))];
+  if (unresolvedIds.length) {
+    findings.push({
+      code: "connector-unresolved",
+      severity: "polish",
+      module: null,
+      moduleTitle: null,
+      count: unresolvedIds.length,
+      message: `${unresolvedIds.length} connector name${unresolvedIds.length === 1 ? " is" : "s are"} not in the connector table, so the lab says "a connector" with its internal name (${unresolvedIds.slice(0, 5).join(", ")}${unresolvedIds.length > 5 ? ", ..." : ""}).`,
+      fix: "Add each to portal/lib/lab-builder/connectors.json with tools/lab-builder/verify-connector-names.mjs --add, then rebuild the lab.",
     });
   }
 

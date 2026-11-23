@@ -2825,6 +2825,59 @@ the portal's in-browser preview:
   checklist metadata as scannable badges and cards across light, dark, and print
   views.
 
+### 7b. Connector names
+
+A Power Platform connector has an internal API name (`shared_webcontents`, used in connection references, solutions and the
+admin API) and a display name (`HTTP with Microsoft Entra ID (preauthorized)`, the title of its Microsoft Learn connector
+reference page). Microsoft Learn prints the internal name in a few places (the agent inventory, connector policy and Agent Kit
+pages, among others), and the builder carries Learn text into steps, excerpts, notes, shot instructions and training decks, so an
+internal name could reach a learner. **Everything a person reads shows the display name.**
+
+**The table.** `portal/lib/lab-builder/connectors.json` holds every connector the catalog, the administrator prerequisites, the
+training library and the Learn snapshots name, plus the ones most used with agents and flows (about 120). Each entry has the API
+name, the display name, the Learn page it was checked against (`learnUrl`), the day it was checked (`verifiedAt`), and optionally a
+`learnSlug` (when the page is not named after the API name, for example `shared_servicebus` is `servicebus-1`) and `aliases`
+(former names, used only by `resolveConnector`). A display name is the page title exactly, including a suffix such as
+`(preauthorized)` or `(preview)`; it is never typed by hand.
+
+**Add a connector.** Run `node tools/lab-builder/verify-connector-names.mjs --add shared_name` (or `shared_name=learn-slug`). The tool
+reads `https://learn.microsoft.com/connectors/<slug>/` through the Learn MCP reader, records the page title as the display name with the
+page and today's date, and refuses a page that is not a connector reference page. `node tools/lab-builder/verify-connector-names.mjs`
+with no arguments re-checks every entry against Learn (exit code 1 on a mismatch; `--write` refreshes the dates). The unit test
+`connector-names.test.js` keeps the table honest: every entry has a verified Learn URL and date, no duplicate API names, no
+leading or trailing spaces, and no alias that collides.
+
+**At build time.** `connector-names-live.js` resolves an id that is not in the table: it reads the connector's Learn page once (at
+most 12 pages per build, through the same Learn reader with its request cap and retry), and keeps the answer in
+`<data folder>/lab-builder/connector-names-cache.json` (`LAB_BUILDER_CONNECTOR_CACHE` overrides the path; a missing page is
+remembered for a day, a failed read is not). It never fetches at render time. An id that cannot be resolved is shown as
+`a connector (<id>)`, never guessed, and is listed under **How This Lab Was Built** and in the build warnings.
+
+**What is rewritten.** Only whole `shared_<name>` tokens that are in the table (or were just resolved), so ordinary words are never
+touched: in prose, bold, backticks, table cells, list items, link text, and the forms `shared-name` and
+`/providers/Microsoft.PowerApps/apis/shared_name`. Fenced code blocks, link targets, addresses and HTML attributes are left as
+written. A longer inline literal (a URL or payload fragment an administrator must copy exactly) stays as written and the sentence
+around it gets the display name: `(connector: Microsoft Copilot Studio)`. The Learn sentence is otherwise unchanged. The rewrite is
+applied to the plan, the steps read from Learn, the grounding and vendor excerpts, the narrative, the composed lab, the manifest, the
+shot list and the screenshot instructions, so the Markdown, HTML, Word, PowerPoint, PDF, topic documents, training decks and the
+facilitator guide are all built from display names. Topic discovery (`cleanText`) and the wizard's topic list do the same.
+
+**Administrator documents.** The Administrator setup guide and the Prerequisites checklist keep the display name as the primary
+text and add the technical name as a secondary sentence (`Technical name: shared_commondataserviceforapps.`, or
+`Technical names: A is shared_a; B is shared_b.`) so an administrator can find the connector in a solution or a connection reference,
+and link the first connector's Learn page. The names come from `connectorApis` in `admin-prereqs.js`.
+
+**Older saved labs.** A lab saved before this existed is repaired when it is read, and its files are not rewritten:
+`learnerGuideMarkdown` and `normalizeSubSteps` (every reader, exporter and Office builder), `learnerSafeManifest`, the lab preview
+(`readGeneratedLab`), the Screenshot Center (`instructionList`), the training decks (`labInputs`) and the checklist and facilitator
+guide inputs all map the ids in the table to display names, with the same exclusions as above, and applying it again changes nothing.
+The saved per-topic Word and PowerPoint files of a lab that holds an id are rebuilt once from the repaired text (a marker,
+`topicDocumentsConnectorNames`, is added to the manifest); a lab without an id is never touched.
+
+**Quality gate.** `npm run lab-gate` (and the build's own gate) flags a known internal name that is still shown as a **gap**
+(`connector-id`) and an id that could not be resolved as **polish** (`connector-unresolved`, with the ids to add to the table).
+Fenced code and literal addresses are allowed to keep an internal name.
+
 ### 8. Multi-format and per-topic exports
 
 All generated-lab exports are built in pure Node.js (zero external Office, LibreOffice,

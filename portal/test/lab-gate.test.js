@@ -173,3 +173,24 @@ test("a Recap module is a short refresher and is not asked for a check, quiz, or
   const result = scanLabMarkdown(`# Lab\n\n## Step-by-Step\n\n${recap}\n${GOOD}`, { moduleIds: ["create-agent", "create-agent"] });
   assert.deepEqual(result.findings.filter((f) => f.module === "Recap 1"), []);
 });
+
+test("a connector's internal name in the text is a gap, an unresolved one is polish, and display names and code are fine", () => {
+  const withSteps = (steps, extra = "") => lab([module("Step 1", "Add a tool", { steps, extra: `${extra}\n![The Tools page](assets/tools.png)\n` })]);
+  const clean = scanLabMarkdown(withSteps("1. Select **HTTP with Microsoft Entra ID (preauthorized)**.\n2. Select **Add**."), { moduleIds: ["connector-tools"] });
+  assert.deepEqual(clean.findings.filter((f) => f.code.startsWith("connector-")), []);
+
+  const leaked = scanLabMarkdown(withSteps("1. Select `shared_webcontents`.\n2. Select **Add**."), { moduleIds: ["connector-tools"] });
+  const gap = leaked.findings.find((f) => f.code === "connector-id");
+  assert.equal(gap?.severity, "gap");
+  assert.match(gap.message, /shared_webcontents/);
+  assert.equal(leaked.grade, "needs-work");
+
+  const unresolved = scanLabMarkdown(withSteps("1. Select a connector (shared_contoso_crm).\n2. Select **Add**."), { moduleIds: ["connector-tools"] });
+  const polish = unresolved.findings.find((f) => f.code === "connector-unresolved");
+  assert.equal(polish?.severity, "polish");
+  assert.match(polish.message, /shared_contoso_crm/);
+  assert.equal(unresolved.findings.some((f) => f.code === "connector-id"), false);
+
+  const literal = withSteps("1. Select **Add**.\n2. Open the address `.../connections/shared_teams/{id}/details`.", '\n```json\n{ "connectorId": "shared_webcontents" }\n```\n');
+  assert.deepEqual(scanLabMarkdown(literal, { moduleIds: ["connector-tools"] }).findings.filter((f) => f.code.startsWith("connector-")), [], "fenced code and literal addresses may keep the internal name");
+});

@@ -16,6 +16,7 @@ import { resolveLabScreenshot } from "./captured.js";
 import { inspectImageDimensions, renderMarkdownToDocxBuffer } from "./docx-builder.js";
 import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
+import { CONNECTOR_NAMES_VERSION, needsConnectorRepair, repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 // Bump whenever the per-topic .docx/.pptx output changes so cached `topics/` files regenerate on demand.
@@ -285,6 +286,15 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
       ? JSON.parse(fs.readFileSync(manifestPath, "utf8"))
       : {});
 
+  // A lab saved with a connector's internal name in its text gets its topic documents rebuilt once, from the repaired text.
+  // The lab's own index.md and manifest are not rewritten, and a lab without such an id is not touched at all.
+  const onDiskMarkdown = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf8") : "";
+  const onDiskManifest = fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, "utf8")) : null;
+  const connectorRepair =
+    Boolean(onDiskManifest) &&
+    onDiskManifest.topicDocumentsConnectorNames !== CONNECTOR_NAMES_VERSION &&
+    needsConnectorRepair({ markdown: onDiskMarkdown, manifest: onDiskManifest });
+
   const { topicDocuments: expectedDocs } = buildTopicDocumentsMeta(markdown, manifest, {
     labId,
     outputDir: resolvedLabDir,
@@ -308,20 +318,26 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
         d.pptxFileName === expectedDocs[idx].pptxFileName
     );
 
-  if (allPresentOnDisk && manifestMatches) {
+  if (allPresentOnDisk && manifestMatches && !connectorRepair) {
     return manifest.topicDocuments;
   }
 
   const generated = writeGeneratedLabTopicDocuments(resolvedLabDir, {
     labId,
-    markdown,
-    manifest,
+    markdown: connectorRepair ? repairConnectorNames(markdown) : markdown,
+    manifest: connectorRepair ? rewriteConnectorValue(manifest) : manifest,
     branding: options.branding,
   });
 
+  // What is saved is the manifest as it is on disk plus the new document list, never the repaired text.
+  const saved = connectorRepair ? onDiskManifest : manifest;
+  if (connectorRepair) {
+    applyTopicDocumentsToManifest(saved, generated);
+    saved.topicDocumentsConnectorNames = CONNECTOR_NAMES_VERSION;
+  }
   if (fs.existsSync(manifestPath)) {
     try {
-      writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+      writeFileAtomic(manifestPath, JSON.stringify(saved, null, 2) + "\n");
     } catch {
       /* best-effort persistence for read-only legacy directories */
     }
