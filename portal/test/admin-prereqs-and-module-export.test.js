@@ -454,7 +454,8 @@ test("per-module ZIP export creates titled module folders, scenario sample-files
     // Check capability-specific sample files across modules (SharePoint .md, OpenAPI .json, Adaptive Card .json, Evaluation .csv)
     assert.ok(allPaths.some((p) => p.endsWith("-policy-handbook.md")), "Includes SharePoint knowledge handbook sample");
     assert.ok(allPaths.some((p) => p.endsWith("-openapi-spec.json")), "Includes Custom Connector OpenAPI JSON sample");
-    assert.ok(allPaths.some((p) => p.endsWith("/adaptive-card-template.json")), "Includes Adaptive Card JSON sample");
+    // Deep module folders may lose a filler word from a sample file name to stay inside the Windows path budget.
+    assert.ok(allPaths.some((p) => /\/adaptive-card(-template)?\.json$/.test(p)), "Includes Adaptive Card JSON sample");
     assert.ok(allPaths.some((p) => p.endsWith("/evaluation-test-cases.csv")), "Includes Agent Evaluation CSV test set sample");
 
     // Boot live HTTP server and test format-specific ZIPs + direct docx/pptx/pdf + 400 validation
