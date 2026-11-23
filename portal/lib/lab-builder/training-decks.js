@@ -18,6 +18,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 import { loadTrainingLibrary } from "./training-library.js";
 import { TRAINING_DECK_PREFIX, TRAINING_FOLDER, TRAINING_SCHEMA_VERSION, TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
 import { renderTrainingDeck } from "./training-pptx.js";
@@ -88,8 +89,10 @@ function labInputs(labDir, options = {}) {
   const labId = options.labId || path.basename(resolved);
   const indexPath = path.join(resolved, "index.md");
   const manifestPath = path.join(resolved, "manifest.json");
-  const markdown = options.markdown !== undefined ? String(options.markdown) : fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf8") : "";
-  const manifest = options.manifest || (fs.existsSync(manifestPath) ? readJsonFile(manifestPath, {}) : {});
+  const markdown = repairConnectorNames(options.markdown !== undefined ? String(options.markdown) : fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf8") : "");
+  // A saved lab with a connector's internal name in its text gets decks built from the display name (its fingerprint
+  // changes, so the saved decks are rebuilt once); a lab without one is read exactly as before.
+  const manifest = rewriteConnectorValue(options.manifest || (fs.existsSync(manifestPath) ? readJsonFile(manifestPath, {}) : {}));
   return { resolved, labId, markdown, manifest };
 }
 

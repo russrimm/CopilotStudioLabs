@@ -17,6 +17,7 @@ import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { buildAdministratorSetupGuide } from "./admin-guide.js";
 import { ADMIN_GUIDE_TITLE } from "./learner-guide.js";
 import { PRODUCT_NAME, currentProductName } from "../product-name.js";
+import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 import { getFeature, getHarnesses } from "./catalog.js";
 import { buildDocxFromLabMarkdown } from "./docx-builder.js";
 import {
@@ -794,8 +795,8 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
         : {};
 
   const replacementEntries = normalizeReplacementEntries(ctx.replacements);
-  const markdown = applyReplacements(rawMarkdown, replacementEntries);
-  const manifest = applyReplacementsToValue(rawManifest, replacementEntries) || {};
+  const markdown = repairConnectorNames(applyReplacements(rawMarkdown, replacementEntries));
+  const manifest = rewriteConnectorValue(applyReplacementsToValue(rawManifest, replacementEntries) || {});
 
   const labId =
     ctx.labId ||

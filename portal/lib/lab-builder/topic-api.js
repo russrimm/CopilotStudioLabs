@@ -13,6 +13,7 @@ import { connect, fetchDocPage, searchDocs } from "./learn-mcp.js";
 import { MAX_SUMMARY, MAX_TITLE, cleanText, normalizeLearnUrl } from "./topic-sanitize.js";
 import { buildUserTopic, productForUrl } from "./user-topic-build.js";
 import { tidySummary } from "./topic-sanitize.js";
+import { repairConnectorNames } from "./connector-names.js";
 import { resolveTopicLevel } from "./levels.js";
 import { describeSubtopics } from "./subtopics.js";
 import { EXPORT_MIME, buildTopicExport, exportFileName, normalizeExportRequest, serialize } from "./topic-export.js";
@@ -114,8 +115,8 @@ function productFreshness(service) {
 function toPayloadTopic(topic, recent = () => false) {
   return {
     id: topic.id,
-    title: topic.title,
-    summary: tidySummary(topic.summary),
+    title: repairConnectorNames(topic.title),
+    summary: repairConnectorNames(tidySummary(topic.summary)),
     source: "learn",
     ...(topic.product && topic.product !== DEFAULT_PRODUCT ? { product: topic.product } : {}),
     ...(topic.userAdded ? { userAdded: true } : {}),

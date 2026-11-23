@@ -1,0 +1,749 @@
+{
+  "description": "Connector API names and the display names people know them by. Every entry was checked against the title of its Microsoft Learn connector reference page (learnUrl) on verifiedAt. Add entries with tools/lab-builder/verify-connector-names.mjs --add shared_name[=learn-slug]; never type a display name by hand.",
+  "connectors": [
+    {
+      "apiName": "shared_adobesign",
+      "displayName": "Adobe Acrobat Sign",
+      "learnUrl": "https://learn.microsoft.com/connectors/adobesign/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_approvals",
+      "displayName": "Standard approvals",
+      "learnUrl": "https://learn.microsoft.com/connectors/approvals/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_asana",
+      "displayName": "Asana",
+      "learnUrl": "https://learn.microsoft.com/connectors/asana/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuread",
+      "displayName": "Microsoft Entra ID",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuread/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "Azure AD",
+        "Azure Active Directory"
+      ]
+    },
+    {
+      "apiName": "shared_azureagentservice",
+      "displayName": "Azure AI Foundry Agent Service (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureagentservice/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureaifoundryinference",
+      "displayName": "Azure AI Foundry Inference",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureaifoundryinference/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureaisearch",
+      "displayName": "Azure AI Search",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureaisearch/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureautomation",
+      "displayName": "Azure Automation",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureautomation/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureblob",
+      "displayName": "Azure Blob Storage",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureblob/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuredatafactory",
+      "displayName": "Azure Data Factory",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuredatafactory/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuredatalake",
+      "displayName": "Azure Data Lake",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuredatalake/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuredigitaltwins",
+      "displayName": "Azure Digital Twins (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuredigitaltwins/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureeventgrid",
+      "displayName": "Azure Event Grid",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureeventgrid/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azurefile",
+      "displayName": "Azure File Storage",
+      "learnUrl": "https://learn.microsoft.com/connectors/azurefile/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuremaps",
+      "displayName": "Azure Maps",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuremaps/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuremonitorlogs",
+      "displayName": "Azure Monitor Logs",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuremonitorlogs/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azureopenai",
+      "displayName": "Azure OpenAI",
+      "learnUrl": "https://learn.microsoft.com/connectors/azureopenai/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azurequeues",
+      "displayName": "Azure Queues",
+      "learnUrl": "https://learn.microsoft.com/connectors/azurequeues/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuresentinel",
+      "displayName": "Microsoft Sentinel (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuresentinel/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_azuretables",
+      "displayName": "Azure Table Storage",
+      "learnUrl": "https://learn.microsoft.com/connectors/azuretables/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_bingmaps",
+      "displayName": "Bing Maps",
+      "learnUrl": "https://learn.microsoft.com/connectors/bingmaps/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_bingsearch",
+      "displayName": "Bing Search (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/bingsearch/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_box",
+      "displayName": "Box",
+      "learnUrl": "https://learn.microsoft.com/connectors/box/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_cognitiveservicescomputervision",
+      "displayName": "Computer Vision API",
+      "learnUrl": "https://learn.microsoft.com/connectors/cognitiveservicescomputervision/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_cognitiveservicestextanalytics",
+      "displayName": "Azure Cognitive Service for Language",
+      "learnUrl": "https://learn.microsoft.com/connectors/cognitiveservicestextanalytics/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_commondataservice",
+      "displayName": "Microsoft Dataverse",
+      "learnUrl": "https://learn.microsoft.com/connectors/commondataservice/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_commondataserviceforapps",
+      "displayName": "Microsoft Dataverse",
+      "learnUrl": "https://learn.microsoft.com/connectors/commondataserviceforapps/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "Dataverse",
+        "Common Data Service"
+      ]
+    },
+    {
+      "apiName": "shared_confluence",
+      "displayName": "Confluence",
+      "learnUrl": "https://learn.microsoft.com/connectors/confluence/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_contentunderstanding",
+      "displayName": "Azure AI Content Understanding (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/contentunderstanding/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_conversionservice",
+      "displayName": "Content Conversion (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/conversionservice/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_dataflows",
+      "displayName": "Power Query Dataflows",
+      "learnUrl": "https://learn.microsoft.com/connectors/dataflows/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_db2",
+      "displayName": "DB2",
+      "learnUrl": "https://learn.microsoft.com/connectors/db2/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_documentdb",
+      "displayName": "Azure Cosmos DB",
+      "learnUrl": "https://learn.microsoft.com/connectors/documentdb/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_docusign",
+      "displayName": "Docusign",
+      "learnUrl": "https://learn.microsoft.com/connectors/docusign/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_dropbox",
+      "displayName": "Dropbox",
+      "learnUrl": "https://learn.microsoft.com/connectors/dropbox/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_dynamicsax",
+      "displayName": "Fin & Ops Apps (Dynamics 365)",
+      "learnUrl": "https://learn.microsoft.com/connectors/dynamicsax/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_dynamicssmbsaas",
+      "displayName": "Dynamics 365 Business Central",
+      "learnUrl": "https://learn.microsoft.com/connectors/dynamicssmbsaas/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_eventhubs",
+      "displayName": "Event Hubs",
+      "learnUrl": "https://learn.microsoft.com/connectors/eventhubs/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_excelonline",
+      "displayName": "Excel Online (OneDrive)",
+      "learnUrl": "https://learn.microsoft.com/connectors/excelonline/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_excelonlinebusiness",
+      "displayName": "Excel Online (Business)",
+      "learnUrl": "https://learn.microsoft.com/connectors/excelonlinebusiness/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_filesystem",
+      "displayName": "File System",
+      "learnUrl": "https://learn.microsoft.com/connectors/filesystem/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_flowmanagement",
+      "displayName": "Power Automate Management",
+      "learnUrl": "https://learn.microsoft.com/connectors/flowmanagement/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "Flow Management"
+      ]
+    },
+    {
+      "apiName": "shared_formrecognizer",
+      "displayName": "Azure AI Document Intelligence (form recognizer)",
+      "learnUrl": "https://learn.microsoft.com/connectors/formrecognizer/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_freshdesk",
+      "displayName": "Freshdesk",
+      "learnUrl": "https://learn.microsoft.com/connectors/freshdesk/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_ftp",
+      "displayName": "FTP",
+      "learnUrl": "https://learn.microsoft.com/connectors/ftp/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_github",
+      "displayName": "GitHub",
+      "learnUrl": "https://learn.microsoft.com/connectors/github/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_gmail",
+      "displayName": "Gmail",
+      "learnUrl": "https://learn.microsoft.com/connectors/gmail/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_googlecalendar",
+      "displayName": "Google Calendar",
+      "learnUrl": "https://learn.microsoft.com/connectors/googlecalendar/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_googledrive",
+      "displayName": "Google Drive",
+      "learnUrl": "https://learn.microsoft.com/connectors/googledrive/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_googlesheet",
+      "displayName": "Google Sheets",
+      "learnUrl": "https://learn.microsoft.com/connectors/googlesheet/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_intercom",
+      "displayName": "Intercom",
+      "learnUrl": "https://learn.microsoft.com/connectors/intercom/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_jira",
+      "displayName": "Jira",
+      "learnUrl": "https://learn.microsoft.com/connectors/jira/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_keyvault",
+      "displayName": "Azure Key Vault",
+      "learnUrl": "https://learn.microsoft.com/connectors/keyvault/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_kusto",
+      "displayName": "Azure Data Explorer",
+      "learnUrl": "https://learn.microsoft.com/connectors/kusto/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_linkedinv2",
+      "displayName": "LinkedIn V2",
+      "learnUrl": "https://learn.microsoft.com/connectors/linkedinv2/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_luis",
+      "displayName": "LUIS",
+      "learnUrl": "https://learn.microsoft.com/connectors/luis/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_m365messagecenter",
+      "displayName": "Microsoft 365 message center (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/m365messagecenter/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_mailchimp",
+      "displayName": "MailChimp",
+      "learnUrl": "https://learn.microsoft.com/connectors/mailchimp/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_microsoftbookings",
+      "displayName": "Microsoft Bookings (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/microsoftbookings/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_microsoftcopilotstudio",
+      "displayName": "Microsoft Copilot Studio",
+      "learnUrl": "https://learn.microsoft.com/connectors/microsoftcopilotstudio/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_microsoftflowforadmins",
+      "displayName": "Power Automate for Admins",
+      "learnUrl": "https://learn.microsoft.com/connectors/microsoftflowforadmins/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_microsoftforms",
+      "displayName": "Microsoft Forms",
+      "learnUrl": "https://learn.microsoft.com/connectors/microsoftforms/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_microsoftformspro",
+      "displayName": "Dynamics 365 Customer Voice",
+      "learnUrl": "https://learn.microsoft.com/connectors/microsoftformspro/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_msnweather",
+      "displayName": "MSN Weather",
+      "learnUrl": "https://learn.microsoft.com/connectors/msnweather/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_mysql",
+      "displayName": "MySQL",
+      "learnUrl": "https://learn.microsoft.com/connectors/mysql/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_office365",
+      "displayName": "Office 365 Outlook",
+      "learnUrl": "https://learn.microsoft.com/connectors/office365/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_office365groups",
+      "displayName": "Office 365 Groups",
+      "learnUrl": "https://learn.microsoft.com/connectors/office365groups/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_office365groupsmail",
+      "displayName": "Office 365 Groups Mail",
+      "learnUrl": "https://learn.microsoft.com/connectors/office365groupsmail/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_office365users",
+      "displayName": "Office 365 Users",
+      "learnUrl": "https://learn.microsoft.com/connectors/office365users/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_onedrive",
+      "displayName": "OneDrive",
+      "learnUrl": "https://learn.microsoft.com/connectors/onedrive/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_onedriveforbusiness",
+      "displayName": "OneDrive for Business",
+      "learnUrl": "https://learn.microsoft.com/connectors/onedriveforbusiness/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_onenote",
+      "displayName": "OneNote (Business)",
+      "learnUrl": "https://learn.microsoft.com/connectors/onenote/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_oracle",
+      "displayName": "Oracle Database",
+      "learnUrl": "https://learn.microsoft.com/connectors/oracle/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_outlook",
+      "displayName": "Outlook.com",
+      "learnUrl": "https://learn.microsoft.com/connectors/outlook/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_pagerduty",
+      "displayName": "PagerDuty (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/pagerduty/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_planner",
+      "displayName": "Planner",
+      "learnUrl": "https://learn.microsoft.com/connectors/planner/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_postgresql",
+      "displayName": "PostgreSQL",
+      "learnUrl": "https://learn.microsoft.com/connectors/postgresql/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powerappsforadmins",
+      "displayName": "Power Apps for Admins",
+      "learnUrl": "https://learn.microsoft.com/connectors/powerappsforadmins/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powerappsforappmakers",
+      "displayName": "Power Apps for Makers",
+      "learnUrl": "https://learn.microsoft.com/connectors/powerappsforappmakers/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powerbi",
+      "displayName": "Power BI",
+      "learnUrl": "https://learn.microsoft.com/connectors/powerbi/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powerplatformadminv2",
+      "displayName": "Power Platform for Admins V2",
+      "learnUrl": "https://learn.microsoft.com/connectors/powerplatformadminv2/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powerplatformforadmins",
+      "displayName": "Power Platform for Admins",
+      "learnUrl": "https://learn.microsoft.com/connectors/powerplatformforadmins/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_powervirtualagents",
+      "displayName": "Power Virtual Agents (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/powervirtualagents/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_projectonline",
+      "displayName": "Project Online",
+      "learnUrl": "https://learn.microsoft.com/connectors/projectonline/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_rss",
+      "displayName": "RSS",
+      "learnUrl": "https://learn.microsoft.com/connectors/rss/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_salesforce",
+      "displayName": "Salesforce",
+      "learnUrl": "https://learn.microsoft.com/connectors/salesforce/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sap",
+      "displayName": "SAP",
+      "learnUrl": "https://learn.microsoft.com/connectors/sap/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_saperp",
+      "displayName": "SAP ERP",
+      "learnUrl": "https://learn.microsoft.com/connectors/saperp/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sapodata",
+      "displayName": "SAP OData",
+      "learnUrl": "https://learn.microsoft.com/connectors/sapodata/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_securitycopilot",
+      "displayName": "Microsoft Security Copilot (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/securitycopilot/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sendgrid",
+      "displayName": "SendGrid",
+      "learnUrl": "https://learn.microsoft.com/connectors/sendgrid/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sendmail",
+      "displayName": "Mail",
+      "learnUrl": "https://learn.microsoft.com/connectors/sendmail/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_service-now",
+      "displayName": "ServiceNow",
+      "learnUrl": "https://learn.microsoft.com/connectors/service-now/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_servicebus",
+      "displayName": "Service Bus",
+      "learnSlug": "servicebus-1",
+      "learnUrl": "https://learn.microsoft.com/connectors/servicebus-1/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sftpwithssh",
+      "displayName": "SFTP - SSH",
+      "learnUrl": "https://learn.microsoft.com/connectors/sftpwithssh/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sharepointonline",
+      "displayName": "SharePoint",
+      "learnUrl": "https://learn.microsoft.com/connectors/sharepointonline/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "SharePoint Online"
+      ]
+    },
+    {
+      "apiName": "shared_shifts",
+      "displayName": "Shifts for Microsoft Teams",
+      "learnUrl": "https://learn.microsoft.com/connectors/shifts/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_slack",
+      "displayName": "Slack",
+      "learnUrl": "https://learn.microsoft.com/connectors/slack/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_smartsheet",
+      "displayName": "Smartsheet",
+      "learnUrl": "https://learn.microsoft.com/connectors/smartsheet/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_smtp",
+      "displayName": "SMTP",
+      "learnUrl": "https://learn.microsoft.com/connectors/smtp/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_snowflakev2",
+      "displayName": "Snowflake",
+      "learnUrl": "https://learn.microsoft.com/connectors/snowflakev2/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_sql",
+      "displayName": "SQL Server",
+      "learnUrl": "https://learn.microsoft.com/connectors/sql/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_teams",
+      "displayName": "Microsoft Teams",
+      "learnUrl": "https://learn.microsoft.com/connectors/teams/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "Teams"
+      ]
+    },
+    {
+      "apiName": "shared_todo",
+      "displayName": "Microsoft To-Do (Business)",
+      "learnUrl": "https://learn.microsoft.com/connectors/todo/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_todoist",
+      "displayName": "Todoist",
+      "learnUrl": "https://learn.microsoft.com/connectors/todoist/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_trello",
+      "displayName": "Trello",
+      "learnUrl": "https://learn.microsoft.com/connectors/trello/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_twilio",
+      "displayName": "Twilio",
+      "learnUrl": "https://learn.microsoft.com/connectors/twilio/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_twitter",
+      "displayName": "X",
+      "learnUrl": "https://learn.microsoft.com/connectors/twitter/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_typeform",
+      "displayName": "Typeform (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/typeform/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_uiflow",
+      "displayName": "Desktop flows",
+      "learnUrl": "https://learn.microsoft.com/connectors/uiflow/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_visualstudioteamservices",
+      "displayName": "Azure DevOps",
+      "learnUrl": "https://learn.microsoft.com/connectors/visualstudioteamservices/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "Visual Studio Team Services"
+      ]
+    },
+    {
+      "apiName": "shared_webcontents",
+      "displayName": "HTTP with Microsoft Entra ID (preauthorized)",
+      "learnUrl": "https://learn.microsoft.com/connectors/webcontents/",
+      "verifiedAt": "2026-11-22",
+      "aliases": [
+        "HTTP with Azure AD (preauthorized)"
+      ]
+    },
+    {
+      "apiName": "shared_webcontentsv2",
+      "displayName": "HTTP With Microsoft Entra ID",
+      "learnUrl": "https://learn.microsoft.com/connectors/webcontentsv2/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_wordonlinebusiness",
+      "displayName": "Word Online (Business)",
+      "learnUrl": "https://learn.microsoft.com/connectors/wordonlinebusiness/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_wordpress",
+      "displayName": "WordPress",
+      "learnUrl": "https://learn.microsoft.com/connectors/wordpress/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_workdayhcm",
+      "displayName": "Workday HCM (Preview)",
+      "learnUrl": "https://learn.microsoft.com/connectors/workdayhcm/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_workdaysoap",
+      "displayName": "Workday",
+      "learnUrl": "https://learn.microsoft.com/connectors/workdaysoap/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_yammer",
+      "displayName": "Viva Engage",
+      "learnUrl": "https://learn.microsoft.com/connectors/yammer/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_youtube",
+      "displayName": "YouTube",
+      "learnUrl": "https://learn.microsoft.com/connectors/youtube/",
+      "verifiedAt": "2026-11-22"
+    },
+    {
+      "apiName": "shared_zendesk",
+      "displayName": "Zendesk",
+      "learnUrl": "https://learn.microsoft.com/connectors/zendesk/",
+      "verifiedAt": "2026-11-22"
+    }
+  ]
+}

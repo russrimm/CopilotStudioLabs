@@ -50,6 +50,7 @@ import {
 import { renderLabMarkdown } from "./markdown.js";
 import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafeManifest } from "./lab-builder/learner-guide.js";
 import { repairRunOnSteps } from "./lab-builder/sub-steps.js";
+import { repairConnectorNames, rewriteConnectorValue } from "./lab-builder/connector-names.js";
 import { TRAINING_ZIP_FOLDER, trainingZipEntries } from "./lab-builder/training-decks.js";
 import { buildPrerequisitesChecklist, checklistBaseName, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
 import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
@@ -356,6 +357,8 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
         let content = readFileSync(mdFile, "utf-8");
         // A lab built while sub-steps were one sentence is repaired as it is exported; the file on disk is not touched.
         if (relative(labDir, mdFile) === "index.md") content = repairRunOnSteps(content);
+        // A lab saved with a connector's internal name shows the display name in the export.
+        content = repairConnectorNames(content);
         for (const [search, replace] of replacementEntries) {
           content = content.split(search).join(replace);
         }
@@ -842,6 +845,7 @@ export function exportGeneratedLab(
         if (entry.name.endsWith(".md")) {
           let content = readFileSync(fullPath, "utf-8");
           if (relPath === "index.md") content = learnerGuideMarkdown(content);
+          else content = repairConnectorNames(content);
           for (const [search, replace] of replacementEntries) {
             content = content.split(search).join(replace);
           }
@@ -855,6 +859,20 @@ export function exportGeneratedLab(
           }
           archive.append(content, { name: archiveName });
           continue;
+        }
+
+        if (entry.name.endsWith(".json")) {
+          // The shot list and the Learn record of an older lab may carry a connector's internal name; the copy shows the display name.
+          try {
+            const parsed = JSON.parse(readFileSync(fullPath, "utf-8"));
+            const repaired = rewriteConnectorValue(parsed);
+            if (JSON.stringify(repaired) !== JSON.stringify(parsed)) {
+              archive.append(`${JSON.stringify(repaired, null, 2)}\n`, { name: archiveName });
+              continue;
+            }
+          } catch {
+            // An unreadable file is copied as it is.
+          }
         }
 
         if (relPath.startsWith("assets/") && !relPath.slice("assets/".length).includes("/")) {
