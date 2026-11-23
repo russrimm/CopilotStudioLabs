@@ -439,7 +439,7 @@ test("the workshop ZIP carries the customer checklist as one extra top-level fil
   assert.deepEqual(checkDocxPackage(all.get(checklist[0])), []);
   const manifest = JSON.parse(all.get("export-manifest.json").toString("utf8"));
   assert.equal(manifest.customerPrerequisitesChecklist, checklist[0]);
-  assert.ok(all.has(`${ctx.multi.labId}/index.md`) && all.has("README.md"));
+  assert.ok(all.has(`${manifest.labFolder}/index.md`) && all.has("README.md"));
   assert.match(all.get("README.md").toString("utf8"), /only the prerequisites, safe to send to the customer/);
   assert.ok([...all.keys()].some((name) => name.includes("/Facilitator Guide/")), "the facilitator guide stays where it was");
 

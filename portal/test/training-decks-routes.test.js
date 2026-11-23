@@ -218,7 +218,7 @@ test("the export route serves training, training-complete, and training-foundati
   const several = await fetch(url("multiProduct", "/export?format=training-foundations"));
   assert.equal(several.headers.get("content-type"), "application/zip", "several products: a ZIP of the foundations decks");
   const inner = [...readZipStrict(await bytes(several), { opc: false }).entries.keys()];
-  assert.deepEqual(inner.map((n) => n.replace(`${TRAINING_ZIP_FOLDER}/`, "")).sort(), ["Training deck - 00 Foundations - Copilot Studio.pptx", "Training deck - 00 Foundations - SharePoint AI.pptx"]);
+  assert.deepEqual(inner.map((n) => n.replace(`${TRAINING_ZIP_FOLDER}/`, "")).sort(), ["Training 00 Foundations Copilot Studio.pptx", "Training 00 Foundations SharePoint AI.pptx"]);
 
   const bad = await fetch(url("level200", "/export?format=training-everything"));
   assert.equal(bad.status, 400);
@@ -237,12 +237,12 @@ test("the lab ZIP puts the training decks in the folder that sorts first, ahead 
   assert.equal(decks.length, 1 + 1 + 4, "the complete deck, one foundations deck, and a deck per module");
   assert.ok(training.includes(`${TRAINING_ZIP_FOLDER}/README.md`));
   assert.equal([...names].sort((a, b) => a.localeCompare(b, "en", { numeric: true }))[0].split("/")[0], TRAINING_ZIP_FOLDER, "it sorts before everything else");
-  const handsOn = names.filter((n) => n.startsWith(`${labId}/`) && /\.pptx$/.test(n));
+  const manifest = JSON.parse(entries.get("export-manifest.json").toString("utf8"));
+  const handsOn = names.filter((n) => n.startsWith(`${manifest.labFolder}/`) && /\.pptx$/.test(n));
   assert.ok(handsOn.length >= 4, "the hands-on module decks are still in their own folders");
-  assert.ok(handsOn.every((n) => !n.includes("Training deck")));
+  assert.ok(handsOn.every((n) => !n.includes("Training")));
   for (const n of decks) assert.deepEqual(checkPptxPackage(entries.get(n), { expectNotes: true }), [], n);
 
-  const manifest = JSON.parse(entries.get("export-manifest.json").toString("utf8"));
   assert.equal(manifest.trainingDecksFolder, TRAINING_ZIP_FOLDER);
   assert.equal(manifest.trainingDecks.length, decks.length);
   assert.ok(manifest.trainingDecks.every((d) => d.file.startsWith(`${TRAINING_ZIP_FOLDER}/`) && d.minutes >= 8));
@@ -258,7 +258,7 @@ test("the lab ZIP puts the training decks in the folder that sorts first, ahead 
   assert.ok(!noPptx.some((n) => n.startsWith(TRAINING_ZIP_FOLDER)), "training decks are PowerPoint files, so they follow the formats asked for");
 
   const replaced = await zipEntries(root, labId, { formats: "pptx" }, { Contoso: "Adatum" });
-  const completeText = readZipStrict(replaced.get(`${TRAINING_ZIP_FOLDER}/Training deck - Complete.pptx`)).entries.get("ppt/slides/slide1.xml").toString("utf8");
+  const completeText = readZipStrict(replaced.get(`${TRAINING_ZIP_FOLDER}/Training - complete.pptx`)).entries.get("ppt/slides/slide1.xml").toString("utf8");
   assert.match(completeText, /Adatum Plant Foundations Lab/, "replacements reach the decks");
   const cached = readZipStrict(readFileSync(join(labs.level100.outputDir, "training", "Training deck - Complete.pptx"))).entries.get("ppt/slides/slide1.xml").toString("utf8");
   assert.doesNotMatch(cached, /Adatum/, "and never change the saved decks");
@@ -277,7 +277,7 @@ test("the command line writes every deck, one deck by number, and says plainly w
   assert.equal(all.status, 0, all.stderr);
   const files = readdirSync(out).sort();
   assert.equal(files.length, 6);
-  assert.ok(files.includes("Training deck - Complete.pptx") && files.includes("Training deck - 00 Foundations - Copilot Studio.pptx"));
+  assert.ok(files.includes("Training - complete.pptx") && files.includes("Training 00 Foundations Copilot Studio.pptx"), "the folder uses the same short names as the ZIP");
   for (const f of files) assert.deepEqual(checkPptxPackage(readFileSync(join(out, f)), { expectNotes: true }), [], f);
   assert.match(all.stderr, /Wrote 6 decks\. Training about \d+ minutes, then about \d+ minutes hands-on\./);
 

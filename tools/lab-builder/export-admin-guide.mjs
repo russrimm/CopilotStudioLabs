@@ -30,6 +30,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const lib = (name) => import(pathToFileURL(path.join(REPO_ROOT, "portal", "lib", name)).href);
 
 const { ADMIN_GUIDE_FORMATS, normalizeAdminGuideFormat, renderAdministratorSetupGuideFile } = await lib("lab-builder/admin-guide-render.js");
+const { shortenDownloadFileName } = await lib("export-names.js");
 
 const FLAGS = new Set(["lab", "root", "format", "out", "help"]);
 const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
@@ -102,12 +103,14 @@ try {
   const result = renderAdministratorSetupGuideFile({ manifest, markdown, format });
   if (result.status !== 200) throw new Error(result.error);
   const data = result.buffer ?? Buffer.from(result.text, "utf8");
+  // A name that stays within 120 characters, so saving into a deep folder works.
+  const defaultName = shortenDownloadFileName(`${result.baseName}.${result.ext}`);
 
   if (flags.out === "-") {
     process.stdout.write(data);
   } else {
-    let file = path.resolve(flags.out || `${result.baseName}.${result.ext}`);
-    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, `${result.baseName}.${result.ext}`);
+    let file = path.resolve(flags.out || defaultName);
+    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, defaultName);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, data);
     console.error(`${result.model.itemCount} items for ${result.model.roles.length} roles.\nWrote ${path.relative(process.cwd(), file) || file}`);

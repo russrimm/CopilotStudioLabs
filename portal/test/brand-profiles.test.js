@@ -645,11 +645,11 @@ test("the facilitator guide, ZIP bundle README, and manifests carry the lab's cu
   assert.equal(manifest.customized, true);
   assert.equal(JSON.stringify(manifest).includes("ai-help@contoso.com"), false, "contact details stay out of the manifest");
 
-  const index = files.get(`${id}/index.md`).toString("utf8");
+  const index = files.get(`${manifest.labFolder}/index.md`).toString("utf8");
   assert.match(index, /### Need help\?/);
-  const indexHtml = files.get(`${id}/index.html`).toString("utf8");
+  const indexHtml = files.get(`${manifest.labFolder}/index.html`).toString("utf8");
   assert.match(indexHtml, /Contoso Internal Training/);
-  const moduleDocs = [...files.keys()].filter((name) => /\.(docx|html)$/.test(name) && !name.includes("Facilitator Guide") && name !== `${id}/index.html`);
+  const moduleDocs = [...files.keys()].filter((name) => /\.(docx|html)$/.test(name) && !name.includes("Facilitator Guide") && name !== `${manifest.labFolder}/index.html`);
   assert.ok(moduleDocs.length >= 2);
   assert.match(files.get(moduleDocs.find((name) => name.endsWith(".html"))).toString("utf8"), /Contoso Internal Training/);
 });

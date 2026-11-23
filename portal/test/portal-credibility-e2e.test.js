@@ -191,10 +191,12 @@ test("generated-lab export and structural validation support unbranded and custo
     assert.equal(zipBuffer[0], 0x50);
     assert.equal(zipBuffer[1], 0x4b);
     const entries = listZipEntries(zipBuffer);
-    assert.ok(entries.includes(`${built.labId}/index.md`), `missing index.md in ${entries}`);
-    assert.ok(entries.includes(`${built.labId}/manifest.json`), `missing manifest.json in ${entries}`);
+    const labFolder = entries.find((name) => name.endsWith("/index.md"))?.split("/")[0];
+    assert.ok(labFolder && labFolder !== built.labId && labFolder.length <= 30, `the lab folder is the short name, got: ${labFolder}`);
+    assert.ok(entries.includes(`${labFolder}/index.md`), `missing index.md in ${entries}`);
+    assert.ok(entries.includes(`${labFolder}/manifest.json`), `missing manifest.json in ${entries}`);
     assert.ok(entries.includes("_branding/logo.png"), `missing _branding/logo.png in ${entries}`);
-    assert.ok(entries.includes(`${built.labId}/assets/sample-shot.png`), `missing screenshot in ${entries}`);
+    assert.ok(entries.includes(`${labFolder}/assets/sample-shot.png`), `missing screenshot in ${entries}`);
     assert.ok(entries.includes("export-manifest.json"), `missing export-manifest.json in ${entries}`);
   } finally {
     cleanGen();
@@ -248,10 +250,11 @@ test("HTTP generated-lab export and validate endpoints work on canonical and ali
       });
       assert.equal(zip.status, 200);
       assert.match(zip.headers.get("content-type") || "", /application\/zip/);
+      assert.match(zip.headers.get("content-disposition") || "", /Lab package\.zip/, "the ZIP is named after the short lab name");
       const buf = Buffer.from(await zip.arrayBuffer());
       assert.equal(buf[0], 0x50);
       assert.equal(buf[1], 0x4b);
-      assert.ok(buf.includes(Buffer.from(`${built.labId}/index.html`, "utf8")), "ZIP export includes multi-page index.html");
+      assert.ok(listZipEntries(buf).some((name) => /^[^/]+\/index\.html$/.test(name)), "ZIP export includes multi-page index.html");
     }
 
     const renamed = updateGeneratedLabMeta(genRoot, built.labId, { title: "Renamed Foundry Lab" });

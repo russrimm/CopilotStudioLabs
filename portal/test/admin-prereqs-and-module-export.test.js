@@ -393,48 +393,53 @@ test("per-module ZIP export creates titled module folders, scenario sample-files
     const allZip = parseZipArchive(allZipBuf);
     const allPaths = [...allZip.keys()];
 
-    // Backward-compatible root lab files remain intact, while raw unbranded topics/ binaries are omitted from ZIP
-    assert.ok(allZip.has(`${built.labId}/index.md`));
-    assert.ok(allZip.has(`${built.labId}/index.html`));
-    assert.ok(allZip.has(`${built.labId}/manifest.json`));
-    assert.ok(allZip.has("export-manifest.json"));
-    assert.ok(!allPaths.some((p) => p.startsWith(`${built.labId}/topics/`)), "Raw disk topics/ folder is not duplicated in ZIP");
-
+    // The export-manifest names the short lab folder; the ZIP no longer uses the long lab id as its root.
     const exportManifest = JSON.parse(allZip.get("export-manifest.json").toString("utf8"));
+    const labFolder = exportManifest.labFolder;
+    assert.ok(labFolder && labFolder.length <= 30 && labFolder !== built.labId, `short lab folder, got: ${labFolder}`);
+
+    // Backward-compatible root lab files remain intact, while raw unbranded topics/ binaries are omitted from ZIP
+    assert.ok(allZip.has(`${labFolder}/index.md`));
+    assert.ok(allZip.has(`${labFolder}/index.html`));
+    assert.ok(allZip.has(`${labFolder}/manifest.json`));
+    assert.ok(allZip.has("export-manifest.json"));
+    assert.ok(!allPaths.some((p) => p.startsWith(`${labFolder}/topics/`)), "Raw disk topics/ folder is not duplicated in ZIP");
+
     assert.deepEqual(exportManifest.formats, ["docx", "pptx", "pdf", "html"]);
     assert.equal(exportManifest.modules.length, built.manifest.modules.length);
 
     // Overview folder has all 4 formats, and no administrator setup (that is in "For the administrator/")
-    const overviewPrefix = `${built.labId}/00 - Overview/Lab Overview`;
+    const overviewPrefix = `${labFolder}/00 - Overview/Lab Overview`;
     assert.ok(allZip.has(`${overviewPrefix}.docx`));
     assert.ok(allZip.has(`${overviewPrefix}.pptx`));
     assert.ok(allZip.has(`${overviewPrefix}.pdf`));
     assert.ok(allZip.has(`${overviewPrefix}.html`));
 
-    // Every module is in its own `Module NN - <Title>` folder with per-lab named .docx, .pptx, .pdf, .html AND sample-files/
+    // Every module is in its own `NN <short title>` folder with short named .docx, .pptx, .pdf, .html AND sample-files/
     for (const mod of exportManifest.modules) {
-      assert.match(mod.folder, new RegExp(`^${built.labId}/Module \\d{2} - .+`));
-      const expectedBase = mod.fileBaseName;
-      assert.ok(expectedBase.includes(" - "), `Expected per-lab module filename stem, got: ${expectedBase}`);
-      assert.ok(allZip.has(`${mod.folder}/${expectedBase}.docx`), `Missing DOCX in ${mod.folder}`);
-      assert.ok(allZip.has(`${mod.folder}/${expectedBase}.pptx`), `Missing PPTX in ${mod.folder}`);
-      assert.ok(allZip.has(`${mod.folder}/${expectedBase}.pdf`), `Missing PDF in ${mod.folder}`);
-      assert.ok(allZip.has(`${mod.folder}/${expectedBase}.html`), `Missing HTML in ${mod.folder}`);
+      assert.match(mod.folder, new RegExp(`^${labFolder}/\\d{2} .+`));
+      assert.ok(mod.fileBaseName.includes(" - "), `Expected the lab's own per-module name, got: ${mod.fileBaseName}`);
+      const [docxPath, pptxPath, pdfPath, htmlPath] = mod.documents;
+      assert.match(docxPath, /\/\d{2}( .+)? - Handout\.docx$/);
+      assert.match(pptxPath, /\/\d{2}( .+)? - Slides\.pptx$/);
+      assert.match(pdfPath, /\/\d{2}( .+)? - PDF\.pdf$/);
+      assert.match(htmlPath, /\/\d{2}( .+)? - Web page\.html$/);
+      for (const path of mod.documents) assert.ok(allZip.has(path), `Missing ${path}`);
       assert.ok(allZip.has(`${mod.folder}/sample-files/README.txt`), `Missing sample-files/README.txt in ${mod.folder}`);
       assert.ok(
-        allZip.has(`${mod.folder}/sample-files/starter-inputs-and-prompts.md`),
-        `Missing starter-inputs-and-prompts.md in ${mod.folder}`,
+        mod.sampleFiles.some((path) => /\/sample-files\/starter-inputs[^/]*\.md$/.test(path)),
+        `Missing the starter inputs file in ${mod.folder}`,
       );
 
       // Verify nested .docx inside the ZIP is itself a valid PKZIP OOXML document
-      const nestedDocx = allZip.get(`${mod.folder}/${expectedBase}.docx`);
+      const nestedDocx = allZip.get(docxPath);
       assert.equal(nestedDocx[0], 0x50);
       assert.equal(nestedDocx[1], 0x4b);
       const innerDocx = parseZipArchive(nestedDocx);
       assert.ok(innerDocx.has("word/document.xml"));
 
       // Verify nested .pptx inside the ZIP is itself a valid PKZIP PresentationML deck
-      const nestedPptx = allZip.get(`${mod.folder}/${expectedBase}.pptx`);
+      const nestedPptx = allZip.get(pptxPath);
       assert.equal(nestedPptx[0], 0x50);
       assert.equal(nestedPptx[1], 0x4b);
       const innerPptx = parseZipArchive(nestedPptx);
@@ -442,7 +447,7 @@ test("per-module ZIP export creates titled module folders, scenario sample-files
       assert.ok(innerPptx.has("ppt/slides/slide1.xml"));
 
       // Verify nested .pdf inside the ZIP is a valid %PDF-1.4 binary
-      const nestedPdf = allZip.get(`${mod.folder}/${expectedBase}.pdf`);
+      const nestedPdf = allZip.get(pdfPath);
       assert.match(nestedPdf.subarray(0, 12).toString("latin1"), /^%PDF-1\.4/);
     }
 
@@ -461,16 +466,18 @@ test("per-module ZIP export creates titled module folders, scenario sample-files
       assert.match(res.headers.get("content-type") || "", /application\/zip/);
       const zipEntries = parseZipArchive(Buffer.from(await res.arrayBuffer()));
       assert.ok(
-        ![...zipEntries.keys()].some((p) => p.startsWith(`${built.labId}/topics/`)),
+        ![...zipEntries.keys()].some((p) => /(^|\/)topics\//.test(p)),
         `Single-format ZIP (${singleFmt}) must not leak unbranded topics/ files`,
       );
       const singleManifest = JSON.parse(zipEntries.get("export-manifest.json").toString("utf8"));
       const modOneFolder = singleManifest.modules[0].folder;
-      const modOneBase = singleManifest.modules[0].fileBaseName;
-      assert.ok(zipEntries.has(`${modOneFolder}/${modOneBase}.${singleFmt}`), `Expected .${singleFmt} in module folder`);
+      const modOneDocs = singleManifest.modules[0].documents;
+      assert.equal(modOneDocs.length, 1, `Expected one document for formats=${singleFmt}`);
+      assert.ok(modOneDocs[0].endsWith(`.${singleFmt}`));
+      assert.ok(zipEntries.has(modOneDocs[0]), `Expected .${singleFmt} in module folder`);
       for (const otherFmt of ["docx", "pptx", "pdf", "html"].filter((f) => f !== singleFmt)) {
         assert.ok(
-          !zipEntries.has(`${modOneFolder}/${modOneBase}.${otherFmt}`),
+          ![...zipEntries.keys()].some((p) => p.startsWith(`${modOneFolder}/`) && p.endsWith(`.${otherFmt}`)),
           `Did not expect .${otherFmt} when formats=${singleFmt}`,
         );
       }

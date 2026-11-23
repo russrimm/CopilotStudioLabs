@@ -20,6 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 import { loadTrainingLibrary } from "./training-library.js";
+import { resolveExportBudget, trainingDeckFileName } from "../export-names.js";
 import { TRAINING_DECK_PREFIX, TRAINING_FOLDER, TRAINING_SCHEMA_VERSION, TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
 import { renderTrainingDeck } from "./training-pptx.js";
 import { buildCompleteDeck, buildFoundationsDeck, buildTopicDeck } from "./training-slides.js";
@@ -316,6 +317,12 @@ export function describeTrainingDecks(labDir, summary, plan) {
   return { ...summary, decks };
 }
 
+/** The name a deck has inside a ZIP: "Training NN <short title>.pptx", "Training 00 Foundations <product>.pptx", "Training - complete.pptx". */
+export function trainingExportFileName(plan, deck, { titleChars = resolveExportBudget().moduleTitleChars } = {}) {
+  const foundation = deck.kind === "foundations" ? (plan?.foundations || []).find((f) => f.productId === deck.productId) : null;
+  return trainingDeckFileName({ ...deck, productShort: foundation?.short }, { titleChars });
+}
+
 /**
  * ZIP entries for the training decks: `[{name, data}]` under the folder that sorts first, plus a short README,
  * and the descriptor list for the export manifest. With `live` (replacements or custom branding apply) every deck is
@@ -337,6 +344,7 @@ export function trainingZipEntries(labDir, { labId, markdown, manifest, branding
   const entries = [];
   const files = [];
   let rendered = null;
+  const exportNameOf = (deck) => trainingExportFileName(plan, deck);
   for (const deck of summary.decks) {
     let data = !uncached ? readCachedTrainingDeck(resolved, deck.fileName) : null;
     if (!data) {
@@ -344,21 +352,23 @@ export function trainingZipEntries(labDir, { labId, markdown, manifest, branding
       const found = rendered.find((d) => d.descriptor.key === deck.key);
       data = renderTrainingDeck(found.spec, { branding: live ? branding : undefined, library }).buffer;
     }
-    entries.push({ name: `${TRAINING_ZIP_FOLDER}/${deck.fileName}`, data });
-    files.push({ key: deck.key, kind: deck.kind, title: deck.title, minutes: deck.minutes, unreviewed: deck.unreviewed, file: `${TRAINING_ZIP_FOLDER}/${deck.fileName}` });
+    // The ZIP names the deck from its short title (see export-names.js); the cached file on disk keeps its own name.
+    const name = `${TRAINING_ZIP_FOLDER}/${exportNameOf(deck)}`;
+    entries.push({ name, data, kind: deck.kind, title: deck.title, minutes: deck.minutes, order: deck.order ?? null, stepLabel: deck.stepLabel ?? null });
+    files.push({ key: deck.key, kind: deck.kind, title: deck.title, minutes: deck.minutes, unreviewed: deck.unreviewed, file: name });
   }
-  entries.push({ name: `${TRAINING_ZIP_FOLDER}/README.md`, data: renderTrainingFolderReadme(plan, summary) });
+  entries.push({ name: `${TRAINING_ZIP_FOLDER}/README.md`, data: renderTrainingFolderReadme(plan, summary, exportNameOf), kind: "Training notes", title: "Training decks: deliver these first" });
   return { entries, files, summary, plan };
 }
 
 /** The short README at the top of the training folder: what to deliver first and how long it takes. */
-export function renderTrainingFolderReadme(plan, summary) {
+export function renderTrainingFolderReadme(plan, summary, nameOf = (d) => d.fileName) {
   const lines = [`# Training decks: deliver these first`, "", `For people who are new to this. No lab steps. About ${summary.totalMinutes} minutes in total, then the hands-on lab (about ${summary.handsOnMinutes} minutes).`, ""];
   const complete = summary.decks.find((d) => d.kind === "complete");
-  if (complete) lines.push(`- **${complete.fileName}**: everything in one file, in teaching order, with a running agenda (${complete.slideCount} slides, about ${complete.minutes} minutes).`);
-  for (const d of summary.decks.filter((x) => x.kind === "foundations")) lines.push(`- **${d.fileName}**: the shared ideas and words for one product (about ${d.minutes} minutes).`);
+  if (complete) lines.push(`- **${nameOf(complete)}**: everything in one file, in teaching order, with a running agenda (${complete.slideCount} slides, about ${complete.minutes} minutes).`);
+  for (const d of summary.decks.filter((x) => x.kind === "foundations")) lines.push(`- **${nameOf(d)}**: the shared ideas and words for one product (about ${d.minutes} minutes).`);
   lines.push("", "## One deck per topic", "");
-  for (const d of summary.decks.filter((x) => x.kind === "topic")) lines.push(`- ${d.fileName}: about ${d.minutes} minutes${d.unreviewed ? ". Review before you present: this topic comes only from Microsoft Learn." : ""}`);
+  for (const d of summary.decks.filter((x) => x.kind === "topic")) lines.push(`- ${nameOf(d)}: ${d.stepLabel ? `${d.stepLabel} - ` : ""}${d.title}. About ${d.minutes} minutes${d.unreviewed ? ". Review before you present: this topic comes only from Microsoft Learn." : ""}`);
   lines.push("", "Every slide has speaker notes with a talk track, an example to say out loud, a question for the room, what to demo, and its time.", "");
   return lines.join("\n");
 }
