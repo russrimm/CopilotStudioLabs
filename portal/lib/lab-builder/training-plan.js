@@ -30,8 +30,10 @@ const SCENARIOS = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-prof
 /**
  * Bump whenever the training deck content or layout changes, so cached `training/` files rebuild on demand.
  * 1: first release (storyline, foundations decks, complete deck).
+ * 2: the title, eyebrow, and subtitle are laid out from one measured vertical budget (pptx-text-fit.js): a long title
+ *    steps down, then is shortened, and can no longer run into the eyebrow or the body.
  */
-export const TRAINING_SCHEMA_VERSION = 1;
+export const TRAINING_SCHEMA_VERSION = 2;
 
 /** Minutes of training: a full topic deck, a prerequisite refresher, a short deck for a topic only Learn describes, and foundations. */
 export const TRAINING_MINUTES = Object.freeze({ topic: 25, refresher: 20, short: 12, foundations: 12, foundationsShort: 8 });

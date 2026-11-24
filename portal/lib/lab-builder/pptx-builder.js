@@ -25,6 +25,7 @@ import { stripEmbeddedHtml } from "./html-fragments.js";
 import { learnerGuideMarkdown } from "./learner-guide.js";
 import { PRODUCT_NAME } from "../product-name.js";
 import { normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
+import { fitHeading, fitSingleLine, linesHeightEmu, paragraphsHeightEmu } from "./pptx-text-fit.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -41,6 +42,75 @@ const DEFAULT_FONT_BODY = "Segoe UI";
 let FONT_HEADING = DEFAULT_FONT_HEADING;
 let FONT_BODY = DEFAULT_FONT_BODY;
 const FONT_CODE = "Consolas";
+
+// The header of an ordinary lab slide (EMU), laid out from one budget so its parts never touch: the kicker and the
+// badge share the band above the title, the title is anchored to the top of its box and grows only downward, and the
+// divider sits below the title. Body content starts at 1220000 or lower. A one-line title keeps its look (21 pt, divider
+// at 1060000); a longer one steps down to two lines at 20 or 18 pt and pushes the divider down, and past that it is shortened.
+const HEADER_KICKER_Y = 205740;
+const HEADER_KICKER_H = 220000;
+const HEADER_BADGE_Y = 192000;
+const HEADER_BADGE_H = 270000;
+const HEADER_TITLE_Y = 468000;
+const HEADER_TITLE_LIMIT = 1130000;
+const HEADER_DIVIDER_Y = 1060000;
+const HEADER_DIVIDER_GAP = 40000;
+const HEADER_TITLE_STEPS = [
+  { sizePt: 21, spacingPct: 118000, maxLines: 1 },
+  { sizePt: 20, spacingPct: 95000, maxLines: 2 },
+  { sizePt: 18, spacingPct: 95000, maxLines: 2 },
+];
+// A logo on a title slide sits at the top right; lines beside it stay one line and clear of it.
+const HERO_LOGO_CLEAR = 1850000;
+
+// A brand font replaces both typefaces, and the run writer then bolds every run set in it, so body text measures as bold.
+const bodyIsBold = () => FONT_BODY === FONT_HEADING;
+
+/**
+ * Fit the text stack of a topic title slide (lab line, badge line, topic title, subtitle, summary) into its panel.
+ * The lab and badge lines stay on one line, clear of the logo. If the stack is too tall the topic title steps down
+ * from 26 pt first, then the summary is trimmed, and only then is the title shortened (the full text goes to the notes).
+ */
+function fitHeroPanel({ labLine, badgeLine, title, subtitle, summary, widthEmu, heightEmu, logoClearEmu }) {
+  const lab = fitSingleLine({ text: labLine, fontName: FONT_HEADING, widthEmu: widthEmu - logoClearEmu, sizes: [10.5, 10, 9.5] });
+  const badge = fitSingleLine({ text: badgeLine, fontName: FONT_HEADING, widthEmu: widthEmu - logoClearEmu, sizes: [12.5, 12, 11] });
+  const summaryText = (chars) => (summary && chars ? stripMarkdownFormatting(truncateText(summary, chars)) : "");
+  const stackHeight = (titleFit, chars) =>
+    paragraphsHeightEmu(
+      [
+        { text: lab.text, sizePt: lab.sizePt, fontName: FONT_HEADING, bold: true },
+        { text: badge.text, sizePt: badge.sizePt, fontName: FONT_HEADING, bold: true },
+        { text: titleFit.text, sizePt: titleFit.sizePt, fontName: FONT_HEADING, bold: true, spaceAfterPt: 8 },
+        ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
+        ...(summaryText(chars) ? [{ text: summaryText(chars), sizePt: 12.5, fontName: FONT_BODY, bold: bodyIsBold() }] : []),
+      ],
+      widthEmu,
+    );
+  const titleAt = (sizePt) => fitHeading({ text: title, fontName: FONT_HEADING, widthEmu, maxHeightEmu: Infinity, steps: [{ sizePt, spacingPct: 118000 }] });
+  const notes = [];
+  if (lab.shortened) notes.push(`FULL LAB TITLE: ${lab.fullText}`);
+  const result = (titleFit, summaryChars) => {
+    if (titleFit.shortened) notes.unshift(`FULL TITLE: ${titleFit.fullText}`);
+    return { lab, badge, title: titleFit, summaryChars: summaryText(summaryChars) ? summaryChars : 0, notes };
+  };
+  for (const chars of [340, 240, 160, 100, 0]) {
+    for (const sizePt of [26, 24, 22, 20]) {
+      const fit = titleAt(sizePt);
+      if (stackHeight(fit, chars) <= heightEmu) return result(fit, chars);
+    }
+  }
+  const fixedHeight = paragraphsHeightEmu(
+    [
+      { text: lab.text, sizePt: lab.sizePt, fontName: FONT_HEADING, bold: true },
+      { text: badge.text, sizePt: badge.sizePt, fontName: FONT_HEADING, bold: true },
+      ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
+    ],
+    widthEmu,
+  );
+  const room = heightEmu - fixedHeight - 8 * 12700;
+  const shortened = fitHeading({ text: title, fontName: FONT_HEADING, widthEmu, maxHeightEmu: Math.max(room, linesHeightEmu(1, 20, FONT_HEADING, 118000)), steps: [{ sizePt: 20, spacingPct: 118000 }] });
+  return result(shortened, 0);
+}
 
 const COLORS = Object.freeze({
   canvasBg: "F8FAFC",
@@ -975,6 +1045,7 @@ class PptxDeckAssembler {
     const notesEntries = [];
     this.slides.forEach((slide, idx) => {
       const slideNum = idx + 1;
+      slide.noteFullTitle();
       slide.finalizeChrome(slideNum, totalSlides);
       if (slide.hasNotes()) {
         notesEntries.push({
@@ -1495,6 +1566,7 @@ class SlideBuilder {
     this.notesParagraphs = [];
     // Chrome that must be read last (the footer and slide number) when a deck asks for it with `footerLast`.
     this.trailingXml = [];
+    this.shortenedTitle = null;
 
     if (meta.notes) {
       this.setNotes(meta.notes);
@@ -1607,17 +1679,25 @@ class SlideBuilder {
     }
 
     if (this.meta.kicker) {
+      // One line, clear of the badge when there is one.
+      const kickerW = this.meta.badge ? 8870000 : 9600000;
+      const kicker = fitSingleLine({
+        text: String(this.meta.kicker).toUpperCase(),
+        fontName: FONT_HEADING,
+        widthEmu: kickerW,
+        sizes: [10, 9],
+      });
       this.chromeXml.push(
         this.renderShapeXml({
           name: "Slide Kicker",
           x: 640080,
-          y: 205740,
-          cx: 9600000,
-          cy: 274320,
+          y: HEADER_KICKER_Y,
+          cx: kickerW,
+          cy: HEADER_KICKER_H,
           paragraphs: [
             {
-              text: String(this.meta.kicker).toUpperCase(),
-              sizePt: 10,
+              text: kicker.text,
+              sizePt: kicker.sizePt,
               bold: true,
               colorHex: this.deck.primaryHex,
               font: FONT_HEADING,
@@ -1633,9 +1713,9 @@ class SlideBuilder {
         this.renderShapeXml({
           name: "Slide Badge",
           x: SLIDE_CX - 2560000,
-          y: 192000,
+          y: HEADER_BADGE_Y,
           cx: 1920000,
-          cy: 300000,
+          cy: HEADER_BADGE_H,
           geom: "roundRect",
           fillHex: this.deck.primaryTintHex,
           borderHex: this.deck.primaryBorderHex,
@@ -1655,21 +1735,36 @@ class SlideBuilder {
       );
     }
 
+    let titleBottom = HEADER_TITLE_Y;
     if (this.meta.title) {
+      const fit = fitHeading({
+        text: sanitizeXmlChars(String(this.meta.title)),
+        fontName: FONT_HEADING,
+        widthEmu: SLIDE_CX - 1280160,
+        maxHeightEmu: HEADER_TITLE_LIMIT - HEADER_TITLE_Y,
+        steps: HEADER_TITLE_STEPS,
+      });
+      // The full title is kept in the speaker notes (see noteFullTitle) and in the shape's alt text when it was shortened.
+      if (fit.shortened) this.shortenedTitle = fit.fullText;
+      titleBottom = HEADER_TITLE_Y + fit.heightEmu;
       this.chromeXml.push(
         this.renderShapeXml({
           name: "Slide Title",
+          descr: fit.shortened ? fit.fullText : undefined,
           x: 640080,
-          y: 468000,
+          y: HEADER_TITLE_Y,
           cx: SLIDE_CX - 1280160,
-          cy: 560000,
+          cy: fit.heightEmu,
+          anchor: "t",
           paragraphs: [
             {
-              text: truncateText(this.meta.title, 115),
-              sizePt: 21,
+              text: fit.text,
+              sizePt: fit.sizePt,
               bold: true,
               colorHex: COLORS.ink,
               font: FONT_HEADING,
+              lineSpacingPct: fit.spacingPct,
+              spaceAfterPt: 0,
             },
           ],
           insets: { l: 0, t: 0, r: 0, b: 0 },
@@ -1682,13 +1777,19 @@ class SlideBuilder {
       this.renderShapeXml({
         name: "Header Divider",
         x: 640080,
-        y: 1060000,
+        y: Math.max(HEADER_DIVIDER_Y, titleBottom + HEADER_DIVIDER_GAP),
         cx: SLIDE_CX - 1280160,
         cy: 12700,
         fillHex: COLORS.borderLight,
         paragraphs: [{ text: "", sizePt: 2 }],
       })
     );
+  }
+
+  /** A title that had to be shortened is added in full to the speaker notes, so nothing the author wrote is lost. */
+  noteFullTitle() {
+    if (!this.shortenedTitle || this.notesParagraphs.some((p) => p.heading === "FULL TITLE:")) return;
+    this.notesParagraphs.push({ heading: "FULL TITLE:", text: this.shortenedTitle, bullet: false });
   }
 
   finalizeChrome(slideNumber, totalSlides) {
@@ -1923,13 +2024,14 @@ class SlideBuilder {
       b: spec.insets?.b ?? 137160,
     };
     const anchor = spec.anchor || "t";
+    const descrAttr = spec.descr ? ` descr="${xmlEscape(spec.descr)}"` : "";
     const paragraphs = (spec.paragraphs?.length ? spec.paragraphs : [{ text: "", sizePt: 10 }])
       .map((p) => this.renderParagraphXml(p))
       .join("\n        ");
 
     return `<p:sp>
       <p:nvSpPr>
-        <p:cNvPr id="${id}" name="${xmlEscape(spec.name || `Shape ${id}`)}"/>
+        <p:cNvPr id="${id}" name="${xmlEscape(spec.name || `Shape ${id}`)}"${descrAttr}/>
         <p:cNvSpPr txBox="1"/>
         <p:nvPr/>
       </p:nvSpPr>
@@ -2384,6 +2486,16 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     parsedTopic.whatYouAreDoing[0] ||
     training.whyItMatters ||
     "";
+  const hero = fitHeroPanel({
+    labLine: meta.labTitle.toUpperCase(),
+    badgeLine: `${stepBadge}  •  ${training.availabilityBadge || "Generally Available"}`,
+    title: meta.topicTitle,
+    subtitle: deck.coverSubtitle ? truncateText(deck.coverSubtitle, 160) : "",
+    summary: heroSummary,
+    widthEmu: fullContentCx - 640080,
+    heightEmu: 2300000 - 228600 - 205740,
+    logoClearEmu: deck.logoMedia ? HERO_LOGO_CLEAR : 0,
+  });
   titleSlide.addShape({
     name: "Hero Accent Panel",
     x: 640080,
@@ -2396,24 +2508,24 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     insets: { l: 320040, t: 228600, r: 320040, b: 205740 },
     paragraphs: [
       {
-        text: meta.labTitle.toUpperCase(),
-        sizePt: 10.5,
+        text: hero.lab.text,
+        sizePt: hero.lab.sizePt,
         bold: true,
         colorHex: deck.primaryHex,
         font: FONT_HEADING,
         spaceAfterPt: 4,
       },
       {
-        text: `${stepBadge}  •  ${training.availabilityBadge || "Generally Available"}`,
-        sizePt: 12.5,
+        text: hero.badge.text,
+        sizePt: hero.badge.sizePt,
         bold: true,
         colorHex: deck.primaryDarkHex,
         font: FONT_HEADING,
         spaceAfterPt: 4,
       },
       {
-        text: meta.topicTitle,
-        sizePt: 26,
+        text: hero.title.text,
+        sizePt: hero.title.sizePt,
         bold: true,
         colorHex: COLORS.ink,
         font: FONT_HEADING,
@@ -2430,10 +2542,10 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
             },
           ]
         : []),
-      ...(heroSummary
+      ...(hero.summaryChars
         ? [
             {
-              markdown: truncateText(heroSummary, 340),
+              markdown: truncateText(heroSummary, hero.summaryChars),
               sizePt: 12.5,
               colorHex: COLORS.body,
               spaceAfterPt: 4,
@@ -2535,6 +2647,7 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     `- Anchor ${meta.topicTitle} inside ${meta.agentName || training.domainLabel || "the workshop agent"} on ${meta.products || training.productLabel || "Microsoft Copilot Studio"}.`,
     ...(training.learningObjectives || []).slice(0, 3).map((obj) => `- Outcome checkpoint: ${obj}`),
     `COACHING TIP: Confirm everyone has their browser zoomed to 100%–125% and their target environment selected before advancing to the architecture slide.`,
+    ...hero.notes,
   ]);
 
   // 2. Core Concepts: What It Is & How It Works
@@ -3627,6 +3740,39 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
       fillHex: deck.primaryHex,
       paragraphs: [{ text: "", sizePt: 4 }],
     });
+    // The cover's text is one flowing shape, so it is budgeted like a stack: the organization line stays on one line
+    // beside the logo, the title steps down (30 to 24 pt) before it is shortened, and with a logo the title starts
+    // below the logo's bottom edge instead of running under it.
+    const coverW = SLIDE_CX - 1280160 - 731520;
+    const coverH = 5100000 - 731520;
+    const coverOrg = fitSingleLine({
+      text: (deck.organizationName || "MICROSOFT AI HANDS-ON LAB").toUpperCase(),
+      fontName: FONT_HEADING,
+      widthEmu: coverW - (deck.logoMedia ? HERO_LOGO_CLEAR : 0),
+      sizes: [11, 10, 9],
+    });
+    const coverSubtitleText = options.subtitle ? stripMarkdownFormatting(truncateText(options.subtitle, 280)) : "";
+    const coverTail = [
+      ...(coverSubtitleText ? [{ text: coverSubtitleText, sizePt: 14, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
+      ...(deck.coverSubtitle ? [{ text: truncateText(deck.coverSubtitle, 160), sizePt: 13, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 4 }] : []),
+    ];
+    const coverTop = 680000 + 365760;
+    const orgHeight = linesHeightEmu(1, coverOrg.sizePt, FONT_HEADING, 118000);
+    let orgSpaceAfterPt = 10;
+    if (deck.logoMedia) {
+      // The logo is centered in its 1650000 x 685800 slot (see addPicture), so its bottom edge depends on its shape.
+      const logoHeight = Math.min(685800, Math.round(1650000 / (deck.logoMedia.widthPx / Math.max(1, deck.logoMedia.heightPx))));
+      const logoBottom = 820000 + Math.round((685800 + logoHeight) / 2);
+      const titleTop = coverTop + orgHeight + orgSpaceAfterPt * 12700;
+      orgSpaceAfterPt += Math.ceil(Math.max(0, logoBottom + 40000 - titleTop) / 12700);
+    }
+    const coverTitle = fitHeading({
+      text: docTitle,
+      fontName: FONT_HEADING,
+      widthEmu: coverW,
+      maxHeightEmu: coverH - orgHeight - orgSpaceAfterPt * 12700 - 14 * 12700 - paragraphsHeightEmu(coverTail, coverW),
+      steps: [30, 28, 26, 24].map((sizePt) => ({ sizePt, spacingPct: 118000 })),
+    });
     cover.addShape({
       name: "Cover Hero Box",
       x: 640080,
@@ -3639,16 +3785,16 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
       insets: { l: 365760, t: 365760, r: 365760, b: 365760 },
       paragraphs: [
         {
-          text: (deck.organizationName || "MICROSOFT AI HANDS-ON LAB").toUpperCase(),
-          sizePt: 11,
+          text: coverOrg.text,
+          sizePt: coverOrg.sizePt,
           bold: true,
           colorHex: deck.primaryHex,
           font: FONT_HEADING,
-          spaceAfterPt: 10,
+          spaceAfterPt: orgSpaceAfterPt,
         },
         {
-          text: docTitle,
-          sizePt: 30,
+          text: coverTitle.text,
+          sizePt: coverTitle.sizePt,
           bold: true,
           colorHex: COLORS.ink,
           font: FONT_HEADING,
@@ -3694,7 +3840,9 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
       `- Confirm every attendee is signed into the designated sandbox tenant/environment in an isolated browser profile.`,
       `- Verify attendees have downloaded the Complete Lab Package or per-module sample-files/ starter pack.`,
       `- Share the Run-of-Show agenda, demo-first then hands-on rhythm, and scheduled break times.`,
+      ...(coverOrg.shortened ? [`FULL ORGANIZATION NAME: ${coverOrg.fullText}`] : []),
     ]);
+    if (coverTitle.shortened) cover.appendNotes([`FULL TITLE: ${coverTitle.fullText}`]);
   }
 
   // Group content by H2/H3 headings
