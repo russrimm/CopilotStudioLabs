@@ -911,11 +911,13 @@
     .lb-customize-links a { color: var(--link-color); font-weight: 600; text-decoration: underline; }
     .lb-brand-chip {
       display: inline-block;
+      max-width: 100%;
       padding: 1px 8px;
-      border-radius: 999px;
+      border-radius: 12px;
       border: 1px solid var(--border-strong);
       background: var(--surface);
       font-weight: 600;
+      overflow-wrap: anywhere;
     }
     .gl-customize { margin: 12px 0; }
     .gl-customize-body { display: grid; gap: 12px; padding-top: 10px; }
@@ -2881,7 +2883,7 @@
     .lb-gen-title { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
     .lb-gen-meta { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); }
     .lb-gen-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; padding: 0; list-style: none; }
-    .lb-gen-chips li { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
+    .lb-gen-chips li { min-width: 0; max-width: 100%; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; }
     .lb-gen-chips li.lb-gen-chip-fail { border-style: double; border-width: 3px; font-weight: 600; }
     .lb-gen-notes { margin: 0 0 8px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
     .lb-gen-legacy { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); }
@@ -3282,16 +3284,21 @@
     .sc-heading { margin: 0; font-size: 16px; color: var(--text); }
     .sc-pills { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .sc-intro { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+    /* Every pill wraps instead of clipping: a long reason, warning, or label stays inside its card and keeps its colors.
+       The 12px radius reads as a full pill on one line (the line is about 23px tall) and as a rounded box on several. */
     .sc-chip {
       display: inline-flex;
       align-items: center;
+      max-width: 100%;
+      min-width: 0;
       padding: 2px 9px;
-      border-radius: 999px;
+      border-radius: 12px;
       border: 1px solid transparent;
       font-size: 11.5px;
       font-weight: 600;
       line-height: 1.5;
-      white-space: nowrap;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
     .sc-chip-ok { background: var(--sc-ok-bg); color: var(--sc-ok-fg); border-color: var(--sc-ok-border); }
     .sc-chip-warn { background: var(--sc-warn-bg); color: var(--sc-warn-fg); border-color: var(--sc-warn-border); }
@@ -3396,15 +3403,18 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      max-width: 100%;
+      min-width: 0;
       padding: 4px 10px;
       border: 1px solid transparent;
-      border-radius: 999px;
+      border-radius: 14px;
       font-size: 12.5px;
       font-weight: 600;
       line-height: 1.4;
     }
     .sc-copy-ack:empty { display: none; }
     .sc-copy-ack-icon { flex: none; }
+    .sc-copy-ack-text { min-width: 0; overflow-wrap: anywhere; }
     .sc-copy-ack-ok { background: var(--sc-ok-bg); color: var(--sc-ok-fg); border-color: var(--sc-ok-border); animation: sc-copy-ack-fade 3s linear forwards; }
     .sc-copy-ack-fail { background: var(--sc-warn-bg); color: var(--sc-warn-fg); border-color: var(--sc-warn-border); }
     @keyframes sc-copy-ack-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
@@ -3587,7 +3597,7 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
-    .sc-thumb-busy { position: absolute; inset: auto 8px 8px auto; padding: 2px 8px; border-radius: 999px; background: var(--sc-info-bg); color: var(--sc-info-fg); font-size: 11.5px; font-weight: 600; }
+    .sc-thumb-busy { position: absolute; inset: auto 8px 8px auto; max-width: calc(100% - 16px); padding: 2px 8px; border-radius: 12px; background: var(--sc-info-bg); color: var(--sc-info-fg); font-size: 11.5px; font-weight: 600; overflow-wrap: anywhere; }
     .sc-drop-hint { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; background: var(--sc-drop); color: var(--text); font-weight: 700; pointer-events: none; }
     .sc-card.sc-drop-active .sc-drop-hint { display: flex; }
     .sc-pick { display: none; position: absolute; top: 8px; left: 8px; padding: 4px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border-strong); }
@@ -3595,7 +3605,7 @@
     .sc-pick input { width: 18px; height: 18px; accent-color: var(--accent); }
     .sc-card-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
     .sc-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
-    .sc-fig { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+    .sc-fig { min-width: 0; max-width: 100%; font-size: 12px; font-weight: 600; color: var(--text-muted); overflow-wrap: anywhere; }
     .sc-caption { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
     .sc-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); overflow-wrap: anywhere; }
     .sc-note:empty { display: none; }
@@ -3643,7 +3653,7 @@
     .sc-pic-loaded .sc-pic-state { display: none; }
     .sc-pic-failed .sc-pic-img { visibility: hidden; }
     .sc-pic-failed .sc-pic-state { color: var(--text); font-weight: 600; }
-    .sc-pic-hint { position: absolute; right: 8px; bottom: 8px; padding: 2px 8px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; line-height: 1.5; opacity: 0; pointer-events: none; }
+    .sc-pic-hint { position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 2px 8px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; opacity: 0; pointer-events: none; }
     .sc-pic-thumb:hover .sc-pic-hint, .sc-pic-thumb:focus-visible .sc-pic-hint { opacity: 1; }
     @media (hover: none) { .sc-pic-hint { opacity: 1; } }
     .sc-pic-body { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
