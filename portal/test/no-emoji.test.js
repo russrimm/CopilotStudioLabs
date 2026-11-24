@@ -44,6 +44,11 @@ const ALLOWED = [
     includes: "Applies to: \u2713",
     reason: "a committed copy of Microsoft Learn text; readSnapshot() turns it into plain text before anything shows it",
   },
+  {
+    file: "portal/lib/lab-builder/plain-text.js",
+    includes: "STATUS_GLYPH",
+    reason: "the helper that removes check and cross marks has to name the characters it removes; nothing shows them",
+  },
 ];
 
 const hasEmoji = (text) => containsEmoji(text) || escapedEmojiMatches(text).length > 0;
