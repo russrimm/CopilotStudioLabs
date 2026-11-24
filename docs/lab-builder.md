@@ -2592,6 +2592,13 @@ before it takes the picture. It no longer trusts whichever layout the agent open
 - **Stamping.** The upload carries `evidence.harness` (`{ version: 1, id, proof: "landmarks", landmarks, switched, wanted }`), and the portal
   stamps the picture with the harness it was **actually** taken in, not the one that was hoped for. Proof for the wrong harness is rejected
   (`422 wrong-harness`); no proof at all goes to review (`harness-unproven`).
+- **Screens outside an agent, and guided mode.** The proof is read from the page: an agent's own tabs (Build, Preview, Evaluate, Monitor) or its
+  classic side navigation (Overview, Knowledge, Tools, Topics, ...). A screen outside any agent (the Copilot Studio home, the start of Create) shows
+  neither, so the companion cannot prove its harness: it still takes the picture, but saves it **without a harness recorded**, and the portal sends
+  it to review (a person checks which harness it shows, then accepts it; it is recorded as the slot's harness on that person's word). In **guided
+  mode** the person drives the browser and the companion only reads, so it never clicks the switch there; it proves the harness at the agent
+  screens and sends the rest to review the same way. Companion status causes: `wrong-harness`, `harness-unproven`, `harness-switch-failed`,
+  `harness-gap`.
 - **Older companions.** A companion older than **1.8.0** sends no proof, so its pictures go to **review** (the same pattern as the earlier
   version gates), never straight into good pictures. The job queue says so: *Update your Local Capture Companion to 1.8.0 or newer. Older versions
     cannot prove which harness a picture is taken in (Standard (Classic) or Microsoft Copilot), so their Copilot Studio pictures are saved for
