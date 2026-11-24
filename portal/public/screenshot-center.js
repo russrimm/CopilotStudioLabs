@@ -338,6 +338,8 @@ function scRenderInto(host, labId) {
   );
   const banner = scBuildBanner(labId);
   if (banner) section.appendChild(banner);
+  const harnessBanner = scBuildHarnessBanner(labId);
+  if (harnessBanner) section.appendChild(harnessBanner);
   const keepNotice = typeof scKeepNotice === "function" ? scKeepNotice() : null;
   if (keepNotice) section.appendChild(keepNotice);
   const wrongNotice = typeof scWrongNotice === "function" ? scWrongNotice(labId) : null;
@@ -362,6 +364,8 @@ function scRenderInto(host, labId) {
   const settings = scBuildCaptureSettings(labId, model);
   if (settings) section.appendChild(settings);
   section.appendChild(scBuildAdvanced(labId, model));
+  const unrecorded = scBuildHarnessUnrecorded(labId);
+  if (unrecorded) section.appendChild(unrecorded);
   section.appendChild(scBuildGallery(labId, model));
   section.appendChild(scBuildLightbox(labId));
   section.appendChild(scBuildFileInput());
@@ -567,7 +571,9 @@ function scBuildCauses(labId, causes) {
       const files = scEl("ul", { id: filesId, class: "sc-cause-files", attrs: { hidden: !open } });
       for (const filename of cause.filenames) {
         const shot = shots.find((s) => s.filename === filename);
-        files.appendChild(scEl("li", { text: shot ? scShotLabel(shot) : filename }));
+        // Each file says which harness it is for, so a retake can never be done in the wrong one.
+        const row = scJobRow(labId, filename);
+        files.appendChild(scEl("li", { text: `${shot ? scShotLabel(shot) : filename}${scHarnessSuffix(shot?.harness ? shot : row)}` }));
       }
       item.appendChild(files);
     }
@@ -982,7 +988,7 @@ function scBuildConsentCard(labId, consent) {
   scratchLabel.appendChild(scratchBox);
   scratchLabel.appendChild(scEl("span", { text: "Build the agent from scratch (recommended): it creates one new practice agent and follows the lab on it" }));
   scratchRow.appendChild(scratchLabel);
-  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Lab screenshots - ” and a short title from your lab. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
+  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Classic shots - ” (Standard (Classic) harness) or “Copilot shots - ” (Microsoft Copilot harness) and a short title from your lab; a lab that covers both harnesses gets one of each. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
   card.appendChild(scratchRow);
 
   const practiceId = "sc-consent-practice";
@@ -1198,8 +1204,11 @@ function scProgressView(key) {
 
 function scCurrentShotName(key, view) {
   const shot = (scLab(key).state?.shots || []).find((s) => s.filename === view.currentFilename);
-  if (!shot) return view.currentFilename || "";
-  return `${shot.figure ? `Figure ${shot.figure}: ` : ""}${shot.caption || shot.filename}`;
+  // The harness the picture is taken in is part of its name, so a person watching a capture sees which one is running.
+  const row = (scLab(key).job?.shots || []).find((s) => s.filename === view.currentFilename);
+  const harness = scHarnessSuffix(shot?.harness ? shot : row);
+  if (!shot) return `${view.currentFilename || ""}${view.currentFilename ? harness : ""}`;
+  return `${shot.figure ? `Figure ${shot.figure}: ` : ""}${shot.caption || shot.filename}${harness}`;
 }
 
 /** The sentence the companion last reported for the screenshot it is working on, when it is one of its own progress phrases. */
@@ -1447,7 +1456,7 @@ function scBuildLibrarySection() {
 function scLibraryContents() {
   const status = scState.status?.sharedLibrary;
   const library = scState.library;
-  const out = [scEl("h6", { text: "Shared screenshot library" })];
+  const out = [scEl("h6", { text: "Shared screenshot library", attrs: { tabindex: "-1" }, data: { scFocus: "library-heading" } })];
   out.push(
     scEl("p", {
       class: "hint",
@@ -1497,15 +1506,104 @@ function scLibraryContents() {
           }),
         );
       }
+      // A product with harnesses keeps one picture per harness for a slot written for more than one: say how many each harness has.
+      if (row.harnesses.length) {
+        const split = scEl("ul", { class: "sc-library-harnesses", attrs: { "aria-label": `${scProductName(row.product)} pictures by harness` } });
+        for (const entry of row.harnesses) {
+          split.appendChild(scEl("li", {}, [scHarnessChip(entry.label, entry.id), scEl("span", { class: "sc-library-meta", text: ` ${entry.captured} of ${entry.total} captured` })]));
+        }
+        li.appendChild(split);
+      }
       list.appendChild(li);
     }
     out.push(list);
+    const pictures = scBuildLibraryPictures(rows);
+    if (pictures) out.push(pictures);
+    const unrecorded = scBuildLibraryUnrecorded();
+    if (unrecorded) out.push(unrecorded);
+    // What happened to the last picture that was tagged (shown even when it was the last one in the group).
+    if (library.tagMessage) out.push(scEl("p", { class: `sc-banner sc-banner-${library.tagMessage.variant === "ok" ? "ok" : "warn"}`, text: library.tagMessage.text, attrs: { role: "status" }, data: { scHarnessTagMessage: "1" } }));
   }
   out.push(scEl("div", { class: "sc-progress-host", data: { scProgressHost: "library" } }));
   const outcome = scLab("library").outcome;
   if (outcome?.message) out.push(scEl("p", { class: `sc-banner sc-banner-${outcome.variant === "ok" ? "ok" : outcome.variant === "warn" ? "warn" : "error"}`, text: outcome.message }));
   if (typeof scKeepContents === "function") out.push(...scKeepContents());
   return out;
+}
+
+/** One row per library picture, by the name it is saved under (the name carries the harness), for a product that has harnesses. */
+function scBuildLibraryPictures(rows) {
+  const library = scState.library;
+  const harnessProducts = new Set(rows.filter((row) => row.harnesses.length).map((row) => row.product));
+  const shots = library.shots.filter((shot) => harnessProducts.has(String(shot.product || "")) && SC_SAFE_FILENAME.test(String(shot.filename)));
+  if (!shots.length) return null;
+  const details = scEl("details", { class: "sc-library-pictures", data: { scLibraryPictures: "1" } });
+  details.open = Boolean(library.picturesOpen);
+  details.appendChild(scEl("summary", { text: `Show the ${scPlural(shots.length, "picture")} by name and harness` }));
+  const list = scEl("ul", { class: "sc-library-pic-list", attrs: { "aria-label": "Shared library pictures by name and harness" } });
+  for (const shot of shots) {
+    const li = scEl("li", { class: "sc-library-pic", data: { scLibraryPicture: shot.filename } });
+    li.appendChild(scEl("code", { class: "sc-library-pic-name", text: shot.filename }));
+    const harness = scHarnessId(shot.harness);
+    if (harness) li.appendChild(scHarnessChip(scHarnessLabelOf(harness, shot.harnessLabel), harness));
+    const date = shot.captured ? scFormatDate(shot.capturedAt) : "";
+    const state = shot.captured ? `captured${date ? ` ${date}` : ""}${shot.needsReview ? ", needs review" : ""}` : shot.needsReview ? "needs review" : "not captured yet";
+    li.appendChild(scEl("span", { class: "sc-library-meta", text: `${scText(shot.featureName || shot.feature, 80)}${shot.featureName || shot.feature ? ": " : ""}${state}` }));
+    list.appendChild(li);
+  }
+  details.appendChild(list);
+  details.addEventListener("toggle", () => {
+    library.picturesOpen = Boolean(details.open);
+  });
+  return details;
+}
+
+/**
+ * "Pictures with no harness recorded" in the shared library: pictures saved under a slot's plain name before harnesses were recorded. No lab uses
+ * one for a slot that needs a harness until a person says which harness it shows.
+ */
+function scBuildLibraryUnrecorded() {
+  const rows = scState.library.unrecorded.filter((row) => SC_SAFE_FILENAME.test(String(row?.filename)));
+  if (!rows.length) return null;
+  const many = rows.length !== 1;
+  const section = scEl("section", { class: "sc-harness-unrecorded", attrs: { "aria-labelledby": "sc-library-unrecorded-heading" }, data: { scHarnessUnrecorded: "library" } });
+  section.appendChild(scEl("h6", { id: "sc-library-unrecorded-heading", text: "Pictures with no harness recorded", attrs: { tabindex: "-1" }, data: { scFocus: "library-unrecorded-heading" } }));
+  section.appendChild(
+    scEl("p", {
+      class: "sc-harness-help",
+      text: `${scPlural(rows.length, "picture")} in the library ${many ? "were" : "was"} saved before harnesses were recorded. ${many ? "They are" : "It is"} not reused for any lab until you say which harness ${many ? "each one shows" : "it shows"}. Look at the picture, then choose the harness it shows. If you choose a harness the screenshot is not written for, the picture is moved to the kept pictures list.`,
+    }),
+  );
+  const list = scEl("ul", { class: "sc-harness-list", attrs: { "aria-label": "Library pictures with no harness recorded" } });
+  for (const row of rows) {
+    const name = scText(row.featureName || row.feature, 100) || row.filename;
+    const li = scEl("li", { class: "sc-harness-item", data: { scHarnessItem: row.filename } });
+    li.appendChild(scHarnessThumb(`/api/capture/library/screenshots/${encodeURIComponent(row.filename)}/image`, { label: name }));
+    const body = scEl("div", { class: "sc-harness-item-body" });
+    body.appendChild(scEl("p", { class: "sc-harness-item-name", text: name }));
+    body.appendChild(scEl("code", { class: "sc-harness-file", text: row.filename }));
+    const chips = scEl("div", { class: "sc-harness-pair" });
+    chips.appendChild(scHarnessChip(SC_HARNESS_NOT_RECORDED, "not-recorded"));
+    const needs = (Array.isArray(row.harnesses) ? row.harnesses : []).map((id) => scHarnessId(id)).filter((id) => id && id !== "either");
+    for (const id of needs) chips.appendChild(scHarnessChip(`Needs: ${scHarnessLabelOf(id)}`, id));
+    body.appendChild(chips);
+    const date = scFormatDate(row.capturedAt);
+    const meta = [scProductName(row.product), date ? `saved ${date}` : ""].filter(Boolean).join(", ");
+    if (meta) body.appendChild(scEl("p", { class: "sc-library-meta", text: meta }));
+    body.appendChild(
+      scHarnessTagButtons(scHarnessTagChoices(...needs), {
+        action: "harness-tag-library",
+        data: { filename: row.filename },
+        focusPrefix: `library-harness:${row.filename}`,
+        label: name,
+        groupLabel: `Which harness does ${name} show?`,
+      }),
+    );
+    li.appendChild(body);
+    list.appendChild(li);
+  }
+  section.appendChild(list);
+  return section;
 }
 
 function scRenderLibraryHost() {
@@ -1642,6 +1740,8 @@ function scShotImageUrl(labId, shot, status) {
 }
 
 function scShotNote(shot, status, attempt = null, waitingNouns = [], agentNote = "") {
+  // A screenshot whose module is not written for the lab's harness is never captured in another one: the harness note above says so in plain words.
+  if (shot.harnessGap && !shot.captured && ["needs-you", "pending", "queued", "failed", "manual"].includes(status.key)) return "";
   // A screenshot that waited for the practice agent says why, in the computer's own plain words.
   if (status.agentWait && attempt) return scText(attempt.message || attempt.error, 300) || "The practice agent was not available, so this screenshot waited for it. Fix that, then retry.";
   switch (status.key) {
@@ -1727,6 +1827,209 @@ function scPracticeNote(lab) {
     : "The final state needs a practice agent. Without one, the picture shows this screen as far as the computer can go (for example the Publish dialog before it is confirmed) and is saved for review.";
 }
 
+// Which harness a picture is for -----------------------------------------------
+
+/** The harness label: its own element (it wraps, it is never clipped) and always words. `kind` is a harness id, "either", or "not-recorded". */
+function scHarnessChip(text, kind) {
+  return scEl("span", { class: `sc-harness-label sc-harness-label-${kind}`, text, data: { scHarnessLabel: kind } });
+}
+
+/** The one-click buttons that say which harness a picture shows ("This is Standard (Classic)", "This is Microsoft Copilot"). */
+function scHarnessTagButtons(choices, { action, data, focusPrefix, label, groupLabel, disabled = false }) {
+  const row = scEl("div", { class: "sc-harness-tag", attrs: { role: "group", "aria-label": groupLabel } });
+  for (const choice of choices) {
+    row.appendChild(
+      scButton(choice.text, {
+        action,
+        data: { ...data, harness: choice.id },
+        focus: `${focusPrefix}:${choice.id}`,
+        disabled,
+        aria: { "aria-label": `${choice.text}: ${label}` },
+      }),
+    );
+  }
+  return row;
+}
+
+/**
+ * The harness part of a screenshot's card or preview: the harness label (what the slot needs), the harness the picture was taken in, a plain
+ * note when the picture or the module does not fit, and the one-click buttons for a picture with no harness recorded. Null for a screenshot of
+ * a product with no harnesses, which shows nothing new.
+ */
+function scBuildHarnessBlock(labId, shot, { idPrefix = "card" } = {}) {
+  const lab = scLab(labId);
+  const model = scHarnessModel(shot, lab.state?.harness);
+  if (!model) return null;
+  const box = scEl("div", { class: "sc-harness", data: { scHarness: model.need, scHarnessState: model.state } });
+  box.appendChild(scHarnessChip(model.label, model.need));
+  // A shared topic of a lab built for both harnesses works in either; its picture is taken in the first one, and the card says so in words.
+  if (model.shared) box.appendChild(scEl("p", { class: "sc-harness-shared", text: model.sharedNote, data: { scHarnessShared: "1" } }));
+  if (model.pictureLabel) box.appendChild(scEl("p", { class: "sc-harness-picture", text: `Picture: ${model.pictureLabel}`, data: { scHarnessPicture: model.state } }));
+  const note = model.message || model.gapNote;
+  if (note) box.appendChild(scEl("p", { class: "sc-harness-note", text: note, data: { scHarnessNote: model.gap ? "gap" : model.state } }));
+  if (model.choices.length) {
+    const label = scShotLabel(shot);
+    box.appendChild(
+      scHarnessTagButtons(model.choices, {
+        action: "harness-tag",
+        data: { filename: shot.filename },
+        focusPrefix: `${idPrefix}:${shot.filename}:harness`,
+        label,
+        groupLabel: `Which harness does ${label} show?`,
+        disabled: Boolean(lab.uploading[shot.filename]),
+      }),
+    );
+  }
+  return box;
+}
+
+/**
+ * What the lab says about its harness, at the top of the Screenshot Center: the statement, and a warning when pictures are mixed or from the wrong
+ * harness. A lab built for both harnesses, one after another, is never "mixed": it says how many pictures each part has taken in its own harness.
+ */
+function scBuildHarnessBanner(labId) {
+  const lab = scLab(labId);
+  const model = scHarnessLabModel(lab.state);
+  if (!model) return null;
+  const box = scEl("section", {
+    class: `sc-harness-banner${model.mixed || model.wrong ? " sc-harness-banner-warn" : ""}`,
+    attrs: { "aria-label": model.combined ? "The harnesses this lab is built for" : "The harness this lab is built for" },
+    data: { scHarnessBanner: model.combined ? "both" : model.id },
+  });
+  box.appendChild(scEl("p", { class: "sc-harness-statement", text: model.statement, data: { scHarnessStatement: "1" } }));
+  if (model.source) box.appendChild(scEl("p", { class: "sc-harness-source", text: model.source }));
+  if (model.combined && model.parts.length) {
+    const parts = scEl("ul", { class: "sc-harness-parts", attrs: { "aria-label": "Pictures taken in each harness" } });
+    for (const part of model.parts) {
+      const li = scEl("li", { class: `sc-harness-part${part.wrong ? " sc-harness-part-warn" : ""}`, data: { scHarnessPart: part.id } });
+      li.appendChild(scHarnessChip(part.label, part.id));
+      li.appendChild(document.createTextNode(` ${scHarnessPartText(part)}`));
+      parts.appendChild(li);
+    }
+    box.appendChild(parts);
+  }
+  if (model.mixed && !model.combined) {
+    const warning = scEl("p", { class: "sc-harness-mixed", attrs: { role: "status" }, data: { scHarnessMixed: "1" } });
+    warning.appendChild(scEl("strong", { text: "Mixed harnesses. " }));
+    warning.appendChild(document.createTextNode(model.mixedMessage));
+    box.appendChild(warning);
+  }
+  if (model.wrong) {
+    const one = model.wrong === 1;
+    const count = one ? "1 picture was" : `${model.wrong} pictures were`;
+    const text = model.combined
+      ? `${count} taken in a different harness than ${one ? "the part it sits in needs" : "the part each one sits in needs"}. ${one ? "It is" : "They are"} not used until you retake ${one ? "it" : "them"} in ${one ? "that part's harness" : "their part's harness"}.`
+      : `${count} taken in a different harness than the lab's. ${one ? "It is" : "They are"} not used until you retake ${one ? "it" : "them"} in the ${model.label}.`;
+    box.appendChild(scEl("p", { class: "sc-harness-wrong", text, data: { scHarnessWrong: String(model.wrong) } }));
+    const shots = lab.state?.shots || [];
+    const list = scEl("ul", { class: "sc-harness-files", attrs: { "aria-label": "Pictures taken in a different harness" } });
+    for (const filename of model.wrongFiles.slice(0, 12)) {
+      const shot = shots.find((s) => s.filename === filename);
+      const needs = model.combined && shot ? scHarnessLabelOf(shot.harness, shot.harnessLabel) : "";
+      list.appendChild(scEl("li", { text: shot ? `${scShotLabel(shot)}${needs ? ` \u00b7 Needs: ${needs}` : ""} \u00b7 Picture: ${scText(shot.pictureHarnessLabel, 80) || "another harness"}` : filename }));
+    }
+    if (list.children.length) box.appendChild(list);
+  }
+  if (model.gaps) {
+    box.appendChild(
+      scEl("p", {
+        class: "sc-harness-gaps",
+        text: `${scPlural(model.gaps, "screenshot")} ${model.gaps === 1 ? "belongs" : "belong"} to modules that are not written for ${model.combined ? "the harness of the part they sit in" : `this lab's harness (${model.label})`}. Each one says so on its card, and none is captured in another harness.`,
+        data: { scHarnessGaps: String(model.gaps) },
+      }),
+    );
+  }
+  const notice = scText(scState.status?.autonomy?.harnessNotice, 300);
+  if (notice) box.appendChild(scEl("p", { class: "sc-harness-companion", text: notice, data: { scHarnessCompanion: "1" } }));
+  return box;
+}
+
+/** The lab's pictures that have no harness recorded, in the order they are listed. */
+function scHarnessUnrecordedFiles(labId) {
+  return (scLab(labId).state?.shots || []).filter((shot) => shot.harnessState === "not-recorded").map((shot) => shot.filename);
+}
+
+/** The thumbnail of a picture in a list, as an image (a button that opens the preview for a lab's own picture). */
+function scHarnessThumb(url, { action = "", filename = "", label = "", focus = "" } = {}) {
+  const img = scEl("img", { class: "sc-thumb-img", attrs: { src: url, alt: "", loading: "lazy", decoding: "async" } });
+  img.addEventListener?.("error", () => img.replaceWith?.(scEl("span", { class: "sc-thumb-empty", text: "No preview" })));
+  if (!action) return scEl("a", { class: "sc-thumb sc-harness-thumb", attrs: { href: url, target: "_blank", rel: "noopener noreferrer", "aria-label": `Open the picture for ${label} in a new tab` } }, [img]);
+  return scEl("button", { class: "sc-thumb sc-harness-thumb", attrs: { type: "button", "aria-label": `Enlarge ${label}` }, data: { scAction: action, filename, scFocus: focus } }, [img]);
+}
+
+/**
+ * "Pictures with no harness recorded": the lab's own pictures from before harnesses were recorded. The lab keeps showing them, but they are not
+ * reused for another lab, and not trusted for a harness, until a person says which harness each one shows.
+ */
+function scBuildHarnessUnrecorded(labId) {
+  const lab = scLab(labId);
+  const model = scHarnessLabModel(lab.state);
+  const shots = (lab.state?.shots || []).filter((shot) => shot.harnessState === "not-recorded");
+  if (!model || !shots.length) return null;
+  const section = scEl("section", { class: "sc-harness-unrecorded", attrs: { "aria-labelledby": "sc-harness-unrecorded-heading" }, data: { scHarnessUnrecorded: "lab" } });
+  section.appendChild(scEl("h5", { id: "sc-harness-unrecorded-heading", class: "sc-harness-unrecorded-title", text: "Pictures with no harness recorded", attrs: { tabindex: "-1" }, data: { scFocus: "harness-unrecorded-heading" } }));
+  section.appendChild(
+    scEl("p", {
+      class: "sc-harness-help",
+      text: `${scPlural(shots.length, "picture")} in this lab ${shots.length === 1 ? "was" : "were"} saved before the harness was recorded, so the file does not say which harness ${shots.length === 1 ? "it shows" : "each one shows"}. This lab keeps showing ${shots.length === 1 ? "it" : "them"}, but ${shots.length === 1 ? "it is" : "they are"} not reused for another lab until you tag ${shots.length === 1 ? "it" : "each one"}. Look at the picture, then choose the harness it shows. If it is not ${model.combined ? "the harness its screenshot needs" : `the ${model.label}`}, it is moved to the kept pictures list and its screenshot goes back to pending.`,
+    }),
+  );
+  const list = scEl("ul", { class: "sc-harness-list", attrs: { "aria-label": "Pictures with no harness recorded" } });
+  for (const shot of shots) {
+    const harness = scHarnessModel(shot, lab.state?.harness);
+    const label = scShotLabel(shot);
+    const li = scEl("li", { class: "sc-harness-item", data: { scHarnessItem: shot.filename } });
+    const url = scAssetUrl(labId, shot.filename, shot.capturedAt || shot.verification?.acceptedAt || "");
+    if (url) li.appendChild(scHarnessThumb(url, { action: "preview", filename: shot.filename, label, focus: `harness-thumb:${shot.filename}` }));
+    const body = scEl("div", { class: "sc-harness-item-body" });
+    body.appendChild(scEl("p", { class: "sc-harness-item-name", text: label }));
+    body.appendChild(scEl("code", { class: "sc-harness-file", text: shot.filename }));
+    const chips = scEl("div", { class: "sc-harness-pair" });
+    chips.appendChild(scHarnessChip(SC_HARNESS_NOT_RECORDED, "not-recorded"));
+    chips.appendChild(scHarnessChip(`Needs: ${harness?.label || model.label}`, harness?.need || model.id || "either"));
+    body.appendChild(chips);
+    if (harness?.shared) body.appendChild(scEl("p", { class: "sc-harness-shared", text: harness.sharedNote }));
+    if (harness?.message) body.appendChild(scEl("p", { class: "sc-harness-note", text: harness.message }));
+    body.appendChild(
+      scHarnessTagButtons(harness?.choices?.length ? harness.choices : scHarnessTagChoices(model.id), {
+        action: "harness-tag",
+        data: { filename: shot.filename },
+        focusPrefix: `harness-group:${shot.filename}`,
+        label,
+        groupLabel: `Which harness does ${label} show?`,
+        disabled: Boolean(lab.uploading[shot.filename]),
+      }),
+    );
+    li.appendChild(body);
+    list.appendChild(li);
+  }
+  section.appendChild(list);
+  return section;
+}
+
+/** After a tag, the buttons that had focus are gone: focus goes to the next picture still waiting for an answer (in the group), or stays on the picture (a card). */
+function scFocusAfterTag(key, filename, order = [], from = "group") {
+  const library = key === "library";
+  const host = library ? document.querySelector("[data-sc-library-host]") : scHostFor(key);
+  if (!host || from === "preview") return;
+  // Focus lands on a picture's thumbnail without saying "Selected: ..." over what the tag just announced.
+  const focusThumb = () => {
+    scSelectShot(key, filename);
+    scFocusByKey(host, `thumb:${filename}`);
+  };
+  if (!library && from === "card") {
+    focusThumb();
+    return;
+  }
+  const remaining = library ? scState.library.unrecorded.map((row) => row.filename) : scHarnessUnrecordedFiles(key);
+  const at = order.indexOf(filename);
+  const next = remaining.find((name) => order.indexOf(name) > at) || remaining[remaining.length - 1] || "";
+  const prefix = library ? "library-harness" : "harness-group";
+  if (next && host.querySelector(`[data-sc-focus="${prefix}:${next}:standard"]`)) scFocusByKey(host, `${prefix}:${next}:standard`);
+  else if (library) scFocusByKey(host, "library-heading");
+  else focusThumb();
+}
+
 function scBuildCard(labId, shot, jobStatus) {
   const lab = scLab(labId);
   const status = scStatusFor(labId, shot, jobStatus);
@@ -1765,11 +2068,16 @@ function scBuildCard(labId, shot, jobStatus) {
   card.appendChild(thumbWrap);
 
   const body = scEl("div", { class: "sc-card-body" });
+  // Which harness this picture is for (and was taken in), first, so a reviewer sees it before anything else on the card.
+  const harness = scBuildHarnessBlock(labId, shot, { idPrefix: "card" });
+  if (harness) body.appendChild(harness);
+  // A screenshot of a module that is not written for the lab's harness is never captured: the harness note above says why, and nothing here promises a capture.
+  const gapShot = Boolean(shot.harnessGap) && !shot.captured;
   const top = scEl("div", { class: "sc-card-head" });
   top.appendChild(scStatusChip(status));
   const confirmed = scShotConfirmed(shot);
   if (confirmed && ["captured", "outdated"].includes(status.key)) top.appendChild(scChip(confirmed.text, "ok", "sc-confirmed-chip"));
-  if (capture) {
+  if (capture && !gapShot) {
     const automatic = scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual";
     const automation = capture.automation;
     // A screenshot the plan says needs a person wears its one reason; the others say Automatic.
@@ -1790,9 +2098,9 @@ function scBuildCard(labId, shot, jobStatus) {
     body.appendChild(scEl("p", { class: "sc-share-note", text: "Other labs cannot use this picture yet. Use this one for every lab lets every lab that has no picture of its own show it. Check that it shows no account names or customer data.", data: { scShareNote: "1" } }));
   }
   // In automatic mode nobody is told to set a screen up: the card says what the computer will do, and what it cannot do without a practice agent.
-  const plan = capture && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
+  const plan = capture && !gapShot && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
   const automation = capture?.automation;
-  const personCard = Boolean(automation?.state === "person" && !shot.captured && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual");
+  const personCard = Boolean(!gapShot && automation?.state === "person" && !shot.captured && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual");
   if (personCard) {
     // The one reason this screen needs a person, and the exact steps to take.
     body.appendChild(scEl("p", { class: "sc-why", text: automation.why || capture.why, data: { scWhy: "1", scReason: automation.reason || "unseen" } }));
@@ -1809,12 +2117,12 @@ function scBuildCard(labId, shot, jobStatus) {
       if (automation.review === "always") body.appendChild(scEl("p", { class: "sc-why sc-review-note", text: SC_ALWAYS_REVIEW_NOTE, data: { scReviewNote: "1" } }));
       else if (!automation.verified) body.appendChild(scEl("p", { class: "sc-why sc-unverified-note", text: SC_UNVERIFIED_NOTE, data: { scUnverified: "1" } }));
     }
-  } else if (capture?.why) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
+  } else if (capture?.why && !gapShot) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
   if (capture?.path.length) body.appendChild(scBuildPath(capture.path));
   // While the computer works on this shot, the live message from the job says what it is doing right now.
   const running = status.key === "capturing" ? scText(scJobRow(labId, shot.filename)?.message, 200) : "";
   // A screen the computer does not take has nothing to say about the practice agent it will not use.
-  body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture), personCard ? "" : scAgentNoteFor(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
+  body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture), personCard || gapShot ? "" : scAgentNoteFor(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
   // While a retake runs, the picture in place stays; if it did not work, the card says the old picture was kept.
   const retakeNote = scRetakeNote({ shot, status, active: scIsActiveJob(lab.job) ? lab.job : null, last: lab.lastJob, row: scJobRow(labId, shot.filename) });
   body.appendChild(scEl("p", { class: "sc-retake-note", text: retakeNote, data: { scRetakeNote: "1" }, attrs: { role: "status", ...(retakeNote ? {} : { hidden: true }) } }));
@@ -2349,6 +2657,13 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "shot-confirm":
       await scConfirmShot(labId, filename);
       return;
+    case "harness-tag":
+      // Where the answer was given decides where focus goes afterwards: the group moves on to its next picture, a card stays on its own picture.
+      await scTagShot(labId, filename, control.dataset.harness, { from: /^harness-group:/.test(control.dataset.scFocus || "") ? "group" : /^lb:/.test(control.dataset.scFocus || "") ? "preview" : "card" });
+      return;
+    case "harness-tag-library":
+      await scTagLibraryPicture(labId, control.dataset.filename || filename, control.dataset.harness);
+      return;
     case "shot-unconfirm":
       await scUnconfirmShot(labId, filename);
       return;
@@ -2383,6 +2698,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       scSetFeedback(labId, filename, null);
       return;
     case "library-load":
+      scState.library.tagMessage = null;
       await scLoadLibrary(true);
       scRenderLibraryHost();
       return;
@@ -2678,14 +2994,23 @@ function scBuildReviewCompare(shot, label, url) {
   const mismatch = scLandingSentence(shot.verification);
   if (mismatch) wrap.appendChild(scEl("p", { class: "sc-review-mismatch", text: mismatch }));
   const grid = scEl("div", { class: "sc-review-grid" });
+  const harness = scHarnessModel(shot);
 
   const captured = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-captured" } });
   captured.appendChild(scEl("h6", { id: "sc-review-captured", text: "What we captured" }));
   captured.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
+  if (harness && harness.need !== "either") {
+    // The harness the companion read from the page, or what accepting the picture will record when it could not.
+    const proven = scHarnessId(shot.verification?.harnessSeen?.id ?? shot.verification?.evidence?.harness?.id ?? shot.verification?.harness?.id);
+    const line = proven && proven !== "either" ? `Picture: ${scHarnessLabelOf(proven)}. The companion read it from the page.` : `Picture: ${SC_HARNESS_NOT_RECORDED} yet. Accepting it records it as the ${harness.label}, so check that it shows that harness first.`;
+    captured.appendChild(scEl("p", { class: "sc-harness-picture sc-review-harness", text: line, data: { scHarnessPicture: "review" } }));
+  }
   grid.appendChild(captured);
 
   const asks = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-asks" } });
   asks.appendChild(scEl("h6", { id: "sc-review-asks", text: "What the lab asks for" }));
+  if (harness) asks.appendChild(scHarnessChip(harness.label, harness.need));
+  if (harness?.shared) asks.appendChild(scEl("p", { class: "sc-harness-shared", text: harness.sharedNote }));
   if (shot.caption) asks.appendChild(scEl("p", { class: "sc-review-caption", text: String(shot.caption) }));
   const instructions = scLbInstructions(shot);
   if (instructions) asks.appendChild(instructions);
@@ -2718,11 +3043,15 @@ function scFillLightbox(labId, filename) {
   } else {
     if (url) figure.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
     else figure.appendChild(scEl("div", { class: "sc-lb-empty", text: "Pending. This screenshot has not been captured yet." }));
-    figure.appendChild(scEl("figcaption", { class: "sc-lb-caption", text: String(shot.caption || "") }));
+    const lbCaption = [String(shot.caption || ""), scHarnessLabelOf(shot.harness, shot.harnessLabel)].filter(Boolean).join(" \u00b7 ");
+    figure.appendChild(scEl("figcaption", { class: "sc-lb-caption", text: lbCaption }));
   }
 
   const info = dialog.querySelector("[data-sc-lb-info]");
   info.replaceChildren();
+  // Which harness this picture is for, and was taken in, before anything else about it.
+  const lbHarness = scBuildHarnessBlock(labId, shot, { idPrefix: "lb" });
+  if (lbHarness) info.appendChild(lbHarness);
   const position = shots.findIndex((s) => s.filename === filename) + 1;
   const meta = scEl("p", { class: "sc-lb-meta" });
   meta.appendChild(scStatusChip(status));

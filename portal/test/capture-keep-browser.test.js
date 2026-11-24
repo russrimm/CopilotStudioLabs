@@ -18,6 +18,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { createCapturePlatform } from "../lib/capture/index.js";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = resolve(here, "..");
@@ -228,7 +229,7 @@ test("the delete confirmation says what happens to the pictures, deleting keeps 
   await panel.getByRole("button", { name: "Yes, restore it to the shared library" }).click();
   await panel.locator(".sc-banner", { hasText: "Restored to the shared library. Every lab can use it." }).waitFor();
   assert.equal(await panel.locator(".sc-keep-row").count(), 1, "the restored picture leaves the archive");
-  assert.equal(existsSync(join(ctx.storageRoot, "screenshots", ctx.doomed.files[1])), true);
+  assert.equal(existsSync(join(ctx.storageRoot, "screenshots", libraryName(ctx.doomed.files[1], "microsoft-copilot"))), true, "saved under the harness's name");
 
   // Delete forever asks first, and Cancel changes nothing.
   await panel.getByRole("button", { name: /^Delete .* forever$/ }).click();

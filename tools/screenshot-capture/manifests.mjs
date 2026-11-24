@@ -5,11 +5,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_PRODUCT, isFeatureManifestName } from "../feature-tour/lib/products.mjs";
+import { MICROSOFT_COPILOT, STANDARD, libraryName } from "./harness.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const captureDir = here;
 export const repoRoot = path.resolve(here, "..", "..");
 export const FEATURE_ASSETS_DIR = "docs/feature-tour/screenshots";
+
+/**
+ * The picture files a feature tour slot stands for in the shared library: one, saved under the harness's name for a harness-specific slot
+ * (agent-overview.classic.png, agent-overview.copilot.png), or one per harness for a slot kept once per harness ("both"). A slot with no harness
+ * (a product that has none, or a screen outside the agent) keeps its plain name.
+ */
+export function slotFiles(shot) {
+  if (String(shot?.harness ?? "").toLowerCase() === "both") return [STANDARD, MICROSOFT_COPILOT].map((harness) => libraryName(shot.filename, harness));
+  return [libraryName(shot?.filename, shot?.harness)];
+}
 
 /**
  * Every feature manifest in `dir`, Copilot Studio first and then the rest by

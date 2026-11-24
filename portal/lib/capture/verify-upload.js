@@ -38,7 +38,7 @@ export function isSafeUploadFilename(name) {
  *
  * @returns {{ok: boolean, level: "pass"|"warn"|"fail", reasons: Array<{code: string, level: string, message: string}>, format: string|null, width: number|null, height: number|null, bytes: number, sha256: string|null, analysis: object|null, labels: object|null, evidence: object|null}}
  */
-export function verifyUpload({ bytes, filename, evidence = null, expectedLabels = [], expect = null, requireEvidence = false, requireRedaction = false, requireProof = false, productLabel = "", limits } = {}) {
+export function verifyUpload({ bytes, filename, evidence = null, expectedLabels = [], expect = null, requireEvidence = false, requireRedaction = false, requireProof = false, productLabel = "", expectHarness = null, limits } = {}) {
   if (!isSafeUploadFilename(filename)) {
     return {
       ok: false,
@@ -54,5 +54,5 @@ export function verifyUpload({ bytes, filename, evidence = null, expectedLabels 
       evidence: null,
     };
   }
-  return verifyImage(bytes, { filename, evidence, expectedLabels, expect, requireEvidence, requireRedaction, requireProof, productLabel, limits });
+  return verifyImage(bytes, { filename, evidence, expectedLabels, expect, requireEvidence, requireRedaction, requireProof, productLabel, expectHarness, limits });
 }

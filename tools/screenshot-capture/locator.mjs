@@ -30,17 +30,18 @@ const REGION_RANK = { nav: 0, main: 1, other: 2, header: 3, dialog: 4 };
 
 /**
  * Every visible control named exactly `label`, with where it is and whether it is allowed.
- * `regions` limits where a control may be (for example only the navigation).
+ * `regions` limits where a control may be (for example only the navigation). `includeHidden` also reads controls that an open dialog hides
+ * from the accessibility tree (they are still drawn on the page): only the harness proof uses it, to read the tab strip behind a dialog.
  * @returns {Promise<Array<{locator: object, role: string, region: string, selected: boolean, off: object|null, href: string}>>}
  */
-export async function findControls(page, label, { roles = NAVIGATION_ROLES, regions = null } = {}) {
+export async function findControls(page, label, { roles = NAVIGATION_ROLES, regions = null, includeHidden = false } = {}) {
   const found = [];
   if (!label || typeof page?.getByRole !== "function") return found;
   const name = exactName(label);
   for (const role of roles) {
     let list;
     try {
-      list = page.getByRole(role, { name });
+      list = page.getByRole(role, includeHidden ? { name, includeHidden: true } : { name });
     } catch (err) {
       if (isBrowserClosedError(err)) throw err;
       continue;

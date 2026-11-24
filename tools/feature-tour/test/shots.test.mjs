@@ -7,6 +7,7 @@ import { build, catalog, makePng, overlay, tmpDir } from "./helpers.mjs";
 import { DEFAULTS, serializeShotList } from "../lib/build.mjs";
 import { NAV_SECTIONS } from "../lib/model.mjs";
 import { checkFeatureShots } from "../../screenshot-capture/feature-shots-check.mjs";
+import { slotFiles } from "../../screenshot-capture/manifests.mjs";
 import { normalizeRect, buildSidecar, sidecarName as captureSidecarName } from "../../screenshot-capture/callouts.mjs";
 import { sidecarName } from "../lib/screenshots.mjs";
 
@@ -58,13 +59,16 @@ test("checker reports pending shots, invalid images, and schema problems", () =>
   const { root, manifest } = writeManifest(shotList);
   const dir = path.join(root, "docs", "feature-tour", "screenshots");
   const [a, b] = shotList.shots;
-  fs.writeFileSync(path.join(dir, a.filename), makePng());
-  fs.writeFileSync(path.join(dir, b.filename), Buffer.from("tiny"));
+  // A harness-specific slot is saved under the name that carries its harness (agent-overview.classic.png).
+  const [fileA] = slotFiles(a);
+  const [fileB] = slotFiles(b);
+  fs.writeFileSync(path.join(dir, fileA), makePng());
+  fs.writeFileSync(path.join(dir, fileB), Buffer.from("tiny"));
   fs.writeFileSync(path.join(dir, "stray.png"), makePng());
   const res = checkFeatureShots({ repoRoot: root, manifestPath: manifest });
   assert.equal(res.captured, 1);
   assert.deepEqual(res.findings.map((f) => f.code).sort(), ["feature-shots-invalid-image", "feature-shots-orphan"]);
-  assert.ok(res.missing.some((m) => m.filename === b.filename));
+  assert.ok(res.missing.some((m) => m.filename === fileB));
 
   const strict = checkFeatureShots({ repoRoot: root, manifestPath: manifest, strictMissing: true });
   assert.ok(strict.findings.some((f) => f.code === "feature-shots-pending" && f.severity === "critical"));

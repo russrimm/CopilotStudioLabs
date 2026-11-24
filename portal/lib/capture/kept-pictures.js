@@ -21,8 +21,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isRealScreenshotBytes } from "../lab-builder/captured.js";
+import { normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 import { fileSha256, sha256Hex } from "./library-share.js";
 import { cleanText, readJson, writeBytesAtomic, writeJsonAtomic } from "./store-util.js";
+
+const harnessOfRecord = (record) => {
+  const id = normalizeHarness(record?.harness?.id);
+  return id && id !== "either" ? id : null;
+};
 
 export const KEPT_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -92,6 +98,8 @@ export function createKeptStore({ keptDir, now = () => Date.now(), retentionDays
         message: cleanText(p.message, 300),
         hasCheck: Boolean(p.record),
         confirmed: Boolean(p.confirmation),
+        // The harness the picture was recorded as taken in (only while its saved check belongs to these bytes), or null: "Harness not recorded".
+        harness: p.record && p.record.sha256 && p.record.sha256 === p.sha256 ? harnessOfRecord(p.record) : null,
       }))
       .sort((a, b) => a.filename.localeCompare(b.filename));
     return {

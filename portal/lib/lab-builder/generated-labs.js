@@ -17,7 +17,7 @@ import { isBuilding, moveToTrash } from "./lab-state.js";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { learnerGuideMarkdown } from "./learner-guide.js";
-import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
+import { capturedScreenshotsDirs, sharedImageForSlot } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { getLabScreenshotsStatus, repairLabPlaceholders } from "./lab-screenshots.js";
 import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
@@ -75,7 +75,7 @@ export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = captu
     } catch {
       /* a missing file is pending too */
     }
-    return (size >= MIN_CAPTURED_BYTES && !isPlaceholder(join(labDir, "assets", name))) || Boolean(capturedImage(capturedDir, name));
+    return (size >= MIN_CAPTURED_BYTES && !isPlaceholder(join(labDir, "assets", name))) || Boolean(sharedImageForSlot(labDir, name, { capturedDir }));
   };
   // A pending picture becomes a "Screenshot to add" card with what it should show and how to capture it.
   const withCards = replacePendingPictures(tidyMetaTable(html), (tag) => {
@@ -124,7 +124,7 @@ export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = c
   // A placeholder picture is not a capture, whatever its size.
   const placeholder = existsLocal && size >= MIN_CAPTURED_BYTES && isPlaceholder(file);
   if (size >= MIN_CAPTURED_BYTES && !placeholder) return { status: 200, path: file, type };
-  const captured = found.status === 200 ? capturedImage(capturedDir, name) : null;
+  const captured = found.status === 200 ? sharedImageForSlot(found.labDir || resolve(rootDir, labId), name, { capturedDir }) : null;
   if (captured) return { status: 200, path: captured.file, type };
   // A filler picture is served as the standard pending image, never as itself.
   if (placeholder) return { status: 200, path: PLACEHOLDER_PATH, type: CONTENT_TYPES.png };

@@ -1214,29 +1214,61 @@ function lbRenderGeneratedValidationHtml(report) {
 
 function lbRenderChecklistHtml(list) {
   const total = Number(list?.counts?.missing) || 0;
+  // The harness every Copilot Studio picture of this lab is taken in, in one sentence, so a person never mixes the Standard (Classic) and Microsoft Copilot harnesses.
+  const statement = String(list?.labHarness?.statement || "").trim();
+  const statementHtml = statement ? `<p class="lb-checklist-harness-statement"><strong>${escapeHtml(statement)}</strong></p>` : "";
   if (!total) {
-    return `<div class="lb-checklist"><p class="lb-checklist-done">Nothing is left. Every picture in this lab is a real screenshot.</p></div>`;
+    return `<div class="lb-checklist">${statementHtml}<p class="lb-checklist-done">Nothing is left. Every picture in this lab is a real screenshot.</p></div>`;
   }
+  // "Standard (Classic) harness" next to a picture's name: words first; its class only adds a border style.
+  const harnessChip = (entry) => {
+    const label = String(entry.harnessLabel || "").trim();
+    if (!label) return "";
+    const kind = ["standard", "microsoft-copilot", "customer-conversation", "either"].includes(String(entry.harness)) ? entry.harness : "either";
+    return `<span class="sc-harness-label sc-harness-label-${kind}">${escapeHtml(label)}</span>`;
+  };
   const item = (entry, withSteps) => {
     const name = `${entry.figure ? `Figure ${escapeHtml(entry.figure)}: ` : ""}${escapeHtml(entry.caption || entry.filename)}`;
-    if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code></li>`;
+    const chip = harnessChip(entry);
+    if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code> ${chip}</li>`;
     const steps = (entry.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
-    return `<li><details><summary>${name}</summary>
+    // A shared topic of a lab built for both harnesses works in either; its picture is taken in the first one (the list says so when it sends the flag).
+    const shared = entry.harnessScope === "shared" && entry.harnessLabel ? `<p>Shared topic: works in either harness. This picture is taken in the ${escapeHtml(entry.harnessLabel)}.</p>` : "";
+    return `<li><details><summary>${name} ${chip}</summary>
+      ${entry.harnessLabel ? `<p><strong>Harness:</strong> ${escapeHtml(entry.harnessLabel)}</p>` : ""}
+      ${shared}
       ${entry.shows ? `<p><strong>It should show:</strong> ${escapeHtml(entry.shows)}</p>` : ""}
       ${entry.why ? `<p><strong>Why it needs you:</strong> ${escapeHtml(entry.why)}</p>` : ""}
       ${steps ? `<ol>${steps}</ol>` : ""}
       <p class="lb-checklist-file">File: <code>${escapeHtml(entry.filename)}</code></p></details></li>`;
   };
-  const you = (list.you || []).map((entry) => item(entry, true)).join("");
-  const computer = (list.computer || []).map((entry) => item(entry, false)).join("");
+  // A lab built for both harnesses, one after another, lists its pictures under one heading per harness, in the order the lab takes them.
+  const grouped = (entries, render) => {
+    if (!entries.length) return "";
+    const plain = (items) => `<ul class="lb-checklist-list">${items.map(render).join("")}</ul>`;
+    if (list?.labHarness?.mode !== "both") return plain(entries);
+    const order = Array.isArray(list.labHarness.order) ? list.labHarness.order.map(String) : [];
+    const kinds = [...new Set([...order, ...entries.map((entry) => entry.harness || null)])];
+    return kinds
+      .map((kind) => {
+        const items = entries.filter((entry) => (entry.harness || null) === kind);
+        if (!items.length) return "";
+        const label = String(items[0].harnessLabel || "").trim();
+        return `${kind && label ? `<h5 class="lb-checklist-harness-group">${escapeHtml(label)} pictures</h5>` : ""}${plain(items)}`;
+      })
+      .join("");
+  };
+  const you = grouped(list.you || [], (entry) => item(entry, true));
+  const computer = grouped(list.computer || [], (entry) => item(entry, false));
   return `<div class="lb-checklist">
     <p class="lb-checklist-lead"><strong>${total} picture${total === 1 ? "" : "s"} still to capture.</strong> ${list.counts.computer ? `Your computer can capture ${list.counts.computer} of them. ` : ""}${list.counts.you ? `${list.counts.you} need${list.counts.you === 1 ? "s" : ""} you.` : ""}</p>
+    ${statementHtml}
     <div class="lb-checklist-actions">
       <button type="button" class="btn btn-sm" data-gen-action="shot-checklist-download" data-lab-id="${escapeHtml(list.labId)}">Download checklist (.md)</button>
       <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">Open the Screenshot Center</button>
     </div>
-    ${you ? `<h4>Only you can do these (${list.counts.you})</h4><ul class="lb-checklist-list">${you}</ul>` : ""}
-    ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4><ul class="lb-checklist-list">${computer}</ul>` : ""}
+    ${you ? `<h4>Only you can do these (${list.counts.you})</h4>${you}` : ""}
+    ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4>${computer}` : ""}
   </div>`;
 }
 

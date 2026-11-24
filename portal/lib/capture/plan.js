@@ -9,12 +9,15 @@
  * so the companion can run them in a signed-in browser safely.
  */
 
+import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 
 import { capturedImage, capturedScreenshotsDirs, resolveLabScreenshot } from "../lab-builder/captured.js";
 import {
   derivePlaywrightSteps,
   ensurePerLabScreenshotPlan,
+  labHarnessOrder,
   resolveGeneratedLabDir,
 } from "../lab-builder/lab-screenshots.js";
 import { getSlotMeta } from "../lab-builder/slots.js";
@@ -24,6 +27,7 @@ import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/s
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
 import { createsAgent, describeAutomation, orderCreationFirst, orderForWalkthrough, personAutomation, sanitizeAutomation, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { harnessGapMessage, harnessLabel, harnessPlan, labHarnessStatement, libraryName, libraryVariants, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -142,10 +146,23 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
   // (A companion that reads `capture` decides for itself; this keeps the older contract.)
   const unmet = capture.mode !== "manual" ? missingRequirements(unmetNeeds, values) : [];
   const waitingField = unmet.length ? REQUIREMENTS[unmet[0]].fields.map((id) => targetField(id)).find((f) => f?.env) : null;
+  // The harness this picture is taken in (Copilot Studio only), the step that gets the page into it, and the landmark that proves it.
+  const harness = String(product ?? src.product ?? "copilot-studio") === "copilot-studio" ? normalizeHarness(src.harness) : null;
+  const harnessSteps = harness ? harnessPlan(harness) : null;
+  const harnessGap = harness && src.harnessGap && typeof src.harnessGap === "object" && src.harnessGap.lab
+    ? { feature: (Array.isArray(src.harnessGap.feature) ? src.harnessGap.feature : []).map(normalizeHarness).filter(Boolean).slice(0, 3), lab: normalizeHarness(src.harnessGap.lab) }
+    : null;
+  const plainName = text(String(src.slotFilename || src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80);
   const shot = {
     filename: src.filename,
+    ...(src.slotFilename ? { slotFilename: text(src.slotFilename, 120) } : {}),
     shotId: src.shotId ?? null,
     featureId: src.featureId ?? src.feature ?? null,
+    harness,
+    harnessLabel: harness ? harnessLabel(harness) : null,
+    // A lab that covers both harnesses: the part the slot sits in, and for a shared topic the note "Works in either harness".
+    ...(src.harnessPart ? { harnessPart: text(src.harnessPart, 40), harnessScope: src.harnessScope === "shared" ? "shared" : "harness", ...(src.harnessNote ? { harnessNote: text(src.harnessNote, 80) } : {}) } : {}),
+    ...(harnessGap ? { harnessGap, harnessGapNote: harnessGapMessage(harnessGap) } : {}),
     kind: text(full.kind, 30) || null,
     moduleOrder: Number.isInteger(src.moduleOrder) && src.moduleOrder >= 0 && src.moduleOrder < 1000 ? src.moduleOrder : null,
     product: product ?? src.product ?? null,
@@ -166,7 +183,7 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), ...(automation ? { automation } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
+    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(harnessSteps ? { harness: { id: harness, label: harnessLabel(harness), switch: harnessSteps.switch, switchStep: harnessSteps.switchStep, proof: harnessSteps.proof } } : {}), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), ...(automation ? { automation } : {}), slot: plainName },
   };
   // A recipe family judges its own screen: the callouts of the lab's other steps are not what its picture shows.
   shot.expectedLabels = automation?.via === "family" ? automation.landmarks : expectedLabelsFor(shot);
@@ -261,7 +278,7 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
       Boolean(shotState.stale) ||
       moduleState.status === "docs-updated" ||
       Boolean(shotState.capturedStepHash && shot.learnBaseline?.stepHash && shotState.capturedStepHash !== shot.learnBaseline.stepHash);
-    const missing = !resolveLabScreenshot(found.labDir, shot.filename, { capturedDir });
+    const missing = !resolveLabScreenshot(found.labDir, shot.filename, { capturedDir, harness: shot.harness });
     if (!inScope(scope, { filename: shot.filename, featureId, missing, stale })) continue;
     const steps = Array.isArray(shot.steps) && shot.steps.length
       ? shot.steps
@@ -292,7 +309,20 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
   }
   // Built from scratch, the lab's modules are the order the agent is built in. When the agent comes from the creation step, that step goes first.
   const ordered = scratch ? orderForWalkthrough(shots) : shots;
-  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, shots: agentSource === "created" && !agentFallback ? orderCreationFirst(ordered) : ordered };
+  // A lab that covers both harnesses is captured one harness at a time, so the computer changes experience as few times as possible (the classic
+  // switch once, the default experience once): every slot of the first harness (its part, and the shared topics, which are taken in it), then every
+  // slot of the second. The creation step goes first within each harness, because each harness has its own practice agent.
+  const harnessOrder = labHarnessOrder(shotsPlan);
+  const groups = harnessOrder.length === 2 ? groupByHarness(ordered, harnessOrder) : [ordered];
+  const arranged = groups.flatMap((group) => (agentSource === "created" && !agentFallback ? orderCreationFirst(group) : group));
+  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, labHarness: shotsPlan.harnessInfo || null, shots: arranged };
+}
+
+/** Shots in groups by the harness they are taken in, in the lab's order; shots with no harness (another product) come last. */
+function groupByHarness(shots, order) {
+  const groups = order.map((id) => shots.filter((s) => normalizeHarness(s.harness) === id));
+  const rest = shots.filter((s) => !order.includes(normalizeHarness(s.harness)));
+  return [...groups, rest].filter((group) => group.length);
 }
 
 /** Every filename a lab accepts uploads for. */
@@ -300,29 +330,43 @@ export function labSlotFilenames({ generatedRoot, labId, capturedDir = capturedS
   const found = resolveGeneratedLabDir(generatedRoot, labId);
   if (found.status !== 200) return { status: found.status, error: found.error };
   const { shotsPlan } = ensurePerLabScreenshotPlan(found.labDir, { labId: found.labId, capturedDir });
-  return { status: 200, labId: found.labId, labDir: found.labDir, shots: shotsPlan.shots || [] };
+  return { status: 200, labId: found.labId, labDir: found.labDir, shots: shotsPlan.shots || [], harnessInfo: shotsPlan.harnessInfo || null };
 }
 
+/**
+ * Every slot of the shared library as a row: the feature tour's shot lists, one row per harness the slot has a picture for (a slot of a feature
+ * written for both the Standard and the Microsoft Copilot harness has two). `key` is the picture's name in the library, which carries the
+ * harness for a slot that needs one (`agent-overview.classic.png`); a slot of a product with no harnesses keeps its plain name.
+ */
 function libraryShots({ manifestDir } = {}) {
   const out = [];
   for (const entry of listFeatureManifests(manifestDir)) {
     if (!entry.manifest) continue;
     for (const shot of entry.manifest.shots || []) {
-      out.push({ entry, shot });
+      const word = String(shot.harness ?? "").trim().toLowerCase();
+      const variants = libraryVariants({
+        product: entry.product,
+        slotHarness: word === "either" ? "either" : null,
+        featureHarness: word === "both" ? ["standard", "microsoft-copilot"] : word ? [word] : null,
+      });
+      for (const harness of variants) out.push({ entry, shot, harness, key: libraryName(shot.filename, harness) });
     }
   }
   return out;
 }
 
-/** Every slot in the shared library (the feature tour's shot lists), with whether a real image exists. */
+/** Every slot in the shared library (the feature tour's shot lists), with whether a real image exists. `filename` is the library name (it carries the harness). */
 export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshotsDirs() } = {}) {
-  return libraryShots({ manifestDir }).map(({ entry, shot }) => {
-    const image = capturedImage(capturedDir, shot.filename);
+  return libraryShots({ manifestDir }).map(({ entry, shot, harness, key }) => {
+    const image = capturedImage(capturedDir, key);
     return {
       product: entry.product,
       feature: shot.feature,
       featureName: shot.featureName || null,
-      filename: shot.filename,
+      filename: key,
+      slotFilename: shot.filename,
+      harness,
+      harnessLabel: harness ? harnessLabel(harness) : null,
       section: shot.section || null,
       caption: shot.caption || null,
       manual: Boolean(shot.manual),
@@ -334,20 +378,49 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
   });
 }
 
-/** The shots a shared-library job should capture. Returns `{status: 200, shots}`. */
+/**
+ * The library's pictures saved under a slot's plain name for a slot that needs a harness: pictures from before harnesses were recorded.
+ * They are never used for the slot; the Screenshot Center lists them as "Harness not recorded" so a person can say which harness each one shows.
+ * @returns {Array<{filename: string, feature: string, featureName: string|null, product: string, harnesses: string[], bytes: number, file: string, dir: string}>}
+ */
+export function listUnrecordedLibraryPictures({ manifestDir, capturedDir = capturedScreenshotsDirs() } = {}) {
+  const out = new Map();
+  const tagged = new Set();
+  const sha = (file) => {
+    try {
+      return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    } catch {
+      return null;
+    }
+  };
+  for (const { entry, shot, harness, key } of libraryShots({ manifestDir })) {
+    if (!harness || harness === "either") continue;
+    const found = capturedImage(capturedDir, shot.filename);
+    if (!found) continue;
+    // A picture that already has a copy under a harness's name (the tag was applied, and the original sits in a folder that cannot be changed) is not unrecorded any more.
+    const copy = capturedImage(capturedDir, key);
+    if (copy && copy.size === found.size && sha(copy.file) === sha(found.file)) tagged.add(shot.filename);
+    const row = out.get(shot.filename) || { filename: shot.filename, feature: shot.feature, featureName: shot.featureName || null, product: entry.product, harnesses: [], bytes: found.size, file: found.file, dir: found.dir };
+    if (!row.harnesses.includes(harness)) row.harnesses.push(harness);
+    out.set(shot.filename, row);
+  }
+  return [...out.values()].filter((row) => !tagged.has(row.filename));
+}
+
+/** The shots a shared-library job should capture. Returns `{status: 200, shots}`. A slot that needs a harness has one shot per harness. */
 export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false, agentSource = null, agentFallback = null }) {
   const productSet = products.length ? new Set(products) : null;
   const shots = [];
   const seen = new Set();
-  for (const { entry, shot } of libraryShots({ manifestDir })) {
+  for (const { entry, shot, harness, key } of libraryShots({ manifestDir })) {
     if (productSet && !productSet.has(entry.product)) continue;
-    if (seen.has(shot.filename)) continue;
-    const missing = !capturedImage(capturedDir, shot.filename);
-    if (!inScope(scope, { filename: shot.filename, featureId: shot.feature, missing, stale: false })) continue;
-    seen.add(shot.filename);
+    if (seen.has(key)) continue;
+    const missing = !capturedImage(capturedDir, key);
+    if (!inScope(scope, { filename: key, featureId: shot.feature, missing, stale: false })) continue;
+    seen.add(key);
     const startUrl = shot.url || entry.manifest.startUrl;
     shots.push(
-      toPlanShot(shot, {
+      toPlanShot({ ...shot, filename: key, slotFilename: shot.filename, harness }, {
         meta: getSlotMeta()[shot.filename] || null,
         authProfile: entry.manifest.authProfile || entry.product,
         product: entry.product,
@@ -356,8 +429,8 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
           uiSteps: shot.setup || [],
           startUrl,
           callouts: shot.callouts,
-          filename: shot.filename,
-          outputPath: path.posix.join("docs/feature-tour/screenshots", shot.filename),
+          filename: key,
+          outputPath: path.posix.join("docs/feature-tour/screenshots", key),
         }),
         callouts: shot.callouts,
         instructions: shot.instructions,
@@ -374,14 +447,16 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
   return { status: 200, shots: agentSource === "created" && !agentFallback ? orderCreationFirst(shots) : shots };
 }
 
-/** Resolve one library slot by filename, or null when no feature shot list names it. */
+/** Resolve one library slot by its library name (it carries the harness), or null when no feature shot list names it. */
 export function findLibrarySlot(filename, { manifestDir } = {}) {
-  for (const { entry, shot } of libraryShots({ manifestDir })) {
-    if (shot.filename === filename) {
+  for (const { entry, shot, harness, key } of libraryShots({ manifestDir })) {
+    if (key === filename) {
       return {
         product: entry.product,
         feature: shot.feature,
         filename,
+        slotFilename: shot.filename,
+        harness,
         expectedLabels: expectedLabelsFor({ steps: [], callouts: shot.callouts || [], instructions: shot.instructions || [] }),
       };
     }
@@ -389,14 +464,19 @@ export function findLibrarySlot(filename, { manifestDir } = {}) {
   return null;
 }
 
-/** Every library slot by filename with the shot as the feature tour describes it (its kind, caption, and alt text from the slot table): `Map<filename, {product, shot}>`. */
+/** Whether a plain slot name belongs to the library (some harness of it has a library slot): how a lab asks "can this picture be shared". */
+export function isLibrarySlotName(filename, { manifestDir } = {}) {
+  return libraryShots({ manifestDir }).some(({ shot }) => shot.filename === filename);
+}
+
+/** Every library slot by library name with the shot as the feature tour describes it (its kind, caption, and alt text from the slot table): `Map<name, {product, harness, shot}>`. */
 export function libraryShotIndex({ manifestDir } = {}) {
   const meta = getSlotMeta();
   const out = new Map();
-  for (const { entry, shot } of libraryShots({ manifestDir })) {
-    if (out.has(shot.filename)) continue;
+  for (const { entry, shot, harness, key } of libraryShots({ manifestDir })) {
+    if (out.has(key)) continue;
     const slot = meta[shot.filename] || {};
-    out.set(shot.filename, { product: entry.product, shot: { ...shot, product: entry.product, kind: shot.kind || slot.kind, alt: shot.alt || slot.alt, caption: shot.caption || slot.caption } });
+    out.set(key, { product: entry.product, harness, shot: { ...shot, filename: key, slotFilename: shot.filename, product: entry.product, kind: shot.kind || slot.kind, alt: shot.alt || slot.alt, caption: shot.caption || slot.caption } });
   }
   return out;
 }

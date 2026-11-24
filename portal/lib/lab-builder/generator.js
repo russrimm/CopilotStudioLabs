@@ -32,6 +32,7 @@ import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
 import { combinedModuleNames, plainModuleNames } from "./module-names.js";
 import { moduleHarnessRecord } from "./harness-parts.js";
 import { getHarnesses } from "./catalog.js";
+import { harnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
 import { getConcepts } from "./concepts.js";
 import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
 import { buildDifferenceBlocks } from "./differences.js";
@@ -1444,6 +1445,10 @@ export async function generateLab(request, opts = {}) {
       concepts: differenceSummary.concepts,
       notFullyDocumented: differenceSummary.uncertain,
     },
+    // The harness every Copilot Studio picture of this lab is taken in, and how it was decided ("chosen", "inferred", or "default").
+    // Null for a lab with no Copilot Studio part, and for a combined lab (each part names its own harness, see harnessParts below).
+    // It survives rebuilds, because the plan is rebuilt from it.
+    labHarness: plan.harness ? { id: plan.harness, label: harnessLabel(plan.harness), source: plan.harnessSource || "chosen" } : null,
     // A lab that covers two harnesses: the order they are taught in, the parts (which modules sit in each), and which
     // ideas have their own version in each harness. Read it with harnessForModule() in harness-parts.js.
     ...(plan.harnessParts ? { harnessParts: plan.harnessParts } : {}),

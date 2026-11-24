@@ -14,7 +14,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getFeature } from "./catalog.js";
-import { capturedImage, capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
+import { capturedImage, capturedScreenshotsDirs, labPictureHarness, resolveLabScreenshot } from "./captured.js";
+import { featureLabHarness, labHarnessInfo, labHarnessOrder, labHarnessSummary, shotHarnessNeed, withShotHarness } from "./lab-harness.js";
+import { isCombinedHarnessMode, moduleHarnessRecord } from "./harness-parts.js";
 import { scrubForbidden } from "./composer.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { connect, fetchDocPage } from "./learn-mcp.js";
@@ -22,7 +24,7 @@ import { DEFAULT_PRODUCT, productOf } from "./products.js";
 import { repairGeneratedLabPlaceholders } from "./placeholder-repair.js";
 import { buildShotList } from "./screenshots.js";
 import { repairConnectorNames } from "./connector-names.js";
-import { MIN_CAPTURED_BYTES, describeSlot, slotsForFeature } from "./slots.js";
+import { MIN_CAPTURED_BYTES, describeSlot, slotNeedFor, slotsForFeature } from "./slots.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
 import { flattenStepLegacy, joinStep, repairRunOnStep, stepLeadSentence, stepPlainLines, stepToMarkdown, takeSubSteps } from "./sub-steps.js";
 import { writeGeneratedLabTopicDocuments } from "./topic-documents.js";
@@ -35,6 +37,7 @@ import {
 } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 import { cleanExpectedLabel } from "../../../tools/screenshot-capture/labels.mjs";
+import { harnessGapMessage, harnessLabel, isSpecificHarness, libraryName, normalizeHarness, pictureFitsSlot, pictureHarnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
 import { describeShotCapture } from "../capture/classify.js";
 import { fileSha256, readRecordsFile, validConfirmation, writeRecordsFile } from "../capture/library-share.js";
 
@@ -165,6 +168,9 @@ function resolveProductCaptureConfig(productId, section, harness) {
     navHint: secCfg.hint || null,
   };
 }
+
+// The harness each shot of a lab needs, and what a lab's pictures say about it, live in lab-harness.js (shared with lab-gate).
+export { featureLabHarness, labHarnessInfo, labHarnessOrder, labHarnessSummary, shotHarnessNeed, withShotHarness };
 
 /**
  * Build structured Playwright step-through actions from a module's verified UI steps.
@@ -312,7 +318,8 @@ export function buildPerLabScreenshotArtifacts({
   capturedDir = capturedScreenshotsDirs(),
 }) {
   const primaryProd = plan.products?.[0] || DEFAULT_PRODUCT;
-  const primaryCfg = resolveProductCaptureConfig(primaryProd, "home", plan.harness);
+  const labHarnessId = normalizeHarness(plan.harnessInfo?.id ?? plan.harness);
+  const primaryCfg = resolveProductCaptureConfig(primaryProd, "home", labHarnessId);
   const perLabShots = [];
   const moduleStates = {};
   const shotStates = {};
@@ -321,7 +328,9 @@ export function buildPerLabScreenshotArtifacts({
 
   for (const feature of plan.features || []) {
     const fProduct = productOf(feature);
-    const fHarness = plan.harness || feature.harness?.[0] || null;
+    // The lab's harness is the authority for every Copilot Studio slot in it; a module written for another harness is a gap.
+    const moduleNeed = slotNeedFor(feature, {}, { labHarness: featureLabHarness(plan, feature) });
+    const fHarness = moduleNeed.id;
     const derivedRecord = stepsByFeature.get(feature.id) || null;
     const groundingRecord = groundingByFeature.get(feature.id) || null;
     const learnBaseline = buildModuleBaseline({
@@ -349,8 +358,9 @@ export function buildPerLabScreenshotArtifacts({
       const legacy = legacyByFilename.get(item.filename) || null;
       const overlaySlot = findOverlaySlot(feature.id, item.filename);
       const rawCatalogSlot = (slotsForFeature(feature) || []).find((s) => s.filename === item.filename) || overlaySlot || {};
+      const need = slotNeedFor(feature, rawCatalogSlot, { labHarness: featureLabHarness(plan, feature) });
       const section = legacy?.section || rawCatalogSlot.section || "agents";
-      const captureCfg = resolveProductCaptureConfig(fProduct, section, fHarness);
+      const captureCfg = resolveProductCaptureConfig(fProduct, section, need.id);
       const startUrl = legacy?.url || rawCatalogSlot.url || captureCfg.startUrl;
       const viewport = legacy?.viewport || rawCatalogSlot.viewport || { ...DEFAULT_VIEWPORT };
       const callouts = Array.isArray(rawCatalogSlot.callouts)
@@ -366,7 +376,7 @@ export function buildPerLabScreenshotArtifacts({
       )}`;
 
       const resolvedExisting = labDir
-        ? resolveLabScreenshot(labDir, item.filename, { capturedDir })
+        ? resolveLabScreenshot(labDir, item.filename, { capturedDir, harness: need.id })
         : item.origin === "reused" || legacy?.status === "captured"
         ? { source: item.origin === "reused" ? "lab" : "shared" }
         : null;
@@ -391,7 +401,14 @@ export function buildPerLabScreenshotArtifacts({
         featureId: feature.id,
         moduleTitle: feature.name,
         product: fProduct,
-        harness: fHarness,
+        // A lab that covers two harnesses: the section the picture sits in (harnessPart, harnessScope, and for a shared topic both harnesses and
+        // the note "Works in either harness"). `harness` below is the harness the picture is taken in.
+        ...(plan.harnessParts ? moduleHarnessRecord(plan.harnessParts, feature) : {}),
+        harness: need.id,
+        harnessLabel: harnessLabel(need.id),
+        harnessSource: need.source,
+        ...(need.gap ? { harnessGap: need.gap } : {}),
+        ...(Array.isArray(feature.harness) && feature.harness.length ? { featureHarness: [...feature.harness] } : {}),
         authProfile: captureCfg.authProfile,
         section,
         labSection: `${stepLabel} - ${feature.name}`,
@@ -467,7 +484,10 @@ export function buildPerLabScreenshotArtifacts({
     title: plan.title,
     product: primaryProd,
     products: plan.products || [primaryProd],
-    harness: plan.harness || null,
+    harness: labHarnessId || null,
+    harnessLabel: labHarnessId ? harnessLabel(labHarnessId) : null,
+    harnessInfo: labHarnessInfo(labHarnessId, plan.harnessInfo?.source || plan.harnessSource || "saved", { order: plan.harnessParts?.order }),
+    ...(plan.harnessParts ? { harnessMode: "both", harnesses: [...plan.harnessParts.order] } : {}),
     authProfile: primaryCfg.authProfile,
     assetsDir: "../assets",
     startUrl: primaryCfg.startUrl,
@@ -576,7 +596,8 @@ export function ensurePerLabScreenshotPlan(labDir, { labId: explicitLabId, captu
   const learnStatePath = path.join(resolvedDir, "screenshots", "learn-state.json");
   if (fs.existsSync(shotsJsonPath) && fs.existsSync(learnStatePath)) {
     return {
-      shotsPlan: JSON.parse(fs.readFileSync(shotsJsonPath, "utf8")),
+      // What each shot needs is worked out again from the catalog and the lab's harness, so a lab saved before harnesses were recorded gets it too.
+      shotsPlan: withShotHarness(JSON.parse(fs.readFileSync(shotsJsonPath, "utf8"))),
       learnState: JSON.parse(fs.readFileSync(learnStatePath, "utf8")),
     };
   }
@@ -613,6 +634,8 @@ export function ensurePerLabScreenshotPlan(labDir, { labId: explicitLabId, captu
       recapOrder: mod.recapOrder ?? null,
       stepLabel: mod.stepLabel,
       prerequisite: mod.role === "prerequisite",
+      // A lab that covers two harnesses: the part this module sits in, so each picture is read against its own harness.
+      ...(mod.harnessPart ? { harnessPart: mod.harnessPart } : {}),
     };
     features.push(mergedFeature);
 
@@ -648,7 +671,9 @@ export function ensurePerLabScreenshotPlan(labDir, { labId: explicitLabId, captu
     plan: {
       title: manifest.title || labId,
       products: manifest.products || [manifest.product || DEFAULT_PRODUCT],
-      harness: manifest.differences?.labHarness || manifest.request?.harness || null,
+      harness: manifest.labHarness?.id || manifest.differences?.labHarness || manifest.request?.harness || null,
+      harnessInfo: manifest.labHarness?.id ? { id: manifest.labHarness.id, source: manifest.labHarness.source || "saved" } : null,
+      ...(manifest.harnessParts && isCombinedHarnessMode(manifest) ? { harnessMode: "both", harnesses: [...manifest.harnessParts.order], harnessParts: manifest.harnessParts } : {}),
       features,
     },
     screenshots: { byFeature, shots: legacyShots },
@@ -966,7 +991,7 @@ export function setSharedLibraryProvider(provider) {
 function currentSharedLibrary() {
   try {
     const records = sharedLibraryProvider?.records();
-    return sharedLibraryProvider ? { isSlot: (name) => Boolean(sharedLibraryProvider.isSlot(name)), shots: records?.shots || {}, confirmations: records?.confirmations || {} } : null;
+    return sharedLibraryProvider ? { isSlot: (name, harness = null) => Boolean(sharedLibraryProvider.isSlot(name, harness)), shots: records?.shots || {}, confirmations: records?.confirmations || {} } : null;
   } catch {
     return null;
   }
@@ -1152,8 +1177,10 @@ function describePictureSharing({ shot, resolved, verification, learnShot, labCo
   const none = { imageSource: null, imageCapturedAt: null, confirmed: null, share: null };
   if (!resolved) return none;
   const fromLibrary = resolved.source === "shared";
-  const record = fromLibrary ? library?.shots?.[shot.filename] : verification;
-  const confirmation = fromLibrary ? library?.confirmations?.[shot.filename] : labConfirmations?.[shot.filename];
+  // The library keeps a picture of a slot that needs a harness under the harness's name.
+  const libraryName_ = libraryName(shot.filename, shot.harness);
+  const record = fromLibrary ? library?.shots?.[libraryName_] : verification;
+  const confirmation = fromLibrary ? library?.confirmations?.[libraryName_] : labConfirmations?.[shot.filename];
   let mtime = null;
   try {
     mtime = fs.statSync(resolved.file).mtime.toISOString();
@@ -1167,16 +1194,16 @@ function describePictureSharing({ shot, resolved, verification, learnShot, labCo
     share: null,
   };
   if (!library) return out;
-  if (!library.isSlot(shot.filename)) return { ...out, share: { state: "lab-only" } };
+  if (!library.isSlot(shot.filename, shot.harness)) return { ...out, share: { state: "lab-only" } };
   if (fromLibrary) return { ...out, share: { state: "shared", libraryConfirmed: Boolean(out.confirmed) } };
-  const libraryImage = capturedImage(capturedDir, shot.filename);
+  const libraryImage = capturedImage(capturedDir, shot.filename, { harness: shot.harness });
   if (!libraryImage) return { ...out, share: { state: "not-shared", libraryConfirmed: false } };
   const librarySha = fileSha256(libraryImage.file);
   return {
     ...out,
     share: {
       state: librarySha && librarySha === fileSha256(resolved.file) ? "shared" : "differs",
-      libraryConfirmed: Boolean(validConfirmation(library.confirmations?.[shot.filename], librarySha)),
+      libraryConfirmed: Boolean(validConfirmation(library.confirmations?.[libraryName_], librarySha)),
     },
   };
 }
@@ -1210,6 +1237,13 @@ export function getLabScreenshotsStatus(
     const hasScreenshot = Boolean(resolved);
     const verification = verificationRecords[shot.filename] || null;
     const sharing = describePictureSharing({ shot, resolved, verification, learnShot: sState, labConfirmations, library, capturedDir });
+    // Which harness this slot needs (the lab's), which one the picture was taken in, and whether they agree. A lab picture stamped with the
+    // other harness is not used (the slot is pending), but it is still reported so a person can see why.
+    const need = normalizeHarness(shot.harness);
+    const ownHarness = perLabOk && isSpecificHarness(need) ? labPictureHarness(labDir, shot.filename, { capturedDir, need }) : null;
+    const pictureHarness = resolved ? resolved.harness ?? null : ownHarness;
+    const harnessFit = isSpecificHarness(need) && (resolved || perLabOk) ? pictureFitsSlot(need, pictureHarness) : { ok: true, code: "ok", message: "" };
+    const harnessState = !isSpecificHarness(need) ? "none" : !(resolved || perLabOk) ? "pending" : harnessFit.code;
 
     const syncStatus = docsUpdated
       ? "docs-updated"
@@ -1225,7 +1259,16 @@ export function getLabScreenshotsStatus(
       featureId: shot.featureId || shot.feature,
       moduleTitle: shot.moduleTitle,
       product: shot.product,
-      harness: shot.harness,
+      harness: need,
+      harnessLabel: need ? harnessLabel(need) : null,
+      // A lab that covers two harnesses: which part the picture sits in, and for a shared topic the note "Works in either harness".
+      ...(shot.harnessPart ? { harnessPart: shot.harnessPart, harnessScope: shot.harnessScope || null, ...(shot.harnessNote ? { harnessNote: shot.harnessNote } : {}) } : {}),
+      harnessGap: shot.harnessGap || null,
+      harnessGapNote: shot.harnessGap ? harnessGapMessage(shot.harnessGap) : null,
+      pictureHarness: pictureHarness || null,
+      pictureHarnessLabel: resolved || perLabOk ? (isSpecificHarness(need) ? pictureHarnessLabel(pictureHarness) : null) : null,
+      harnessState,
+      harnessMessage: harnessFit.message || null,
       section: shot.section,
       figure: shot.figure,
       kind: shot.kind,
@@ -1321,6 +1364,9 @@ export function getLabScreenshotsStatus(
       product: shotsPlan.product,
       products: shotsPlan.products,
       harness: shotsPlan.harness,
+      harnessLabel: shotsPlan.harnessInfo?.label || (shotsPlan.harness ? harnessLabel(shotsPlan.harness) : null),
+      harnessInfo: shotsPlan.harnessInfo || null,
+      harnessSummary: labHarnessSummary(shotsPlan.harness, shots, { order: labHarnessOrder(shotsPlan) }),
       checkState,
       captureCapabilities: currentCaptureCapabilities(),
       cliCommand: buildLabCaptureCliCommand(labId, { mode: "headed", onlyMissing: missingCount > 0 && staleCount === 0, onlyStale: staleCount > 0 }),

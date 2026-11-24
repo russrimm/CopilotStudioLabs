@@ -29,9 +29,45 @@ let scPicStateSeq = 0;
 
 // ── The pictures, in list order ─────────────────────────────────────────────
 
+/** What a flagged picture says about its harness: the harness its screenshot needs, the one it was taken in, and the harness findings. Null when it has none. */
+function scPicSuspectHarness(item) {
+  const need = scHarnessId(item.harness);
+  const flags = (Array.isArray(item.flags) ? item.flags : []).filter((flag) => SC_HARNESS_FLAG_SHORT[flag?.code]).map((flag) => ({ code: flag.code, short: SC_HARNESS_FLAG_SHORT[flag.code] }));
+  if (!need && !flags.length) return null;
+  return { need, label: need ? scHarnessLabelOf(need, item.harnessLabel) : "", pictureLabel: need && need !== "either" ? scText(item.pictureHarnessLabel, 80) || SC_HARNESS_NOT_RECORDED : "", flags };
+}
+
+/**
+ * What a kept picture says about its harness: the one it was taken in, or "Harness not recorded". A server that says the picture belongs to a product
+ * with no harnesses (`harnessApplies: false`) shows nothing.
+ */
+function scPicKeptHarness(picture) {
+  if (picture.harnessApplies === false) return null;
+  const id = scHarnessId(picture.harness);
+  return { need: null, label: "", pictureLabel: id && id !== "either" ? scHarnessLabelOf(id) : SC_HARNESS_NOT_RECORDED, flags: [] };
+}
+
+/** "Needs: Standard (Classic) harness. Picture: Microsoft Copilot harness." for the viewer's caption and what it says out loud. */
+function scPicHarnessCaption(harness) {
+  if (!harness) return "";
+  const parts = [harness.label ? `Needs: ${harness.label}` : "", harness.pictureLabel ? `Picture: ${harness.pictureLabel}` : ""].filter(Boolean);
+  return parts.length ? `${parts.join(". ")}.` : "";
+}
+
+/** The harness lines of a picture in a list and in the viewer: the label the slot needs, the harness the picture was taken in, and the findings. */
+function scPicHarnessLines(harness) {
+  if (!harness) return null;
+  const box = scEl("div", { class: "sc-harness sc-pic-harness", data: { scPicHarness: "1" } });
+  if (harness.label) box.appendChild(scHarnessChip(harness.label, harness.need));
+  if (harness.pictureLabel) box.appendChild(scEl("p", { class: "sc-harness-picture", text: `Picture: ${harness.pictureLabel}`, data: { scHarnessPicture: "1" } }));
+  for (const flag of harness.flags) box.appendChild(scEl("p", { class: "sc-harness-flag", text: flag.short, data: { scHarnessFlag: flag.code } }));
+  return box;
+}
+
 /** One flagged picture, in the words the list and the viewer share. */
 function scPicSuspectItem(item, labId) {
   const filename = scText(item.filename, 90);
+  const harness = scPicSuspectHarness(item);
   return {
     source: "suspect",
     key: `${item.scope}:${item.labId || ""}:${item.filename}`,
@@ -40,6 +76,8 @@ function scPicSuspectItem(item, labId) {
     level: item.level === "definite" ? "definite" : "probable",
     levelText: SC_WRONG_LEVEL_TEXT[item.level] || "",
     reason: scText(item.reason, 400),
+    harness,
+    harnessCaption: scPicHarnessCaption(harness),
     url: scWrongThumb(item, labId),
     width: scCount(item.width),
     height: scCount(item.height),
@@ -50,6 +88,7 @@ function scPicSuspectItem(item, labId) {
 /** One kept picture. A kept picture's size is not known until it loads. */
 function scPicKeptItem(entry, picture) {
   const base = `/api/capture/kept/${encodeURIComponent(entry.id)}/${encodeURIComponent(picture.filename)}`;
+  const harness = scPicKeptHarness(picture);
   return {
     source: "kept",
     key: `${entry.id}:${picture.filename}`,
@@ -58,6 +97,8 @@ function scPicKeptItem(entry, picture) {
     level: "",
     levelText: "",
     reason: scKeepWhy(picture),
+    harness,
+    harnessCaption: scPicHarnessCaption(harness),
     url: base,
     downloadUrl: `${base}?download=1`,
     width: 0,
@@ -244,6 +285,8 @@ function scPicViewInfo(item, at, total) {
   meta.appendChild(scEl("span", { class: "sc-pic-size", data: { scPicSize: "1" } }));
   nodes.push(meta);
   nodes.push(scEl("p", { class: "sc-pic-where", text: item.where }));
+  const harnessLines = scPicHarnessLines(item.harness);
+  if (harnessLines) nodes.push(harnessLines);
   if (item.reason) nodes.push(scEl("p", { class: "sc-wrong-reason", text: item.reason }));
 
   const tools = scEl("div", { class: "sc-pic-tools" });
@@ -310,9 +353,11 @@ function scPicViewFill(labId, { quiet = false } = {}) {
   }
   const figure = dialog.querySelector("[data-sc-lb-figure]");
   if (changed || !figure.querySelector("[data-sc-pic-stage]")) {
-    figure.replaceChildren(scPicViewStage(item, dialog));
+    // The caption under the picture names the harness the screenshot needs and the one the picture was taken in.
+    const caption = item.harnessCaption ? scEl("figcaption", { class: "sc-lb-caption sc-pic-caption", text: item.harnessCaption, data: { scPicCaption: "1" } }) : null;
+    figure.replaceChildren(scPicViewStage(item, dialog), ...(caption ? [caption] : []));
     scPicView.shownKey = item.key;
-    if (!quiet) scPicViewSay(dialog, `Picture ${at + 1} of ${total}: ${item.title}`);
+    if (!quiet) scPicViewSay(dialog, `Picture ${at + 1} of ${total}: ${item.title}${item.harnessCaption ? `. ${item.harnessCaption}` : ""}`);
   }
   dialog.querySelector("[data-sc-lb-info]").replaceChildren(...scPicViewInfo(item, at, total));
   const ask = item.source === "kept" ? scKeep.ask : null;

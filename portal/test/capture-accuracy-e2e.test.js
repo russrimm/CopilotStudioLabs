@@ -85,7 +85,11 @@ test("e2e: guided mode waits for a person at each screen, then verifies and uplo
   const t = tally(out.rows);
   assert.equal(t.landedWrong, 0);
   assert.equal(t.acceptedOnWrongScreen, 0);
-  assert.equal(t.accepted, 9, out.lines.join("\n"));
+  // A person drives in guided mode and the companion only reads, so it can prove the harness only where the page shows an agent's own tabs or
+  // navigation. A screen outside any agent (Home, the start of Create) cannot be proven: its picture is saved for review, never as a good one.
+  const reviewed = out.rows.filter((r) => r.status === "needs-review").map((r) => r.filename).sort();
+  assert.deepEqual(reviewed, ["copilot-studio-home.png", "create-agent-describe.png"], out.lines.join("\n"));
+  assert.equal(t.accepted, 7, out.lines.join("\n"));
   const skipped = out.rows.filter((r) => r.status === "skipped");
   assert.deepEqual(skipped.map((r) => [r.filename, r.cause]), [["publish-confirmation.png", "skipped-by-you"]], "the person skipped the screen that would publish");
   assert.deepEqual(out.site.stats.writes, [], "nothing in the tenant was changed by the companion");

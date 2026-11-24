@@ -5,6 +5,8 @@
 import fs from "node:fs";
 
 import { TIER_TABLE, NEVER_LIST, resolveAutonomy } from "./guard.mjs";
+import { HARNESS_LABELS, harnessPlan, normalizeHarness } from "./harness.mjs";
+import { harnessGapMessage } from "./harness-run.mjs";
 import { listBuiltinRecipes } from "./recipes-builtin.mjs";
 import { groupStepsByTier, sanitizeSetup } from "./setup-steps.mjs";
 
@@ -13,6 +15,13 @@ const TIER_HEADINGS = Object.freeze({
   1: "Tier 1, try (allowed in automatic mode)",
   2: "Tier 2, practice agent (only after you opt in, and only inside the practice agent)",
 });
+
+/** The harness lines of one shot: the harness, the step that gets the page into it, and the landmark proved before the picture. Empty when the shot has no harness. */
+export function harnessLines(harness) {
+  const plan = normalizeHarness(harness) ? harnessPlan(harness) : null;
+  if (!plan) return [];
+  return [`  Harness: ${plan.label}`, `    ${plan.switchStep}`, `    Proof before the picture: ${plan.proof}`];
+}
 
 /** The groups to print for a list of titled step lists. */
 export function dryRunLines(items, { autonomy = null } = {}) {
@@ -23,6 +32,8 @@ export function dryRunLines(items, { autonomy = null } = {}) {
   lines.push("");
   for (const item of items) {
     lines.push(item.title);
+    lines.push(...harnessLines(item.harness));
+    if (item.gap) lines.push(`  Not taken: ${item.gap}`);
     if (item.limited) lines.push(`  Limited: ${item.limited}`);
     const groups = groupStepsByTier(item.steps);
     for (const tier of [0, 1, 2]) {
@@ -49,7 +60,10 @@ export function dryRunItemsFromJob(job) {
     const setup = sanitizeSetup(shot.capture?.setup, { allowPractice: true, product: shot.capture?.product || shot.product || "" });
     const limited = !allowPractice && setup?.needsPractice ? "steps that need a practice agent are left out" : shot.capture?.setup?.limited ? "steps that need a practice agent are left out" : "";
     const kept = allowPractice ? setup?.steps || [] : (setup?.steps || []).filter((s) => s.tier < 2 && !s.practiceOnly);
-    return { title: `${shot.filename || "a screenshot"}${setup?.source ? `  (${setup.source})` : ""}`, steps: kept, limited };
+    const gap = harnessGapMessage(shot);
+    const harness = gap ? null : normalizeHarness(shot.harness ?? shot.capture?.harness);
+    const label = harness ? ` [${HARNESS_LABELS[harness]}]` : "";
+    return { title: `${shot.filename || "a screenshot"}${setup?.source ? `  (${setup.source})` : ""}${label}`, steps: kept, limited, harness, gap };
   });
 }
 

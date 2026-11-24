@@ -13,6 +13,7 @@ import { buildLabChecklist, renderChecklistMarkdown } from "../lib/capture/check
 import { registerCaptureRoutes } from "../lib/capture/routes.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { makePng } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
 
 const cleanups = [];
 const ctx = {};
@@ -74,7 +75,8 @@ test("a picture that has been captured leaves the list, and an unknown lab is a 
   const target = before.you[0];
   const dir = join(ctx.labDir, "screenshots");
   mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, target.filename), makePng(1280, 720, [18, 90, 160]));
+  // A library picture of a harness-specific slot is saved under the harness's name; a plain name would be "Harness not recorded".
+  writeFileSync(join(dir, libraryName(target.filename, target.harness)), makePng(1280, 720, [18, 90, 160]));
   const after = buildLabChecklist({ generatedRoot: ctx.generatedRoot, labId: ctx.labId, capturedDir: dir });
   assert.ok(![...after.you, ...after.computer].some((item) => item.filename === target.filename), "the finished picture is no longer listed");
   assert.equal(after.counts.missing, before.counts.missing - 1);

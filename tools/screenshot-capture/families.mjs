@@ -7,6 +7,7 @@
 // is saved), and a step that would exceed it is refused even in a job that allows a practice agent.
 
 import { OPENERS, PANELS } from "./automation.mjs";
+import { STANDARD, isSpecificHarness } from "./harness.mjs";
 import * as R from "./scratch-recipes.mjs";
 
 const MCP_FEATURE_RE = /(?:^|-)(?:tools-mcp|mcp-servers?)$/;
@@ -80,12 +81,13 @@ function testset({ newer }) {
 }
 
 /**
- * The steps that put the screen of a family shot into the state its picture needs.
- * @param {{automation: object, shot: object, layout: "newer"|"classic", stage: string}} input
+ * The steps that put the screen of a family shot into the state its picture needs. The harness decides them (the Standard (Classic) harness has the
+ * side navigation; the Microsoft Copilot and Customer Conversation harnesses have the tab strip); `layout` is only for a caller with no harness.
+ * @param {{automation: object, shot: object, layout?: "newer"|"classic", harness?: string|null, stage: string}} input
  * @returns {{steps: object[], landmarks: string[], note: string}|null} null when the family has no steps for this layout (the shot is left to a person)
  */
-export function familyShowSteps({ automation, shot = {}, layout, stage = "" }) {
-  const newer = layout === "newer";
+export function familyShowSteps({ automation, shot = {}, layout, harness = null, stage = "" }) {
+  const newer = isSpecificHarness(harness) ? harness !== STANDARD : layout === "newer";
   switch (automation?.family) {
     case "conversation":
       return conversation({ automation, newer });

@@ -14,6 +14,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { harnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
+import { withShotHarness } from "./lab-harness.js";
+
 const MAX_STEPS = 6;
 
 function escapeHtml(value) {
@@ -41,6 +44,8 @@ export function loadShotSlots(labDir) {
     } catch {
       continue;
     }
+    // The harness each picture needs is worked out from the lab's harness, so a lab saved before it was recorded gets it too.
+    if (rel !== "shots.json" && parsed && typeof parsed === "object") withShotHarness(parsed);
     for (const shot of Array.isArray(parsed?.shots) ? parsed.shots : []) {
       const name = typeof shot?.filename === "string" ? shot.filename : "";
       if (!name || slots.has(name)) continue;
@@ -48,6 +53,7 @@ export function loadShotSlots(labDir) {
         alt: typeof shot.alt === "string" ? shot.alt : "",
         caption: typeof shot.caption === "string" ? shot.caption : "",
         figure: typeof shot.figure === "string" ? shot.figure : "",
+        harness: typeof shot.harness === "string" ? shot.harness : "",
         instructions: (Array.isArray(shot.instructions) ? shot.instructions : []).filter((x) => typeof x === "string" && x.trim()).slice(0, MAX_STEPS),
       });
     }
@@ -59,7 +65,7 @@ export function loadShotSlots(labDir) {
 /**
  * The card for one pending picture.
  * @param {string} filename the picture's file name (kept as data-shot so tests and tools can find it)
- * @param {{alt?: string, caption?: string, figure?: string, instructions?: string[]}|null} slot
+ * @param {{alt?: string, caption?: string, figure?: string, harness?: string, instructions?: string[]}|null} slot
  * @param {string} [altText] the alt text from the Markdown, used when there is no slot
  */
 export function pendingShotCardHtml(filename, slot, altText = "") {
@@ -67,9 +73,12 @@ export function pendingShotCardHtml(filename, slot, altText = "") {
   const steps = slot?.instructions || [];
   const figure = slot?.figure ? ` <span class="lab-shot-card-figure">Figure ${escapeHtml(slot.figure)}</span>` : "";
   const label = shows ? `Screenshot to add: ${shows}` : "Screenshot to add";
+  // The harness the picture must be taken in, in words (a product with no harnesses has none).
+  const harness = slot?.harness ? harnessLabel(slot.harness) : "";
   return (
     `<figure class="shot-pending lab-shot-card" data-shot="${escapeHtml(filename)}" role="group" aria-label="${escapeHtml(label)}">` +
     `<span class="lab-shot-card-label"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M4 7a2 2 0 0 1 2-2h2.2l1.2-1.5h5.2L15.8 5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg> Screenshot to add${figure}</span>` +
+    (harness ? `<span class="lab-shot-card-harness"><strong>Harness:</strong> ${escapeHtml(harness)}</span>` : "") +
     (shows ? `<span class="lab-shot-card-shows"><strong>It should show:</strong> ${inline(shows)}</span>` : "") +
     (steps.length
       ? `<span class="lab-shot-card-how"><strong>How to capture it:</strong></span><ol class="lab-shot-card-steps">${steps.map((step) => `<li>${inline(step)}</li>`).join("")}</ol>`

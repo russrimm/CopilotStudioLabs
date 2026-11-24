@@ -43,6 +43,7 @@ const ROLES_FOR = Object.freeze({
   send: ["button"],
   verify: ["button", "link", "tab", "menuitem", "treeitem", "textbox", "switch", "checkbox", "heading", "region"],
   hover: ["button", "link", "tab", "menuitem", "treeitem"],
+  "switch-experience": ["button", "menuitem", "link", "switch", "checkbox"],
 });
 
 const INTERACTIVE_SELECTOR = 'button, a[href], [role=button], [role=link], [role=tab], [role=menuitem], [role=menuitemradio], [role=treeitem], [role=option], [role=radio], [role=checkbox], [role=switch], input:not([type=hidden]), textarea, select, summary, [contenteditable=""], [contenteditable=true]';
@@ -108,6 +109,21 @@ export function fitsArea(desc, within = "any") {
 
 /** Areas that must match: a click may never leave a dialog or the test pane it was told to stay in. */
 const STRICT_AREAS = new Set(["dialog", "chat"]);
+
+/**
+ * How far a described control is from the lower left corner of the viewport, in the units of `desc.box` (6 pixels), or null when it
+ * is not in the lower left quarter of the page (or its place is not known). A control that must be "in the lower left corner" is only
+ * a control that is there, and the one nearest the corner is tried first.
+ */
+export function lowerLeftDistance(box, viewport = { width: 1440, height: 900 }) {
+  const parts = String(box || "").split(":").map(Number);
+  if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return null;
+  const [x, y, , h] = parts;
+  const width = (Number(viewport?.width) || 1440) / 6;
+  const height = (Number(viewport?.height) || 900) / 6;
+  if (x >= width / 2 || y + h <= height / 2) return null;
+  return x + Math.max(0, height - (y + h));
+}
 
 /**
  * Whether what the page shows now satisfies what the step expects. `before` and `after` come from `readState`.
@@ -328,7 +344,8 @@ export async function readState(page) {
   }
   for (const frame of frames) {
     try {
-      state.dialogs.push(...(await frame.evaluate(dialogsInPage)));
+      const listed = await frame.evaluate(dialogsInPage);
+      if (Array.isArray(listed)) state.dialogs.push(...listed);
     } catch (err) {
       if (isBrowserClosedError(err)) throw err;
     }
@@ -508,7 +525,7 @@ export function createExecutor(ctx) {
         if (isBrowserClosedError(err)) throw err;
         continue;
       }
-      for (const index of indexes) {
+      for (const index of Array.isArray(indexes) ? indexes : []) {
         const container = frame.locator(INTERSTITIAL_SELECTOR).nth(index);
         const buttons = container.getByRole("button");
         let count = 0;
@@ -595,6 +612,14 @@ export function createExecutor(ctx) {
         described.push({ ...item, desc, fits: fitsArea(desc, within) });
       }
       described.sort((a, b) => Number(b.fits) - Number(a.fits));
+      if (step.target?.corner === "lower-left") {
+        // Only a control in the lower left corner counts, and the one nearest the corner is tried first.
+        const viewport = typeof page.viewportSize === "function" ? page.viewportSize() : null;
+        const placed = described.map((item) => ({ item, at: lowerLeftDistance(item.desc.box, viewport || undefined) })).filter((entry) => entry.at !== null);
+        placed.sort((a, b) => a.at - b.at);
+        described.length = 0;
+        described.push(...placed.map((entry) => entry.item));
+      }
       attempt.found = described.length;
       for (const item of described) {
         if (produced >= MAX_TRIES) return;
@@ -1093,7 +1118,7 @@ export function createExecutor(ctx) {
       if (record.blocked && !record.attempts.some((a) => a.tried)) break;
       // A control that is not on the page yet (a skeleton, a slow panel) is waited for, for a bounded time; one that was there but did nothing is tried again a couple of times.
       const lookedAt = record.attempts.slice(attemptsBefore);
-      const nothingThere = ["open-nav", "select-tab", "reveal", "expand", "open-item", "open", "choose", "click", "confirm", "create", "close", "discard", "type", "send", "hover"].includes(step.action) && lookedAt.length > 0 && lookedAt.every((a) => a.found === 0);
+      const nothingThere = ["open-nav", "select-tab", "reveal", "expand", "open-item", "open", "choose", "click", "confirm", "create", "close", "discard", "type", "send", "hover", "switch-experience"].includes(step.action) && lookedAt.length > 0 && lookedAt.every((a) => a.found === 0);
       if (nothingThere) {
         if (now() - started >= findBudgetMs || ctx.shouldStop?.()) break;
         await sleep(500);

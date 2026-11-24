@@ -1,5 +1,6 @@
 // The practice agent: the one agent the companion may change, and only after the person opted in. It is created
-// by the companion itself in the practice environment the person chose, named "Lab screenshots - <code>", and
+// by the companion itself in the practice environment the person chose, one per harness, named "Classic shots - <code>" or
+// "Copilot shots - <code>" (before 1.8.0: "Lab screenshots - <code>"), and
 // recorded in a local registry so the next job reuses it. The companion never deletes anything: after a run it
 // writes a plain-language report of everything it created, so the person can delete the practice agent themselves.
 //
@@ -10,20 +11,27 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
+import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, NOT_RECORDED_LABEL, PRACTICE_AGENT_PREFIXES, STANDARD, isSpecificHarness, normalizeHarness } from "./harness.mjs";
+import { ensureClassicExperience, ensureDefaultExperience, proveAgentPage, unprovenMessage, wrongHarness } from "./harness-run.mjs";
 import { parseCopilotStudioAddress } from "./targets.mjs";
 
 export const PRACTICE_PREFIX = "Lab screenshots - ";
 const REGISTRY_NAME = ".practice-agents.json";
 const REPORT_NAME = "practice-report.md";
 
-/** A new practice agent name: the fixed prefix and a short code, so two runs never collide. */
-export function practiceName(random = () => crypto.randomBytes(3).toString("hex")) {
-  return `${PRACTICE_PREFIX}${random()}`;
+/**
+ * A new practice agent name: the fixed prefix and a short code, so two runs never collide. With a harness the prefix is the harness's compact
+ * marker ("Classic shots - ", "Copilot shots - "), so the agents of two harnesses are told apart by name; the whole name stays within 30 characters.
+ */
+export function practiceName(random = () => crypto.randomBytes(3).toString("hex"), harness = null) {
+  const prefix = (isSpecificHarness(harness) && PRACTICE_AGENT_PREFIXES[harness]) || PRACTICE_PREFIX;
+  return `${prefix}${random()}`;
 }
 
-/** Whether a name is one the companion made itself. */
+/** Whether a name is one the companion made itself (the older prefix, or one of the harness markers). */
 export function isPracticeName(name) {
-  return String(name || "").startsWith(PRACTICE_PREFIX);
+  const text = String(name || "");
+  return text.startsWith(PRACTICE_PREFIX) || Object.values(PRACTICE_AGENT_PREFIXES).some((prefix) => text.startsWith(prefix));
 }
 
 export function practiceRegistryPath(home) {
@@ -75,6 +83,11 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
     fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
   };
   const live = (a) => !a.retired && isPracticeName(a.name);
+  // The harness a record was built for: a specific harness id, or null for an agent recorded before harnesses (never reused for a harness-specific picture).
+  const harnessOf = (record) => (isSpecificHarness(record?.harness) ? normalizeHarness(record.harness) : null);
+  // A lookup for a harness only matches an agent recorded for exactly that harness; a lookup with no harness keeps the older behavior.
+  const forHarness = (record, harness) => !isSpecificHarness(harness) || harnessOf(record) === harness;
+  const sameHarness = (record, harness) => harnessOf(record) === (isSpecificHarness(harness) ? harness : null);
   return {
     file,
     load,
@@ -82,23 +95,28 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
     jobLog: [],
     /**
      * The practice agent for an environment, or null. Only an agent whose name has the prefix counts, and one that was
-     * retired by "Start fresh" does not. With a `key` (the lab it was built for) only that lab's agent matches.
+     * retired by "Start fresh" does not. With a `key` (the lab it was built for) only that lab's agent matches. With a `harness`
+     * only an agent recorded for that harness matches: an agent from before harnesses were recorded is never returned for one.
      */
-    find(envId, key) {
-      return load().agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key)) || null;
+    find(envId, key, harness) {
+      return load().agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key) && forHarness(a, harness)) || null;
     },
-    /** Remember a created practice agent. A second record for the same environment and lab replaces the first. `accountId` is the sign-in marker it was made under (see `agentAccountState`). */
-    recordAgent({ envId, botId, name, address, key = "shared", accountId = null }) {
+    /** The practice agent of this environment and lab that was recorded before harnesses (harness not recorded), or null. It is not used for a harness-specific picture. */
+    findUnrecorded(envId, key) {
+      return load().agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key) && !harnessOf(a)) || null;
+    },
+    /** Remember a created practice agent. A second record for the same environment, lab, and harness replaces the first. `accountId` is the sign-in marker it was made under (see `agentAccountState`). */
+    recordAgent({ envId, botId, name, address, key = "shared", accountId = null, harness = null }) {
       const data = load();
-      data.agents = data.agents.filter((a) => !(a.envId === envId && (a.key || "shared") === key && !a.retired));
-      data.agents.push({ envId, botId, name, address, key, ...(accountId ? { accountId } : {}), createdAt: iso(), reusedCount: 0, stages: {} });
-      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
+      data.agents = data.agents.filter((a) => !(a.envId === envId && (a.key || "shared") === key && !a.retired && sameHarness(a, harness)));
+      data.agents.push({ envId, botId, name, address, key, ...(isSpecificHarness(harness) ? { harness } : {}), ...(accountId ? { accountId } : {}), createdAt: iso(), reusedCount: 0, stages: {} });
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key && sameHarness(p, harness)));
       save(data);
-      this.jobLog.push({ kind: "agent", name, what: `Created the practice agent “${name}”`, reused: false });
+      this.jobLog.push({ kind: "agent", name, what: `Created the practice agent “${name}”${isSpecificHarness(harness) ? ` (${HARNESS_LABELS[harness]})` : ""}`, reused: false });
     },
-    recordReuse(envId, key, { accountId = null } = {}) {
+    recordReuse(envId, key, { accountId = null, harness = null } = {}) {
       const data = load();
-      const found = data.agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key));
+      const found = data.agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key) && forHarness(a, harness));
       if (found) {
         found.reusedCount = (found.reusedCount || 0) + 1;
         found.lastUsedAt = iso();
@@ -109,33 +127,35 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
       }
     },
     /** A create is about to be clicked. Written first, so a crash between the click and the next write cannot lead to a second agent. */
-    markPending({ envId, key = "shared", name }) {
+    markPending({ envId, key = "shared", name, harness = null }) {
       const data = load();
-      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
-      data.pending.push({ envId, key, name, at: iso() });
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key && sameHarness(p, harness)));
+      data.pending.push({ envId, key, name, ...(isSpecificHarness(harness) ? { harness } : {}), at: iso() });
       save(data);
     },
-    pending(envId, key = "shared") {
-      return load().pending.find((p) => p.envId === envId && p.key === key) || null;
+    pending(envId, key = "shared", harness = null) {
+      return load().pending.find((p) => p.envId === envId && p.key === key && sameHarness(p, harness)) || null;
     },
-    clearPending(envId, key = "shared") {
+    clearPending(envId, key = "shared", harness = null) {
       const data = load();
-      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key && sameHarness(p, harness)));
       save(data);
     },
-    /** "Start fresh": the next job makes a new practice agent. The old one is only set aside in this record; nothing is deleted. */
-    retire(envId, key) {
+    /** "Start fresh": the next job makes a new practice agent. The old one is only set aside in this record; nothing is deleted. Without a `harness` every harness's agent of the lab is set aside. */
+    retire(envId, key, harness) {
       const data = load();
       let count = 0;
       for (const agent of data.agents) {
-        if (agent.envId === envId && !agent.retired && (key === undefined || (agent.key || "shared") === key)) {
+        if (agent.envId === envId && !agent.retired && (key === undefined || (agent.key || "shared") === key) && forHarness(agent, harness)) {
           agent.retired = true;
           agent.retiredAt = iso();
           count += 1;
         }
       }
-      data.pending = data.pending.filter((p) => !(p.envId === envId && (key === undefined || p.key === key)));
-      if (count || data.pending.length !== load().pending.length) save(data);
+      const kept = data.pending.filter((p) => !(p.envId === envId && (key === undefined || p.key === key) && forHarness(p, harness)));
+      const changed = kept.length !== data.pending.length;
+      data.pending = kept;
+      if (count || changed) save(data);
       return count;
     },
     /**
@@ -210,7 +230,7 @@ export function buildPracticeReport(registry, { jobCreated = [], now = () => new
   const agents = registry.agents || [];
   if (!agents.length) lines.push("No practice agent has been created.", "");
   for (const agent of agents) {
-    lines.push(`## ${agent.name}${agent.retired ? " (set aside by Start fresh)" : ""}`, "", `- Where: your practice environment in Copilot Studio`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
+    lines.push(`## ${agent.name}${agent.retired ? " (set aside by Start fresh)" : ""}`, "", `- Where: your practice environment in Copilot Studio`, `- Harness: ${isSpecificHarness(agent.harness) ? HARNESS_LABELS[agent.harness] : `${NOT_RECORDED_LABEL} (made before harnesses were recorded, so it is not used for a harness-specific picture)`}`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
     const stages = Object.entries(agent.stages || {}).filter(([, value]) => Number(value?.proof) >= STAGE_PROOF);
     if (stages.length) lines.push(`- Steps of the lab walkthrough done on it: ${stages.map(([id]) => id).join(", ")}`);
     const changes = (registry.changes || []).filter((c) => c.botId === agent.botId);
@@ -259,21 +279,56 @@ export function practiceEnvironment(url) {
  * Find the practice agent for the job's practice environment, or make it. Everything here is a tier 2 action
  * that happens only in the practice environment, only for an agent whose name has the prefix, and only because the
  * job (and this companion) allowed it.
- * @returns {Promise<{ok: boolean, agentBase?: string, envBase?: string, botId?: string, name?: string, reused?: boolean, error?: string, cause?: string}>}
+ *
+ * With a `harness` this is the practice agent of that harness: a Classic agent (made inside the classic experience, after the switch) for a Standard
+ * (Classic) picture, a Microsoft Copilot agent (made in the default experience) for a Microsoft Copilot picture. An agent recorded before harnesses
+ * were recorded is never reused for one, and the new agent's harness is PROVEN by its landmarks before it is used or recorded as that harness.
+ * The computer does not build Customer Conversation agents.
+ * @returns {Promise<{ok: boolean, agentBase?: string, envBase?: string, botId?: string, name?: string, reused?: boolean, harness?: string|null, error?: string, cause?: string}>}
  */
-export async function ensurePracticeAgent({ page, autonomy, registry, session, executorFor, go, trace = null, log = null, random }) {
+export async function ensurePracticeAgent({ page, autonomy, registry, session, executorFor, go, trace = null, log = null, random, harness = null, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)), readiness = {} }) {
   const env = practiceEnvironment(autonomy.practiceEnvironmentUrl);
   if (autonomy.maxTier < 2 || !env) return { ok: false, cause: "needs-practice-agent", error: "A practice agent is not allowed for this job." };
-  if (session.practiceAgent?.envId === env.envId) return { ...session.practiceAgent, reused: true };
+  const h = isSpecificHarness(harness) ? normalizeHarness(harness) : null;
+  if (h === CUSTOMER_CONVERSATION) return { ok: false, cause: "needs-you", error: CUSTOMER_AGENT_MESSAGE };
+  const have = h ? session.practiceAgents?.[h] : session.practiceAgent;
+  if (have?.envId === env.envId) return { ...have, reused: true };
   // When the agent is handed over from the creation step (`agentSource: "created"`), a failure is remembered for the rest of the job: every later
   // shot that needs the agent gets the same plain reason, and the Create control is never clicked again and again.
-  if (session.agentSource === "created" && session.practiceFailure?.envId === env.envId) return session.practiceFailure.result;
+  const remembered = h ? session.practiceFailures?.[h] : session.practiceFailure;
+  if (session.agentSource === "created" && remembered?.envId === env.envId) return remembered.result;
   const failed = (result) => {
-    if (session.agentSource === "created") session.practiceFailure = { envId: env.envId, result };
+    if (session.agentSource === "created") {
+      if (h) session.practiceFailures = { ...(session.practiceFailures || {}), [h]: { envId: env.envId, result } };
+      else session.practiceFailure = { envId: env.envId, result };
+    }
     return result;
   };
+  const remember = (info) => {
+    session.practiceAgent = info;
+    if (h) session.practiceAgents = { ...(session.practiceAgents || {}), [h]: info };
+    return info;
+  };
+  // The experience the agent is made and opened in: the classic one for Standard (the switch), the default one for Microsoft Copilot.
+  const experience = async () => {
+    if (h === STANDARD) return ensureClassicExperience({ page, session, go, trace, log, sleep, readiness, deps: session.harnessDeps || null });
+    if (h === MICROSOFT_COPILOT) return ensureDefaultExperience({ page, session, go, trace, log, sleep, readiness });
+    return { ok: true };
+  };
+  // What the agent page shows once it is open: null when no harness is needed, else the proof or the plain reason it is not the harness.
+  const prove = async (waitMs) => {
+    if (!h) return { ok: true, proven: null };
+    const seen = await proveAgentPage(page, { sleep, waitMs: waitMs ?? session.landmarkMs ?? 45_000, settleMs: session.landmarkSettleMs ?? 1500 });
+    if (!seen) return { ok: false, proven: null, cause: "harness-unproven", error: `${unprovenMessage(h)} The practice agent was not used.` };
+    if (seen.harness !== h) return { ok: false, proven: seen.harness, cause: "wrong-harness", error: `${wrongHarness(seen.harness, h)} The practice agent was not used.` };
+    return { ok: true, proven: seen.harness, landmarks: seen.landmarks };
+  };
 
-  const existing = registry.find(env.envId);
+  const existing = registry.find(env.envId, undefined, h);
+  if (!existing && h && registry.findUnrecorded(env.envId)) {
+    trace?.event("practice-agent-unrecorded", { harness: h });
+    log?.(`  An earlier practice agent has no harness recorded, so it is not used for a ${HARNESS_LABELS[h]} picture. A new one is made.`);
+  }
   if (existing) {
     // An agent made while another account was signed in is not used, and nothing is made in its place.
     if (agentAccountState(existing, session.accountId) === "different") {
@@ -281,35 +336,48 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
       log?.("  The practice agent from an earlier job was made under a different sign-in, so it is not used.");
       return failed({ ok: false, cause: "agent-unavailable", error: AGENT_ACCOUNT_REASON });
     }
+    const switched = await experience();
+    if (switched.signIn) return { ok: false, signIn: switched.signIn, cause: "sign-in", error: "" };
+    if (!switched.ok) return failed({ ok: false, cause: switched.cause || "harness-switch-failed", error: switched.error });
     const target = `${env.envBase}/bots/${existing.botId}/overview`;
     await go(target, "your practice agent");
     if (String(page.url()).includes(existing.botId)) {
-      registry.recordReuse(env.envId, undefined, { accountId: session.accountId });
-      session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true };
-      trace?.event("practice-agent", { reused: true });
+      const proof = await prove(20_000);
+      if (!proof.ok) return failed({ ok: false, cause: proof.cause, error: proof.error });
+      registry.recordReuse(env.envId, undefined, { accountId: session.accountId, harness: h });
+      trace?.event("practice-agent", { reused: true, harness: h });
       log?.("  Reusing your practice agent.");
-      return session.practiceAgent;
+      return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true, harness: h });
     }
     trace?.event("practice-agent-missing", {});
     log?.("  The practice agent from an earlier job could not be opened, so a new one will be created.");
   }
 
-  const name = practiceName(random);
+  // Made inside the experience of its harness: the Classic agent after the switch, the Microsoft Copilot agent in the default experience.
+  const prepared = await experience();
+  if (prepared.signIn) return { ok: false, signIn: prepared.signIn, cause: "sign-in", error: "" };
+  if (!prepared.ok) return failed({ ok: false, cause: prepared.cause || "harness-switch-failed", error: prepared.error });
+  const name = practiceName(random, h);
   await go(`${env.envBase}/agents`, "the list of agents in your practice environment");
   const practice = { agentId: null, creating: (url) => String(url || "").startsWith(env.envBase) };
   const executor = executorFor(practice);
   const result = await executor.run([
     { id: "create-open", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create blank agent", alt: ["Create agent", "New agent", "Create an agent"], within: "main" }, expect: { text: ["Name"] } },
     { id: "create-name", action: "type", intent: "type", tier: 2, target: { role: "textbox", name: "Name", alt: ["Agent name", "Name your agent"], within: "main" }, text: { literal: name } },
-    { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent"], within: "main" }, expect: { urlPath: "/bots/" } },
+    { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent", "Save"], within: "main" }, expect: { urlPath: "/bots/" } },
   ].map((s) => ({ ...s, note: s.id === "create-name" ? "Named the practice agent" : "Created the practice agent" })));
   if (!result.ok) return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result });
   const created = parseCopilotStudioAddress(page.url());
   if (!created.botId) return failed({ ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." });
-  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview`, accountId: session.accountId || null });
+  // The new agent's harness is what its page proves, never what was asked for: it is recorded under the proven harness.
+  const proof = await prove();
+  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview`, accountId: session.accountId || null, harness: proof.proven || null });
   registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
-  session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: `${env.envBase}/bots/${created.botId}`, name, reused: false };
-  trace?.event("practice-agent", { reused: false });
+  trace?.event("practice-agent", { reused: false, harness: h, proven: proof.proven || null });
+  if (!proof.ok) return failed({ ok: false, cause: proof.cause, error: proof.error });
   log?.(`  Created the practice agent “${name}”. It is listed in the report at the end of the job.`);
-  return session.practiceAgent;
+  return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: `${env.envBase}/bots/${created.botId}`, name, reused: false, harness: h });
 }
+
+/** Why the computer does not make an agent for a Customer Conversation picture. */
+export const CUSTOMER_AGENT_MESSAGE = "The computer does not build Customer Conversation agents (preview). Choose “An agent I choose” and give a Customer Conversation agent, or use “Retake guided”.";

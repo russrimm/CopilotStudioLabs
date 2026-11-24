@@ -24,9 +24,12 @@
  */
 
 import { NEAR_DISTANCE, distance, isFingerprint } from "../../../tools/screenshot-capture/fingerprint.mjs";
+import { harnessLabel, isSpecificHarness, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 import { parseCopilotStudioAddress } from "../../../tools/screenshot-capture/targets.mjs";
 
 export const FLAGS = Object.freeze({
+  HARNESS_MIXED: "HARNESS_MIXED",
+  HARNESS_MISMATCH: "HARNESS_MISMATCH",
   DUPLICATE_ACROSS_SLOTS: "DUPLICATE_ACROSS_SLOTS",
   NEAR_DUPLICATE: "NEAR_DUPLICATE",
   SIGNED_OUT_OR_MARKETING: "SIGNED_OUT_OR_MARKETING",
@@ -36,7 +39,7 @@ export const FLAGS = Object.freeze({
 });
 
 /** The order a picture's reasons are shown in: the plainest, most certain reason first. */
-export const FLAG_ORDER = Object.freeze([FLAGS.SIGNED_OUT_OR_MARKETING, FLAGS.LANDING_PAGE, FLAGS.DUPLICATE_ACROSS_SLOTS, FLAGS.NEAR_DUPLICATE, FLAGS.WRONG_PRODUCT, FLAGS.POSSIBLE_IDENTITY]);
+export const FLAG_ORDER = Object.freeze([FLAGS.HARNESS_MISMATCH, FLAGS.HARNESS_MIXED, FLAGS.SIGNED_OUT_OR_MARKETING, FLAGS.LANDING_PAGE, FLAGS.DUPLICATE_ACROSS_SLOTS, FLAGS.NEAR_DUPLICATE, FLAGS.WRONG_PRODUCT, FLAGS.POSSIBLE_IDENTITY]);
 
 /** The companion version that first reported what the page showed (see EVIDENCE_VERSION in image-verify.mjs). */
 export const CURRENT_EVIDENCE_VERSION = 2;
@@ -262,6 +265,24 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
     clusterNumber += 1;
     const id = `c${clusterNumber}`;
     for (const member of members) member.cluster = id;
+    // One picture can show only one harness: the same picture under a Standard (Classic) slot and a Microsoft Copilot slot is wrong for one of them,
+    // and a person's "Keep this one" does not change that.
+    const harnessOf = (m) => normalizeHarness(m.slot?.harness);
+    const harnesses = new Set(members.map(harnessOf).filter(isSpecificHarness));
+    if (harnesses.size > 1) {
+      for (const member of members) {
+        const mine = harnessOf(member);
+        if (!isSpecificHarness(mine)) continue;
+        const others = othersOf(members.filter((m) => harnessOf(m) !== mine && isSpecificHarness(harnessOf(m))), member);
+        const names = listNames(others, others.length);
+        member.flags.push({
+          code: FLAGS.HARNESS_MIXED,
+          level: "definite",
+          message: `This is the same picture that is used for ${names} in the ${[...harnesses].filter((h) => h !== mine).map(harnessLabel).join(" and the ")}. A picture can show only one harness, and this screenshot needs the ${harnessLabel(mine)}.`,
+          others,
+        });
+      }
+    }
     // Which slots can truthfully show this picture? A slot that expects a deeper screen than the picture reached cannot.
     const truthful = members.filter((m) => m.confirmed || !m.depth || canExpect(m.depth, m.reachInfo.reach));
     const truthfulSlots = new Set(truthful.map((m) => m.filename));
@@ -282,6 +303,12 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
   }
 
   for (const item of items) {
+    // A picture recorded as taken in another harness than its slot needs is wrong for the slot, and a person's "Keep this one" does not change that.
+    const needs = normalizeHarness(item.slot?.harness);
+    const has = normalizeHarness(item.harnessStamp);
+    if (isSpecificHarness(needs) && isSpecificHarness(has) && needs !== has) {
+      item.flags.push({ code: FLAGS.HARNESS_MISMATCH, level: "definite", message: `This picture was taken in the ${harnessLabel(has)}, but this screenshot needs the ${harnessLabel(needs)}.` });
+    }
     if (item.confirmed) continue;
     const record = item.effective;
     const { reach } = item.reachInfo;
@@ -346,6 +373,8 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
 
 /** A few words for each kind of finding, for a one-line report. */
 export const FLAG_SHORT = Object.freeze({
+  [FLAGS.HARNESS_MISMATCH]: "taken in the other harness",
+  [FLAGS.HARNESS_MIXED]: "the same picture is used for two harnesses",
   [FLAGS.LANDING_PAGE]: "shows a start page, not the screen it should show",
   [FLAGS.DUPLICATE_ACROSS_SLOTS]: "the same picture as other screenshots",
   [FLAGS.NEAR_DUPLICATE]: "looks the same as other screenshots",

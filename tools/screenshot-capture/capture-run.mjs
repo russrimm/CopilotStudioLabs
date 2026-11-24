@@ -25,6 +25,9 @@ import { removeGuidedToolbar, waitForGuidedAction } from "./guided.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 import { collectVisibleLabels, readPageSignals } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
+import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, STANDARD, harnessPlan } from "./harness.mjs";
+import { chooseAgentFix, ensureClassicExperience, ensureDefaultExperience, harnessEvidence, harnessGapMessage, harnessScopeOf, harnessState, proveEnvironmentPage, proveHarness, proveWithRecovery, provedLine, readPoweredBy, wantedHarness, wrongHarness } from "./harness-run.mjs";
+import { CUSTOMER_AGENT_MESSAGE } from "./practice.mjs";
 import { normalizeAgentSource, resolveAutomation } from "./walkthrough.mjs";
 import {
   COPILOT_STUDIO_SCREENS,
@@ -46,7 +49,7 @@ const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * `agentSource` is the job's choice of agent ("created": the practice agent made or reused first in this job, "own": the person's own agent; `null`
  * from a portal that does not say, which keeps the older behavior). `accountId` is the sign-in marker of the browser profile (see `agentAccountState`).
  */
-export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", agentSource = null, accountId = null, writeGapMs = undefined, effectMs = undefined, findMs = undefined } = {}) {
+export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", agentSource = null, accountId = null, writeGapMs = undefined, effectMs = undefined, findMs = undefined, landmarkMs = undefined, landmarkSettleMs = undefined, promptMs = undefined } = {}) {
   const source = normalizeAgentSource(agentSource);
   // With the agent handed over from the creation step, no other agent is ever reachable: the person's own agent address and name are not kept at all.
   const values = source === "created" ? withoutOwnAgent(targetValuesFromJob(env, targets)) : targetValuesFromJob(env, targets);
@@ -67,6 +70,10 @@ export function createCaptureSession({ env = {}, targets = {}, autonomy = null, 
     writeGapMs,
     effectMs,
     findMs,
+    // Test knobs for the harness proof: how long the landmarks are waited for, and how long a feedback prompt is waited for after the switch.
+    landmarkMs,
+    landmarkSettleMs,
+    promptMs,
   };
 }
 
@@ -151,6 +158,7 @@ const NEWER_LAYOUT_SCREEN_TAB = Object.freeze({ overview: "Build", evaluations: 
  * Measured on a real agent: an address such as `.../knowledge` is kept in the address bar but the page shows Build, so
  * the address alone cannot prove which screen is showing. Only control roles and names are read, never page text.
  */
+/** Whether the agent page has the newer layout's tab strip (Build, Preview, Evaluate, Monitor), and which tab is open. This is a landmark reader for the harness proof (harness-run.mjs), not a decision about which harness the agent is in. */
 export async function readAgentTabs(page) {
   let present = 0;
   let open = null;
@@ -179,8 +187,10 @@ async function alignAgentLayout({ page, screen, sleep, trace, steps, readiness, 
   return { newer: true, classicOnly: false, open: tab };
 }
 
-const newerLayoutMessage = (screen) =>
-  `This agent uses the newer Copilot Studio layout (Build, Preview, Evaluate, and Monitor tabs), which has no separate ${screen.short} page: the picture would show the Build tab instead. Use “Retake guided”, or “Show me once” so the computer learns this screen.`;
+const newerLayoutMessage = (screen, harness = null) =>
+  harness
+    ? `This agent is in the ${HARNESS_LABELS[harness]} (Build, Preview, Evaluate, and Monitor tabs), which has no separate ${screen.short} page: the picture would show the Build tab instead. Use “Retake guided”, or “Show me once” so the computer learns this screen.`
+    : `This agent uses the newer Copilot Studio layout (Build, Preview, Evaluate, and Monitor tabs), which has no separate ${screen.short} page: the picture would show the Build tab instead. Use “Retake guided”, or “Show me once” so the computer learns this screen.`;
 
 const needMessage = (ids) => {
   const nouns = ids.map((id) => REQUIREMENTS[id]?.noun).filter(Boolean);
@@ -191,8 +201,8 @@ const needMessage = (ids) => {
 /** Why a shot that should have used the practice agent is waiting: the reason the agent is not there, then what the person can do. */
 const waitingForAgent = (reason) => `${String(reason || "").trim().replace(/\.+$/, "") || "The practice agent could not be created"}, so this screenshot needs an agent address.`;
 
-/** Open a Copilot Studio screen. Returns `{ok, ...}` or a failure result. */
-async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate, trace, log, sleep, steps, controlOptions }) {
+/** Open a Copilot Studio screen. Returns `{ok, ...}` or a failure result. `harness` is the harness the shot needs (null when it has none). */
+async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate, trace, log, sleep, steps, controlOptions, harness = null }) {
   const capture = shot.capture;
   const screen = COPILOT_STUDIO_SCREENS[capture.route.screen];
   const cs = session.cs;
@@ -232,6 +242,12 @@ async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate
       const list = await go(`${cs.envBase}/agents`, "the list of agents");
       if (list.signIn) return { signIn: list.signIn };
       await waitUntilReady(page, { budgets: readinessBudgets(controlOptions.readiness), sleep, trace, shot: shot.filename });
+      // The Agents list names the harness of each agent (its "Powered by" column): an agent in another harness is not opened for this picture.
+      const listed = harness ? await readPoweredBy(page, name) : null;
+      if (harness && listed && listed !== harness) {
+        trace?.event("harness-powered-by", { wanted: harness, found: listed });
+        return failure("needs-you", "wrong-harness", `${wrongHarness(listed, harness)} ${chooseAgentFix(harness)}`, { currentUrl: maskedPath(page.url()), detail: { harness: { wanted: harness, wantedLabel: HARNESS_LABELS[harness], found: listed, foundLabel: HARNESS_LABELS[listed], via: "powered-by" } } });
+      }
       const links = (await findControls(page, name, { roles: ["link"], regions: ["main", "other"] })).filter((c) => !c.off);
       const entry = { action: "open-agent", label: name.length > 60 ? `${name.slice(0, 57)}...` : name, found: links.length > 0, ok: false, urlBefore: maskedPath(page.url()), urlAfter: maskedPath(page.url()), tried: 0 };
       record(steps, entry);
@@ -358,6 +374,12 @@ export async function runCaptureShot({
   stepTimeoutMs = 3000,
 }) {
   const capture = shot.capture;
+  // A lab's slot whose feature is not written for the lab's harness is never taken, and never taken in the other harness either.
+  const gapMessage = harnessGapMessage(shot);
+  if (gapMessage) {
+    trace?.event("harness-gap", { shot: shot.filename });
+    return { executedSteps: [], ...failure("needs-you", "harness-gap", gapMessage, { detail: { mode: effectiveMode, path: capture.path || [], screen: capture.screen?.label || null, harness: { gap: true, lab: shot.harnessGap?.lab || null } } }) };
+  }
   const steps = [];
   const viewport = { width: Number(shot.viewport?.width || 1440), height: Number(shot.viewport?.height || 900) };
   await normalizeViewport(page, viewport, trace);
@@ -365,7 +387,11 @@ export async function runCaptureShot({
   const needsSignIn = (result) => failure("auth-required", "sign-in", result.error, { code: result.code, currentUrl: redactedAddress(typeof page.url === "function" ? page.url() : ""), executedSteps: steps });
   const done = (result) => ({ executedSteps: steps, ...result });
   const detail = { mode: effectiveMode, path: capture.path || [], screen: capture.screen?.label || null };
-  trace?.event("shot-plan", { shot: shot.filename, mode: effectiveMode, classified: capture.mode, screen: capture.screen?.id || null, route: capture.route?.kind || null, attempt });
+  // The harness the picture needs (Copilot Studio only): enforced before the screen is opened and proven before the picture is taken.
+  const wanted = wantedHarness(shot);
+  const harnessScope = wanted ? harnessScopeOf(shot) : null;
+  if (wanted) detail.harness = { wanted, wantedLabel: HARNESS_LABELS[wanted] };
+  trace?.event("shot-plan", { shot: shot.filename, mode: effectiveMode, classified: capture.mode, screen: capture.screen?.id || null, route: capture.route?.kind || null, attempt, harness: wanted });
   const autonomous = effectiveMode === "autonomous";
   const strict = effectiveMode === "auto" || autonomous;
   let setupRun = null;
@@ -389,15 +415,44 @@ export async function runCaptureShot({
 
   if (gate.failed) return needsSignIn({ error: gate.failed.message, code: gate.failed.code });
 
+  // 0a. The harness. A Standard (Classic) picture starts with the switch to the classic experience; a Microsoft Copilot picture starts in the
+  // default experience (a session that was switched goes back). Neither is a guess from whatever page the agent opens in: the landmarks prove it below.
+  const stopForHarness = (result, { ownAgent = false } = {}) => {
+    const cause = ["wrong-harness", "harness-unproven", "harness-switch-failed", "run-stopped"].includes(result.code) ? result.code : "wrong-harness";
+    const fix = ownAgent && cause === "wrong-harness" ? ` ${chooseAgentFix(wanted)}` : "";
+    trace?.event("shot-needs-you", { shot: shot.filename, cause, harness: wanted, found: result.found || null });
+    return done(failure("needs-you", cause, `${result.message}${fix}`, { detail: { ...detail, harness: { ...detail.harness, found: result.found || null, foundLabel: result.found ? HARNESS_LABELS[result.found] : null, ...(result.recovered ? { recovered: true } : {}) } }, currentUrl: maskedPath(page.url()) }));
+  };
+  let reusedSwitch = false;
+  if (wanted === STANDARD) {
+    const switched = await ensureClassicExperience({ page, session, go: goTo, trace, log, sleep, readiness, deps: session.harnessDeps || null });
+    if (switched.signIn) return needsSignIn(switched.signIn);
+    reusedSwitch = switched.reused === true;
+    if (!switched.ok) {
+      // A person who sets the screen up (guided) is told what to do instead of being stopped: they switch themselves.
+      if (effectiveMode === "guided") log?.(`  ${switched.error}`);
+      else return stopForHarness({ code: switched.cause, message: switched.error });
+    } else if (switched.switched && effectiveMode !== "guided") {
+      // The switch was just made: nothing is built or opened until the page says it took effect (the menu no longer offers the command). A page that
+      // still says it is in the default experience stops the shot here, before a practice agent is made in the wrong experience.
+      const seen = await proveEnvironmentPage(page, { session, allowClicks: true, sleep, trace, log, deps: session.harnessDeps || null });
+      if (seen && seen.harness !== STANDARD) return stopForHarness({ code: "wrong-harness", found: seen.harness, message: wrongHarness(seen.harness, STANDARD) });
+    }
+  } else if (wanted === MICROSOFT_COPILOT) {
+    const back = await ensureDefaultExperience({ page, session, go: goTo, trace, log, sleep, readiness });
+    if (back.signIn) return needsSignIn(back.signIn);
+  }
+
   // 0. Autonomous: a shot whose steps need a practice agent runs inside it (found or created), only when this job allows one.
   // Building from scratch goes further: every agent screen of the lab is shown on a practice agent the computer builds itself.
   let practiceInfo = null;
   let practiceError = "";
+  let practiceCause = "";
   let routeSession = session;
   let scratchRun = null;
   const scratchJob = session.autonomy?.scratch === true && String(capture.product || shot.product || "copilot-studio") === "copilot-studio";
   if (scratchJob && (autonomous || effectiveMode === "guided")) {
-    const prepared = await prepareScratchShot({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness, guided: effectiveMode === "guided" });
+    const prepared = await prepareScratchShot({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness, guided: effectiveMode === "guided", harness: wanted });
     if (prepared.signIn) return needsSignIn(prepared.signIn);
     if (!prepared.ok) {
       trace?.event("scratch-stopped", { shot: shot.filename, cause: prepared.cause, blocker: prepared.blocker || "" });
@@ -407,17 +462,19 @@ export async function runCaptureShot({
       scratchRun = prepared;
       practiceInfo = { ...prepared.agent, ok: true };
       routeSession = { ...session, cs: { envBase: prepared.agent.envBase, agentBase: prepared.agent.agentBase, agentSource: "practice" } };
-      detail.practice = { name: prepared.agent.name, reused: prepared.agent.reused === true };
+      detail.practice = { name: prepared.agent.name, reused: prepared.agent.reused === true, ...(wanted ? { harness: wanted } : {}) };
       detail.scratch = { stage: prepared.stage, layout: prepared.layout };
     }
   } else if (autonomous) {
-    const prepared = await preparePractice({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion });
+    const prepared = await preparePractice({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, harness: wanted, readiness });
+    if (prepared.signIn) return needsSignIn(prepared.signIn);
     practiceError = prepared.error;
+    practiceCause = prepared.cause || "";
     if (practiceError) log?.(`  ${practiceError}`);
     if (prepared.info) {
       practiceInfo = prepared.info;
       routeSession = { ...session, cs: { envBase: prepared.info.envBase, agentBase: prepared.info.agentBase, agentSource: "practice" } };
-      detail.practice = { name: prepared.info.name, reused: prepared.info.reused === true };
+      detail.practice = { name: prepared.info.name, reused: prepared.info.reused === true, ...(wanted ? { harness: wanted } : {}) };
     }
   }
 
@@ -428,6 +485,12 @@ export async function runCaptureShot({
     // The agent is handed over from the creation step: when it is not there, the shot waits with a plain reason. It never goes to another agent, even one whose address is known.
     const handedOver = autonomous && !scratchJob && !practiceInfo && session.agentSource === "created" && String(capture.product || shot.product || "copilot-studio") === "copilot-studio" && needsAgent(shot);
     if (handedOver) {
+      // The computer does not build Customer Conversation agents, and an agent that turned out to be in another harness is never used: those are plain reasons for a person, not a wait.
+      if (wanted === CUSTOMER_CONVERSATION || ["wrong-harness", "harness-unproven", "harness-switch-failed"].includes(practiceCause)) {
+        const cause = wanted === CUSTOMER_CONVERSATION ? "needs-you" : practiceCause;
+        trace?.event("shot-needs-you", { shot: shot.filename, cause, harness: wanted });
+        return done(failure("needs-you", cause, wanted === CUSTOMER_CONVERSATION ? CUSTOMER_AGENT_MESSAGE : practiceError, { detail }));
+      }
       trace?.event("shot-skipped", { shot: shot.filename, cause: "agent-unavailable", needs: "copilot-studio-agent" });
       return done(failure("skipped", "agent-unavailable", waitingForAgent(practiceError), { needs: ["copilot-studio-agent"], detail }));
     }
@@ -445,14 +508,34 @@ export async function runCaptureShot({
 
   // 2. Get to the screen. A from-scratch shot is already on the practice agent; its own steps open the screen and prove it by what the page shows.
   const controlOptions = { readiness };
+  const openScreen = () => openCopilotStudio({ page, shot, session: routeSession, env, effectiveMode: strict ? "auto" : effectiveMode, gate, trace, log, sleep, steps, controlOptions, harness: wanted });
   let opened;
   if (scratchRun) opened = { ok: true, landing: null };
-  else if (capture.route?.kind === "copilot-studio") opened = await openCopilotStudio({ page, shot, session: routeSession, env, effectiveMode: strict ? "auto" : effectiveMode, gate, trace, log, sleep, steps, controlOptions });
+  else if (capture.route?.kind === "copilot-studio") opened = await openScreen();
   else if (capture.route?.kind === "url") opened = await openAddress({ page, shot, env, gate, trace, log, sleep, steps });
   else opened = { ok: true, partial: true };
   if (opened.signIn) return needsSignIn(opened.signIn);
   if (opened.status) return done({ ...opened, detail: { ...detail, ...(opened.detail || {}) } });
   detail.landing = opened.landing ? { state: opened.landing.state, page: opened.landing.page } : null;
+
+  // 2b. The harness is proven as soon as the agent page is open, before any step touches it: a page in the wrong harness stops here. A page that
+  // is in the wrong harness after the switch is made again once when this shot reused an earlier switch (the page fell back), and never fixed otherwise.
+  let harnessProof = null;
+  const ownAgent = !scratchRun && !practiceInfo && harnessScope === "agent";
+  if (wanted && scratchRun?.proof && scratchRun.proof.found === wanted) {
+    harnessProof = { ok: true, found: wanted, landmarks: scratchRun.proof.landmarks, proof: harnessEvidence({ id: wanted, landmarks: scratchRun.proof.landmarks, switched: wanted === STANDARD && harnessState(session, page).switches > 0, wanted }) };
+    log?.(`  ${provedLine(harnessProof.found, harnessProof.landmarks)}`);
+  }
+  if (wanted && strict && !scratchRun && !opened.partial && capture.route?.kind === "copilot-studio" && harnessScope === "agent") {
+    const early = await proveWithRecovery({ page, session, wanted, scope: harnessScope, allowClicks: true, go: goTo, reopen: async () => {
+      const again = await openScreen();
+      return again.signIn ? { signIn: again.signIn } : { ok: !again.status };
+    }, reusedSwitch, trace, log, sleep, readiness, deps: session.harnessDeps || null });
+    if (early.signIn) return needsSignIn(early.signIn);
+    if (!early.ok) return stopForHarness(early, { ownAgent });
+    harnessProof = early;
+    log?.(`  ${provedLine(early.found, early.landmarks)}`);
+  }
 
   // 3a. Autonomous: put the screen into the state the shot needs (open a dialog, ask the test pane, select a tab).
   if (autonomous) {
@@ -464,7 +547,7 @@ export async function runCaptureShot({
       trace?.event("shot-needs-you", { shot: shot.filename, cause: setupRun.cause, step: setupRun.setup.failedStep?.id || "", layout: opened.layout?.classicOnly ? "newer" : null });
       // The same recipe is tried again for another shot at most once more in this job: a changed screen costs two tries, never a loop.
       if (scratchRun?.family) trace?.event("recipe-failed", { shot: shot.filename, family: scratchRun.family.id, count: noteRecipeFailure(session, scratchRun.family.key) });
-      const layoutHint = opened.layout?.classicOnly ? `This agent uses the newer Copilot Studio layout, which has no separate ${COPILOT_STUDIO_SCREENS[capture.route.screen].short} page. ` : "";
+      const layoutHint = opened.layout?.classicOnly ? (wanted ? `This agent is in the ${HARNESS_LABELS[wanted]}, which has no separate ${COPILOT_STUDIO_SCREENS[capture.route.screen].short} page. ` : `This agent uses the newer Copilot Studio layout, which has no separate ${COPILOT_STUDIO_SCREENS[capture.route.screen].short} page. `) : "";
       return done(failure("needs-you", setupRun.cause, `${layoutHint}${setupRun.error}`, { detail, currentUrl: maskedPath(page.url()), diagnostic: setupRun.setup.failedStep ? setupRun.setup : null }));
     }
     detail.landing = detail.landing || null;
@@ -498,16 +581,17 @@ export async function runCaptureShot({
     if (!changedScreen) {
       await stopSetup();
       trace?.event("shot-wrong-layout", { shot: shot.filename, screen: capture.screen?.id || null });
-      return done(failure("failed", "wrong-screen", newerLayoutMessage(COPILOT_STUDIO_SCREENS[capture.route.screen]), { currentUrl: maskedPath(page.url()), detail }));
+      return done(failure("failed", "wrong-screen", newerLayoutMessage(COPILOT_STUDIO_SCREENS[capture.route.screen], wanted), { currentUrl: maskedPath(page.url()), detail }));
     }
   }
 
   // 4. Guided: the person sets the screen up and captures it. With "Show me once" the computer also learns the steps.
   if (effectiveMode === "guided") {
     const recording = Boolean(session.record);
+    const harnessLine = wanted ? [`This picture needs the ${HARNESS_LABELS[wanted]}. ${harnessPlan(wanted).switchStep}`] : [];
     const config = {
       title: shot.moduleTitle ? `${String(shot.moduleTitle).slice(0, 60)}: ${shot.filename}` : `Set up ${shot.filename}`,
-      lines: recording ? ["Show me once: set the screen up the way you normally would.", "The computer records your clicks, never what you type, so it can do this itself next time.", "Then press Capture this screen."] : capture.guide || [],
+      lines: recording ? [...harnessLine, "Show me once: set the screen up the way you normally would.", "The computer records your clicks, never what you type, so it can do this itself next time.", "Then press Capture this screen."] : [...harnessLine, ...(capture.guide || [])],
     };
     let recorder = null;
     if (recording) recorder = await startRecorder(page, { product: capture.product || shot.product || "", log, sleep, practiceAgentId: session.scratch?.agent?.botId || null }).catch((err) => {
@@ -551,6 +635,29 @@ export async function runCaptureShot({
     return needsSignIn({ error: `You are not signed in to ${capture.path?.[0] || "the product"}. The page offers a Sign in button and shows no account.`, code: "signed-out-page" });
   }
 
+  // The harness gate, right before the pixels: the landmarks are read once more (a picture is never taken on an assumption), the harness that was
+  // PROVEN is what the picture carries, and a page in another harness is never saved as a picture of this one. A person who set the screen up
+  // (guided) is not clicked for: the landmarks are only read, and a page that cannot be read leaves the picture without a harness stamp.
+  if (wanted) {
+    const guidedRun = effectiveMode === "guided";
+    // A screen built on the practice agent is an agent page whatever the plan calls its screen (the plan may name Home for a dialog the agent shows).
+    const final = await proveHarness({ page, session, wanted, scope: scratchRun ? "agent" : harnessScope, allowClicks: !guidedRun, switched: wanted === STANDARD && harnessState(session, page).switches > 0, sleep, trace, log, deps: session.harnessDeps || null });
+    if (final.ok) {
+      if (!harnessProof || harnessProof.found !== final.found) log?.(`  ${provedLine(final.found, final.landmarks)}`);
+      harnessProof = final;
+    } else if (final.code === "wrong-harness") {
+      return stopForHarness(final, { ownAgent });
+    } else if (harnessProof) {
+      trace?.event("harness-proof-kept", { shot: shot.filename, harness: harnessProof.found });
+    } else if (guidedRun) {
+      detail.harness = { ...detail.harness, proven: null, reason: final.message };
+      log?.(`  ${final.message} The picture is saved without a harness recorded, so the portal sends it to review.`);
+    } else {
+      return stopForHarness(final, { ownAgent });
+    }
+    if (typeof page.evaluate === "function") await page.evaluate(() => { const active = document.activeElement; if (active && active !== document.body && typeof active.blur === "function") active.blur(); }).catch(() => {});
+  }
+
   let callouts = null;
   if (Array.isArray(shot.callouts) && shot.callouts.length && typeof page.getByText === "function") {
     callouts = await resolveCallouts(page, shot.callouts, viewport).catch(() => null);
@@ -574,6 +681,10 @@ export async function runCaptureShot({
 
   const finalUrl = typeof page.url === "function" ? page.url() : null;
   detail.finalPage = finalUrl ? describePage(finalUrl) : null;
+  if (wanted) {
+    detail.harness = { ...detail.harness, proven: harnessProof?.found || null, provenLabel: harnessProof?.found ? HARNESS_LABELS[harnessProof.found] : null, landmarks: harnessProof?.landmarks || [], switched: harnessProof?.proof?.switched === true };
+    trace?.event("harness-stamp", { shot: shot.filename, wanted, proven: harnessProof?.found || null });
+  }
   return {
     status: "captured",
     bytes: check.bytes,
@@ -584,6 +695,8 @@ export async function runCaptureShot({
     callouts,
     executedSteps: steps,
     detail,
+    // What the page was PROVEN to be in: never the harness the shot asked for.
+    harness: harnessProof?.proof || null,
   };
   } finally {
     // What the steps opened is closed again, so the next screen starts clean. A dialog that a recipe opened and that will not close stops the whole run:

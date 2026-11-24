@@ -27,6 +27,7 @@ import { cleanOwnerKey, differentPeople } from "./owner.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { positiveIntFromEnv } from "../rate-limit.js";
 import { buildLabJobPlan, buildLibraryJobPlan, findLibrarySlot } from "./plan.js";
+import { libraryName, HARNESS_MIN_COMPANION as HARNESS_MIN } from "../../../tools/screenshot-capture/harness.mjs";
 import { buildDryPlan } from "./dry-plan.js";
 import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
 import { readLabScratchContext } from "./scratch-context.js";
@@ -47,6 +48,10 @@ export const RECIPES_MIN_COMPANION = "1.6.3";
 export const EVIDENCE_MIN_COMPANION = "1.7.0";
 /** What a person is told when the connected companion is older than `EVIDENCE_MIN_COMPANION`. */
 export const OLD_COMPANION_NOTICE = "Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.";
+/** The first companion that proves which harness (Standard (Classic) or Microsoft Copilot) a page is in before it takes a picture. An older one sends no proof, so what it captures of a Copilot Studio screen is saved for review. */
+export const HARNESS_MIN_COMPANION = HARNESS_MIN;
+/** What a person is told when the connected companion is older than `HARNESS_MIN_COMPANION`. */
+export const HARNESS_COMPANION_NOTICE = `Update your Local Capture Companion to ${HARNESS_MIN} or newer. Older versions cannot prove which harness a picture is taken in (Standard (Classic) or Microsoft Copilot), so their Copilot Studio pictures are saved for review.`;
 const BROWSER_CACHE_MS = 60 * 1000;
 /** What a person is told when the lab they asked to capture already has a capture waiting or running. */
 const LAB_BUSY_MESSAGES = Object.freeze({
@@ -140,7 +145,8 @@ export function createCapturePlatform({
   }
   // Lab screenshot status says where each picture comes from and how it relates to the shared library.
   setSharedLibraryProvider({
-    isSlot: (filename) => Boolean(findLibrarySlot(filename, { manifestDir })),
+    // A lab's slot is a library slot for the harness the lab needs: the library names a harness-specific picture after its harness.
+    isSlot: (filename, harness = null) => Boolean(findLibrarySlot(libraryName(filename, harness), { manifestDir })),
     records: () => readRecordsFile(path.join(captureDir, "library-verification.json")),
   });
 
@@ -225,13 +231,14 @@ export function createCapturePlatform({
   function companionCanRunAutonomous({ ownerKey = null } = {}) {
     const status = pairing.status({ ownerKey });
     const online = (status.devices || []).filter((d) => d.connected);
-    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true, evidenceSupported: true };
+    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true, evidenceSupported: true, harnessSupported: true };
     const supported = online.some((d) => versionAtLeast(d.companionVersion, AUTONOMOUS_MIN_COMPANION));
     const scratchSupported = online.some((d) => versionAtLeast(d.companionVersion, SCRATCH_MIN_COMPANION));
     const handoffSupported = online.some((d) => versionAtLeast(d.companionVersion, HANDOFF_MIN_COMPANION));
     const recipesSupported = online.some((d) => versionAtLeast(d.companionVersion, RECIPES_MIN_COMPANION));
     const evidenceSupported = online.some((d) => versionAtLeast(d.companionVersion, EVIDENCE_MIN_COMPANION));
-    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported, recipesSupported, evidenceSupported };
+    const harnessSupported = online.some((d) => versionAtLeast(d.companionVersion, HARNESS_MIN_COMPANION));
+    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported, recipesSupported, evidenceSupported, harnessSupported };
   }
 
   /** The capture settings (addresses and names) in effect, as an account setup request carries them, so the landing can be checked. */
@@ -348,13 +355,14 @@ export function createCapturePlatform({
         missing: library.summary.missing,
         needsReview: library.summary.needsReview,
         confirmed: library.summary.confirmed,
+        harnessNotRecorded: library.summary.harnessNotRecorded || 0,
         kept: screenshots.keptSummary(),
         // How many shared pictures look like the wrong screen (checked once at start, then when the library changes). It reads only.
         suspect: screenshots.suspectSummary(),
         notice: locationNotice({ kind: where.kind, folder, captured: library.summary.captured }),
       },
       jobs: { ...jobs.activity(), ...signInNeed },
-      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: support.supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: support.scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: support.handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: support.recipesSupported, evidenceMinCompanion: EVIDENCE_MIN_COMPANION, evidenceSupported: support.evidenceSupported, ...(support.connected && !support.evidenceSupported ? { evidenceNotice: OLD_COMPANION_NOTICE } : {}), sharedRecipes: sharedRecipes.list().length },
+      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: support.supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: support.scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: support.handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: support.recipesSupported, evidenceMinCompanion: EVIDENCE_MIN_COMPANION, evidenceSupported: support.evidenceSupported, ...(support.connected && !support.evidenceSupported ? { evidenceNotice: OLD_COMPANION_NOTICE } : {}), harnessMinCompanion: HARNESS_MIN_COMPANION, harnessSupported: support.harnessSupported, ...(support.connected && !support.harnessSupported ? { harnessNotice: HARNESS_COMPANION_NOTICE } : {}), sharedRecipes: sharedRecipes.list().length },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };
@@ -604,6 +612,9 @@ export function createCapturePlatform({
     // An older companion cannot prove the screen it took, so what it captures is saved for review, never accepted by itself.
     const evidenceSupport = mode === "autonomous" ? support : companionCanRunAutonomous({ ownerKey: owner });
     const evidenceHint = evidenceSupport.connected && !evidenceSupport.evidenceSupported ? { supported: false, min: EVIDENCE_MIN_COMPANION, version: evidenceSupport.version, message: OLD_COMPANION_NOTICE } : null;
+    // A Copilot Studio picture needs the harness proof only a current companion sends; with an older one every such picture is saved for review.
+    const harnessShots = plan.shots.filter((s) => s.harness && s.harness !== "either").length;
+    const harnessHint = harnessShots && evidenceSupport.connected && !evidenceSupport.harnessSupported ? { supported: false, min: HARNESS_MIN_COMPANION, version: evidenceSupport.version, shots: harnessShots, message: HARNESS_COMPANION_NOTICE } : null;
     return {
       status: 201,
       body: {
@@ -615,11 +626,12 @@ export function createCapturePlatform({
         ...(agentHandoff ? { agentHandoff } : {}),
         ...(recipesHint ? { recipes: recipesHint } : {}),
         ...(evidenceHint ? { evidence: evidenceHint } : {}),
+        ...(harnessHint ? { harness: harnessHint } : {}),
         ...(autonomy ? { autonomy: { level: autonomy.level } } : {}),
         ...(downgraded ? { downgraded } : {}),
         ...(missing.length ? { missing } : {}),
         message: companion.connected
-          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}${recipesHint ? ` ${recipesHint.message}` : ""}${evidenceHint ? ` ${evidenceHint.message}` : ""}`
+          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}${recipesHint ? ` ${recipesHint.message}` : ""}${evidenceHint ? ` ${evidenceHint.message}` : ""}${harnessHint ? ` ${harnessHint.message}` : ""}`
           : "Queued, but no Local Capture Companion is connected yet. Download it, pair it with a code, and it will pick this job up.",
       },
     };

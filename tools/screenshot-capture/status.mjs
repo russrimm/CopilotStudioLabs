@@ -11,9 +11,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { inspectScreenshot } from "../feature-tour/lib/screenshots.mjs";
-import { FEATURE_ASSETS_DIR, listFeatureManifests, repoRoot as defaultRoot } from "./manifests.mjs";
+import { FEATURE_ASSETS_DIR, listFeatureManifests, repoRoot as defaultRoot, slotFiles } from "./manifests.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+
+export { slotFiles };
 
 /** Count captured and pending shots per product and feature. */
 export function buildStatus({ manifestDir = here, repoRoot = defaultRoot } = {}) {
@@ -25,14 +27,15 @@ export function buildStatus({ manifestDir = here, repoRoot = defaultRoot } = {})
     const envVars = new Set();
     let manual = 0;
     for (const shot of shots) {
-      const info = inspectScreenshot(assetsDir, shot.filename);
-      const ready = info.status === "ready";
+      const files = slotFiles(shot);
+      const missing = files.filter((file) => inspectScreenshot(assetsDir, file).status !== "ready");
+      const ready = missing.length === 0;
       if (!features.has(shot.feature)) features.set(shot.feature, { feature: shot.feature, name: shot.featureName, total: 0, captured: 0, pending: [] });
       const f = features.get(shot.feature);
       f.total += 1;
       if (ready) f.captured += 1;
       else {
-        f.pending.push(shot.filename);
+        f.pending.push(...missing);
         if (shot.manual) manual += 1;
         if (shot.urlEnv && !shot.url) envVars.add(shot.urlEnv);
       }

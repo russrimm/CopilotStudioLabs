@@ -23,7 +23,7 @@ export function newerContent({ agent, envId, state, config }) {
   const tab = (id, label, selected) => `<button role="tab" id="tab-${id}" aria-selected="${selected}" data-act="n-tab" data-tab="${id}">${label}</button>`;
   const knowledgeItems = sites.length ? `<ul id="n-kn-list">${sites.map((s) => `<li><a href="#" data-act="item" data-title="${esc(s)}">${esc(s)}</a> <button type="button" data-act="danger" data-what="remove-knowledge" aria-label="Remove ${esc(s)}">×</button></li>`).join("")}</ul>` : `<ul id="n-kn-list"><li>No knowledge sources yet.</li></ul>`;
   return (
-    `<div role="tablist" aria-label="Agent sections">${tab("build", "Build", true)}${tab("preview", "Preview", false)}${tab("evaluate", "Evaluate", false)}${tab("monitor", "Monitor", false)}</div>` +
+    `<div role="tablist" aria-label="Agent sections">${tab("build", "Build", true)}${tab("preview", "Preview", false)}${tab("evaluate", "Evaluate", false)}${config.deployTab ? tab("deploy", "Deploy", false) : ""}${tab("monitor", "Monitor", false)}</div>` +
     `<section role="tabpanel" id="panel-build" aria-label="Build">` +
     `<label>Name <input id="n-name" aria-label="Name your agent" value="${esc(agent.name === "Untitled agent" ? "" : agent.name)}" placeholder="Name your agent"></label>` +
     `<h2>Instructions</h2><textarea id="n-instr" aria-label="Agent instructions" rows="5" cols="60" placeholder="Add instructions">${esc(instructions)}</textarea>` +

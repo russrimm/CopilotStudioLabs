@@ -30,6 +30,9 @@ async function scenarioFor(site = {}, features = FEATURES, harness = "microsoft-
   return scenario;
 }
 
+/** The name of a practice agent: the harness marker (or the older prefix) and a short title. */
+const PRACTICE_NAME = /^(?:Lab screenshots|Copilot shots|Classic shots) - /;
+
 const run = (scenario, runOptions = {}) => scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { ...RUN, ...runOptions } });
 const writesOf = (out, prefix) => out.site.stats.writes.filter((w) => w.startsWith(prefix));
 const captured = (out) => out.rows.filter((r) => r.status === "captured");
@@ -40,7 +43,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
     const out = await run(scenario);
     const writes = out.site.stats.writes;
     assert.equal(writesOf(out, "create-agent:").length, 1, "the agent is made once");
-    assert.match(writesOf(out, "create-agent:")[0], /^create-agent:Lab screenshots - .{1,12}$/, "named from the lab, within the 30 characters the product keeps");
+    assert.match(writesOf(out, "create-agent:")[0], /^create-agent:Copilot shots - .{1,14}$/, "named from the lab, with the harness marker, within the 30 characters the product keeps");
     const at = (prefix) => writes.findIndex((w) => w.startsWith(prefix));
     assert.ok(at("create-agent:") === 0 && at("set-instructions:") > 0 && at("add-knowledge:") > at("set-instructions:"), `the stages follow the lab's order: ${writes.join(" | ")}`);
     assert.equal(writesOf(out, "publish").length, 0, "the lab only shows the Publish dialog, so nothing is published");
@@ -50,7 +53,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
 
     // The portal learns names and counts only.
     const scratch = out.job.result.scratch;
-    assert.match(scratch.name, /^Lab screenshots - /);
+    assert.match(scratch.name, /^Copilot shots - /);
     assert.ok(scratch.stages.includes("instructions") && scratch.stages.includes("knowledge"));
     assert.ok(out.job.result.created.some((c) => c.kind === "agent"));
     const shown = JSON.stringify(out.job);
@@ -58,7 +61,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
     const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
     assert.equal(registry.agents.length, 1);
     assert.deepEqual(registry.pending, []);
-    assert.ok(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8").includes("Lab screenshots - "), "a created-items report is kept on this computer");
+    assert.ok(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8").includes("Copilot shots - "), "a created-items report is kept on this computer");
   } finally {
     await scenario.close();
   }
@@ -122,11 +125,15 @@ test("a license prompt stops the whole run before anything else is written", { s
   }
 });
 
-const PUBLISH_FEATURES = ["create-agent", "agent-instructions", "knowledge-files-web", "publish-agent"];
-const publishRow = (out) => out.rows.find((r) => r.filename === "publish-confirmation.png");
+const PUBLISH_FEATURES = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-publish-agent"];
+// The Publish slot of a Microsoft Copilot lab only shows the dialog; this makes it the picture of the published agent (the recipe is chosen by what the picture is about).
+const PUBLISH_SLOT = "mc-publish-agent-dialog.png";
+const publishRow = (out) => out.rows.find((r) => r.filename === PUBLISH_SLOT);
+const asPublishConfirmation = (labDir) => editShot(labDir, PUBLISH_SLOT, { kind: "after", caption: "Your agent was published successfully", alt: "The publish confirmation", instructions: [] });
 
 test("the practice agent is published once, only after its instructions and knowledge are proven and its dialog is the plain one, and never again", { skip }, async () => {
-  const scenario = await scenarioFor({}, PUBLISH_FEATURES, "standard");
+  const scenario = await scenarioFor({}, PUBLISH_FEATURES);
+  asPublishConfirmation(scenario.lab.labDir);
   try {
     const out = await run(scenario);
     const writes = out.site.stats.writes;
@@ -150,7 +157,8 @@ test("the practice agent is published once, only after its instructions and know
 });
 
 test("a Publish dialog with anything beyond Add channel and Publish agent is never confirmed, and says so plainly", { skip }, async () => {
-  const scenario = await scenarioFor({ publishExtra: true }, PUBLISH_FEATURES, "standard");
+  const scenario = await scenarioFor({ publishExtra: true }, PUBLISH_FEATURES);
+  asPublishConfirmation(scenario.lab.labDir);
   try {
     const out = await run(scenario);
     assert.equal(writesOf(out, "publish:").length, 0, "nothing was published");
@@ -325,7 +333,7 @@ test("nothing is written before the account is confirmed, and one yes in the sam
 });
 
 test("the older layout: the agent is made on its form, screens are looked at, and what cannot be set says so plainly", { skip }, async () => {
-  const scenario = await scenarioFor({ layout: "classic" });
+  const scenario = await scenarioFor({ layout: "classic" }, ["create-agent", "agent-instructions", "knowledge-sharepoint", "generative-orchestration", "publish-agent"], "standard");
   try {
     const out = await run(scenario);
     assert.equal(writesOf(out, "create-agent:").length, 1);
@@ -343,7 +351,7 @@ test("the older layout: the agent is made on its form, screens are looked at, an
 // ── Which agent the screenshots use: the one created first in the capture ─────────────────────────────────
 
 const botIdsOpened = (out) => [...new Set(out.site.stats.pages.map((p) => /\/bots\/([^/]+)/.exec(p)?.[1]).filter(Boolean))];
-const madeAgentIds = (site) => Object.values(site.envs).flatMap((e) => e.agents).filter((a) => a.name.startsWith("Lab screenshots - ")).map((a) => a.id);
+const madeAgentIds = (site) => Object.values(site.envs).flatMap((e) => e.agents).filter((a) => PRACTICE_NAME.test(a.name)).map((a) => a.id);
 const NON_ZERO_GUID = /\b(?!0{8}-0{4}-0{4}-0{4}-0{12}\b)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
 /** Every text file under a folder, with the ones named `skip` left out. */
@@ -374,7 +382,7 @@ test("the agent created first is used by every later shot with no address suppli
     const made = madeAgentIds(out.site);
     assert.equal(made.length, 1);
     assert.deepEqual(botIdsOpened(out), made, "the only agent page that was opened is the agent the computer made");
-    assert.equal(out.job.result.scratch.name.startsWith("Lab screenshots - "), true);
+    assert.match(out.job.result.scratch.name, PRACTICE_NAME);
 
     // Nothing that identifies the tenant, the environment, or the agent is kept outside this computer's own practice-agent record.
     const storage = path.dirname(scenario.lab.generatedRoot);
@@ -434,7 +442,22 @@ test("a practice agent made under a different sign-in is not used and nothing is
 
 // ── Recipe families: test conversations with panels, dialogs, item details, a sample test set, and the landmark check ──
 
-const FAMILY_FEATURES = ["create-agent", "agent-instructions", "knowledge-files-web", "knowledge-sharepoint", "generative-orchestration", "content-moderation", "evaluations"];
+// A Microsoft Copilot lab's pictures take the words of the picture each family test is about: the recipes are chosen by what a picture shows (its kind, section, and words), not by its file name.
+const FAMILY_FEATURES = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent", "mc-memory", "mc-evaluate", "mc-model-selection"];
+const SLOT = { inScope: "mc-instructions-preview.png", activityMap: "mc-preview-test-trace.png", knowledgeAdd: "mc-knowledge-add-dialog.png", firstSource: "mc-model-list.png", citation: "mc-memory-toggle.png", refusal: "mc-publish-agent-dialog.png", testSet: "mc-instructions-editor.png", results: "mc-evaluate-results.png" };
+const PICTURES = {
+  inScope: { kind: "test-result", section: "test", caption: "An in-scope question answered in the test pane", alt: "The Test pane showing an in-scope question and a grounded answer from the agent, which shows the instructions are working." },
+  activityMap: { kind: "test-result", section: "test", caption: "The activity map for a multi-source question", alt: "The expanded activity map after a multi-source question, listing the knowledge and tools the agent chose to answer it." },
+  knowledgeAdd: { kind: "dialog", section: "knowledge", caption: "Adding SharePoint knowledge", alt: "The Add knowledge dialog with SharePoint selected and a URL or list entered, which connects the agent to your documents." },
+  firstSource: { kind: "after", section: "knowledge", caption: "Details of the first knowledge source", alt: "The Knowledge page listing uploaded documents and public website sources with their status, so you can see each source is ready." },
+  citation: { kind: "test-result", section: "test", caption: "An answer with its citation", alt: "The Test pane showing a SharePoint-grounded answer with a citation link, proving the answer came from your content.", callouts: [], expectedLabels: [] },
+  refusal: { kind: "test-result", section: "test", caption: "A refusal to an adversarial prompt", alt: "The Test pane after an adversarial prompt, showing the agent refusing or giving a safe response.", callouts: [], expectedLabels: [] },
+  testSet: { featureId: "mc-evaluate", kind: "settings", section: "evaluations", caption: "An evaluation test set", alt: "The Evaluation page showing a test set and the grading methods selected for it." },
+};
+/** Give the named slots of the lab the words of the pictures the family tests are about. */
+function showFamilyPictures(labDir, names = Object.keys(PICTURES)) {
+  for (const name of names) editShot(labDir, SLOT[name], { instructions: [], ...PICTURES[name] });
+}
 const rowOf = (out, name) => out.rows.find((r) => r.filename === name);
 const reviewReasons = (row) => (row?.verification?.reasons || []).map((r) => r.code);
 const statusLine = (out) => out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}:${reviewReasons(r).join("+")}`).join(", ");
@@ -461,33 +484,33 @@ function withoutKnowledgeWebsite(labDir) {
 }
 
 test("test conversations, dialogs, an item, and a sample test set are taken by their recipes; what the computer cannot check is saved for review; nothing above the allowed tier is touched", { skip }, async () => {
-  const scenario = await scenarioFor({}, FAMILY_FEATURES, "standard");
+  const scenario = await scenarioFor({}, FAMILY_FEATURES);
   try {
-    editShot(scenario.lab.labDir, "knowledge-sources-list.png", { caption: "Details of the first knowledge source" });
+    showFamilyPictures(scenario.lab.labDir);
     neutralKnowledgeAddress(scenario.lab.labDir);
     const out = await run(scenario);
     const stats = out.site.stats;
-    for (const name of ["test-pane-in-scope.png", "activity-map-plan.png", "knowledge-sharepoint-add.png", "knowledge-sources-list.png"]) assert.equal(rowOf(out, name)?.status, "captured", `${name}: ${statusLine(out)} :: ${rowOf(out, name)?.reason}`);
+    for (const name of ["inScope", "activityMap", "knowledgeAdd", "firstSource"]) assert.equal(rowOf(out, SLOT[name])?.status, "captured", `${name}: ${statusLine(out)} :: ${rowOf(out, SLOT[name])?.reason}`);
     // On the pretend site the only thing recorded before this picture is choosing the Evaluate tab (a real tenant also opens the first test set). Choosing a tab alone is
     // what the earlier wrong pictures had (the same Build tab under many slots), so the portal saves it for a person instead of accepting it.
-    assert.equal(rowOf(out, "eval-test-set.png")?.status, "needs-review", statusLine(out));
-    assert.deepEqual(reviewReasons(rowOf(out, "eval-test-set.png")), ["landing-page"]);
+    assert.equal(rowOf(out, SLOT.testSet)?.status, "needs-review", statusLine(out));
+    assert.deepEqual(reviewReasons(rowOf(out, SLOT.testSet)), ["landing-page"]);
     assert.ok(stats.views.includes("activity-map"), "the activity map was brought up beside the answer");
     // What the computer cannot check is kept for a person, with the picture, and says why in plain words.
-    for (const name of ["knowledge-answer-citation.png", "guardrail-refusal.png", "test-guardrail-response.png"]) {
-      assert.equal(rowOf(out, name)?.status, "needs-review", `${name}: ${statusLine(out)}`);
-      assert.deepEqual(reviewReasons(rowOf(out, name)), ["recipe-review"], name);
+    for (const name of ["citation", "refusal"]) {
+      assert.equal(rowOf(out, SLOT[name])?.status, "needs-review", `${name}: ${statusLine(out)}`);
+      assert.deepEqual(reviewReasons(rowOf(out, SLOT[name])), ["recipe-review"], name);
     }
-    assert.match(rowOf(out, "knowledge-answer-citation.png").verification.reasons[0].message, /cannot tell whether the answer shows a citation/);
-    assert.match(rowOf(out, "guardrail-refusal.png").verification.reasons[0].message, /cannot tell whether the agent refused/);
+    assert.match(rowOf(out, SLOT.citation).verification.reasons[0].message, /cannot tell whether the answer shows a citation/);
+    assert.match(rowOf(out, SLOT.refusal).verification.reasons[0].message, /cannot tell whether the agent refused/);
     // A screen that needs Copilot Credits is never tried, and says so.
-    assert.equal(rowOf(out, "eval-results.png")?.status, "needs-you");
-    assert.equal(rowOf(out, "eval-results.png")?.cause, "needs-credits");
+    assert.equal(rowOf(out, SLOT.results)?.status, "needs-you");
+    assert.equal(rowOf(out, SLOT.results)?.cause, "needs-credits");
     // The only thing added to the practice agent for these recipes is one test set, saved and never run; none of the credit-spending decoys was touched.
     assert.equal(writesOf(out, "create-evaluation:").length, 1, `one test set: ${stats.writes.join(" | ")}`);
     assert.equal(writesOf(out, "run-evaluation").length, 0);
     assert.deepEqual(stats.dangers, [], "the Run, Evaluate, and Quick question set decoys, and every other never-do control, were left alone");
-    assert.ok(stats.answers >= 5, `the lab's question, the activity map, the citation, and the two refusals were asked: ${stats.answers}`);
+    assert.ok(stats.answers >= 4, `the lab's question, the activity map, the citation, and the refusal were asked: ${stats.answers}`);
     // The practice report says what each recipe did, and which ones were never seen on a real tenant.
     const report = fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8");
     assert.match(report, /What the screenshot recipes did/);
@@ -516,20 +539,21 @@ test("test conversations, dialogs, an item, and a sample test set are taken by t
     assert.ok(registry.recipes.length >= 3, "the recipes that ran are recorded on this computer");
     for (const recipe of registry.recipes) assert.doesNotMatch(`${recipe.what} ${recipe.shot} ${recipe.key}`, /https?:|copilotstudio|[0-9a-f]{8}-[0-9a-f]{4}/i, "what a recipe did is described in words, never by an address or an id (the agent's own id stays in this record only)");
     const dry = (await scenario.call("POST", "/api/capture/dry-plan", { target: { type: "lab", labId: scenario.lab.labId }, scope: { mode: "all" } })).body.dryPlan;
-    assert.ok(dry.automatic.some((s) => s.filename === "activity-map-plan.png" && s.family === "conversation") && dry.objects.some((o) => o.id === "evaluation-test-set"));
+    assert.ok(dry.automatic.some((s) => s.filename === SLOT.activityMap && s.family === "conversation") && dry.objects.some((o) => o.id === "evaluation-test-set"));
   } finally {
     await scenario.close();
   }
 });
 
 test("a second run reuses the test set and adds nothing twice", { skip }, async () => {
-  const scenario = await scenarioFor({}, ["create-agent", "agent-instructions", "evaluations"], "standard");
+  const scenario = await scenarioFor({}, ["mc-create-agent", "mc-instructions", "mc-evaluate"]);
+  showFamilyPictures(scenario.lab.labDir, ["testSet"]);
   try {
     await run(scenario);
     const again = await run(scenario);
     assert.equal(writesOf(again, "create-evaluation:").length, 1, "still one test set");
-    assert.equal(rowOf(again, "eval-test-set.png")?.status, "needs-review", statusLine(again));
-    assert.deepEqual(reviewReasons(rowOf(again, "eval-test-set.png")), ["landing-page"], "only a tab was chosen before the picture, which does not prove the screen");
+    assert.equal(rowOf(again, SLOT.testSet)?.status, "needs-review", statusLine(again));
+    assert.deepEqual(reviewReasons(rowOf(again, SLOT.testSet)), ["landing-page"], "only a tab was chosen before the picture, which does not prove the screen");
     assert.equal(writesOf(again, "create-agent:").length, 1);
     assert.deepEqual(again.site.stats.dangers, []);
   } finally {
@@ -538,16 +562,17 @@ test("a second run reuses the test set and adds nothing twice", { skip }, async 
 });
 
 test("a panel the screen does not show is never accepted blindly: the picture is saved as Needs review, and the question is asked once", { skip }, async () => {
-  const scenario = await scenarioFor({ noActivityMap: true }, ["create-agent", "agent-instructions", "generative-orchestration"], "standard");
+  const scenario = await scenarioFor({ noActivityMap: true }, ["mc-create-agent", "mc-instructions", "mc-preview-test"]);
+  showFamilyPictures(scenario.lab.labDir, ["inScope", "activityMap"]);
   try {
     const out = await run(scenario);
-    const row = rowOf(out, "activity-map-plan.png");
+    const row = rowOf(out, SLOT.activityMap);
     assert.equal(row?.status, "needs-review", statusLine(out));
     assert.deepEqual(reviewReasons(row), ["labels-missing", "recipe-review"]);
     assert.match(row.verification.reasons.find((r) => r.code === "recipe-review").message, /did not show what the computer expected \(missing: Activity map\)\. The picture was saved so you can check it\./);
     assert.deepEqual(out.site.stats.views, [], "nothing was clicked that was not there");
     assert.equal(out.site.stats.answers, 2, "the lab's question and the activity-map question were each asked once: no retry loop");
-    assert.equal(rowOf(out, "test-pane-in-scope.png")?.status, "captured", "a plain question and answer needs no panel");
+    assert.equal(rowOf(out, SLOT.inScope)?.status, "captured", "a plain question and answer needs no panel");
     assert.deepEqual(out.site.stats.dangers, []);
   } finally {
     await scenario.close();

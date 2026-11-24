@@ -26,6 +26,8 @@ import { existsSync, readFileSync, mkdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { resolveCallouts, sidecarName, writeSidecar } from "./callouts.mjs";
+import { EITHER, HARNESS_LABELS, STANDARD, MICROSOFT_COPILOT, harnessLabel, harnessPlan, libraryName, normalizeHarness, wrongHarnessMessage } from "./harness.mjs";
+import { proveAgentPage } from "./harness-run.mjs";
 import { listFeatureManifests, resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
 import { detectPlaceholder } from "./placeholder-detect.mjs";
 import {
@@ -119,6 +121,8 @@ if (generatedLabArg) {
           `  [${have}] #${String(s.id ?? s.shotId ?? "").padStart(2, "0")}  ${s.filename} (${s.featureId || s.feature})${staleTag}`,
         );
         console.log(`        target: ${s.startUrl || plan.startUrl || "(current page)"}`);
+        const plan1 = normalizeHarness(s.harness) ? harnessPlan(s.harness) : null;
+        if (plan1) console.log(`        harness: ${plan1.label}; ${plan1.switchStep}`);
       }
       process.exit(0);
     }
@@ -132,6 +136,12 @@ if (generatedLabArg) {
         `#${String(s.id ?? s.shotId ?? "").padStart(2, "0")} ${s.filename} [${s.featureId || s.feature}] -> ${s.outputPath || `generated-labs/${labId}/assets/${s.filename}`}`,
       );
       console.log(`  steps: ${(s.steps || []).length} Playwright action(s)`);
+      const plan2 = normalizeHarness(s.harness) ? harnessPlan(s.harness) : null;
+      if (plan2) {
+        console.log(`  harness: ${plan2.label}`);
+        console.log(`    ${plan2.switchStep}`);
+        console.log(`    Proof before the picture: ${plan2.proof}`);
+      }
     }
     process.exit(0);
   }
@@ -271,7 +281,7 @@ const sectionRaw = value("--section");
 const harnessRaw = value("--harness");
 
 function printHelp() {
-  console.log(`\nAgentic Microsoft Training and Lab Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature tour shot lists only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --section=<csv>   Only shots for these portal areas (the section column of --list), e.g. --section=sharepoint-admin-center.\n  --harness=<id>    Copilot Studio only. Only shots for one harness: standard, microsoft-copilot, customer-conversation, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --generated-lab=<labId> Step through and capture screenshots for generated-labs/<labId> (combine with --auto, --headed, --stale-only, --only-missing, --feature=<csv>, --list, or --dry-run).\n  --product=<id>    Use one product's feature shot list and its own browser profile: copilot-studio, m365-copilot-agent-builder, sharepoint-ai, ai-foundry, m365-copilot-hub, or power-platform-ai-hub. --product=all runs each product in turn.\n  --features        Shorthand for --product=copilot-studio; with --list or --dry-run and no --product it covers every product.\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots. A shot marked\nmanual (a terminal or Visual Studio Code) is not screenshotted by the tool: save the\nimage at the printed path, then press SPACE to verify it.\n\nTenant-specific addresses: set the CAPTURE_* environment variable named in a shot's\n"tenant address variable" line (see README.md) before you run.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
+  console.log(`\nAgentic Microsoft Training and Lab Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature tour shot lists only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --section=<csv>   Only shots for these portal areas (the section column of --list), e.g. --section=sharepoint-admin-center.\n  --harness=<id>    Copilot Studio only. Only shots for one harness: standard, microsoft-copilot, customer-conversation, either, or both.\n                    A shot marked "both" is kept once per harness: it is captured only with --harness=standard or --harness=microsoft-copilot,\n                    and is saved under that harness's name (for example agent-overview.classic.png or agent-overview.copilot.png).\n                    A picture that needs the Standard (Classic) harness: first switch to the classic experience (click the ellipsis in the\n                    lower left corner, click Open classic experience, then click Skip feedback). A Microsoft Copilot picture: use the default\n                    experience at https://copilotstudio.microsoft.com/. The tool reads the agent page and refuses a picture taken in the wrong harness.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --generated-lab=<labId> Step through and capture screenshots for generated-labs/<labId> (combine with --auto, --headed, --stale-only, --only-missing, --feature=<csv>, --list, or --dry-run).\n  --product=<id>    Use one product's feature shot list and its own browser profile: copilot-studio, m365-copilot-agent-builder, sharepoint-ai, ai-foundry, m365-copilot-hub, or power-platform-ai-hub. --product=all runs each product in turn.\n  --features        Shorthand for --product=copilot-studio; with --list or --dry-run and no --product it covers every product.\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots. A shot marked\nmanual (a terminal or Visual Studio Code) is not screenshotted by the tool: save the\nimage at the printed path, then press SPACE to verify it.\n\nTenant-specific addresses: set the CAPTURE_* environment variable named in a shot's\n"tenant address variable" line (see README.md) before you run.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
 }
 
 function failArg(message) {
@@ -327,8 +337,9 @@ if (sectionFilter) {
 if (harnessRaw && manifest.product && manifest.product !== "copilot-studio") {
   failArg("--harness only applies to Copilot Studio, the one product with harnesses.");
 }
-if (harnessRaw && !["standard", "microsoft-copilot", "customer-conversation", "both"].includes(harnessRaw)) {
-  failArg("--harness must be standard, microsoft-copilot, customer-conversation, or both.");
+const SHOT_HARNESS_VALUES = ["standard", "microsoft-copilot", "customer-conversation", "either", "both"];
+if (harnessRaw && !SHOT_HARNESS_VALUES.includes(harnessRaw)) {
+  failArg("--harness must be standard, microsoft-copilot, customer-conversation, either, or both.");
 }
 if (featureFilter) {
   const known = new Set(manifest.shots.map((s) => s.feature));
@@ -360,6 +371,22 @@ function shotExists(filename) {
   // own placeholder picture (the pending image or a captioned filler) is missing too.
   return isFeatureTour || hasPendingShots ? verifyPng(out).ok : !detectPlaceholder(out).placeholder;
 }
+
+// A feature tour slot of a feature written for both Copilot Studio harnesses ("both") is kept once per harness: it is captured only when
+// --harness names the variant, and the picture is saved under that harness's name.
+const isBothShot = (shot) => isFeatureTour && String(shot.harness ?? "").toLowerCase() === "both";
+/** The harness a shot is captured in: its own, or for a "both" shot the one --harness names (null: none, a product with no harnesses, or no harness chosen yet). */
+function captureHarness(shot) {
+  if (isBothShot(shot)) return [STANDARD, MICROSOFT_COPILOT].includes(harnessRaw) ? harnessRaw : null;
+  return normalizeHarness(shot.harness);
+}
+const needsHarnessChoice = (shot) => isBothShot(shot) && captureHarness(shot) === null;
+/** The name of a shot's picture in the shared library: tagged with the harness for a harness-specific slot (agent-overview.classic.png). */
+const fileFor = (shot, harness = captureHarness(shot)) => (isFeatureTour ? libraryName(shot.filename, harness) : shot.filename);
+/** Every picture file a shot stands for: one, or both variants of a "both" shot that has no harness chosen. */
+const filesFor = (shot) => (needsHarnessChoice(shot) ? [fileFor(shot, STANDARD), fileFor(shot, MICROSOFT_COPILOT)] : [fileFor(shot)]);
+const shotDone = (shot) => filesFor(shot).every((name) => shotExists(name));
+const harnessText = (shot) => (isBothShot(shot) ? "Kept once per harness (pick one with --harness=standard or --harness=microsoft-copilot)" : harnessLabel(shot.harness) || "");
 
 function resolvedViewport(shot) {
   return {
@@ -445,12 +472,9 @@ function validateShotShape(shot) {
 for (const shot of manifest.shots) validateShotShape(shot);
 
 function applyFilters(shots) {
-  return shots.filter(
-    (s) =>
-      (!featureFilter || featureFilter.has(s.feature)) &&
-      (!sectionFilter || sectionFilter.has(s.section)) &&
-      (!harnessRaw || s.harness === harnessRaw),
-  );
+  // --harness=standard also lists the "both" shots (their Standard variant); --harness=both lists only the "both" shots.
+  const harnessOk = (s) => !harnessRaw || s.harness === harnessRaw || (isBothShot(s) && [STANDARD, MICROSOFT_COPILOT].includes(harnessRaw));
+  return shots.filter((s) => (!featureFilter || featureFilter.has(s.feature)) && (!sectionFilter || sectionFilter.has(s.section)) && harnessOk(s));
 }
 
 function selectShots() {
@@ -466,11 +490,21 @@ function selectByFlags() {
     if (index === -1) failArg(`--from shot ID ${fromId} was not found in shots.json.`);
     return manifest.shots.slice(index);
   }
-  return manifest.shots.filter((s) => !shotExists(s.filename));
+  return manifest.shots.filter((s) => !shotDone(s));
 }
 
 function featureLabel(s) {
-  return isFeatureTour ? `${s.featureName}${s.harness ? ` [${s.harness}]` : ""}` : (s.labSection ?? s.section);
+  const harness = isFeatureTour ? harnessText(s) : "";
+  return isFeatureTour ? `${s.featureName}${harness ? ` [${harness}]` : ""}` : (s.labSection ?? s.section);
+}
+
+/** The harness lines of a shot: the harness, the step that gets the page into it, and the landmark that proves it. */
+function harnessLines(shot, indent = "  ") {
+  if (!isFeatureTour || isBothShot(shot)) return isBothShot(shot) ? [`${indent}harness: ${harnessText(shot)}`] : [];
+  const id = normalizeHarness(shot.harness);
+  if (!id) return [];
+  const plan = harnessPlan(id);
+  return [`${indent}harness: ${plan.label}`, `${indent}  ${plan.switchStep}`, `${indent}  Proof before the picture: ${plan.proof}`];
 }
 
 function printFeatureDetails(shot) {
@@ -498,13 +532,14 @@ function startUrl() {
 }
 
 function listAll() {
-  const missing = manifest.shots.filter((s) => !shotExists(s.filename)).length;
+  const missing = manifest.shots.filter((s) => !shotDone(s)).length;
   console.log(`\nShots manifest (${manifest.shots.length} total, ${missing} missing)\n`);
   for (const s of applyFilters(manifest.shots)) {
-    const have = shotExists(s.filename) ? "✓" : " ";
-    console.log(`  [${have}] #${String(s.id).padStart(2, "0")}  ${s.filename}`);
+    const have = shotDone(s) ? "✓" : " ";
+    console.log(`  [${have}] #${String(s.id).padStart(2, "0")}  ${filesFor(s).join(" + ")}`);
     console.log(`        ${featureLabel(s)}${isFeatureTour ? ` (section: ${s.section})` : ""}`);
     console.log(`        target: ${resolvedUrl(s)}`);
+    for (const line of harnessLines(s, "        ")) console.log(line);
   }
   console.log(`\nAssets dir: ${assetsDir}`);
   console.log(`✓ = already on disk, blank = missing\n`);
@@ -520,8 +555,10 @@ function printDryRun(shots) {
   console.log(`Assets dir: ${assetsDir}\n`);
   for (const shot of shots) {
     const viewport = resolvedViewport(shot);
-    console.log(`#${String(shot.id).padStart(2, "0")} ${shot.filename}`);
-    console.log(`  exists: ${shotExists(shot.filename) ? "yes" : "no"}`);
+    console.log(`#${String(shot.id).padStart(2, "0")} ${filesFor(shot).join(" + ")}`);
+    console.log(`  exists: ${shotDone(shot) ? "yes" : "no"}`);
+    for (const line of harnessLines(shot)) console.log(line);
+    if (needsHarnessChoice(shot)) console.log("  skipped unless you pick a harness: --harness=standard or --harness=microsoft-copilot");
     console.log(`  url: ${resolvedUrl(shot)}`);
     if (shot.manual) console.log("  manual: yes (capture with an OS screenshot tool and save at the path above)");
     if (shot.urlEnv) console.log(`  tenant address variable: ${shot.urlEnv}${process.env[shot.urlEnv] ? " (set)" : " (not set)"}`);
@@ -539,8 +576,9 @@ function printDryRun(shots) {
 
 function printInstructions(shot) {
   console.log("─".repeat(72));
-  console.log(`Shot #${shot.id}  →  ${shot.filename}`);
+  console.log(`Shot #${shot.id}  →  ${fileFor(shot)}`);
   console.log(`${isFeatureTour ? "Feature" : "Section"}: ${featureLabel(shot)}`);
+  for (const line of harnessLines(shot, "")) console.log(line);
   console.log(`Target: ${resolvedUrl(shot)}`);
   const viewport = resolvedViewport(shot);
   console.log(`Viewport: ${viewport.width}x${viewport.height}; zoom: ${resolvedZoom(shot)}`);
@@ -554,7 +592,7 @@ function printInstructions(shot) {
 function statusLine(shot, index, total) {
   readline.clearLine(process.stdout, 0);
   readline.cursorTo(process.stdout, 0);
-  process.stdout.write(`[shot ${index + 1}/${total}] ${shot.filename} — SPACE=snap | r=retry | n=skip | q=quit | ?=help`);
+  process.stdout.write(`[shot ${index + 1}/${total}] ${fileFor(shot)} — SPACE=snap | r=retry | n=skip | q=quit | ?=help`);
 }
 
 async function preShotCountdown(seconds = 2) {
@@ -715,7 +753,7 @@ function verifyPng(out) {
 }
 
 function remainingMissing() {
-  return manifest.shots.filter((s) => !shotExists(s.filename));
+  return manifest.shots.filter((s) => !shotDone(s));
 }
 
 function printSummary(summary) {
@@ -727,7 +765,7 @@ function printSummary(summary) {
   console.log(`  failed verify: ${summary.failedVerify}`);
   const missing = remainingMissing();
   console.log(`  remaining missing: ${missing.length}`);
-  for (const shot of missing) console.log(`    #${shot.id} ${shot.filename}`);
+  for (const shot of missing) console.log(`    #${shot.id} ${filesFor(shot).join(" + ")}`);
   console.log("");
 }
 
@@ -744,11 +782,17 @@ if (wantList) {
 
 mkdirSync(assetsDir, { recursive: true });
 
-const todo = selectShots();
+const selected = selectShots();
 if (wantDryRun) {
-  printDryRun(todo);
+  printDryRun(selected);
   process.exit(0);
 }
+
+// A shot kept once per harness is captured only when a harness is named: say so, and leave it.
+for (const shot of selected.filter(needsHarnessChoice)) {
+  console.log(`Skipped #${shot.id} ${shot.filename}: this slot is kept once per harness. Pick one with --harness=standard or --harness=microsoft-copilot.`);
+}
+const todo = selected.filter((shot) => !needsHarnessChoice(shot));
 
 if (todo.length === 0) {
   console.log("\nNothing to capture. Use --all to re-capture existing shots, or --list to see status.\n");
@@ -825,13 +869,13 @@ for (let index = 0; index < todo.length; index += 1) {
       continue;
     }
 
-    const out = shotPath(shot.filename);
+    const out = shotPath(fileFor(shot));
     if (shot.manual) {
       // The screen is outside the browser: the person saves the image, and SPACE only verifies it.
       const verified = verifyPng(out);
       if (verified.ok) {
         summary.snapped += 1;
-        console.log(`Found ${out} (${verified.size} bytes). Add a ${sidecarName(shot.filename)} file if you want numbered callouts on it.\n`);
+        console.log(`Found ${out} (${verified.size} bytes). Add a ${sidecarName(fileFor(shot))} file if you want numbered callouts on it.\n`);
       } else {
         summary.failedVerify += 1;
         console.warn(`WARNING: ${out} is missing or is not a usable PNG (png=${verified.isPng}, size=${verified.size} bytes). Save it there, then retry.`);
@@ -842,6 +886,23 @@ for (let index = 0; index < todo.length; index += 1) {
       }
       continue;
     }
+    // A picture that needs a harness is taken only on a page that is in it: the agent page's tabs or side navigation are read first, and a page
+    // that is definitely in another harness is refused. A page that shows neither (the home page, the Agents list) is not an agent page, so the
+    // picture is kept under the harness you asked for and you are told that nothing was proven.
+    const wantedHarness = captureHarness(shot);
+    if (isFeatureTour && wantedHarness && wantedHarness !== EITHER && (manifest.product ?? "copilot-studio") === "copilot-studio") {
+      const seen = await proveAgentPage(target, { waitMs: 2000, settleMs: 300 }).catch(() => null);
+      if (seen && seen.harness !== wantedHarness) {
+        summary.failedVerify += 1;
+        console.warn(`WARNING: ${wrongHarnessMessage(seen.harness, wantedHarness)} Nothing was saved. ${HARNESS_LABELS[wantedHarness]}: ${harnessPlan(wantedHarness).switchStep}`);
+        if (await readVerifyChoice()) {
+          summary.retried += 1;
+          retrying = true;
+        }
+        continue;
+      }
+      console.log(seen ? `Proved the ${HARNESS_LABELS[seen.harness]}: ${seen.landmarks.join(", ")}` : `The harness could not be proven on this page (it is not an agent page). Check that it shows the ${HARNESS_LABELS[wantedHarness]}.`);
+    }
     try {
       await target.screenshot({ path: out, fullPage: false });
       summary.snapped += 1;
@@ -849,9 +910,9 @@ for (let index = 0; index < todo.length; index += 1) {
       if (isFeatureTour) {
         const viewport = target.viewportSize() ?? resolvedViewport(shot);
         const results = await resolveCallouts(target, shot.callouts, viewport).catch(() => []);
-        writeSidecar(assetsDir, shot.filename, viewport, results);
+        writeSidecar(assetsDir, fileFor(shot), viewport, results);
         const found = results.filter((r) => r.rect).length;
-        console.log(`Callouts: ${found}/${results.length} located → ${sidecarName(shot.filename)}`);
+        console.log(`Callouts: ${found}/${results.length} located → ${sidecarName(fileFor(shot))}`);
         for (const r of results.filter((x) => !x.rect)) {
           console.warn(`  Callout ${r.n} (${r.label}) was not visible; it will show in the list only. Press r to retry after revealing it.`);
         }
@@ -859,7 +920,7 @@ for (let index = 0; index < todo.length; index += 1) {
       const verified = verifyPng(out);
       if (!verified.ok) {
         summary.failedVerify += 1;
-        console.warn(`WARNING: ${shot.filename} failed verification (png=${verified.isPng}, size=${verified.size} bytes).`);
+        console.warn(`WARNING: ${fileFor(shot)} failed verification (png=${verified.isPng}, size=${verified.size} bytes).`);
         if (await readVerifyChoice()) {
           summary.retried += 1;
           retrying = true;

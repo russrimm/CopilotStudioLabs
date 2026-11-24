@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
 import { buildStatus } from "../status.mjs";
-import { listFeatureManifests, resolveShotUrl, resolveStartUrl } from "../manifests.mjs";
+import { listFeatureManifests, resolveShotUrl, resolveStartUrl, slotFiles } from "../manifests.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const toolDir = path.resolve(here, "..");
@@ -90,7 +90,7 @@ for (const product of PRODUCTS) {
     assert.match(out.stdout, new RegExp(`Product: ${product}`));
     assert.ok(out.stdout.includes(`Start URL: ${manifest.startUrl}`));
     assert.match(out.stdout, new RegExp(`Browser profile: \\.auth[\\\\/]${manifest.authProfile}`));
-    assert.ok(out.stdout.includes(manifest.shots[0].filename));
+    assert.ok(out.stdout.includes(slotFiles(manifest.shots[0])[0]), "the first shot is listed under the name its picture is saved with (tagged for a harness-specific slot)");
   });
 }
 
@@ -273,7 +273,7 @@ test("status counts captured and pending per product and feature and prints the 
 test("status says nothing is pending when every shot is captured", () => {
   const { root, dir, assets } = fixtureRepo();
   const png = fixturePng();
-  for (const m of manifests) for (const shot of m.manifest.shots) fs.writeFileSync(path.join(assets, shot.filename), png);
+  for (const m of manifests) for (const shot of m.manifest.shots) for (const file of slotFiles(shot)) fs.writeFileSync(path.join(assets, file), png);
   const s = buildStatus({ manifestDir: dir, repoRoot: root });
   assert.equal(s.pending, 0);
   assert.equal(s.nextCommand, null);

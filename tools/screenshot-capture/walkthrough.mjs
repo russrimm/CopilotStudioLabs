@@ -10,6 +10,7 @@
 
 import { checkPublicWebsite, checkTypedText, limitWebsiteDepth } from "./guard.mjs";
 import { AUTOMATION_VERSION, BLOCKER_REASON, FAMILIES, REASONS, describeFamily, detectFamily, shotFacts } from "./automation.mjs";
+import { PRACTICE_AGENT_PREFIXES, isSpecificHarness } from "./harness.mjs";
 import { settingsTabFor } from "./scratch-recipes.mjs";
 
 export const PRACTICE_NAME_PREFIX = "Lab screenshots - ";
@@ -204,15 +205,24 @@ export function orderCreationFirst(shots, pick = (shot) => shot) {
 /** The product cuts an agent's name at 30 characters, so the practice agent's whole name is kept within that. */
 export const MAX_AGENT_NAME = 30;
 
-/** "Lab screenshots - Team": the fixed prefix and a short title from the lab (a word or two, never an identifier), 30 characters at most. */
-export function scratchAgentName(shortTitle) {
-  const short = clean(shortTitle, 60)
+/** The short title of a lab for an agent name: a word or two, never an identifier. */
+function agentTitleOf(shortTitle) {
+  return clean(shortTitle, 60)
     .replace(/^(?:cross-industry|[a-z -]{3,30}):\s*/i, "")
     .replace(/^(?:build|create|make)\s+(?:an?|the)\s+/i, "")
     .replace(/\s+(?:with|and|using)\s+.*$/i, "")
     .replace(/[<>"]/g, "")
     .trim();
-  const room = MAX_AGENT_NAME - PRACTICE_NAME_PREFIX.length;
+}
+
+/**
+ * "Lab screenshots - Team": the fixed prefix and a short title from the lab, 30 characters at most. With a harness the prefix is the compact
+ * harness marker instead ("Classic shots - Team", "Copilot shots - Team"), so the agents of two harnesses have different names.
+ */
+export function scratchAgentName(shortTitle, harness = null) {
+  const short = agentTitleOf(shortTitle);
+  const prefix = (isSpecificHarness(harness) && PRACTICE_AGENT_PREFIXES[harness]) || PRACTICE_NAME_PREFIX;
+  const room = MAX_AGENT_NAME - prefix.length;
   let fitted = "";
   for (const word of (short || "Training lab").split(" ")) {
     const next = fitted ? `${fitted} ${word}` : word;
@@ -220,7 +230,14 @@ export function scratchAgentName(shortTitle) {
     fitted = next;
   }
   // A first word longer than the room is cut: a name is better short than missing.
-  return `${PRACTICE_NAME_PREFIX}${(fitted || (short || "Training lab").slice(0, room)).replace(/[\s.,;:-]+$/, "")}`;
+  return `${prefix}${(fitted || (short || "Training lab").slice(0, room)).replace(/[\s.,;:-]+$/, "")}`;
+}
+
+/** The name of the practice agent for one harness, from a lab's (sanitized) context. Without a harness: the older name. */
+export function practiceAgentName(context, harness = null) {
+  const ctx = context && typeof context === "object" ? context : {};
+  if (!isSpecificHarness(harness)) return ctx.agentName || scratchAgentName(ctx.agentTitle || ctx.labTitle || "");
+  return scratchAgentName(ctx.agentTitle || ctx.labTitle || "", harness);
 }
 
 /** A lab or a profile key for the practice agent registry: letters, digits, dashes. */
@@ -247,7 +264,8 @@ export function sanitizeScratchContext(raw) {
   };
   const labTitle = clean(src.labTitle, 80).replace(/[<>]/g, "");
   const name = clean(src.agentName, 80);
-  const agentName = name.startsWith(PRACTICE_NAME_PREFIX) && !/[<>"]/.test(name) ? scratchAgentName(name.slice(PRACTICE_NAME_PREFIX.length)) : scratchAgentName(src.shortTitle || labTitle);
+  const titleSource = name.startsWith(PRACTICE_NAME_PREFIX) && !/[<>"]/.test(name) ? name.slice(PRACTICE_NAME_PREFIX.length) : src.shortTitle || labTitle;
+  const agentName = scratchAgentName(titleSource);
   const questions = (Array.isArray(src.questions) ? src.questions : []).map((q) => text(q, 200)).filter(Boolean).slice(0, 4);
   const website = checkPublicWebsite(src.website);
   const sharepoint = (() => {
@@ -263,6 +281,8 @@ export function sanitizeScratchContext(raw) {
     key: scratchKey(src.key || labTitle),
     labTitle,
     agentName,
+    // The lab's short title for the harness-specific names (see practiceAgentName): the older name above cuts it at 12 characters.
+    agentTitle: agentTitleOf(src.shortTitle || labTitle) || agentTitleOf(titleSource),
     description: text(src.description, 300, "An assistant that answers common questions for my team."),
     instructions: text(src.instructions, 1500, "Answer briefly and politely. Use only the knowledge you were given. If a question is outside that, say so and suggest who to ask."),
     questions: questions.length ? questions : [QUESTION_DEFAULT],

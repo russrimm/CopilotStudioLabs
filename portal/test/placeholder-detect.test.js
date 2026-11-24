@@ -159,7 +159,7 @@ test("a shared-library placeholder does not make a slot captured", (t) => {
   writeFileSync(join(shared, "slot-b.png"), readFileSync(REAL[0]));
   const plan = {
     features: [
-      { id: "f1", name: "F1", order: 1, reuseScreenshots: [], screenshots: [{ filename: "slot-a.png" }, { filename: "slot-b.png" }] },
+      { id: "f1", name: "F1", product: "sharepoint-ai", order: 1, reuseScreenshots: [], screenshots: [{ filename: "slot-a.png" }, { filename: "slot-b.png" }] },
     ],
   };
   const out = planScreenshots(plan, { labsDir, capturedDir: shared });

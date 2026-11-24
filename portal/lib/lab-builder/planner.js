@@ -833,6 +833,9 @@ export function planLab(request = {}) {
   const hasHarnessProduct = planProducts.some((id) => productHasHarnesses(id));
   // A combined lab has no single harness: each module says which one it belongs to.
   const labHarness = combined ? null : hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
+  // How the lab's harness was decided, kept in the lab's data so it never has to be guessed again: the person chose it, most of the
+  // lab's single-harness modules are written for it, or nothing said so it is Standard.
+  const harnessSource = !labHarness ? null : request.harness ? "chosen" : harnessVotes.size ? "inferred" : "default";
   const differencesFor = labHarness ? (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness) : [];
   const harnessParts = harnessPartition ? describeHarnessParts(harnessPartition.parts, features, request.harnesses) : null;
   const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
@@ -924,6 +927,7 @@ export function planLab(request = {}) {
     assumedPrereqs,
     prerequisites: features.filter((f) => f.prerequisite).map((f) => f.id),
     harness: labHarness,
+    harnessSource,
     ...(combined ? { harnessMode: COMBINED_HARNESS_MODE, harnesses: [...request.harnesses], harnessParts } : {}),
     products: planProducts,
     productNames: planProducts.map((id) => productName(id)),

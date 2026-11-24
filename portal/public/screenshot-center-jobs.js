@@ -15,7 +15,7 @@ const scState = {
   labs: {},
   pairing: null,
   copyAck: null,
-  library: { loaded: false, loading: false, error: "", summary: null, shots: [] },
+  library: { loaded: false, loading: false, error: "", summary: null, shots: [], unrecorded: [], picturesOpen: false },
 };
 
 function scLab(key) {
@@ -975,6 +975,61 @@ async function scUnconfirmShot(labId, filename) {
   return true;
 }
 
+/**
+ * "This is Standard (Classic)" / "This is Microsoft Copilot": a person says which harness a lab's picture shows (one that was saved before harnesses
+ * were recorded). The server records it, or, when it is the other harness than the slot needs, moves the picture to the kept pictures list and the
+ * slot goes back to pending: its message is shown as it comes.
+ */
+async function scTagShot(labId, filename, harness, { from = "card" } = {}) {
+  const choice = scHarnessId(harness);
+  if (!choice || choice === "either") return false;
+  const { ok, data, status } = await scFetchJson(scScreenshotApi(labId, filename, "/harness"), scJsonInit("POST", { harness: choice }));
+  if (!ok || !["tagged", "moved"].includes(data.outcome)) {
+    scSetFeedback(labId, filename, { variant: "bad", headline: "Could not record which harness this picture shows.", items: [{ level: "fail", text: String(data.error || `Request failed (${status}).`) }] });
+    scAnnounce("Could not record which harness this picture shows.");
+    return false;
+  }
+  const order = scHarnessUnrecordedFiles(labId);
+  if (data.outcome === "moved") {
+    const message = scText(data.message, 400) || "That is not the harness this screenshot needs, so the picture was moved to the kept pictures list.";
+    scSetFeedback(labId, filename, { variant: "warn", headline: message, items: [] });
+    scAnnounce(message);
+  } else {
+    scSetFeedback(labId, filename, null);
+    scAnnounce(`Recorded as the ${scHarnessLabelOf(choice, data.harnessLabel)}.`);
+  }
+  if (data.state) await scApplyNewState(labId, data.state);
+  else await scRefreshLabState(labId);
+  scFocusAfterTag(labId, filename, order, from);
+  return true;
+}
+
+/** "This is Standard (Classic)" for a shared-library picture saved under a slot's plain name (before harnesses were recorded). */
+async function scTagLibraryPicture(labId, filename, harness) {
+  const choice = scHarnessId(harness);
+  if (!choice || choice === "either") return false;
+  const library = scState.library;
+  const before = library.unrecorded.map((row) => row.filename);
+  const { ok, data, status } = await scFetchJson(`/api/capture/library/screenshots/${encodeURIComponent(filename)}/harness`, scJsonInit("POST", { harness: choice }));
+  if (!ok || !["tagged", "moved"].includes(data.outcome)) {
+    library.tagMessage = { variant: "warn", text: String(data.error || `Could not record which harness this picture shows (${status}).`) };
+    scAnnounce(library.tagMessage.text);
+    scRenderLibraryHost();
+    return false;
+  }
+  library.tagMessage =
+    data.outcome === "moved"
+      ? { variant: "warn", text: scText(data.message, 400) || "That is not the harness this screenshot needs, so the picture was moved to the kept pictures list." }
+      : { variant: "ok", text: `Recorded as the ${scHarnessLabelOf(choice, data.harnessLabel)}. Every lab built for that harness can use it now.` };
+  scAnnounce(library.tagMessage.text);
+  await Promise.all([scLoadLibrary(true), scLoadStatus(true)]);
+  if (typeof scLoadKept === "function" && typeof scKeep !== "undefined" && scKeep.loaded) await scLoadKept(true);
+  scRenderLibraryHost();
+  if (labId) await scRefreshLabState(labId);
+  scFocusAfterTag("library", filename, before, "group");
+  return true;
+}
+
 /** Show a question before something that affects other labs. `run` is what "yes" does. */
 function scOpenAsk(labId, ask) {
   const lab = scLab(labId);
@@ -1015,7 +1070,8 @@ async function scAskBeforeRetake(labId, filenames, run) {
   let unknown = false;
   for (const shot of shared.slice(0, 20)) {
     try {
-      const { ok, data } = await scFetchJson(`/api/capture/library/screenshots/${encodeURIComponent(shot.filename)}/usage?labId=${encodeURIComponent(labId)}`);
+      // The library keeps the picture of a slot that needs a harness under a name that carries the harness.
+      const { ok, data } = await scFetchJson(`/api/capture/library/screenshots/${encodeURIComponent(scLibraryName(shot.filename, shot.harness))}/usage?labId=${encodeURIComponent(labId)}`);
       if (!ok) unknown = true;
       else {
         otherLabs = Math.max(otherLabs, scCount(data.otherLabs));
@@ -1313,6 +1369,7 @@ async function scLoadLibrary(force = false) {
     if (!ok) throw new Error(data.error || `Request failed (${status})`);
     library.summary = data.summary || null;
     library.shots = Array.isArray(data.shots) ? data.shots : [];
+    library.unrecorded = Array.isArray(data.unrecorded) ? data.unrecorded : [];
     library.error = "";
     library.loaded = true;
   } catch (err) {
@@ -1322,19 +1379,32 @@ async function scLoadLibrary(force = false) {
   }
 }
 
-/** Coverage per product from the library's slot list. */
+/**
+ * Coverage per product from the library's slot list. A slot written for both the Standard (Classic) and the Microsoft Copilot harness has
+ * one row per harness in the list, so `harnesses` says how many pictures each harness has (empty for a product with no harnesses).
+ */
 function scLibraryByProduct(shots) {
   const rows = new Map();
   for (const shot of Array.isArray(shots) ? shots : []) {
     const product = String(shot.product || "");
     if (!/^[a-z0-9-]{1,60}$/.test(product)) continue;
-    if (!rows.has(product)) rows.set(product, { product, total: 0, captured: 0, missing: 0, needsReview: 0, confirmed: 0 });
+    if (!rows.has(product)) rows.set(product, { product, total: 0, captured: 0, missing: 0, needsReview: 0, confirmed: 0, harnesses: [] });
     const row = rows.get(product);
     row.total += 1;
     if (shot.captured) row.captured += 1;
     else row.missing += 1;
     if (shot.needsReview) row.needsReview += 1;
     if (shot.captured && shot.confirmed) row.confirmed += 1;
+    const harness = scHarnessId(shot.harness);
+    if (harness) {
+      let split = row.harnesses.find((entry) => entry.id === harness);
+      if (!split) {
+        split = { id: harness, label: scHarnessLabelOf(harness, shot.harnessLabel), total: 0, captured: 0 };
+        row.harnesses.push(split);
+      }
+      split.total += 1;
+      if (shot.captured) split.captured += 1;
+    }
   }
   return [...rows.values()].sort((a, b) => a.product.localeCompare(b.product));
 }

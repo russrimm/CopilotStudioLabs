@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFeatureShots } from './feature-shots-check.mjs';
-import { listFeatureManifests } from './manifests.mjs';
+import { listFeatureManifests, slotFiles } from './manifests.mjs';
 import { detectPlaceholder } from './placeholder-detect.mjs';
 
 const FEATURE_TOUR_LAB = 'feature-tour';
@@ -381,7 +381,7 @@ if (!scopedLab || scopedLab === FEATURE_TOUR_LAB) {
     process.exit(2);
   }
   const knownFilenames = new Set(
-    entries.flatMap((entry) => (Array.isArray(entry.manifest?.shots) ? entry.manifest.shots : []).map((shot) => shot?.filename).filter(isNonEmptyString))
+    entries.flatMap((entry) => (Array.isArray(entry.manifest?.shots) ? entry.manifest.shots : []).flatMap((shot) => (isNonEmptyString(shot?.filename) ? [shot.filename, ...slotFiles(shot)] : [])))
   );
   const selected = entries.filter((entry) => !productFilter || entry.product === productFilter);
   report.featureTour = { total: 0, captured: 0, pending: 0, missing: [], products: {} };
