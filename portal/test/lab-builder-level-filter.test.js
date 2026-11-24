@@ -228,7 +228,7 @@ test("a generated lab holds only the chosen level plus labeled recaps, and says 
     assert.ok(own.length > 0 && own.every((m) => m.level === level));
     assert.ok(recaps.every((m) => m.level < level));
     assert.deepEqual(manifest.prerequisites, recaps.map((m) => m.id));
-    assert.match(markdown, new RegExp(`\\| 🎚️ \\*\\*LEVEL\\*\\* \\| Level ${level} \\(`));
+    assert.match(markdown, new RegExp(`\\| \\*\\*LEVEL\\*\\* \\| Level ${level} \\(`));
 
     const recapHeadings = [...markdown.matchAll(/^### Recap (\d+) - /gm)].map((m) => Number(m[1]));
     assert.deepEqual(

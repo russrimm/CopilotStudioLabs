@@ -59,6 +59,7 @@ import {
 import { renderLabMarkdown } from "./markdown.js";
 import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafeManifest } from "./lab-builder/learner-guide.js";
 import { repairRunOnSteps } from "./lab-builder/sub-steps.js";
+import { plainTextDeep } from "./lab-builder/plain-text.js";
 import { repairConnectorNames, rewriteConnectorValue } from "./lab-builder/connector-names.js";
 import { TRAINING_ZIP_FOLDER, trainingZipEntries } from "./lab-builder/training-decks.js";
 import { buildPrerequisitesChecklist, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
@@ -295,7 +296,8 @@ export function resolveSafeGeneratedLabDir(generatedRoot, rawLabId) {
 
   let manifest = null;
   try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    // A lab saved with symbols in its title or notes is read as plain text; the file on disk is not rewritten.
+    manifest = plainTextDeep(JSON.parse(readFileSync(manifestPath, "utf-8")));
   } catch {
     manifest = null;
   }

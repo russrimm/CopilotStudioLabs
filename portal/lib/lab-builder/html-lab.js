@@ -16,11 +16,12 @@ import { stripEmbeddedHtml } from "./html-fragments.js";
 import { isSubStepStart, normalizeSubSteps, takeSubSteps } from "./sub-steps.js";
 import { PENDING_SHOT_CSS, replacePendingPictures } from "./pending-shot-card.js";
 import { META_TABLE_CSS, tidyMetaTable } from "./meta-table.js";
+import { plainText } from "./plain-text.js";
 
 const ASSET_SRC_RE = /\bsrc="assets\/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|svg|webp))"/gi;
 
 function escapeHtml(value) {
-  return String(value ?? "")
+  return plainText(String(value ?? ""))
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -526,7 +527,8 @@ function pickButtonPair(rawHex, fallbackBg, fallbackFg) {
 
 export function renderStandaloneLabHtml(markdown, options = {}) {
   const renderMd = typeof options.renderMarkdown === "function" ? options.renderMarkdown : renderLabMarkdownFallback;
-  let bodyHtml = tidyMetaTable(enhanceInteractiveLabHtml(renderMd(String(markdown ?? ""))));
+  // The page shows plain text whatever the Markdown carries (a lab saved before the no-emoji rule, for one).
+  let bodyHtml = tidyMetaTable(enhanceInteractiveLabHtml(renderMd(plainText(String(markdown ?? "")))));
   // A picture that has not been captured yet becomes a "Screenshot to add" card instead of a placeholder image.
   if (typeof options.pendingShotFor === "function") {
     bodyHtml = replacePendingPictures(bodyHtml, options.pendingShotFor);
@@ -1767,7 +1769,7 @@ ${pagesHtml}
       <button type="button" id="lab-prev-btn" data-nav="prev" class="lab-page-btn" disabled>← Previous</button>
       <span id="lab-bottom-status" class="lab-pagination-status">Page 1 of ${pages.length}</span>
       <button type="button" id="lab-next-btn" data-nav="next" class="lab-page-btn lab-page-btn-primary"${pages.length <= 1 ? ' style="display:none"' : ""}>${nextInitialLabel}</button>
-      <span id="lab-complete-badge" class="lab-complete-badge"${pages.length > 1 ? " hidden" : ""}>✓ Final page reached</span>
+      <span id="lab-complete-badge" class="lab-complete-badge"${pages.length > 1 ? " hidden" : ""}>Final page reached</span>
     </nav>
     ${brandingFooter}
   </div>

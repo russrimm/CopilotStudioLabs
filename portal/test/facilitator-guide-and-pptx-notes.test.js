@@ -609,8 +609,8 @@ test("HTTP export endpoints serve facilitator-docx/pdf/md/html, bundle Facilitat
       actionsHtml,
       /download="Tailspin Copilot Readiness Lab - Facilitator Guide\.pdf"/,
     );
-    assert.match(actionsHtml, /🎓 Facilitator Guide \(\.docx\)/);
-    assert.match(actionsHtml, /🎓 Facilitator Guide \(\.pdf\)/);
+    assert.match(actionsHtml, />Facilitator Guide \(\.docx\)/);
+    assert.match(actionsHtml, />Facilitator Guide \(\.pdf\)/);
     assert.doesNotMatch(
       visibleText,
       new RegExp(built.labId),

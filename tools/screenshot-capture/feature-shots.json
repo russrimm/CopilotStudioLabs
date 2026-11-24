@@ -2848,7 +2848,7 @@
       ],
       "setup": [
         "Go to your agent's Evaluation page and choose the test set that represents the release candidate.",
-        "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set.",
+        "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set.",
         "If Manage profile and connections appears, review the test account connections before the evaluation starts.",
         "Open the completed run in Recent results and record the Pass rate, Pass, Fail, Invalid, and Error signals.",
         "Select All, Pass, or Fail to inspect critical cases, and use Show activity map when you need to explain a result.",
@@ -2869,19 +2869,19 @@
           "n": 2,
           "label": "Evaluate",
           "text": "Evaluate",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         },
         {
           "n": 3,
           "label": "Recent results",
           "text": "Recent results",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         },
         {
           "n": 4,
-          "label": "▶ Evaluate",
-          "text": "▶ Evaluate",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "label": "Evaluate Agent",
+          "text": "Evaluate Agent",
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         }
       ]
     },
@@ -2902,7 +2902,7 @@
       ],
       "setup": [
         "Go to your agent's Evaluation page and choose the test set that represents the release candidate.",
-        "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set.",
+        "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set.",
         "If Manage profile and connections appears, review the test account connections before the evaluation starts.",
         "Open the completed run in Recent results and record the Pass rate, Pass, Fail, Invalid, and Error signals.",
         "Select All, Pass, or Fail to inspect critical cases, and use Show activity map when you need to explain a result.",
@@ -2923,19 +2923,19 @@
           "n": 2,
           "label": "Evaluate",
           "text": "Evaluate",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         },
         {
           "n": 3,
           "label": "Recent results",
           "text": "Recent results",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         },
         {
           "n": 4,
-          "label": "▶ Evaluate",
-          "text": "▶ Evaluate",
-          "note": "Select Evaluate, or in Recent results select ▶ Evaluate next to Evaluate Agent to rerun a previous test set."
+          "label": "Evaluate Agent",
+          "text": "Evaluate Agent",
+          "note": "Select Evaluate, or in Recent results select Evaluate next to Evaluate Agent to rerun a previous test set."
         }
       ]
     },

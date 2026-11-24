@@ -177,7 +177,7 @@ function lbChecklistChipHtml(lab) {
   return `<li class="lb-gen-ready-chip" data-ready="${done}" aria-label="Lab checklist: ${done} of ${LB_CHECKLIST_TOTAL} steps done">${text}</li>`;
 }
 
-const LB_CHECKLIST_ICONS = Object.freeze({ done: "\u2713", todo: "\u25cb", attention: "!" });
+const LB_CHECKLIST_ICONS = Object.freeze({ done: "\u25cf", todo: "\u25cb", attention: "!" });
 const LB_CHECKLIST_STATUS_TEXT = Object.freeze({ done: "Done", todo: "To do", attention: "Needs attention" });
 const LB_CHECKLIST_STATUS_TONE = Object.freeze({ done: "ok", todo: "neutral", attention: "warn" });
 

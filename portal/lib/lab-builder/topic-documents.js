@@ -18,6 +18,7 @@ import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import { shortenDownloadFileName } from "../export-names.js";
 import { CONNECTOR_NAMES_VERSION, needsConnectorRepair, repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
+import { containsEmoji, plainText, plainTextDeep } from "./plain-text.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 // Bump whenever the per-topic .docx/.pptx output changes so cached `topics/` files regenerate on demand.
@@ -26,6 +27,8 @@ export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 //    are gone and the overview has no admin section.
 // 6: lettered sub-steps render as their own lines (a real nested list in Word, indented lines on slides).
 export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 6;
+/** Saved topic documents are rebuilt once from plain text for a lab whose saved text still holds an emoji. */
+export const TOPIC_DOCUMENTS_PLAIN_TEXT_VERSION = 1;
 
 export const TOPIC_DOC_MIME_TYPES = Object.freeze({
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -185,17 +188,20 @@ export function renderSingleTopicBuffers(mod, { labTitle, manifest = {}, brandin
 function* topicDocumentSteps(labDir, options = {}) {
   const resolvedLabDir = path.resolve(labDir);
   const labId = options.labId || path.basename(resolvedLabDir);
-  const markdown =
+  const markdown = plainText(
     options.markdown !== undefined
       ? String(options.markdown)
-      : fs.readFileSync(path.join(resolvedLabDir, "index.md"), "utf8");
+      : fs.readFileSync(path.join(resolvedLabDir, "index.md"), "utf8"),
+  );
   const manifest =
     options.manifest ||
     (fs.existsSync(path.join(resolvedLabDir, "manifest.json"))
       ? JSON.parse(fs.readFileSync(path.join(resolvedLabDir, "manifest.json"), "utf8"))
       : {});
+  // The documents are drawn from plain text; `manifest` itself is left as it is, because the caller records the new document list in it.
+  const plainManifest = plainTextDeep(manifest);
 
-  const { split, topicDocuments } = buildTopicDocumentsMeta(markdown, manifest, {
+  const { split, topicDocuments } = buildTopicDocumentsMeta(markdown, plainManifest, {
     labId,
     outputDir: resolvedLabDir,
   });
@@ -214,7 +220,7 @@ function* topicDocumentSteps(labDir, options = {}) {
     const docMeta = topicDocuments[idx];
     const { docxBuffer, pptxBuffer } = renderSingleTopicBuffers(mod, {
       labTitle: split.labTitle,
-      manifest,
+      manifest: plainManifest,
       branding: options.branding,
       resolveImageBuffer,
     });
@@ -295,6 +301,12 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
     Boolean(onDiskManifest) &&
     onDiskManifest.topicDocumentsConnectorNames !== CONNECTOR_NAMES_VERSION &&
     needsConnectorRepair({ markdown: onDiskMarkdown, manifest: onDiskManifest });
+  // The same for a lab saved with an emoji in its text: its documents are rebuilt once from plain text. The files the lab was
+  // saved with are not rewritten; only the document list and this version are recorded, as for connector names.
+  const plainRepair =
+    Boolean(onDiskManifest) &&
+    onDiskManifest.topicDocumentsPlainText !== TOPIC_DOCUMENTS_PLAIN_TEXT_VERSION &&
+    (containsEmoji(onDiskMarkdown) || containsEmoji(JSON.stringify(onDiskManifest)));
 
   const { topicDocuments: expectedDocs } = buildTopicDocumentsMeta(markdown, manifest, {
     labId,
@@ -319,7 +331,7 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
         d.pptxFileName === expectedDocs[idx].pptxFileName
     );
 
-  if (allPresentOnDisk && manifestMatches && !connectorRepair) {
+  if (allPresentOnDisk && manifestMatches && !connectorRepair && !plainRepair) {
     return manifest.topicDocuments;
   }
 
@@ -331,10 +343,12 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
   });
 
   // What is saved is the manifest as it is on disk plus the new document list, never the repaired text.
-  const saved = connectorRepair ? onDiskManifest : manifest;
-  if (connectorRepair) {
+  const repaired = connectorRepair || plainRepair;
+  const saved = repaired ? onDiskManifest : manifest;
+  if (repaired) {
     applyTopicDocumentsToManifest(saved, generated);
-    saved.topicDocumentsConnectorNames = CONNECTOR_NAMES_VERSION;
+    if (connectorRepair) saved.topicDocumentsConnectorNames = CONNECTOR_NAMES_VERSION;
+    if (plainRepair) saved.topicDocumentsPlainText = TOPIC_DOCUMENTS_PLAIN_TEXT_VERSION;
   }
   if (fs.existsSync(manifestPath)) {
     try {

@@ -304,7 +304,7 @@ function ucRestore(options) {
 
 // ── Page skeleton ───────────────────────────────────────────────────────────
 function ucChoiceChip(group, entry, labelOf) {
-  const mark = ucEl("span", { class: "uc-chip-mark", "aria-hidden": "true", text: "\u2713", hidden: true });
+  const mark = ucEl("span", { class: "uc-chip-mark", "aria-hidden": "true", text: "\u25cf", hidden: true });
   const button = ucEl(
     "button",
     { type: "button", class: "uc-chip", "aria-pressed": "false", "data-uc-id": entry.id, title: entry.description || false },
@@ -342,7 +342,7 @@ function ucBuildInputs(options) {
     const card = ucEl(
       "button",
       { type: "button", class: "scenario-card", "aria-pressed": "false", "data-uc-id": industry.id },
-      ucEl("div", { class: "scenario-card-title" }, ucEl("span", { "aria-hidden": "true", style: "font-size: 22px;", text: industry.icon || "" }), ucEl("span", { text: industry.name })),
+      ucEl("div", { class: "scenario-card-title" }, ucEl("span", { text: industry.name })),
       ucEl("div", { class: "scenario-card-desc", text: industry.description || "" }),
     );
     card.addEventListener("click", () => ucSetIndustry(industry.id));
@@ -375,7 +375,7 @@ function ucBuildInputs(options) {
     { class: "panel uc-inputs", id: "uc-inputs" },
     ucEl("h3", { text: "1. Your scenario" }),
     ucFieldset("Industry", "Choose one. The industry sets the vocabulary, systems, and examples in every use case.", industryGrid),
-    ucFieldset("Departments", "Optional. Choose any number. Leave all off to see use cases from every department.", chips("departments", "uc-department-chips", options.departments, (d) => `${d.icon ? `${d.icon} ` : ""}${d.name}`)),
+    ucFieldset("Departments", "Optional. Choose any number. Leave all off to see use cases from every department.", chips("departments", "uc-department-chips", options.departments, (d) => d.name)),
     ucFieldset("Business goals", "Optional. Goals move matching use cases up the list.", chips("goals", "uc-goal-chips", options.goals, (g) => g.label)),
     ucFieldset("Data and channels you already have", "Optional. Use cases that fit what you have rank higher. Choose None yet to favor use cases that need no prepared data.", chips("dataSources", "uc-source-chips", options.dataSources, (s) => s.label)),
     ucEl("div", { class: "uc-row" }, ucFieldset("Platform focus", null, platformGroup), ucFieldset("Skill level", "Beginner builds from instructions; Advanced adds custom connectors, governance, and channels.", levelGroup)),
@@ -856,11 +856,13 @@ function ucBadges(u) {
 }
 
 function ucAddButton(u, titleId) {
-  const mark = ucEl("span", { class: "uc-chip-mark", "aria-hidden": "true", text: "\u2713 ", hidden: !ucState.shortlist.has(u.id) });
-  const button = ucEl("button", { type: "button", class: "btn btn-primary btn-sm", "aria-pressed": String(ucState.shortlist.has(u.id)), "aria-describedby": titleId, "data-uc-add": u.id }, mark, ucEl("span", { text: "Add to my lab plan" }));
+  const added = ucState.shortlist.has(u.id);
+  const mark = ucEl("span", { class: "uc-chip-mark", "aria-hidden": "true", hidden: true });
+  const label = ucEl("span", { text: added ? "Added to my lab plan" : "Add to my lab plan" });
+  const button = ucEl("button", { type: "button", class: "btn btn-primary btn-sm", "aria-pressed": String(added), "aria-describedby": titleId, "data-uc-add": u.id }, mark, label);
   button.addEventListener("click", () => ucSetShortlisted(u, !ucState.shortlist.has(u.id)));
   const refs = ucState.cards.get(u.id) || [];
-  refs.push({ button, mark });
+  refs.push({ button, mark, label });
   ucState.cards.set(u.id, refs);
   return button;
 }
@@ -951,7 +953,8 @@ function ucSyncCardState(id) {
     if (ref.check) ref.check.checked = on;
     if (ref.button) {
       ref.button.setAttribute("aria-pressed", String(on));
-      ref.mark.hidden = !on;
+      ref.mark.hidden = true;
+      if (ref.label) ref.label.textContent = on ? "Added to my lab plan" : "Add to my lab plan";
     }
   }
 }

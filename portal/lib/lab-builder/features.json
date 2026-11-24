@@ -56,67 +56,56 @@
     {
       "id": "foundations",
       "name": "Agent Foundations",
-      "icon": "🧱",
       "description": "Create the agent, write instructions, choose orchestration and models, publish."
     },
     {
       "id": "conversation",
       "name": "Conversation Design",
-      "icon": "💬",
       "description": "Topics, triggers, entities, variables, and rich responses."
     },
     {
       "id": "knowledge",
       "name": "Knowledge & Grounding",
-      "icon": "📚",
       "description": "Ground the agent in SharePoint, files, websites, Dataverse, and enterprise data."
     },
     {
       "id": "tools",
       "name": "Tools & Integrations",
-      "icon": "🔌",
       "description": "Connectors, custom connectors, prompts, MCP servers, and REST APIs."
     },
     {
       "id": "integrations",
       "name": "Enterprise Systems & Connectivity",
-      "icon": "🏢",
       "description": "ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, and Shopify, plus private connectivity through data gateways and virtual networks."
     },
     {
       "id": "orchestration",
       "name": "Multi-Agent Orchestration",
-      "icon": "🧩",
       "description": "Connected agents, agent-to-agent protocol, and reusable skills."
     },
     {
       "id": "automation",
       "name": "Agent Flows & Automation",
-      "icon": "⚡",
       "description": "Deterministic automation with agent flows and Power Automate."
     },
     {
       "id": "analytics",
       "name": "Analytics & Evaluation",
-      "icon": "📊",
       "description": "Measure quality, run evaluations, and catch regressions."
     },
     {
       "id": "governance",
       "name": "Security & Governance",
-      "icon": "🔐",
       "description": "Authentication, DLP, moderation, responsible AI, and admin controls."
     },
     {
       "id": "channels",
       "name": "Channels & Deployment",
-      "icon": "📡",
       "description": "Publish to Teams, M365 Copilot, websites, and voice channels."
     },
     {
       "id": "advanced",
       "name": "Advanced & Pro-Dev",
-      "icon": "🚀",
       "description": "Computer use, Work IQ, VS Code authoring, ALM, and cost planning."
     }
   ],
@@ -3610,7 +3599,7 @@
       ],
       "steps": [
         "Go to your agent's **Evaluation** page and choose the test set that represents the release candidate.",
-        "Select **Evaluate**, or in **Recent results** select **▶ Evaluate** next to **Evaluate Agent** to rerun a previous test set.",
+        "Select **Evaluate**, or in **Recent results** select **Evaluate** next to **Evaluate Agent** to rerun a previous test set.",
         "If **Manage profile and connections** appears, review the test account connections before the evaluation starts.",
         "Open the completed run in **Recent results** and record the **Pass rate**, **Pass**, **Fail**, **Invalid**, and **Error** signals.",
         "Select **All**, **Pass**, or **Fail** to inspect critical cases, and use **Show activity map** when you need to explain a result.",

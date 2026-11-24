@@ -8,7 +8,6 @@
  */
 (function () {
   const POLL_MS = 1000;
-  const ICONS = { verified: "✅", unverified: "❔", stale: "⚠️", unable: "🔌", "no-claims": "➖", "no-steps": "➖" };
   const LABELS = {
     verified: "Verified",
     unverified: "Unverified",
@@ -34,7 +33,7 @@
   const notify = (message, type) => (typeof window.toast === "function" ? window.toast(message, type) : undefined);
 
   function tag(status, text) {
-    return `<span class="tag ${BADGE[status] || ""}">${ICONS[status] || ""} ${esc(text ?? LABELS[status] ?? status)}</span>`;
+    return `<span class="tag ${BADGE[status] || ""}">${esc(text ?? LABELS[status] ?? status)}</span>`;
   }
 
   function countsText(counts) {

@@ -11,6 +11,7 @@
 import { createHash } from "node:crypto";
 
 import { rewriteConnectorText } from "./connector-names.js";
+import { plainText } from "./plain-text.js";
 
 export const LEARN_HOST = "learn.microsoft.com";
 export const DOCS_PREFIX = "/microsoft-copilot-studio/";
@@ -46,7 +47,7 @@ export function cleanText(value, max = MAX_SUMMARY) {
   if (typeof value !== "string") return "";
   // A connector's internal name becomes its display name first: the markup strip below would turn shared_<name> into
   // "shared <name>" and leave nothing to recognize.
-  let text = rewriteConnectorText(value)
+  let text = plainText(rewriteConnectorText(value))
     .replace(CONTROL, " ")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")

@@ -154,12 +154,12 @@ function freshnessRow(generation) {
 
   if (!check?.enabled || !check?.verifiedAt) {
     return readLearn
-      ? `| 🔗 **VERIFIED** | Not link-checked — generated ${day} against ${host} |`
-      : `| 🔗 **VERIFIED** | Not link-checked — generated ${day} without reading Microsoft Learn |`;
+      ? `| **VERIFIED** | Not link-checked — generated ${day} against ${host} |`
+      : `| **VERIFIED** | Not link-checked — generated ${day} without reading Microsoft Learn |`;
   }
   return readLearn
-    ? `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`
-    : `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}; Microsoft Learn was not read for this build |`;
+    ? `| **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`
+    : `| **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}; Microsoft Learn was not read for this build |`;
 }
 
 /** The PRODUCTS row: the Copilot Studio row as it always was, with any other product the lab covers added. */
@@ -183,14 +183,14 @@ function metadataTable(plan, generation = {}) {
   return [
     "| Field | Details |",
     "|---|---|",
-    `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
-    `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
-    `| ⏱️ **TIME** | Hands-on: about ${plan.duration} (estimate, not a limit) |`,
-    `| 🎓 **TRAINING** | Training: about ${formatTrainingDuration(estimateLabTrainingMinutes(plan).total)}, delivered before the hands-on lab (estimate, not a limit) |`,
-    `| 🧩 **PRODUCTS** | ${productsRow(plan)} |`,
-    plan.harness ? `| 🧭 **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
-    `| 🏷️ **TAGS** | ${tags} |`,
-    `| 🏭 **INDUSTRIES** | ${industries} |`,
+    `| **DIFFICULTY** | ${plan.difficulty} |`,
+    `| **LEVEL** | ${levelName(plan.level)} |`,
+    `| **TIME** | Hands-on: about ${plan.duration} (estimate, not a limit) |`,
+    `| **TRAINING** | Training: about ${formatTrainingDuration(estimateLabTrainingMinutes(plan).total)}, delivered before the hands-on lab (estimate, not a limit) |`,
+    `| **PRODUCTS** | ${productsRow(plan)} |`,
+    plan.harness ? `| **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
+    `| **TAGS** | ${tags} |`,
+    `| **INDUSTRIES** | ${industries} |`,
     freshnessRow(generation),
   ]
     .filter(Boolean)

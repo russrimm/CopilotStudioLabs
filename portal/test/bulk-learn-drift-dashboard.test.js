@@ -993,8 +993,8 @@ test("index.html and generated-labs.js expose accessible Bulk MS Learn Drift Das
   assert.match(getEl("lb-gen-drift-update-btn").textContent, /Update all labs that changed \(1\)/);
 
   const listHtmlAll = getEl("lb-generated-list").innerHTML;
-  assert.match(listHtmlAll, /✓ Microsoft Learn up to date/);
-  assert.match(listHtmlAll, /⚠ 2 topics updated on Microsoft Learn/);
+  assert.match(listHtmlAll, /Microsoft Learn up to date/);
+  assert.match(listHtmlAll, /2 topics updated on Microsoft Learn/);
   assert.match(listHtmlAll, /Not checked against Microsoft Learn yet/);
   assert.match(listHtmlAll, /data-gen-action="quick-learn-update"[^>]*data-lab-id="lab-drifted"/);
 

@@ -202,7 +202,7 @@ function buildAdaptiveCard({ title, intro, request, portalUrl, actions = [] }) {
     actions: [
       {
         type: "Action.OpenUrl",
-        title: "✅ Open Portal to Review",
+        title: "Open Portal to Review",
         url: getPortalReviewUrl(portalUrl),
       },
       ...actions,
@@ -337,11 +337,11 @@ async function sendConfiguredNotifications(request, eventType) {
   const teamsWebhookUrl = config.teamsNotificationWebhookUrl || config.teamsAdaptiveCardWebhookUrl;
 
   const eventTitles = {
-    submitted: "⚡ Power Platform Environment Request",
-    approved: "✅ Power Platform Request Approved",
-    rejected: "❌ Power Platform Request Rejected",
-    provisioned: "🚀 Power Platform Environment Provisioned",
-    failed: "⚠️ Power Platform Provisioning Failed",
+    submitted: "Power Platform Environment Request",
+    approved: "Power Platform Request Approved",
+    rejected: "Power Platform Request Rejected",
+    provisioned: "Power Platform Environment Provisioned",
+    failed: "Power Platform Provisioning Failed",
   };
 
   const introText = {
@@ -428,19 +428,19 @@ async function triggerApprovalChannel(request, config) {
       return request;
     case "teams-adaptive-card":
       await sendTeamsNotification(config.teamsAdaptiveCardWebhookUrl, buildAdaptiveCard({
-        title: "⚡ Power Platform Environment Request",
+        title: "Power Platform Environment Request",
         intro: "Review the request and approve or reject directly from Teams or open the portal for more details.",
         request,
         portalUrl,
         actions: [
           {
             type: "Action.OpenUrl",
-            title: "✅ Approve",
+            title: "Approve",
             url: getCallbackGetUrl(portalUrl, request, "approved"),
           },
           {
             type: "Action.OpenUrl",
-            title: "❌ Reject",
+            title: "Reject",
             url: getCallbackGetUrl(portalUrl, request, "rejected"),
           },
         ],

@@ -119,7 +119,7 @@ test("the lab panel shows the list: a start line, the steps behind each picture 
   assert.ok(!html.includes("<b>bold</b>") && html.includes("A &lt;b&gt;bold&lt;/b&gt; caption"));
   assert.match(html, /data-gen-action="shot-checklist-download"/);
   assert.match(ui.__ui.lbRenderChecklistHtml({ ...list, counts: { missing: 0, computer: 0, you: 0 }, you: [], computer: [] }), /Nothing is left/);
-  assert.match(ui.__ui.lbGeneratedActionButtonsHtml(ctx.labId, "A lab"), /data-gen-action="shot-checklist"[^>]*>📋 Screenshots left/);
+  assert.match(ui.__ui.lbGeneratedActionButtonsHtml(ctx.labId, "A lab"), /data-gen-action="shot-checklist"[^>]*>Screenshots left/);
 });
 
 test("the route returns the list and the Markdown for a lab, and refuses a bad lab id", async (t) => {

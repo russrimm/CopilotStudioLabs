@@ -6,6 +6,19 @@
 
 import { ZipArchive } from "archiver";
 import { createZipPathGuard, resolveExportBudget } from "./export-names.js";
+import { containsEmoji, plainText } from "./lab-builder/plain-text.js";
+
+const TEXT_ENTRY = /\.(md|markdown|txt|csv|json|html?)$/i;
+const HTML_ENTRY = /\.html?$/i;
+
+/** Text entries leave the archive as plain text: the last place a symbol from any source can be taken out. */
+function plainEntry(name, data) {
+  if (!TEXT_ENTRY.test(name)) return data;
+  const text = typeof data === "string" ? data : Buffer.isBuffer(data) ? data.toString("utf8") : null;
+  if (text === null || !containsEmoji(text)) return data;
+  const clean = plainText(text, { html: HTML_ENTRY.test(name) });
+  return Buffer.isBuffer(data) ? Buffer.from(clean, "utf8") : clean;
+}
 
 /**
  * @param {object} [options]
@@ -27,7 +40,7 @@ export function createExportZip({ budget = resolveExportBudget(), strict, level 
     /** Add in-memory content. Returns the path actually written. */
     add(name, data, meta = {}) {
       const path = guard.claim(name);
-      archive.append(data, { name: path });
+      archive.append(plainEntry(path, data), { name: path });
       entries.push({ path, ...meta });
       return path;
     },

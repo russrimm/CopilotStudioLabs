@@ -23,11 +23,11 @@ function lab(body, { title = "# Fixture Lab", overview = "## Overview" } = {}) {
     "",
     "| Field | Details |",
     "|---|---|",
-    "| ⭐ **DIFFICULTY** | Intermediate |",
-    "| ⏱️ **TIME** | 45 minutes |",
-    "| 🧩 **PRODUCTS** | Microsoft Copilot Studio |",
-    "| 🏷️ **TAGS** | topics |",
-    "| 🏭 **INDUSTRIES** | Retail |",
+    "| **DIFFICULTY** | Intermediate |",
+    "| **TIME** | 45 minutes |",
+    "| **PRODUCTS** | Microsoft Copilot Studio |",
+    "| **TAGS** | topics |",
+    "| **INDUSTRIES** | Retail |",
     "",
     overview,
     "",
@@ -49,6 +49,17 @@ function check(t, markdown, name) {
   return result.tests.find((x) => x.name === name);
 }
 
+test("a lab whose metadata rows carry an icon before the label (the hand-written labs, and labs saved by an older build) still validates", (t) => {
+  const legacy = lab("Body text.")
+    .replace("| **DIFFICULTY** |", "| \u2B50 **DIFFICULTY** |")
+    .replace("| **TIME** |", "| \u23F1\uFE0F **TIME** |")
+    .replace("| **PRODUCTS** |", "| \u{1F9E9} **PRODUCTS** |")
+    .replace("| **TAGS** |", "| \u{1F3F7}\uFE0F **TAGS** |")
+    .replace("| **INDUSTRIES** |", "| \u{1F3ED} **INDUSTRIES** |");
+  for (const name of ["has-difficulty", "has-time", "has-products", "has-tags", "has-industry"]) {
+    assert.equal(check(t, legacy, name).status, "pass", name);
+  }
+});
 test("the product is the Microsoft Copilot harness, never the GitHub Copilot harness", (t) => {
   const bad = lab("The GitHub Copilot harness is not a thing.");
   assert.equal(check(t, bad, "harness-terminology").status, "fail");

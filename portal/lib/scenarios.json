@@ -3,7 +3,6 @@
     {
       "id": "manufacturing",
       "name": "Manufacturing",
-      "icon": "🏭",
       "description": "AI use cases for manufacturing organizations",
       "categories": [
         { "name": "Design", "description": "Product development and engineering" },
@@ -16,7 +15,6 @@
     {
       "id": "retail",
       "name": "Retail",
-      "icon": "🛍️",
       "description": "AI use cases for retail organizations",
       "categories": [
         { "name": "Personalized Marketing", "description": "Deliver personalized marketing and promotions" },
@@ -29,7 +27,6 @@
     {
       "id": "financial-services",
       "name": "Financial Services",
-      "icon": "🏦",
       "description": "AI use cases for financial services organizations",
       "categories": [
         { "name": "Customer Experience", "description": "Transform customer and advisor experiences" },
@@ -42,7 +39,6 @@
     {
       "id": "healthcare",
       "name": "Healthcare",
-      "icon": "🏥",
       "description": "AI use cases for healthcare organizations",
       "categories": [
         { "name": "Operations Efficiency", "description": "Improve operational efficiency across care delivery" },
@@ -55,7 +51,6 @@
     {
       "id": "energy-resources",
       "name": "Energy & Resources",
-      "icon": "⚡",
       "description": "AI use cases for energy and resources organizations",
       "categories": [
         { "name": "Critical Infrastructure", "description": "Protect critical infrastructure" },
@@ -69,7 +64,6 @@
     {
       "id": "education",
       "name": "Education",
-      "icon": "🎓",
       "description": "AI use cases for education organizations",
       "categories": [
         { "name": "Student Success", "description": "Improve student success and experience" },
@@ -82,7 +76,6 @@
     {
       "id": "nonprofit",
       "name": "Nonprofit",
-      "icon": "🤝",
       "description": "AI use cases for nonprofit organizations",
       "categories": [
         { "name": "Fundraising", "description": "Improve fundraising outcomes and donor engagement" },
@@ -98,7 +91,6 @@
     {
       "id": "executives",
       "name": "Executives",
-      "icon": "📈",
       "description": "AI use cases for executives",
       "categories": [
         { "name": "Strategic Planning", "description": "Accelerate strategic planning" },
@@ -110,7 +102,6 @@
     {
       "id": "sales",
       "name": "Sales",
-      "icon": "💼",
       "description": "AI use cases for sales professionals",
       "categories": [
         { "name": "Pipeline Management", "description": "Opportunity pursuit and tracking" },
@@ -122,7 +113,6 @@
     {
       "id": "marketing",
       "name": "Marketing",
-      "icon": "📣",
       "description": "AI use cases for marketing teams",
       "categories": [
         { "name": "Content Creation", "description": "Scale campaign and content creation" },
@@ -135,7 +125,6 @@
     {
       "id": "customer-service",
       "name": "Customer Service",
-      "icon": "🎧",
       "description": "AI use cases for customer service teams",
       "categories": [
         { "name": "Self-Service", "description": "Expand customer self-service options" },
@@ -148,7 +137,6 @@
     {
       "id": "legal",
       "name": "Legal",
-      "icon": "⚖️",
       "description": "AI use cases for legal teams",
       "categories": [
         { "name": "Contract Management", "description": "Improve contract management and review" },
@@ -161,7 +149,6 @@
     {
       "id": "finance",
       "name": "Finance",
-      "icon": "💰",
       "description": "AI use cases for finance teams",
       "categories": [
         { "name": "Analysis", "description": "Improve financial analysis" },
@@ -174,7 +161,6 @@
     {
       "id": "hr",
       "name": "HR",
-      "icon": "🧑‍🤝‍🧑",
       "description": "AI use cases for HR teams",
       "categories": [
         { "name": "Onboarding", "description": "Improve employee onboarding" },
@@ -187,7 +173,6 @@
     {
       "id": "it",
       "name": "IT",
-      "icon": "🖥️",
       "description": "AI use cases for IT teams",
       "categories": [
         { "name": "Service Desk", "description": "Improve service desk support" },
@@ -201,7 +186,6 @@
     {
       "id": "communications",
       "name": "Communications",
-      "icon": "📢",
       "description": "AI use cases for communications teams",
       "categories": [
         { "name": "Planning", "description": "Speed up communications planning" },
@@ -214,7 +198,6 @@
     {
       "id": "operations",
       "name": "Operations",
-      "icon": "⚙️",
       "description": "AI use cases for operations teams",
       "categories": [
         { "name": "Efficiency", "description": "Improve operational efficiency" },
@@ -227,7 +210,6 @@
     {
       "id": "sustainability",
       "name": "Sustainability",
-      "icon": "🌱",
       "description": "AI use cases for sustainability teams",
       "categories": [
         { "name": "Carbon", "description": "Reduce carbon footprint" },
@@ -240,7 +222,6 @@
     {
       "id": "accessibility",
       "name": "Accessibility",
-      "icon": "♿",
       "description": "AI use cases for accessibility leaders",
       "categories": [
         { "name": "Productivity", "description": "Improve accessibility-focused productivity" },

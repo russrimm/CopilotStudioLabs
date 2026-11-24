@@ -16,6 +16,7 @@ import {
 } from "./architecture-overview.js";
 import { cleanText, getBrandFont } from "./brand-theme.js";
 import { PRODUCT_NAME } from "../product-name.js";
+import { plainText } from "./plain-text.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { isSubStepStart, normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 
@@ -40,16 +41,8 @@ const UNICODE_REPLACEMENTS = new Map([
   ["\u00A0", " "],
   ["\u2192", "->"],
   ["\u2190", "<-"],
-  ["\u2194", "<->"],
   ["\u2610", "[ ]"],
   ["\u2611", "[x]"],
-  ["\u2713", "[x]"],
-  ["\u2714", "[x]"],
-  ["\u2705", "[PASS]"],
-  ["\u274C", "[FAIL]"],
-  ["\u26A0", "[!]"],
-  ["\u2B50", "*"],
-  ["\u23F1", ""],
   ["\uFE0F", ""],
 ]);
 
@@ -61,7 +54,8 @@ const WINANSI_EXTENDED_CODES = new Set([0x80, 0x85, 0x91, 0x92, 0x93, 0x94, 0x95
  * again on already-normalized WinAnsi tokens.
  */
 function toWinAnsiString(raw) {
-  const input = String(raw ?? "");
+  // Emoji never reach the page: they become words or are dropped before the characters are encoded.
+  const input = plainText(String(raw ?? ""));
   let out = "";
   for (const ch of input) {
     if (UNICODE_REPLACEMENTS.has(ch)) {

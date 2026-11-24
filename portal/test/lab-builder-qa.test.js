@@ -9,8 +9,8 @@ function lab({ extraStep = "", alt = ALT, time = "30 minutes", header = "About 3
 
 | Field | Details |
 |---|---|
-| ⭐ **DIFFICULTY** | Beginner |
-| ⏱️ **TIME** | ${header} (estimate, not a limit) |
+| **DIFFICULTY** | Beginner |
+| **TIME** | ${header} (estimate, not a limit) |
 
 ## Overview
 

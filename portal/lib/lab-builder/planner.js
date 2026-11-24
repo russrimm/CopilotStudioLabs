@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { plainText } from "./plain-text.js";
 
 import { expandPrereqs, getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
 import { extractFeatureLearnLinks } from "./learn-citations.js";
@@ -88,7 +89,8 @@ const MAX_TEXT_LENGTHS = {
 function optionalText(value, name) {
   if (value === undefined || value === null || value === "") return undefined;
   if (typeof value !== "string") throw new Error(`${name} must be a string.`);
-  const trimmed = value.trim();
+  // A symbol a person typed or pasted never becomes part of the lab: its title, its agent name, and its notes stay plain text.
+  const trimmed = plainText(value).trim();
   if (!trimmed) return undefined;
   if (trimmed.length > MAX_TEXT_LENGTHS[name]) {
     throw new Error(`${name} must be at most ${MAX_TEXT_LENGTHS[name]} characters.`);

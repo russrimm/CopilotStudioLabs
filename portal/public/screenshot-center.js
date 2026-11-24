@@ -616,7 +616,7 @@ function scBuildStrip(model) {
   const list = scEl("ol", { class: "sc-steps", attrs: { "aria-label": `Set up screenshot capture in ${words[model.steps.length]} parts` }, data: { steps: model.steps.length } });
   model.steps.forEach((step, index) => {
     const li = scEl("li", { class: "sc-step", data: { state: step.state, step: step.id } });
-    li.appendChild(scEl("span", { class: "sc-step-num", text: step.state === "done" ? "\u2713" : String(index + 1), attrs: { "aria-hidden": "true" } }));
+    li.appendChild(scEl("span", { class: "sc-step-num", text: String(index + 1), attrs: { "aria-hidden": "true" } }));
     const body = scEl("div", { class: "sc-step-body" });
     const title = scEl("h5", { class: "sc-step-title" });
     title.appendChild(scEl("span", { text: `Part ${index + 1}: ${step.title}` }));
@@ -769,7 +769,7 @@ function scBuildPrimary(model, lab) {
   const label = busyLabel || primary.label;
   const button = scEl("button", {
     class: `btn btn-primary sc-primary-btn${primary.action === "done" ? " sc-primary-done" : ""}`,
-    text: primary.action === "done" ? `\u2713 ${label}` : label,
+    text: label,
     attrs: { type: "button", "aria-describedby": "sc-primary-help", disabled: disabled || false, "aria-busy": busyLabel || primary.action === "busy" ? "true" : false },
     data: { scAction: `primary-${primary.action}`, scFocus: "primary" },
   });
@@ -2558,7 +2558,7 @@ function scBuildLightbox(labId) {
   });
   const head = scEl("div", { class: "sc-lb-head" });
   head.appendChild(scEl("h5", { id: "sc-lb-title", class: "sc-lb-title", text: "" }));
-  head.appendChild(scButton("\u2715", { action: "lightbox-close", focus: "lb-close", aria: { "aria-label": "Close the preview" }, small: false }));
+  head.appendChild(scButton("\u00d7", { action: "lightbox-close", focus: "lb-close", aria: { "aria-label": "Close the preview" }, small: false }));
   dialog.appendChild(head);
   const main = scEl("div", { class: "sc-lb-main" });
   main.appendChild(scButton("\u2039", { action: "lightbox-prev", focus: "lb-prev", aria: { "aria-label": "Previous screenshot" }, small: false }));

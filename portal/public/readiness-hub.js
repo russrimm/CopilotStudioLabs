@@ -515,7 +515,7 @@ function rhOnStatusChanged() {
 
 // ── Rendering ───────────────────────────────────────────────────────────────
 
-const RH_ICONS = Object.freeze({ done: "\u2713", todo: "\u25cb", partial: "\u25d0", attention: "!", locked: "\u2026", loading: "\u2026", error: "!" });
+const RH_ICONS = Object.freeze({ done: "\u25cf", todo: "\u25cb", partial: "\u25d0", attention: "!", locked: "\u2026", loading: "\u2026", error: "!" });
 const RH_TONES = Object.freeze({ done: "ok", todo: "warn", partial: "warn", attention: "warn", locked: "neutral", loading: "info", error: "bad" });
 
 function rhStateLabel(row) {
