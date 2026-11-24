@@ -122,6 +122,7 @@ function lbGenSearchText(lab) {
     lab.sharepointSite?.url || "",
     lbGenIndustryName(lab.vertical),
     lbGenHarnessName(lab.harness),
+    ...(Array.isArray(lab.harnesses) ? lab.harnesses.map(lbGenHarnessName) : []),
     lbGenLevelName(lab.level),
     ...lbGenProductNames(lab),
   ]
@@ -731,6 +732,7 @@ function lbGenItemHtml(lab) {
   if (lab.level) chips.push(escapeHtml(lbGenLevelName(lab.level)));
   else chips.push("Level not recorded");
   if (lab.harness) chips.push(escapeHtml(lbGenHarnessName(lab.harness)));
+  else if (Array.isArray(lab.harnesses) && lab.harnesses.length === 2) chips.push(escapeHtml(`Both: ${lab.harnesses.map(lbGenHarnessName).join(", then ")}`));
   chips.push(`About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))} (estimate)`);
   const recaps = Number(lab.prerequisiteCount) || 0;
   const topics = Math.max((Number(lab.moduleCount) || 0) - recaps, 0);

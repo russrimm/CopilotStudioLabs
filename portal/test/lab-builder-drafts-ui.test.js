@@ -120,10 +120,12 @@ async function makePage(t, drafts, { loaded = true } = {}) {
       modules: p.features.map((f) => ({
         id: f.id, order: f.order, stepOrder: f.stepOrder ?? null, recapOrder: f.recapOrder ?? null, stepLabel: f.stepLabel, name: f.name,
         category: f.category, level: f.level, role: f.prerequisite ? "prerequisite" : "level", minutes: f.minutes, summary: f.summary,
+        ...(f.harnessPart ? { harnessPart: f.harnessPart } : {}),
         docUrls: f.docUrls || [], learnLinks: f.learnLinks || [],
         ...(f.learnTopic?.subtopicChoices?.length ? { subtopics: f.learnTopic.subtopicChoices } : {}),
       })),
       level: p.level, products: p.products, productNames: p.productNames, harness: p.harness,
+      ...(p.harnessParts ? { harnessMode: p.harnessMode, harnesses: p.harnesses, harnessParts: p.harnessParts } : {}),
       includeKnowledgeCheck: Boolean(p.includeKnowledgeCheck), requiresSharepointSite: false,
       sharepointSite: { name: null, url: null, label: null, configured: false },
       droppedOutOfLevel: [], moduleOrder: [], excludedSubtopics: p.request.excludedSubtopics || [],
@@ -1185,4 +1187,180 @@ test("the drafts script writes nothing to the clipboard or local storage and kee
   assert.ok(printBlocks >= 1);
   const screenCss = HTML.slice(0, HTML.indexOf("@media print"));
   assert.match(screenCss, /\.lb-draft-notice \{/, "the draft styles are screen CSS, before the first print block");
+});
+
+// ── Both harnesses, one after another ───────────────────────────────────────
+
+/** The "Both, one after another" radio, and the radios for each harness, from the rendered Tailor it step. */
+const bothRadio = (h) => h.byId("lb-harness-options").querySelector('input[value="both"]');
+const harnessRadio = (h, id) => h.byId("lb-harness-options").querySelector(`input[value="${id}"]`);
+async function choose(h, input) {
+  input.value = input.getAttribute("value");
+  input.checked = true;
+  input.dispatchEvent(new h.FakeEvent("change"));
+  await h.settle();
+}
+const tailorWithCopilotStudio = (h) => h.run(`labBuilder.selectedProducts = new Set(["copilot-studio"]); labBuilder.chosenSteps = new Set(["product"]); labBuilder.level = 100; lbRenderHarnesses();`);
+
+test("Tailor it offers 'Both, one after another' next to the single harnesses, with a plain hint, and a single harness is unchanged", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  tailorWithCopilotStudio(h);
+
+  const radios = h.byId("lb-harness-options").querySelectorAll("input[type=radio]");
+  assert.deepEqual([...radios].map((r) => r.getAttribute("value")), ["standard", "microsoft-copilot", "customer-conversation", "both"], "the choice sits after the single harnesses, in the same radio group");
+  assert.ok([...radios].every((r) => r.getAttribute("name") === "lb-harness"), "one radio group, so the arrow keys move between all four");
+  assert.equal(bothRadio(h).checked, false);
+  const label = bothRadio(h).parentNode.textContent;
+  assert.match(label, /Both, one after another/);
+  assert.match(label, /Covers the Standard \(Classic\) harness first, then the Microsoft Copilot harness\. Shared topics appear once\./);
+  assert.match(label, /\d+ Level 100 \(Beginner\) topics/);
+  assert.equal(h.byId("lb-harness-order").hidden, true, "the order line waits for the choice");
+
+  // A single harness: exactly the request it always sent.
+  assert.equal(h.state("lbRequest().harness"), "standard");
+  assert.deepEqual(h.state("lbRequest().differencesFor"), ["microsoft-copilot"]);
+  assert.equal(h.state('"harnessMode" in lbRequest() || "harnesses" in lbRequest()'), false);
+  assert.equal(h.state("lbAnswers().harness"), "standard");
+  assert.equal(h.state('"harnessMode" in lbAnswers()'), false);
+  assert.equal(harnessRadio(h, "standard").checked, true);
+});
+
+test("choosing Both sets the request, the topic list, the review summary, the order line, and hides the comparison notes; Swap order reverses it", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  tailorWithCopilotStudio(h);
+  await choose(h, bothRadio(h));
+  await h.until(() => h.recommendCalls.some((c) => c.harnessMode === "both"), "the topic list to ask for both harnesses");
+
+  assert.equal(h.state("lbIsBoth()"), true);
+  // The fake DOM has no radio groups, so a render (which the page does on the next change) shows what is selected.
+  h.run("lbRenderHarnesses()");
+  assert.equal(bothRadio(h).checked, true);
+  assert.equal(harnessRadio(h, "standard").checked, false, "a single harness is no longer selected");
+  const request = h.state("lbRequest()");
+  assert.equal(request.harnessMode, "both");
+  assert.deepEqual(request.harnesses, ["standard", "microsoft-copilot"], "Standard (Classic) first by default");
+  assert.ok(!("harness" in request) && !("differencesFor" in request), "no single harness, and no comparison notes");
+  const asked = h.recommendCalls.at(-1);
+  assert.deepEqual([asked.harnessMode, asked.harnesses, asked.harness], ["both", ["standard", "microsoft-copilot"], undefined]);
+
+  assert.equal(h.byId("lb-harness-order").hidden, false);
+  assert.equal(h.text("lb-harness-order-text"), "Order: Standard (Classic) first, then Microsoft Copilot.");
+  assert.match(h.text("lb-harness-hint"), /Both harnesses are selected, Standard \(Classic\) first, then Microsoft Copilot\. A topic that is the same in both is covered once\./);
+  assert.match(h.text("lb-summary"), /Both: Standard \(Classic\), then Microsoft Copilot/);
+  assert.equal(h.byId("lb-differences-options").querySelectorAll("input").length, 0, "the comparison notes are not offered: both harnesses are taught");
+
+  // The topic list shows both harnesses' topics, each tagged.
+  const ids = h.state("labBuilder.rec.concepts.flatMap((c) => c.topics.map((t) => t.id))");
+  assert.ok(ids.includes("create-agent") && ids.includes("mc-create-agent") && ids.includes("mc-harness-choice"));
+  assert.equal(h.state("lbTopicHarnessTag({ harnesses: ['standard'] })"), "Standard (Classic)");
+  assert.equal(h.state("lbTopicHarnessTag({ harnesses: ['microsoft-copilot'] })"), "Microsoft Copilot");
+  assert.equal(h.state("lbTopicHarnessTag({ harnesses: ['standard', 'microsoft-copilot'] })"), "Either harness");
+
+  // Swap order.
+  await h.click(h.byId("lb-harness-swap"));
+  assert.equal(h.text("lb-harness-order-text"), "Order: Microsoft Copilot first, then Standard (Classic).");
+  assert.deepEqual(h.state("lbRequest().harnesses"), ["microsoft-copilot", "standard"]);
+  assert.match(h.byId("lb-harness-swap").getAttribute("aria-label"), /Swap the order: teach Standard \(Classic\) first, then Microsoft Copilot/);
+  await h.until(() => h.recommendCalls.at(-1)?.harnesses?.[0] === "microsoft-copilot", "the topic list to follow the order");
+
+  // Back to one harness: the old request returns and the order line goes away.
+  await choose(h, harnessRadio(h, "microsoft-copilot"));
+  assert.equal(h.state("lbRequest().harness"), "microsoft-copilot");
+  assert.equal(h.state('"harnessMode" in lbRequest()'), false);
+  assert.equal(h.byId("lb-harness-order").hidden, true);
+  assert.deepEqual(h.state("lbAnswers().harness"), "microsoft-copilot");
+});
+
+test("the review outline groups a combined lab into parts, and the preview request carries both harnesses", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  tailorWithCopilotStudio(h);
+  await choose(h, bothRadio(h));
+  h.run(`labBuilder.picked = new Set(["create-agent", "mc-create-agent", "mc-harness-choice"]); labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]); labBuilder.level = 100;`);
+  await h.refresh();
+  await h.run("lbPreview()");
+  await h.until(() => h.previewCalls.length > 0, "the preview");
+  assert.equal(h.previewCalls.at(-1).harnessMode, "both");
+  await h.until(() => /lb-outline-part-row/.test(h.byId("lb-preview").innerHTML), "the outline");
+  const html = h.byId("lb-preview").innerHTML;
+  assert.match(html, /Part 1: Shared foundations \(works in either harness\)/);
+  assert.match(html, /Part 2: Standard \(Classic\) harness/);
+  assert.match(html, /Part 3: Microsoft Copilot harness/);
+});
+
+test("a draft keeps 'Both, one after another' and its order through Save and finish later and Resume", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  tailorWithCopilotStudio(h);
+  await choose(h, bothRadio(h));
+  await h.click(h.byId("lb-harness-swap"));
+  const before = h.state("lbDraftContent()");
+  assert.equal(before.selections.harnessMode, "both");
+  assert.deepEqual(before.selections.harnesses, ["microsoft-copilot", "standard"]);
+
+  await saveVia(h, "Both harnesses pilot");
+  const saved = drafts.store.list("local").drafts;
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].harnessMode, "both", "the Saved drafts list knows");
+  assert.deepEqual(saved[0].harnesses, ["microsoft-copilot", "standard"]);
+  const onDisk = JSON.parse(readFileSync(join(drafts.folder, `${saved[0].id}.json`), "utf8"));
+  assert.equal(onDisk.schemaVersion, 3);
+  assert.equal(onDisk.content.selections.harnessMode, "both");
+
+  const page = await makePage(t, drafts);
+  await page.click(page.rowButton(saved[0].id, "resume"));
+  await page.until(() => page.state("labBuilder.harnessMode") === "both", "the draft to open");
+  assert.equal(page.state("lbIsBoth()"), true);
+  assert.deepEqual(page.state("labBuilder.harnessOrder"), ["microsoft-copilot", "standard"], "the order comes back as it was saved");
+  assert.deepEqual(page.state("lbDraftContent().selections"), before.selections, "every choice comes back exactly");
+  assert.equal(page.state("lbRequest().harnessMode"), "both");
+  assert.equal(page.byId("lb-harness-order").hidden, false);
+  assert.equal(page.text("lb-harness-order-text"), "Order: Microsoft Copilot first, then Standard (Classic).");
+  assert.equal(bothRadio(page).checked, true);
+
+  // Start over goes back to Standard, one harness, the default order.
+  page.run("lbResetAnswers()");
+  assert.equal(page.state("labBuilder.harnessMode"), "single");
+  assert.deepEqual(page.state("labBuilder.harnessOrder"), ["standard", "microsoft-copilot"]);
+});
+
+test("a draft saved before the option opens as a single-harness draft, and a lab built with Both re-opens as Both", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  tailorWithCopilotStudio(h);
+  await saveVia(h, "Older draft");
+  const [{ id }] = drafts.store.list("local").drafts;
+  // Rewrite the file the way version 2 saved it: no harness mode and no pair.
+  const file = join(drafts.folder, `${id}.json`);
+  const record = JSON.parse(readFileSync(file, "utf8"));
+  delete record.content.selections.harnessMode;
+  delete record.content.selections.harnesses;
+  writeFileSync(file, JSON.stringify({ ...record, schemaVersion: 2 }));
+  const page = await makePage(t, drafts);
+  await page.click(page.rowButton(id, "resume"));
+  await page.until(() => page.state("labBuilder.step") >= 1 && page.state("labBuilder.selectedProducts.size") === 1, "the draft to open");
+  assert.equal(page.state("labBuilder.harnessMode"), "single");
+  assert.equal(page.state("lbIsBoth()"), false);
+  assert.equal(JSON.parse(readFileSync(file, "utf8")).schemaVersion, 2, "reading never rewrites the file");
+
+  // "Edit selections" of a built lab: the saved selections name both harnesses.
+  const apply = page.run(`lbApplySavedSelections({ industry: null, roles: [], level: 100, products: ["copilot-studio"], harness: null, harnessMode: "both", harnesses: ["microsoft-copilot", "standard"], features: ["create-agent", "mc-create-agent"], excluded: [], excludedSubtopics: [], moduleOrder: [], differencesFor: null })`);
+  assert.ok(apply, "nothing was left out");
+  assert.equal(page.state("lbIsBoth()"), true);
+  assert.deepEqual(page.state("labBuilder.harnessOrder"), ["microsoft-copilot", "standard"]);
+});
+
+test("the harness choice is keyboard and screen reader friendly, and its styles live in their own block, before print, with a narrow-screen rule", () => {
+  assert.match(STAGE, /<div class="lb-tailor-row" id="lb-harness-row" role="radiogroup" aria-labelledby="lb-harness-label"/);
+  assert.match(STAGE, /<p id="lb-harness-order-text" class="lb-tailor-hint" role="status" aria-live="polite"><\/p>/, "the order is announced when it changes");
+  assert.match(STAGE, /<button class="btn lb-harness-swap" type="button" id="lb-harness-swap">Swap order<\/button>/, "a real button, so it works with the keyboard");
+  assert.match(WIZARD, /swap\.setAttribute\("aria-label", `Swap the order: teach/, "the button says what it does");
+  const screenCss = HTML.slice(0, HTML.indexOf("@media print"));
+  assert.match(screenCss, /\/\* ── Both harnesses, one after another: the order line and its Swap button ── \*\//);
+  assert.match(screenCss, /\.lb-harness-order \{[^}]*border: 1px solid var\(--border\);[^}]*background: var\(--bg\);/, "theme variables, so light and dark both work");
+  assert.match(screenCss, /@media \(max-width: 560px\) \{\s*\.lb-harness-swap \{ width: 100%; min-height: 44px; \}/, "a full-width, touch-sized button on a narrow screen");
+  assert.doesNotMatch(screenCss.slice(screenCss.indexOf("Both harnesses, one after another")).slice(0, 900), /border-(left|right|top|bottom)\s*:\s*[2-9]px|border-(left|right)-width\s*:\s*[2-9]/, "no thick side stripe");
+  assert.doesNotMatch(WIZARD.slice(WIZARD.indexOf("// ── \"Both, one after another\"")).slice(0, 4000), /[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u, "plain text, no emoji");
 });

@@ -22,6 +22,7 @@ import { PLACEHOLDER_PATH, derivedSlotsForTopic, describeSlot, slotsForFeature }
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 import { reusePictureVerdict } from "./picture-guard.js";
+import { moduleHarnessRecord } from "./harness-parts.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -135,6 +136,8 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
         kind: described.kind,
         figure: `${sectionNum}.${figure}`,
         status: captured ? "captured" : "pending",
+        // A lab that covers two harnesses: the harness of the section this picture sits in (see harness-parts.js).
+        ...(plan.harnessParts ? moduleHarnessRecord(plan.harnessParts, feature) : {}),
       };
       if (shot.url) entry.url = shot.url;
       if (shot.product) entry.product = shot.product;

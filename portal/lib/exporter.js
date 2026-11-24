@@ -21,6 +21,7 @@ import {
   renderBrandInfoMarkdown,
 } from "./lab-builder/brand-theme.js";
 import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
+import { moduleReadingHarness, SHARED_NOTE, harnessTitle } from "./lab-builder/harness-parts.js";
 import { resolveLabScreenshot } from "./lab-builder/captured.js";
 import { altOfTag, loadShotSlots } from "./lab-builder/pending-shot-card.js";
 import { repairLabPlaceholders } from "./lab-builder/lab-screenshots.js";
@@ -234,7 +235,7 @@ export function renderBundleReadme({ title, brand, formats = [], modules = [], h
   lines.push(`> ${EXTRACT_ON_WINDOWS_TIP}`, "");
   lines.push("## What is in this bundle", "");
   if (trainingDecks) {
-    lines.push(`- \`${trainingDecks.folder}/\` — the pre-lab training decks: deliver these first, to people who are new to this. About ${trainingDecks.minutes} minutes, no lab steps. It has a complete deck, a foundations deck for each product, and one deck for each module.`);
+    lines.push(`- \`${trainingDecks.folder}/\` — the pre-lab training decks: deliver these first, to people who are new to this. About ${trainingDecks.minutes} minutes, no lab steps. It has a complete deck, a foundations deck for each product, and one deck for each module.${trainingDecks.parts?.length ? ` This package covers two harnesses, so every idea is taught once and the decks run in this order: ${trainingDecks.parts.join(", then ")}.` : ""}`);
   }
   lines.push(labFolder ? `- \`${labFolder}/index.md\` and \`${labFolder}/index.html\` — the complete lab guide (Markdown and a single-file web page).` : "- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
   if (formats.length) {
@@ -248,7 +249,7 @@ export function renderBundleReadme({ title, brand, formats = [], modules = [], h
   lines.push(`- \`${labFolder ? `${labFolder}/` : ""}assets/\` — screenshots used by the guide.`);
   if (modules.length) {
     lines.push("", "## Modules", "");
-    for (const mod of modules) lines.push(`${mod.order}. ${mod.title}`);
+    for (const mod of modules) lines.push(`${mod.order}. ${mod.title}${mod.harnessLabel ? ` (${mod.harnessLabel})` : ""}`);
   }
   if (contents) lines.push("", String(contents).trim());
   const resources = [];
@@ -1118,6 +1119,8 @@ export function exportGeneratedLab(
           minutes: mMeta.minutes ?? null,
           folder: names.folder,
           title: `${mod.stepLabel} — ${mod.title}`,
+          // A lab that covers two harnesses: which harness this module is for, so the README index can say so.
+          ...(mMeta.harnessPart ? { harnessLabel: mMeta.harness ? harnessTitle(mMeta.harness) : SHARED_NOTE } : {}),
         };
         const documents = appendFormattedDocs(
           names.folder,
@@ -1133,10 +1136,7 @@ export function exportGeneratedLab(
             estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
             products: productsText,
             agentName: effectiveManifest?.options?.agentName || effectiveManifest?.request?.agentName || "",
-            harness:
-              effectiveManifest?.request?.harness ||
-              effectiveManifest?.differences?.labHarness ||
-              null,
+            harness: moduleReadingHarness(effectiveManifest, mMeta),
             trainingDigest: mMeta.trainingDigest || null,
             manifest: effectiveManifest,
           },
@@ -1173,6 +1173,7 @@ export function exportGeneratedLab(
           folder: posix.join(labFolder, names.folder),
           documents,
           sampleFiles: sampleFilePaths,
+          ...(mMeta.harnessPart ? { harness: mMeta.harness ?? null, harnessPart: mMeta.harnessPart, harnessLabel: mMeta.harness ? harnessTitle(mMeta.harness) : SHARED_NOTE } : {}),
         });
       }
 
@@ -1311,6 +1312,7 @@ export function exportGeneratedLab(
               title: entry.stepLabel ? `${entry.stepLabel} — ${entry.title}` : entry.title,
               order: entry.order ?? null,
               minutes: entry.minutes ?? null,
+              ...(entry.harnessLabel ? { harnessLabel: entry.harnessLabel } : {}),
             });
           }
         }
@@ -1323,7 +1325,7 @@ export function exportGeneratedLab(
         modules: exportedModules,
         customerChecklistFile,
         hasAdministratorFolder: true,
-        trainingDecks: trainingExport ? { folder: TRAINING_ZIP_FOLDER, minutes: trainingExport.summary.totalMinutes } : null,
+        trainingDecks: trainingExport ? { folder: TRAINING_ZIP_FOLDER, minutes: trainingExport.summary.totalMinutes, parts: trainingExport.summary.combined?.parts.map((p) => p.label) || null } : null,
         labFolder,
         contents: renderContentsMarkdown(zip.entries, { labFolder }),
       });

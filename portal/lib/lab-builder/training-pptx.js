@@ -694,6 +694,38 @@ const DRAW = {
     });
   },
 
+  /** "Same idea, different place": one column for each harness, side by side. */
+  compare(p, slide, body, ctx) {
+    p.box("Intro", MARGIN, TOP - 60000, CONTENT_W, 360000, [p.p(body.intro, 20, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
+    const top = TOP + 320000;
+    const gap = 300000;
+    const colW = Math.floor((CONTENT_W - gap) / 2);
+    const height = Math.max(1200000, ctx.bottom - top);
+    body.columns.forEach((col, i) => {
+      const paragraphs = [
+        p.p(col.name, 20, { bold: true, colorHex: p.dark, font: p.heading, spaceAfterPt: 2 }),
+        {
+          runs: [
+            { text: `Called "${col.term}"`, bold: true, colorHex: p.accentText, font: p.heading },
+            { text: `   ${col.availability}`, bold: true, colorHex: COLORS.muted },
+          ],
+          sizePt: 20,
+          spaceAfterPt: 8,
+          lineSpacingPct: LINE_SPACING,
+        },
+        ...(col.summary ? [p.p(col.summary, 18, { spaceAfterPt: 6 })] : []),
+        ...(col.where ? [p.p(`Where: ${col.where}`, 18, { spaceAfterPt: 6 })] : []),
+        ...col.limits.map((limit) => p.p(limit, 16, { bulletChar: "•", bulletColorHex: p.primary, spaceAfterPt: 0 })),
+      ];
+      p.box(`Harness ${i + 1}`, MARGIN + i * (colW + gap), top, colW, height, paragraphs, {
+        fillHex: p.tint,
+        borderHex: p.border,
+        geom: "roundRect",
+        insets: { l: 200000, t: 120000, r: 200000, b: 100000 },
+      });
+    });
+  },
+
   divider(p, slide, body, ctx) {
     const rows = body.rows;
     const windowed = rows.length > 12 ? rows.slice(Math.max(0, Math.min(body.current - 3, rows.length - 7)), Math.max(0, Math.min(body.current - 3, rows.length - 7)) + 7) : rows;

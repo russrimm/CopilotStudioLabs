@@ -23,6 +23,7 @@ import { conceptProducts } from "./coverage.js";
 import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { DEFAULT_PRODUCT, getProduct, getProducts, productHasHarnesses, productName, productOf } from "./products.js";
 import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
+import { DEFAULT_COMBINED_ORDER } from "./harness-parts.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { consolidateTopics, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
@@ -60,11 +61,11 @@ function addReason(reasons, id, reason) {
  * others, and a sentence that says what exists and why the list may be short.
  * A product with nothing at the level is explained, never left as a dead end.
  */
-function summarizeProducts({ products, harness, level, features }) {
+function summarizeProducts({ products, harnessList, level, features }) {
   return products.map((id) => {
     const product = getProduct(id);
     const own = [...features.values()].filter(
-      (f) => productOf(f) === id && (!product?.hasHarnesses || !harness || f.harness?.includes(harness)),
+      (f) => productOf(f) === id && (!product?.hasHarnesses || !harnessList.length || f.harness?.some((h) => harnessList.includes(h))),
     );
     const byLevel = Object.fromEntries(LEVELS.map((l) => [l, own.filter((f) => f.level === l).length]));
     const here = byLevel[level];
@@ -75,7 +76,7 @@ function summarizeProducts({ products, harness, level, features }) {
         ? `${productName(id)} has no ${levelName(level)} topics yet. It has ${elsewhere
             .map((l) => `${byLevel[l]} at ${levelName(l)}`)
             .join(" and ")}. Choose another level to teach them.`
-        : `${productName(id)} has no topics for ${product?.hasHarnesses && harness ? "this harness" : "this level"} yet.`;
+        : `${productName(id)} has no topics for ${product?.hasHarnesses && harnessList.length ? (harnessList.length > 1 ? "these harnesses" : "this harness") : "this level"} yet.`;
     }
     return { id, name: productName(id), shortName: product?.shortName || productName(id), byLevel, atLevel: here, message };
   });
@@ -109,14 +110,28 @@ export function recommend(answers = {}, learn = {}) {
   if (!requestedProducts.length) throw new Error("Select at least one product.");
   const selectedProducts = knownProducts.filter((p) => requestedProducts.includes(p.id)).map((p) => p.id);
 
-  // A harness exists only for a product that has harnesses.
+  // A harness exists only for a product that has harnesses. "Both" covers two harnesses one after another: a topic is
+  // listed when it applies to either, so each topic shows which harness it is for.
   const harnessProducts = selectedProducts.filter((id) => productHasHarnesses(id));
   let harness = null;
+  let harnessList = [];
   if (harnessProducts.length) {
-    harness = answers.harness || DEFAULT_HARNESS;
-    const entry = harnesses.find((h) => h.id === harness);
-    if (!entry) throw new Error(`Unknown harness "${harness}".`);
-    if (!harnessProducts.includes(entry.product)) throw new Error(`The harness "${harness}" belongs to a product that is not selected.`);
+    if (answers.harnessMode === "both") {
+      harnessList = Array.isArray(answers.harnesses) && answers.harnesses.length ? [...answers.harnesses] : [...DEFAULT_COMBINED_ORDER];
+      if (harnessList.length !== 2 || new Set(harnessList).size !== 2) throw new Error("Choose exactly two different harnesses to cover both.");
+      for (const id of harnessList) {
+        const known = harnesses.find((h) => h.id === id);
+        if (!known) throw new Error(`Unknown harness "${id}".`);
+        if (!harnessProducts.includes(known.product)) throw new Error(`The harness "${id}" belongs to a product that is not selected.`);
+      }
+      harness = harnessList[0];
+    } else {
+      harness = answers.harness || DEFAULT_HARNESS;
+      const entry = harnesses.find((h) => h.id === harness);
+      if (!entry) throw new Error(`Unknown harness "${harness}".`);
+      if (!harnessProducts.includes(entry.product)) throw new Error(`The harness "${harness}" belongs to a product that is not selected.`);
+      harnessList = [harness];
+    }
   } else if (answers.harness) {
     warnings.push("A harness was ignored because none of the selected products has harnesses.");
   }
@@ -162,7 +177,7 @@ export function recommend(answers = {}, learn = {}) {
     if (!f) return false;
     const product = productOf(f);
     if (!selectedProducts.includes(product)) return false;
-    return productHasHarnesses(product) ? Boolean(f.harness?.includes(harness)) : true;
+    return productHasHarnesses(product) ? Boolean(f.harness?.some((h) => harnessList.includes(h))) : true;
   };
 
   // Why each topic is recommended. Insertion order is the display order of reasons.
@@ -311,7 +326,7 @@ export function recommend(answers = {}, learn = {}) {
   const activeTargets = (concept) =>
     conceptProducts(concept)
       .filter((id) => selectedProducts.includes(id))
-      .map((id) => (productHasHarnesses(id) ? { id: harness, kind: "harness", product: id } : { id, kind: "product", product: id }));
+      .flatMap((id) => (productHasHarnesses(id) ? harnessList.map((h) => ({ id: h, kind: "harness", product: id })) : [{ id, kind: "product", product: id }]));
   const makeRow = (concept, ids, extra = {}) => {
     const topics = ids.filter((id) => (applies(id) || selectedIds.has(id)) && inLevel(id)).map(topicRow);
     const minutes = topics.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
@@ -322,7 +337,7 @@ export function recommend(answers = {}, learn = {}) {
       name: concept.name,
       summary: concept.summary,
       order: concept.order,
-      products: targets.map((t) => t.product),
+      products: [...new Set(targets.map((t) => t.product))],
       notApplicable: topics.length
         ? null
         : documented.length
@@ -444,8 +459,8 @@ export function recommend(answers = {}, learn = {}) {
   conceptRows.forEach((c) => c.topics.forEach(relateTopics));
   unknownRows.forEach(relateTopics);
   return {
-    answers: { industry: industry?.id || null, departments, products: selectedProducts, level, harness, excludedSubtopics },
-    products: summarizeProducts({ products: selectedProducts, harness, level, features }),
+    answers: { industry: industry?.id || null, departments, products: selectedProducts, level, harness, ...(harnessList.length === 2 ? { harnessMode: "both", harnesses: harnessList } : {}), excludedSubtopics },
+    products: summarizeProducts({ products: selectedProducts, harnessList, level, features }),
     concepts: conceptRows,
     prerequisites: {
       topics: prerequisiteRows,

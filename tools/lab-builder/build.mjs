@@ -166,6 +166,8 @@ Flags:
   --departments <a,b>       Comma-separated department ids (see --list).
   --roles <a,b>             Comma-separated role ids.
   --harnesses <a,b>         Comma-separated harness ids for harness-aware products (for example standard,microsoft-copilot).
+  --both-harnesses          Cover two harnesses one after another in one lab (default order: standard, then
+                            microsoft-copilot; --harnesses a,b sets the order). Shared topics are taught once.
   --levels <100,200,300>    Comma-separated target levels (100, 200, 300).
   --features <a,b>          Comma-separated capability/feature ids (required unless interactive).
   --exclude-subtopics <a,b> Comma-separated sub-topic ids to leave out. Every sub-topic of a Microsoft Learn
@@ -396,6 +398,7 @@ if (args.interactive) {
     departments,
     roles: list(args.roles),
     harnesses,
+    harnessMode: args["both-harnesses"] === true ? "both" : undefined,
     levels,
     features,
     excludedSubtopics: args["exclude-subtopics"] !== undefined ? list(args["exclude-subtopics"]) : undefined,

@@ -19,6 +19,7 @@ import { splitGeneratedLabModules } from "./module-samples.js";
 import { shortenDownloadFileName } from "../export-names.js";
 import { CONNECTOR_NAMES_VERSION, needsConnectorRepair, repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
 import { containsEmoji, plainText, plainTextDeep } from "./plain-text.js";
+import { moduleReadingHarness } from "./harness-parts.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 // Bump whenever the per-topic .docx/.pptx output changes so cached `topics/` files regenerate on demand.
@@ -170,7 +171,7 @@ export function renderSingleTopicBuffers(mod, { labTitle, manifest = {}, brandin
       estimatedTime: matchedMod.minutes ? `~${matchedMod.minutes} min` : "",
       products: productsText,
       agentName: manifest?.options?.agentName || manifest?.request?.agentName || "",
-      harness: manifest?.request?.harness || manifest?.differences?.labHarness || null,
+      harness: moduleReadingHarness(manifest, matchedMod),
       trainingDigest: matchedMod.trainingDigest || null,
       manifest,
     },

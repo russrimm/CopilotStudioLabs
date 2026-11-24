@@ -35,6 +35,27 @@ export function plainModuleNames(features, harness) {
   return features.map((f, index) => (plain[index] === f.name ? f : { ...f, name: plain[index] }));
 }
 
+/** The short tag that tells two same-named modules apart in a lab that covers two harnesses. */
+export function harnessTag(id) {
+  return { standard: "Standard", "microsoft-copilot": "Microsoft Copilot", "customer-conversation": "Customer Conversation" }[id] || String(id || "");
+}
+
+/**
+ * Module names for a lab that covers two harnesses: the "(... harness)" suffix comes off (each part says which harness
+ * it is), and two modules that would then share a name keep a short tag, "(Standard)" or "(Microsoft Copilot)", so a
+ * learner can tell the two versions of an idea apart in the list, the folders, and the decks.
+ */
+export function combinedModuleNames(features) {
+  const plain = features.map((f) => stripHarnessSuffix(f.name));
+  const counts = new Map();
+  for (const name of plain) counts.set(name.toLowerCase(), (counts.get(name.toLowerCase()) || 0) + 1);
+  return features.map((f, index) => {
+    const part = f.harnessPart && f.harnessPart !== "shared" && f.harnessPart !== "shared-late" ? f.harnessPart : null;
+    const name = counts.get(plain[index].toLowerCase()) > 1 && part ? `${plain[index]} (${harnessTag(part)})` : plain[index];
+    return name === f.name ? f : { ...f, name };
+  });
+}
+
 /**
  * The part of a lab title after "with": the module name for one module, "A and B" for two, and the products
  * (the fallback) for more or when the names would make the title too long. The modules are listed in the lab.
