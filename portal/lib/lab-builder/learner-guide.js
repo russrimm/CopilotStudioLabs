@@ -12,6 +12,7 @@
 
 import { currentProductName } from "../product-name.js";
 import { repairConnectorNames, rewriteConnectorValue } from "./connector-names.js";
+import { plainText, plainTextDeep } from "./plain-text.js";
 
 /** The heading the old generator wrote at the end of `index.md`. */
 export const ADMIN_SECTION_HEADING = "Connectors, Environment, and Tenant Prerequisites";
@@ -94,7 +95,7 @@ export function learnerSafeManifest(manifest) {
       return { ...mod, trainingDigest: digest };
     });
   }
-  return copy;
+  return plainTextDeep(copy);
 }
 
 /**
@@ -106,7 +107,8 @@ export function learnerSafeManifest(manifest) {
  */
 export function learnerGuideMarkdown(markdown) {
   // A lab saved before connector display names existed shows them when read; the file on disk is not rewritten.
-  return repairConnectorNames(withoutAdminSection(markdown));
+  // A lab saved before the no-emoji rule keeps its symbols on disk; every learner-facing reading shows plain text.
+  return plainText(repairConnectorNames(withoutAdminSection(markdown)));
 }
 
 function withoutAdminSection(markdown) {

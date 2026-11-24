@@ -199,7 +199,7 @@ test("the older scenario endpoints are unchanged", async () => {
   assert.deepEqual(Object.keys(all.body).sort(), ["industries", "roles"]);
   assert.equal(all.body.industries.length, 7);
   assert.equal(all.body.roles.length, 12);
-  assert.deepEqual(Object.keys(all.body.industries[0]).sort(), ["categories", "description", "icon", "id", "kpis", "name", "suggestedLabs"]);
+  assert.deepEqual(Object.keys(all.body.industries[0]).sort(), ["categories", "description", "id", "kpis", "name", "suggestedLabs"]);
 
   const one = await call(base, "GET", "/api/scenarios/industry/retail");
   assert.equal(one.status, 200);

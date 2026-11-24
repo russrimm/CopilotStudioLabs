@@ -393,8 +393,8 @@ test("the facilitator guide puts the pre-lab session first and splits training t
 test("the lab's time summary says 'Training: about X' and 'Hands-on: about Y' separately", () => {
   for (const name of ["level100", "level200", "multiProduct"]) {
     const lab = ctx.labs[name];
-    assert.match(lab.markdown, /\| ⏱️ \*\*TIME\*\* \| Hands-on: about [^|]+ \(estimate, not a limit\) \|/, name);
-    assert.match(lab.markdown, new RegExp(`\\| 🎓 \\*\\*TRAINING\\*\\* \\| Training: about ${formatTrainingDuration(lab.plan.totalMinutes).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, delivered before the hands-on lab \\(estimate, not a limit\\) \\|`), name);
+    assert.match(lab.markdown, /\| \*\*TIME\*\* \| Hands-on: about [^|]+ \(estimate, not a limit\) \|/, name);
+    assert.match(lab.markdown, new RegExp(`\\| \\*\\*TRAINING\\*\\* \\| Training: about ${formatTrainingDuration(lab.plan.totalMinutes).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, delivered before the hands-on lab \\(estimate, not a limit\\) \\|`), name);
   }
 });
 

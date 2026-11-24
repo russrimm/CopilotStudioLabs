@@ -248,7 +248,7 @@ test("a generated lab for another product passes the validator and records its p
     assert.deepEqual(lab.manifest.products, ["ai-foundry"]);
     assert.ok(lab.manifest.modules.every((m) => m.product === "ai-foundry"));
     assert.equal(lab.manifest.differences.labHarness, null);
-    assert.match(lab.markdown, /\| 🧩 \*\*PRODUCTS\*\* \| Microsoft Foundry \|/);
+    assert.match(lab.markdown, /\| \*\*PRODUCTS\*\* \| Microsoft Foundry \|/);
     assert.doesNotMatch(lab.markdown, /Copilot Studio|harness/i, "nothing in a Foundry lab is about Copilot Studio");
     assert.deepEqual(selectionsFromManifest(lab.manifest).products, ["ai-foundry"]);
   } finally {
@@ -789,7 +789,7 @@ test("the product is named Agentic Microsoft Training and Lab Generator wherever
   const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
   const html = read("../public/index.html");
   assert.match(html, /<title>[^<]*Agentic Microsoft Training and Lab Generator[^<]*<\/title>/);
-  assert.match(html, /id="portal-title"[^>]*>[^<]*<span[^>]*>[^<]*<\/span> Agentic Microsoft Training and Lab Generator</);
+  assert.match(html, /id="portal-title"[^>]*>Agentic Microsoft Training and Lab Generator</);
   for (const file of ["../public/index.html", "../public/app.js", "../server.js", "../lib/branding.js", "../README.md", "../../README.md", "../package.json"]) {
     assert.doesNotMatch(read(file), /Copilot Studio Labs/, `${file} still uses the old product name`);
   }

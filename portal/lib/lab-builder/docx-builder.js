@@ -15,6 +15,7 @@ import {
 } from "./architecture-overview.js";
 import { LIGHT_SURFACE, cleanText, ensureReadableColor, getBrandFont } from "./brand-theme.js";
 import { PRODUCT_NAME } from "../product-name.js";
+import { plainText } from "./plain-text.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { isSubStepStart, normalizeSubSteps, takeSubSteps } from "./sub-steps.js";
 
@@ -137,7 +138,8 @@ const ILLEGAL_XML_CHARS =
  * contains any of them.
  */
 export function stripIllegalXmlChars(value) {
-  return String(value ?? "").replace(ILLEGAL_XML_CHARS, "");
+  // Every text run of a Word or PowerPoint file passes through here: it never carries an emoji.
+  return plainText(String(value ?? "")).replace(ILLEGAL_XML_CHARS, "");
 }
 
 function xmlEscape(value) {

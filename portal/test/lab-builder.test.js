@@ -1110,8 +1110,8 @@ test("the lab shows its estimated time in the metadata, per module, and as a tot
     { write: false, useLearnMcp: false, useLlm: false },
   );
   const md = result.markdown;
-  assert.match(md, /\| ⏱️ \*\*TIME\*\* \| Hands-on: about .+\(estimate, not a limit\) \|/);
-  assert.match(md, /\| 🎓 \*\*TRAINING\*\* \| Training: about .+, delivered before the hands-on lab \(estimate, not a limit\) \|/);
+  assert.match(md, /\| \*\*TIME\*\* \| Hands-on: about .+\(estimate, not a limit\) \|/);
+  assert.match(md, /\| \*\*TRAINING\*\* \| Training: about .+, delivered before the hands-on lab \(estimate, not a limit\) \|/);
   assert.match(md, /^## Time Estimate$/m);
   assert.match(md, /\| Step \| Module \| Level \| Estimated time \|/);
   assert.match(md, /\*\*Total\*\*/);
@@ -1805,11 +1805,11 @@ function labWith(body) {
     "",
     "| | |",
     "|---|---|",
-    "| ⭐ **DIFFICULTY** | Intermediate |",
-    "| ⏱️ **TIME** | 45 minutes |",
-    "| 🧩 **PRODUCTS** | Microsoft Copilot Studio |",
-    "| 🏷️ **TAGS** | topics |",
-    "| 🏭 **INDUSTRIES** | Retail |",
+    "| **DIFFICULTY** | Intermediate |",
+    "| **TIME** | 45 minutes |",
+    "| **PRODUCTS** | Microsoft Copilot Studio |",
+    "| **TAGS** | topics |",
+    "| **INDUSTRIES** | Retail |",
     "",
     "## Overview",
     "",

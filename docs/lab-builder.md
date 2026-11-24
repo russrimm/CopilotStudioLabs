@@ -29,7 +29,7 @@ Two ways to use it:
 
 | | |
 |---|---|
-| **Portal** | The **🧬 Build a Lab** tab (`http://localhost:3005`) — an eight-step wizard (seven when no selected product has harnesses) with live preview and multi-format exports (`.md`, `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx`, and `.zip`). |
+| **Portal** | The **Build a Lab** tab (`http://localhost:3005`) — an eight-step wizard (seven when no selected product has harnesses) with live preview and multi-format exports (`.md`, `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx`, and `.zip`). |
 | **CLI** | `node tools/lab-builder/build.mjs` — no portal and no sign-in. Offline builds (`--no-learn`) need nothing beyond Node 24; live vendor-page reads load `sanitize-html` from `portal/` (run `npm ci` there first). |
 
 Output lands in `generated-labs/<slug>/` (git-ignored) as:
@@ -190,13 +190,13 @@ The portal groups its ten panels into four areas, and **Build** is where it open
 | **Deploy and share** | Lab setup, Azure resources, Power Platform, Email labs | Set up the lab environment and send labs to learners. |
 | **Settings** | Configuration | Brand profiles, identity, email, and deployment targets. |
 
-The **🤖 Assistant** button in the header opens the lab assistant (formerly the
+The **Assistant** button in the header opens the lab assistant (formerly the
 Agent Chat tab) from anywhere. Nothing was removed: each panel keeps its id, so a
 link such as `/#provision` or `/#azure` still opens the right panel, and the
 arrow, Home, and End keys move among the tabs of the current area.
 
 1. Start the portal: `cd portal && npm install && npm start`.
-2. Open the portal; it lands on **🧬 Build a Lab**.
+2. Open the portal; it lands on **Build a Lab**.
 3. Work through four steps, in this order. A persistent line, **Your lab so far**, and a
    four-item step list stay at the top, so you always see where you are:
    1. **Product** (one or more). Nothing is pre-selected on load: pick the product(s)
@@ -415,7 +415,7 @@ check against Microsoft Learn, download) with one button for each, and only the 
 
 You do not have to finish a lab in one sitting. **Save and finish later** sits in the summary bar at the top of
 every step (and **Ctrl+S**, or **Command+S**, does the same while focus is inside the wizard). It keeps the whole
-partly configured lab as a named **draft**, and **📝 Saved drafts** (next to *Previously generated labs*, collapsed by
+partly configured lab as a named **draft**, and **Saved drafts** (next to *Previously generated labs*, collapsed by
 default with a live count) brings it back exactly as you left it.
 
 **Saving.** A small dialog asks for a name, offered from your products and the date (for example *Copilot Studio · Nov 20*)
@@ -515,7 +515,7 @@ Status changes are announced to screen readers, and the checklist never prints.
 
 ## Use Case Builder
 
-The **💡 Use Case Builder** tab (in **Build**, next to Build a Lab; open it at `/#usecases`,
+The **Use Case Builder** tab (in **Build**, next to Build a Lab; open it at `/#usecases`,
 `/#use-case-builder`, or the unchanged `/#scenarios`) turns a scenario into a live, ranked list of **Copilot Studio**
 and **Agent Builder** (Microsoft 365 Copilot) use cases. It was formerly called Industry scenarios; the tab and
 panel ids (`tab-scenarios`, `panel-scenarios`) did not change, so older links still work.
@@ -1238,7 +1238,44 @@ the warning as something to learn.
 The details table at the top is shown without its "Field | Details" header, without the TAGS keyword row, and without a
 DIFFICULTY row that repeats LEVEL, each label as a row header (`tidyMetaTable()` in `meta-table.js`, applied in the portal
 preview and the standalone HTML). The Markdown keeps every row, because the validators and the lab list read DIFFICULTY,
-TIME, PRODUCTS, TAGS, and INDUSTRIES from it.
+TIME, PRODUCTS, TAGS, and INDUSTRIES from it. Each row label is plain bold text (`| **TIME** | ... |`); older labs and the
+hand-written labs may carry an icon before the label, and every reader accepts both.
+
+#### Plain text, no emoji
+
+Nothing the portal shows or generates carries an emoji. Headings, tabs, buttons, cards, table headers, status chips,
+toasts, notification text, and every generated document (the lab in Markdown, HTML, Word, PowerPoint, and PDF, the
+administrator setup guide, the prerequisites checklist, the facilitator guide, the training decks, and the ZIP README) use
+plain words. Callouts keep their labels (`Tip:`, `Note:`, `Warning:`, `Important:`, `Checkpoint:`), and a status that an
+icon used to show is a word (Yes, No, Done, Failed, Partial).
+
+One helper holds the rule: `portal/lib/lab-builder/plain-text.js`. `plainText(text)` replaces an emoji with words or removes
+it, and `plainTextDeep(value)` does the same for every string in an object. It works like this:
+
+- A status mark that stands alone (a table cell, a list item, `Enabled: <mark>`) becomes a word: Yes, No, Partial, or Not
+  applicable. A mark in front of words is dropped when the words already say it, and a cross in front of a sentence that
+  does not say it becomes `No:`, so a sentence never changes its meaning.
+- A callout icon at the start of a line becomes its label (`Tip:`, `Goal:`, `Try it:`, `Warning:`, `Important:`, `Note:`).
+  In a heading the icon is dropped.
+- Any other symbol is decoration and is removed, with the double space it leaves collapsed.
+- Code fences, inline code, link targets, and URLs are never touched. Arrows, bullets, the multiplication sign, the
+  ellipsis, dashes, the legal marks, and the checkbox glyphs of the checklist tables are not emoji and stay.
+- It is idempotent, so running it twice changes nothing.
+
+The helper runs where text is composed, so a future source cannot bring an emoji back: the lab Markdown the generator
+writes, the manifest, a title or note a person types (`optionalText()` in the planner), text read from Microsoft Learn
+(`cleanText()` and `readSnapshot()`), every text run written into a Word or PowerPoint file, every PDF string, the
+standalone HTML renderer, and every text file in an export ZIP.
+
+A lab saved before this rule keeps its symbols in `index.md` and `manifest.json`; the files are never rewritten. Every
+reading of it (the portal preview, the HTML lab, the exports, the per-topic documents, the decks) goes through the helper
+(`learnerGuideMarkdown()`, `learnerSafeManifest()`, `resolveSafeGeneratedLabDir()`), so it reads as plain text. The saved
+per-topic documents and training decks are rebuilt once from the plain text. The hand-written labs under `labs/` are not
+changed, and the portal's **Lab chapters** preview shows them as written.
+
+To list every emoji left in the repository, with where it lives and whether a person sees it, run
+`node tools/lab-builder/find-emoji.mjs` (add `--visible`, `--list`, or `--json`). `portal/test/no-emoji.test.js` fails when a
+shipped screen, template, or data file gains one, and when a generated lab or any export holds one.
 
 ### 3. Microsoft Learn grounding
 
@@ -2044,7 +2081,7 @@ the agent** with one **Retry**, and never run on a guessed page or another agent
 | `GET .../capture-targets` | Also returns `agentSource: { source: "created" \| "own", from: "lab" \| "address" \| "default", saved }` |
 | `PUT .../capture-targets` `{ targets?, alsoProfile?, agentSource? }` | `agentSource` (`"created"` or `"own"`) saves the choice for the lab; anything else is `400`. Saving an agent address from the Screenshot Center sends `agentSource: "own"` |
 
-**The screenshot to-do list ("Screenshots left").** A generated lab's panel has a **📋 Screenshots left** button. It lists
+**The screenshot to-do list ("Screenshots left").** A generated lab's panel has a **Screenshots left** button. It lists
 exactly which pictures are still missing, split into the ones your computer can capture (select the main capture button in
 the Screenshot Center) and the ones only a person can do, each with the figure number, the module, what the picture should
 show, why it needs you, and numbered steps. **Download checklist (.md)** gives the same list as Markdown
@@ -3783,7 +3820,7 @@ with `Retry-After`.
 
 ### Managing generated labs
 
-Under **🗂️ Previously generated labs** each lab shows its title, created date, industry, level, harness,
+Under **Previously generated labs** each lab shows its title, created date, industry, level, harness,
 estimated time, topic count, and validation result, with a search box and a sort menu.
 Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 
@@ -3801,12 +3838,12 @@ Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 #### Bulk Microsoft Learn check (the Microsoft Learn freshness panel)
 
 When one or more generated labs are saved, the **Microsoft Learn freshness** panel appears at the top of
-**🗂️ Previously generated labs** so workshop authors can monitor documentation freshness across the entire library at a glance.
+**Previously generated labs** so workshop authors can monitor documentation freshness across the entire library at a glance.
 The Setup checklist's **Microsoft Learn freshness** row runs the same check:
 
 - **Fleet posture pills & timestamp**: Displays live counts for **Total**, **Up to date**, **Need an update**, **Screenshots pending**, and **Not checked yet**, alongside the **Last bulk scan** timestamp persisted in `learn-drift-fleet.json`.
-- **One-click fleet check (`🔄 Check all labs against Microsoft Learn`)**: Calls `POST /api/lab-builder/learn-drift/scan` with bounded concurrency (`3` labs at a time) so Microsoft Learn is never flooded. Per-lab fetch errors are isolated and reported without aborting the batch.
-- **Bulk & per-card auto-update (`⚡ Update all labs that changed (N)` / `⚡ Update from Microsoft Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes changed procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn badge (`✓ Microsoft Learn up to date`, `⚠ N topic(s) updated on Microsoft Learn`, or `Not checked against Microsoft Learn yet`).
+- **One-click fleet check (`Check all labs against Microsoft Learn`)**: Calls `POST /api/lab-builder/learn-drift/scan` with bounded concurrency (`3` labs at a time) so Microsoft Learn is never flooded. Per-lab fetch errors are isolated and reported without aborting the batch.
+- **Bulk & per-card auto-update (`Update all labs that changed (N)` / `Update from Microsoft Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes changed procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn badge (`Microsoft Learn up to date`, `N topic(s) updated on Microsoft Learn`, or `Not checked against Microsoft Learn yet`).
 - **Filtering & sorting**: Filter the saved library by **Microsoft Learn status** (`All statuses`, `Needs an update (Microsoft Learn changed)`, `Missing screenshots`, `Up to date`, `Not checked yet`) or choose **Needs update first** in **Sort by** to surface changed labs at the top. Checking a single lab in the **Screenshot Center** automatically synchronizes the card badges and the counts above.
 
 The manifest records the choices in `request` (industry, roles, features, excluded, harness, level, differencesFor,
@@ -4463,6 +4500,9 @@ and split suggestions that never remove a module,
 unknown inputs), blocker detection and resolution for all codes, LLM
 provider detection, per-module disclosure of `lastVerified`, and a full offline
 generation that must pass every validator rule.
+`portal/test/plain-text.test.js` covers the plain-text helper (what a status mark, a callout icon, and decoration become,
+and what is never touched), and `portal/test/no-emoji.test.js` guards the rule: no shipped screen, template, or data file
+carries an emoji outside a short allowlist, and a generated lab, its exports, and an older saved lab read as plain text.
 `portal/test/lab-builder-synthesis.test.js` covers each verifier check with a
 passing and a failing case, the repair loop, the split between failed requests
 and failed verification, and an end-to-end build with a scripted model.

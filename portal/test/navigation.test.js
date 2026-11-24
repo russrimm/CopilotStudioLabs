@@ -33,7 +33,7 @@ test("the ten tabs are grouped into four areas plus the header assistant", () =>
   assert.deepEqual(primary.map((m) => m[1]), ["build", "check", "deploy", "settings"]);
   for (const [, group, first] of primary) assert.equal(tabs.find((t) => t.tab === first).group, group);
   assert.match(html, /<nav class="tab-groups" aria-label="Portal areas">/);
-  assert.match(html, /onclick="setActiveTab\('agent'\)"[^>]*>🤖 Assistant</);
+  assert.match(html, /onclick="setActiveTab\('agent'\)"[^>]*>Assistant</);
 });
 
 test("Build a Lab is the landing tab and only its area's tabs show first", () => {
@@ -49,7 +49,7 @@ test("confusing names are plain: Provision is Lab setup, Email is Email labs, Ag
   assert.match(label("azure"), /Azure resources/);
   assert.match(label("email"), /Email labs/);
   assert.match(label("agent"), /Assistant/);
-  assert.doesNotMatch(html, /🚀 Provision</);
+  assert.doesNotMatch(html, /Provision</);
 });
 
 test("navigation code keeps the keyboard model, deep links, and one hint per area", () => {

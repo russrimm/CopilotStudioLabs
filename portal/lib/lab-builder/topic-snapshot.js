@@ -11,6 +11,7 @@ import fs from "node:fs";
 import { createHash } from "node:crypto";
 
 import { normalizeLearnUrl, topicId, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
+import { plainTextDeep } from "./plain-text.js";
 
 export const SNAPSHOT_SCHEMA_VERSION = 1;
 export const DEFAULT_HARNESS_IDS = ["standard", "microsoft-copilot", "customer-conversation"];
@@ -171,7 +172,8 @@ export function summarize(snapshot, features = []) {
 export function readSnapshot(file, options) {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    return validateSnapshot(parsed, options).length ? null : parsed;
+    // A snapshot saved from Learn text may carry check marks or other symbols; what is read and shown is plain text.
+    return validateSnapshot(parsed, options).length ? null : plainTextDeep(parsed);
   } catch {
     return null;
   }

@@ -44,8 +44,8 @@ export function buildOptions({ polishAvailable = false } = {}) {
   const data = getUseCaseData();
   return {
     version: 1,
-    industries: data.industries.map(({ id, name, icon, description }) => ({ id, name, icon, description })),
-    departments: data.departments.map(({ id, name, icon, description }) => ({ id, name, icon, description })),
+    industries: data.industries.map(({ id, name, description }) => ({ id, name, description })),
+    departments: data.departments.map(({ id, name, description }) => ({ id, name, description })),
     goals: data.goals.map(({ id, label, description }) => ({ id, label, description })),
     dataSources: data.dataSources.map(({ id, label, description }) => ({ id, label, description })),
     platforms: data.platforms.map(({ id, label, description }) => ({ id, label, description })),

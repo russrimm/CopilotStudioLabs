@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>⚡ Agentic Microsoft Training and Lab Generator — Provisioning Portal</title>
-  <link id="app-favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
+  <title>Agentic Microsoft Training and Lab Generator — Provisioning Portal</title>
+  <link id="app-favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a56c7'/%3E%3Cpath d='M18 48L32 16l14 32M24 38h16' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
   <script src="theme.js"></script>
   <script src="client-id.js"></script>
   <style>
@@ -447,7 +447,6 @@
       overflow-wrap: anywhere;
       text-wrap: balance;
     }
-    .portal-branding-title .accent { color: var(--accent); }
     .portal-branding-tagline {
       font-size: 12px;
       color: var(--text-muted);
@@ -1133,6 +1132,16 @@
       border-radius: 50%;
       font-size: 13px;
     }
+    .preflight-card .pf-icon::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .preflight-card.is-pass .pf-icon::after { background: var(--success); }
+    .preflight-card.is-fail .pf-icon::after { background: var(--danger); }
+    .preflight-card.is-warn .pf-icon::after { background: var(--warning); }
     .preflight-card.is-pass .pf-icon { background: color-mix(in srgb, var(--success) 15%, transparent); }
     .preflight-card.is-fail .pf-icon { background: color-mix(in srgb, var(--danger) 15%, transparent); }
     .preflight-card.is-warn .pf-icon { background: color-mix(in srgb, var(--warning) 15%, transparent); }
@@ -1973,6 +1982,8 @@
     .lb-pane h3 { scroll-margin-top: 190px; }
     .lb-pane h3:focus { outline: none; }
     .lb-pane h3:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 4px; }
+    /* A heading that takes focus after a step (no icon in front of it any more) needs room between its text and the ring. */
+    h3[tabindex="-1"]:focus-visible, h4[tabindex="-1"]:focus-visible { outline-offset: 6px; border-radius: 4px; }
     .lb-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
     .lb-legend { font-size: 13px; font-weight: 600; margin-bottom: 8px; padding: 0; }
     /* ── Lab builder: Tailor it, step lead, brand row ── */
@@ -2349,8 +2360,7 @@
     }
     .lb-learn-source:hover { color: var(--accent-hover); }
     .lb-learn-source:focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; border-radius: 3px; }
-    .lb-learn-ext { font-size: 10px; text-decoration: none; }
-    .lb-learn-sep { color: var(--text-muted); user-select: none; }
+   .lb-learn-sep { color: var(--text-muted); user-select: none; }
     .lb-outline th .lb-feature-summary { margin-top: 3px; font-size: 12px; font-weight: 400; }
     .lb-outline th .lb-learn-links { margin-top: 4px; font-weight: 400; }
     .btn[aria-busy="true"] { cursor: progress; opacity: 0.8; }
@@ -2505,7 +2515,10 @@
       animation: lb-orbit-spin 1.1s linear infinite;
     }
     .lb-generating-core {
-      font-size: 18px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
       animation: lb-core-pulse 1.8s ease-in-out infinite;
     }
     .lb-generating-copy { flex: 1; min-width: 0; }
@@ -4904,7 +4917,7 @@
       margin: 14px 0;
     }
     .feedback-widget { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; vertical-align: middle; }
-    .feedback-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 16px; transition: all 0.15s; opacity: 0.7; }
+    .feedback-btn { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; transition: all 0.15s; opacity: 0.7; }
     .feedback-btn:hover { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
     .feedback-btn.voted { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
     .feedback-btn:disabled { cursor: default; }
@@ -5057,6 +5070,16 @@
       justify-content: center;
       line-height: 1;
     }
+    .provision-dot {
+      width: 10px;
+      height: 10px;
+      box-sizing: border-box;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .provision-dot.is-done { background: var(--success); }
+    .provision-dot.is-failed { background: var(--danger); }
+    .provision-dot.is-skipped { background: transparent; border: 2px solid var(--text-muted); }
     .provision-progress-track {
       width: 100%;
       height: 10px;
@@ -5701,14 +5724,14 @@
       <div class="portal-branding">
         <img id="portal-logo" class="portal-branding-logo" alt="Company logo" />
         <div class="portal-branding-copy">
-          <div id="portal-title" class="portal-branding-title"><span class="accent">⚡</span> Agentic Microsoft Training and Lab Generator</div>
+          <div id="portal-title" class="portal-branding-title">Agentic Microsoft Training and Lab Generator</div>
           <div id="portal-tagline" class="portal-branding-tagline">Provisioning Portal</div>
         </div>
       </div>
       <div class="header-actions">
         <span id="lab-count" class="tag" title="Selected static lab chapters">0 / 0 chapters</span>
-        <button class="btn btn-sm" onclick="setActiveTab('agent')" title="Ask the lab assistant">🤖 Assistant</button>
-        <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">🐛 Report Issue</button>
+        <button class="btn btn-sm" onclick="setActiveTab('agent')" title="Ask the lab assistant">Assistant</button>
+        <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">Report Issue</button>
         <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
         <button type="button" id="theme-toggle" class="btn btn-sm theme-toggle" aria-label="Switch color theme"><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
       </div>
@@ -5719,31 +5742,31 @@
       <main class="content" id="portal-main" tabindex="-1">
         <nav class="tab-groups" aria-label="Portal areas">
           <ul>
-            <li><button type="button" class="tab-group" data-group="build" data-first-tab="labbuilder">🧬 Build</button></li>
-            <li><button type="button" class="tab-group" data-group="check" data-first-tab="preview">👁️ Preview and validate</button></li>
-            <li><button type="button" class="tab-group" data-group="deploy" data-first-tab="provision">🚀 Deploy and share</button></li>
-            <li><button type="button" class="tab-group" data-group="settings" data-first-tab="config">⚙️ Settings</button></li>
+            <li><button type="button" class="tab-group" data-group="build" data-first-tab="labbuilder">Build</button></li>
+            <li><button type="button" class="tab-group" data-group="check" data-first-tab="preview">Preview and validate</button></li>
+            <li><button type="button" class="tab-group" data-group="deploy" data-first-tab="provision">Deploy and share</button></li>
+            <li><button type="button" class="tab-group" data-group="settings" data-first-tab="config">Settings</button></li>
           </ul>
         </nav>
         <p id="tab-group-hint" class="tab-group-hint"></p>
         <div class="tabs" role="tablist" aria-label="Build">
-          <button class="tab active" id="tab-labbuilder" role="tab" aria-selected="true" aria-controls="panel-labbuilder" data-tab="labbuilder" data-group="build">🧬 Build a Lab</button>
-          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">💡 Use Case Builder</button>
-          <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview" data-group="check" hidden>👁️ Preview</button>
-          <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate" data-group="check" hidden>🧪 Validation</button>
-          <button class="tab" id="tab-provision" role="tab" aria-selected="false" aria-controls="panel-provision" tabindex="-1" data-tab="provision" data-group="deploy" hidden>🚀 Lab setup</button>
-          <button class="tab" id="tab-azure" role="tab" aria-selected="false" aria-controls="panel-azure" tabindex="-1" data-tab="azure" data-group="deploy" hidden>☁️ Azure resources</button>
-          <button class="tab" id="tab-powerplatform" role="tab" aria-selected="false" aria-controls="panel-powerplatform" tabindex="-1" data-tab="powerplatform" data-group="deploy" hidden>⚡ Power Platform</button>
-          <button class="tab" id="tab-email" role="tab" aria-selected="false" aria-controls="panel-email" tabindex="-1" data-tab="email" data-group="deploy" hidden>📧 Email labs</button>
-          <button class="tab" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-tab="agent" data-group="assistant" hidden>🤖 Assistant</button>
-          <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config" tabindex="-1" data-tab="config" data-group="settings" hidden>⚙️ Configuration</button>
+          <button class="tab active" id="tab-labbuilder" role="tab" aria-selected="true" aria-controls="panel-labbuilder" data-tab="labbuilder" data-group="build">Build a Lab</button>
+          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">Use Case Builder</button>
+          <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview" data-group="check" hidden>Preview</button>
+          <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate" data-group="check" hidden>Validation</button>
+          <button class="tab" id="tab-provision" role="tab" aria-selected="false" aria-controls="panel-provision" tabindex="-1" data-tab="provision" data-group="deploy" hidden>Lab setup</button>
+          <button class="tab" id="tab-azure" role="tab" aria-selected="false" aria-controls="panel-azure" tabindex="-1" data-tab="azure" data-group="deploy" hidden>Azure resources</button>
+          <button class="tab" id="tab-powerplatform" role="tab" aria-selected="false" aria-controls="panel-powerplatform" tabindex="-1" data-tab="powerplatform" data-group="deploy" hidden>Power Platform</button>
+          <button class="tab" id="tab-email" role="tab" aria-selected="false" aria-controls="panel-email" tabindex="-1" data-tab="email" data-group="deploy" hidden>Email labs</button>
+          <button class="tab" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-tab="agent" data-group="assistant" hidden>Assistant</button>
+          <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config" tabindex="-1" data-tab="config" data-group="settings" hidden>Configuration</button>
         </div>
 
         <div class="tab-content">
           <!-- Lab setup tab (formerly Provision) -->
           <div class="tab-panel" id="panel-provision" role="tabpanel" aria-labelledby="tab-provision" aria-hidden="true">
             <section class="panel" aria-labelledby="chapters-heading">
-              <h3 id="chapters-heading">📚 Lab chapters</h3>
+              <h3 id="chapters-heading">Lab chapters</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Choose which of the hand-written labs are included when you set up, validate, export, or email labs.
                 Use Preview to read a lab.
@@ -5761,7 +5784,7 @@
               </div>
             </section>
             <div class="panel">
-              <h3>🗺️ Lab Dependency &amp; Sequence Map</h3>
+              <h3>Lab Dependency &amp; Sequence Map</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Use this sequence map to understand which labs build on earlier setup, which labs branch into specialized tracks, and where your team can safely jump ahead.
               </p>
@@ -5774,7 +5797,7 @@
               </ul>
             </div>
             <div class="panel">
-              <h3>📦 Customization</h3>
+              <h3>Customization</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Customize the lab content for your organization before exporting or emailing.
               </p>
@@ -5900,7 +5923,7 @@
             </div>
 
             <div class="panel">
-              <h3>🧪 Pre-flight Check</h3>
+              <h3>Pre-flight Check</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 The portal runs documentation smoke tests before export or Azure provisioning. Review the latest status for your selected labs here.
               </p>
@@ -5911,16 +5934,16 @@
                 </div>
               </div>
               <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <button class="btn" onclick="runValidation()">🧪 Run All Tests</button>
+                <button class="btn" onclick="runValidation()">Run All Tests</button>
                 <span style="font-size: 13px; color: var(--text-muted);">Export and deploy actions automatically refresh validation.</span>
               </div>
             </div>
 
             <div class="panel">
-              <h3>📥 Export</h3>
+              <h3>Export</h3>
               <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="exportZip()">
-                  📦 Download ZIP
+                  Download ZIP
                 </button>
                 <span id="export-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);">Select one or more chapters under Lab chapters above to export a bundle.</span>
               </div>
@@ -5930,7 +5953,7 @@
           <!-- Use Case Builder tab. The ids stay tab-scenarios and panel-scenarios so older links, #scenarios, and tests keep working. -->
           <div class="tab-panel" id="panel-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" aria-hidden="true">
             <div class="panel">
-              <h3 id="uc-heading" tabindex="-1">💡 Use Case Builder</h3>
+              <h3 id="uc-heading" tabindex="-1">Use Case Builder</h3>
               <p class="uc-intro">
                 Pick your scenario and get a live list of Microsoft Copilot Studio and Agent Builder use cases. The list updates
                 as you change any choice. Shortlist what you like, export it, or turn it into a lab.
@@ -5979,7 +6002,7 @@
               </div>
             </section>
             <div class="panel">
-              <h3 id="lb-build-heading" tabindex="-1">🧬 Build a Custom Lab</h3>
+              <h3 id="lb-build-heading" tabindex="-1">Build a Custom Lab</h3>
               <p class="lb-build-lead" style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
                 Every module is checked against Microsoft Learn, and times are estimates, never limits.
               </p>
@@ -6386,7 +6409,7 @@
                 <div class="lb-generating-header">
                   <div class="lb-generating-orb" aria-hidden="true">
                     <span class="lb-generating-ring"></span>
-                    <span class="lb-generating-core">🧬</span>
+                    <span class="lb-generating-core" aria-hidden="true"></span>
                   </div>
                   <div class="lb-generating-copy">
                     <div class="lb-generating-title-row">
@@ -6412,7 +6435,7 @@
             </div>
 
             <div class="panel" id="lb-result-panel" style="display: none;">
-              <h3 id="lb-result-heading" tabindex="-1">📘 Your lab</h3>
+              <h3 id="lb-result-heading" tabindex="-1">Your lab</h3>
               <div id="lb-result-meta" style="margin-bottom: 16px;"></div>
               <div id="lb-result-body" class="lb-result-body"></div>
             </div>
@@ -6421,7 +6444,7 @@
               <details class="lb-generated-details" id="lb-drafts-details">
                 <summary class="lb-gen-summary">
                   <span class="lb-gen-summary-title">
-                    <h3 id="lb-drafts-heading" tabindex="-1">📝 Saved drafts</h3>
+                    <h3 id="lb-drafts-heading" tabindex="-1">Saved drafts</h3>
                     <span id="lb-drafts-badge" class="tag lb-gen-badge" aria-hidden="true">0</span>
                   </span>
                   <span class="lb-gen-summary-chevron" aria-hidden="true">▸</span>
@@ -6478,7 +6501,7 @@
               <details class="lb-generated-details" id="lb-generated-details">
                 <summary class="lb-gen-summary">
                   <span class="lb-gen-summary-title">
-                    <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
+                    <h3 id="lb-generated-heading" tabindex="-1">Previously generated labs</h3>
                     <span id="lb-gen-badge" class="tag lb-gen-badge" aria-hidden="true">0</span>
                   </span>
                   <span class="lb-gen-summary-chevron" aria-hidden="true">▸</span>
@@ -6498,8 +6521,8 @@
                         <span id="lb-gen-drift-last-scan" class="lb-gen-drift-last-scan">Last bulk scan: Not run yet</span>
                       </div>
                       <div class="lb-gen-drift-actions" role="group" aria-label="Check all labs against Microsoft Learn">
-                        <button type="button" class="btn btn-sm" id="lb-gen-drift-scan-btn" data-drift-action="scan-all" aria-label="Check all saved labs against Microsoft Learn">🔄 Check all labs against Microsoft Learn</button>
-                        <button type="button" class="btn btn-sm btn-primary" id="lb-gen-drift-update-btn" data-drift-action="update-drifted" aria-label="Update all labs that changed on Microsoft Learn" hidden disabled>⚡ Update all labs that changed (0)</button>
+                        <button type="button" class="btn btn-sm" id="lb-gen-drift-scan-btn" data-drift-action="scan-all" aria-label="Check all saved labs against Microsoft Learn">Check all labs against Microsoft Learn</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="lb-gen-drift-update-btn" data-drift-action="update-drifted" aria-label="Update all labs that changed on Microsoft Learn" hidden disabled>Update all labs that changed (0)</button>
                       </div>
                     </div>
                     <ul class="lb-gen-drift-pills" id="lb-gen-drift-pills" aria-label="Microsoft Learn status of all saved labs">
@@ -6590,7 +6613,7 @@
           <!-- Preview tab -->
           <div class="tab-panel" id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" aria-hidden="true">
             <div class="panel">
-              <h3>👁️ Lab Preview</h3>
+              <h3>Lab Preview</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Choose a lab to preview its content. Which labs are included elsewhere is set under Lab chapters on the Lab setup tab.
               </p>
@@ -6601,8 +6624,8 @@
                 </select>
               </div>
               <div class="preview-actions">
-                <button id="preview-print-button" class="btn" type="button" onclick="printSelectedLabPreview()" style="display: none;">🖨️ Print / Save PDF</button>
-                <button id="pdf-download-button" class="btn btn-primary" type="button" onclick="downloadCurrentPdf()" style="display: none;">📄 Download walkthrough PDF</button>
+                <button id="preview-print-button" class="btn" type="button" onclick="printSelectedLabPreview()" style="display: none;">Print / Save PDF</button>
+                <button id="pdf-download-button" class="btn btn-primary" type="button" onclick="downloadCurrentPdf()" style="display: none;">Download walkthrough PDF</button>
                 <span id="pdf-download-status" class="preview-download-status" aria-live="polite"></span>
               </div>
               <div id="preview-wrapper" class="preview-wrapper" style="display: none;">
@@ -6618,16 +6641,16 @@
           <!-- Azure Resources tab -->
           <div class="tab-panel" id="panel-azure" role="tabpanel" aria-labelledby="tab-azure" aria-hidden="true">
             <div class="panel">
-              <h3>🔍 Prerequisites Check</h3>
+              <h3>Prerequisites Check</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Verify your environment is ready for Azure resource provisioning.
               </p>
               <div id="prereq-results" style="margin-bottom: 16px;"></div>
-              <button class="btn" onclick="checkPrereqs()">🔍 Run Prerequisites Check</button>
+              <button class="btn" onclick="checkPrereqs()">Run Prerequisites Check</button>
             </div>
 
             <div class="panel">
-              <h3>☁️ Azure Resource Provisioning</h3>
+              <h3>Azure Resource Provisioning</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Auto-deploy the Azure resources each lab needs — resource groups, Container Apps for MCP servers, App Service for the portal, SharePoint sites, and more.
               </p>
@@ -6662,7 +6685,7 @@
             </div>
 
             <div class="panel">
-              <h3>📋 Resource Manifest</h3>
+              <h3>Resource Manifest</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Resources that will be provisioned for the selected labs. Change the selection under Lab chapters on the Lab setup tab.
               </p>
@@ -6674,11 +6697,11 @@
             </div>
 
             <div class="panel">
-              <h3>🚀 Deploy / Destroy</h3>
+              <h3>Deploy / Destroy</h3>
               <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-primary" id="deploy-button" onclick="deployResources()">☁️ Deploy Resources</button>
-                <button class="btn btn-danger" onclick="destroyResources()">🗑️ Destroy Resources</button>
-                <button class="btn" onclick="checkDeployStatus()">📊 Check Status</button>
+                <button class="btn btn-primary" id="deploy-button" onclick="deployResources()">Deploy Resources</button>
+                <button class="btn btn-danger" onclick="destroyResources()">Destroy Resources</button>
+                <button class="btn" onclick="checkDeployStatus()">Check Status</button>
                 <span id="deploy-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
               <div id="deploy-log" style="margin-top: 16px; display: none;">
@@ -6692,23 +6715,23 @@
           <!-- Power Platform tab -->
           <div class="tab-panel" id="panel-powerplatform" role="tabpanel" aria-labelledby="tab-powerplatform" aria-hidden="true">
             <div class="panel">
-              <h3>🔐 Authentication</h3>
+              <h3>Authentication</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Sign in with your Microsoft account using delegated (user) permissions to manage Power Platform resources.
               </p>
               <div id="pp-auth-status" style="margin-bottom: 12px;"></div>
               <div style="display: flex; gap: 8px;">
-                <button class="btn btn-primary" onclick="ppSignIn()">🔑 Sign In (Device Code)</button>
+                <button class="btn btn-primary" onclick="ppSignIn()">Sign In (Device Code)</button>
                 <button class="btn btn-sm" onclick="ppSignOut()">Sign Out</button>
               </div>
               <div id="pp-device-code" style="display: none; margin-top: 12px; padding: 16px; background: rgba(79,143,247,0.08); border: 1px solid var(--accent); border-radius: 8px;">
-                <div style="font-size: 14px; margin-bottom: 8px;">📱 <strong>Device Code Authentication</strong></div>
+                <div style="font-size: 14px; margin-bottom: 8px;"><strong>Device Code Authentication</strong></div>
                 <div id="pp-device-code-msg" style="font-size: 13px;"></div>
               </div>
             </div>
 
             <div class="panel">
-              <h3>🏢 Environments</h3>
+              <h3>Environments</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 All Power Platform environments in your tenant. Provision new environments for lab deployments or clean up unused ones.
               </p>
@@ -6724,7 +6747,7 @@
             </div>
 
             <div class="panel" id="pp-create-env-panel" style="display: none;">
-              <h3>➕ Create New Environment</h3>
+              <h3>Create New Environment</h3>
               <div class="form-grid">
                 <div class="form-group">
                   <label for="pp-env-name">Display Name</label>
@@ -6769,14 +6792,14 @@
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 8px;">
-                <button class="btn btn-primary" onclick="ppCreateEnvironment()">🚀 Create Environment</button>
+                <button class="btn btn-primary" onclick="ppCreateEnvironment()">Create Environment</button>
                 <button class="btn" onclick="document.getElementById('pp-create-env-panel').style.display='none'">Cancel</button>
                 <span id="pp-create-status" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
             </div>
 
             <div class="panel">
-              <h3>🔐 Approval &amp; Notification Settings</h3>
+              <h3>Approval &amp; Notification Settings</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Choose whether environment requests are provisioned immediately or routed through an approval workflow.
               </p>
@@ -6835,14 +6858,14 @@
               </div>
 
               <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="ppSaveApprovalConfig()">💾 Save Settings</button>
+                <button class="btn btn-primary" onclick="ppSaveApprovalConfig()">Save Settings</button>
                 <button class="btn" onclick="ppLoadApprovalConfig()">↻ Reload</button>
                 <span id="pp-approval-config-status" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
             </div>
 
             <div class="panel">
-              <h3>📋 Pending Approval Requests</h3>
+              <h3>Pending Approval Requests</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Review requests waiting for approval and inspect completed request history.
               </p>
@@ -6857,20 +6880,20 @@
             </div>
 
             <div class="panel">
-              <h3>🛡️ Secure Score & Recommendations</h3>
+              <h3>Secure Score & Recommendations</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Security posture assessment with actionable remediation for your Power Platform tenant.
               </p>
               <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                <button class="btn" onclick="ppLoadSecureScore()">🛡️ Load Secure Score</button>
-                <button class="btn" onclick="ppLoadRecommendations()">📋 Load Recommendations</button>
+                <button class="btn" onclick="ppLoadSecureScore()">Load Secure Score</button>
+                <button class="btn" onclick="ppLoadRecommendations()">Load Recommendations</button>
               </div>
               <div id="pp-secure-score" style="margin-bottom: 16px;"></div>
               <div id="pp-recommendations"></div>
             </div>
 
             <div class="panel">
-              <h3>📅 Scheduled Administration</h3>
+              <h3>Scheduled Administration</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Schedule recurring admin activities for your Power Platform tenant.
               </p>
@@ -6898,7 +6921,7 @@
                     <input type="email" id="pp-sched-email" placeholder="admin@contoso.com" />
                   </div>
                 </div>
-                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ppScheduleTask()">📅 Schedule Task</button>
+                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ppScheduleTask()">Schedule Task</button>
                 <div id="pp-sched-list" style="margin-top: 16px;"></div>
               </div>
             </div>
@@ -6909,19 +6932,19 @@
             <div class="panel">
               <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
                 <div>
-                  <h3>🧪 Lab Documentation Validation</h3>
+                  <h3>Lab Documentation Validation</h3>
                   <p style="color: var(--text-muted); margin-top: 6px; font-size: 14px;">
                     Run smoke tests against each lab's documentation, metadata, and referenced assets.
                   </p>
                 </div>
-                <button class="btn btn-primary" onclick="runValidation({ steps: true })">🧪 Run All Tests</button>
+                <button class="btn btn-primary" onclick="runValidation({ steps: true })">Run All Tests</button>
               </div>
               <div id="validation-summary" class="validation-summary">
                 <span class="tag">No validation run yet</span>
                 <span style="font-size: 13px; color: var(--text-muted);">Run the full validation suite to populate results.</span>
               </div>
               <section id="step-validation" class="sv-panel" aria-labelledby="step-validation-title">
-                <h4 id="step-validation-title">📚 Step accuracy against Microsoft Learn</h4>
+                <h4 id="step-validation-title">Step accuracy against Microsoft Learn</h4>
                 <p class="sv-help">
                   Checks the claims in each lab step (menu paths, button and setting names, requirements, limits, preview or GA status) against current Microsoft Learn content.
                   A lookup that fails is reported as unable to verify, never as a pass. Run All Tests starts this check after the structural tests.
@@ -6948,7 +6971,7 @@
           <!-- Email tab -->
           <div class="tab-panel" id="panel-email" role="tabpanel" aria-labelledby="tab-email" aria-hidden="true">
             <div class="panel">
-              <h3>📧 Send Labs via Email</h3>
+              <h3>Send Labs via Email</h3>
               <div id="email-selection-hint" role="status" aria-live="polite" style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);">
                 No lab chapters selected yet. Choose chapters on the Lab setup tab before sending.
               </div>
@@ -6967,7 +6990,7 @@
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="sendEmail()">📨 Send Email</button>
+                <button class="btn btn-primary" onclick="sendEmail()">Send Email</button>
                 <span id="email-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
             </div>
@@ -6977,12 +7000,12 @@
           <div class="tab-panel" id="panel-agent" role="tabpanel" aria-labelledby="tab-agent" aria-hidden="true">
             <div class="panel">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                <h3>🤖 Agent Chat</h3>
+                <h3>Agent Chat</h3>
                 <span id="agent-status-badge" class="agent-status-badge disconnected">Not configured</span>
               </div>
 
               <details id="agent-config-section" class="agent-chat-config-details" open>
-                <summary>🤖 Agent Chat Configuration</summary>
+                <summary>Agent Chat Configuration</summary>
                 <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                   Connect a Copilot Studio agent to assist lab users and provisioners with questions, troubleshooting, and lab guidance. The agent can answer questions about lab content, help with provisioning steps, and provide real-time support.
                 </p>
@@ -6999,7 +7022,7 @@
                     </div>
                   </div>
                   <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
-                    <button class="btn btn-primary" onclick="saveAgentChatConfig()">🔌 Connect Agent</button>
+                    <button class="btn btn-primary" onclick="saveAgentChatConfig()">Connect Agent</button>
                     <span id="agent-config-status" style="font-size: 13px; color: var(--text-muted);"></span>
                   </div>
                 </div>
@@ -7010,15 +7033,15 @@
                   Ask the agent questions about labs, provisioning, troubleshooting, or anything else it has been trained on.
                 </p>
                 <div class="agent-chat-starters">
-                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What labs should I start with?')">💡 What labs should I start with?</button>
-                  <button class="agent-chat-starter" onclick="sendStarterPrompt('How do I provision a new environment?')">🚀 How do I provision a new environment?</button>
-                  <button class="agent-chat-starter" onclick="sendStarterPrompt('Help me troubleshoot my agent')">🔧 Help me troubleshoot my agent</button>
-                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What prerequisites do I need?')">📋 What prerequisites do I need?</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What labs should I start with?')">What labs should I start with?</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('How do I provision a new environment?')">How do I provision a new environment?</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('Help me troubleshoot my agent')">Help me troubleshoot my agent</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What prerequisites do I need?')">What prerequisites do I need?</button>
                 </div>
                 <div id="agent-chat-container" class="agent-chat-container"></div>
                 <div style="margin-top: 12px; display: flex; gap: 8px;">
                   <button class="btn btn-sm" onclick="loadAgentChatConfig()">↻ Reconnect</button>
-                  <button class="btn btn-sm btn-danger" onclick="disconnectAgentChat()">🔌 Disconnect Agent</button>
+                  <button class="btn btn-sm btn-danger" onclick="disconnectAgentChat()">Disconnect Agent</button>
                 </div>
               </div>
             </div>
@@ -7028,7 +7051,7 @@
           <div class="tab-panel" id="panel-config" role="tabpanel" aria-labelledby="tab-config" aria-hidden="true">
             <section class="panel rh-card" id="readiness-hub" aria-labelledby="rh-heading">
               <div class="rh-head">
-                <h3 id="rh-heading" tabindex="-1">✅ Setup checklist</h3>
+                <h3 id="rh-heading" tabindex="-1">Setup checklist</h3>
                 <button type="button" class="btn btn-sm" id="rh-refresh">Check again</button>
               </div>
               <p class="rh-intro">
@@ -7041,7 +7064,7 @@
               </div>
             </section>
             <div class="panel" id="brand-profiles-panel">
-              <h3>🎨 Brand profiles</h3>
+              <h3>Brand profiles</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Create a reusable brand profile per customer. The active profile styles the portal header and every lab that does not pick another one.
                 Each lab keeps a snapshot of its profile, and you can override details for a single lab on Review and build in the lab builder.
@@ -7055,9 +7078,9 @@
                 <div class="bp-editor" id="bp-editor" aria-labelledby="bp-editor-heading">
                   <h4 id="bp-editor-heading" tabindex="-1" style="margin: 0 0 10px; font-size: 15px;">Edit profile</h4>
                   <div class="bp-editor-toolbar" role="group" aria-label="Profile actions">
-                    <button type="button" class="btn btn-sm" id="bp-activate">✔ Make active</button>
+                    <button type="button" class="btn btn-sm" id="bp-activate">Make active</button>
                     <button type="button" class="btn btn-sm" id="bp-duplicate">⧉ Duplicate</button>
-                    <button type="button" class="btn btn-sm btn-danger" id="bp-delete">🗑️ Delete</button>
+                    <button type="button" class="btn btn-sm btn-danger" id="bp-delete">Delete</button>
                   </div>
                   <form id="bp-form" novalidate>
                     <fieldset class="bp-fieldset">
@@ -7235,9 +7258,9 @@
                     </fieldset>
 
                     <div class="branding-actions">
-                      <button type="submit" class="btn btn-primary" id="bp-save">💾 Save profile</button>
+                      <button type="submit" class="btn btn-primary" id="bp-save">Save profile</button>
                       <button type="button" class="btn" id="bp-reset">↺ Reset to default</button>
-                      <button type="button" class="btn" id="branding-remove-logo">🗑️ Remove logo</button>
+                      <button type="button" class="btn" id="branding-remove-logo">Remove logo</button>
                       <span id="branding-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
                     </div>
                   </form>
@@ -7251,7 +7274,7 @@
             </div>
 
             <div class="panel">
-              <h3>⚙️ Deployment Configuration</h3>
+              <h3>Deployment Configuration</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Configure Azure and infrastructure settings. These are set via environment variables or <code>.env</code> file.
               </p>
@@ -7263,7 +7286,7 @@
             </div>
 
             <div class="panel">
-              <h3>🔐 Azure Key Vault (Recommended for Production)</h3>
+              <h3>Azure Key Vault (Recommended for Production)</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 In production, secrets should be stored in Azure Key Vault — not in <code>.env</code> files.
                 The portal loads secrets from Key Vault at startup when <code>AZURE_KEYVAULT_URL</code> is set.
@@ -7286,13 +7309,13 @@
                 </div>
               </div>
               <div style="margin-top: 12px; display: flex; gap: 8px;">
-                <button class="btn btn-sm" onclick="checkKeyVault()">🔍 Check Status</button>
-                <button class="btn btn-sm btn-primary" onclick="syncToKeyVault()">🔄 Sync Secrets to Key Vault</button>
+                <button class="btn btn-sm" onclick="checkKeyVault()">Check Status</button>
+                <button class="btn btn-sm btn-primary" onclick="syncToKeyVault()">Sync Secrets to Key Vault</button>
               </div>
             </div>
 
             <div class="panel">
-              <h3>🔐 Azure / Entra ID</h3>
+              <h3>Azure / Entra ID</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="AZURE_TENANT_ID">
                   <label for="cfg-tenant">Tenant ID</label>
@@ -7307,7 +7330,7 @@
                 <div class="form-group" data-config-key="AZURE_CLIENT_SECRET">
                   <label for="cfg-client-secret">Client Secret</label>
                   <input type="password" id="cfg-client-secret" placeholder="••••••••" />
-                  <span class="hint">⚠️ Stored in .env only — never committed</span>
+                  <span class="hint">Stored in .env only — never committed</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_SUBSCRIPTION_ID">
                   <label for="cfg-subscription">Subscription ID</label>
@@ -7318,7 +7341,7 @@
             </div>
 
             <div class="panel">
-              <h3>📧 Email (SMTP)</h3>
+              <h3>Email (SMTP)</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="SMTP_HOST">
                   <label for="cfg-smtp-host">SMTP Host</label>
@@ -7345,7 +7368,7 @@
             </div>
 
             <div class="panel">
-              <h3>🚀 Deployment Targets</h3>
+              <h3>Deployment Targets</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="AZURE_WEBAPP_NAME">
                   <label for="cfg-webapp">Azure Web App Name</label>

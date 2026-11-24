@@ -242,7 +242,7 @@ function lbZipFormatSelectHtml(labId, title, scopePrefix) {
         <option value="pdf">PDF (.pdf)</option>
         <option value="html">HTML (.html)</option>
       </select>
-      <button type="button" class="btn btn-sm" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download Complete Lab Package (.zip) for ${safeTitle}">📦 Complete Lab Package (.zip)</button>
+      <button type="button" class="btn btn-sm" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download Complete Lab Package (.zip) for ${safeTitle}">Complete Lab Package (.zip)</button>
     </span>`;
 }
 
@@ -312,21 +312,21 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
     <div class="lb-download-files-group" role="group" aria-label="Download associated files for ${safeTitle}">
       <span class="lb-download-files-label">Download Lab Files</span>
       <div class="lb-download-files-links">
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=html" download="${fileBase}.html" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download Interactive Web Lab (.html) for ${safeTitle}">🌐 Interactive Web Lab (.html)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=docx" download="${fileBase}.docx" aria-label="Download Word Guide (.docx) for ${safeTitle}">📝 Word Guide (.docx)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download Hands-on deck: lab day (.pptx) for ${safeTitle}">📊 Hands-on deck: lab day (.pptx)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pdf" download="${fileBase}.pdf" aria-label="Download PDF Guide (.pdf) for ${safeTitle}">📕 PDF Guide (.pdf)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=md" download="${fileBase}.md" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download Markdown (.md) for ${safeTitle}">📄 Markdown (.md)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-docx" download="${fileBase} - Facilitator Guide.docx" aria-label="Download Facilitator Guide (.docx) for ${safeTitle}">🎓 Facilitator Guide (.docx)</a>
-        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-pdf" download="${fileBase} - Facilitator Guide.pdf" aria-label="Download Facilitator Guide (.pdf) for ${safeTitle}">🎓 Facilitator Guide (.pdf)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=html" download="${fileBase}.html" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download Interactive Web Lab (.html) for ${safeTitle}">Interactive Web Lab (.html)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=docx" download="${fileBase}.docx" aria-label="Download Word Guide (.docx) for ${safeTitle}">Word Guide (.docx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download Hands-on deck: lab day (.pptx) for ${safeTitle}">Hands-on deck: lab day (.pptx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pdf" download="${fileBase}.pdf" aria-label="Download PDF Guide (.pdf) for ${safeTitle}">PDF Guide (.pdf)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=md" download="${fileBase}.md" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download Markdown (.md) for ${safeTitle}">Markdown (.md)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-docx" download="${fileBase} - Facilitator Guide.docx" aria-label="Download Facilitator Guide (.docx) for ${safeTitle}">Facilitator Guide (.docx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-pdf" download="${fileBase} - Facilitator Guide.pdf" aria-label="Download Facilitator Guide (.pdf) for ${safeTitle}">Facilitator Guide (.pdf)</a>
         ${lbZipFormatSelectHtml(labId, displayTitle, scopePrefix)}
       </div>
     </div>
     ${lbAdministratorGroupHtml(labId, displayTitle, scopePrefix)}
     <div class="lb-result-utility-actions" role="group" aria-label="Lab tools for ${safeTitle}">
-      <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print</button>
-      <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>
-      <button type="button" class="btn btn-sm" data-gen-action="shot-checklist" data-lab-id="${safeId}" aria-label="Show the screenshots still to capture for ${safeTitle}">📋 Screenshots left</button>
+      <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">Print</button>
+      <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">Validate</button>
+      <button type="button" class="btn btn-sm" data-gen-action="shot-checklist" data-lab-id="${safeId}" aria-label="Show the screenshots still to capture for ${safeTitle}">Screenshots left</button>
     </div>`;
 }
 
@@ -369,8 +369,8 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
             </div>
           </div>
           <div class="lb-topic-doc-actions">
-            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📝 Word (.docx)</a>
-            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download hands-on deck (lab day) for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📊 Hands-on deck: lab day (.pptx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">Word (.docx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download hands-on deck (lab day) for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">Hands-on deck: lab day (.pptx)</a>
           </div>
         </li>`;
     })
@@ -379,7 +379,7 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
   return `
     <section class="lb-topic-docs" aria-labelledby="lb-topic-docs-heading">
       <div class="lb-topic-docs-header">
-        <h4 id="lb-topic-docs-heading">📄 Hands-on documents &amp; decks: lab day</h4>
+        <h4 id="lb-topic-docs-heading">Hands-on documents &amp; decks: lab day</h4>
         <div class="scenario-pill-list">
           <span class="scenario-pill">${topicDocuments.length} topic${topicDocuments.length === 1 ? "" : "s"}</span>
         </div>
@@ -488,7 +488,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
   return `
     <section class="lb-admin-prereqs" aria-labelledby="lb-admin-prereqs-heading">
       <div class="lb-admin-prereqs-header">
-        <h4 id="lb-admin-prereqs-heading">🔐 Connectors, Environment, and Tenant Prerequisites</h4>
+        <h4 id="lb-admin-prereqs-heading">Connectors, Environment, and Tenant Prerequisites</h4>
         <div class="scenario-pill-list">
           <span class="scenario-pill">${connectors.length} connector${connectors.length === 1 ? "" : "s"} to allow</span>
           <span class="scenario-pill">${dlpAndAcp.length} DLP / ACP polic${dlpAndAcp.length === 1 ? "y" : "ies"}</span>
@@ -616,10 +616,10 @@ function lbGenRenderDriftDashboard() {
     scanBtn.disabled = Boolean(lbGen.driftBusy);
     if (lbGen.driftBusy && !lbGen.driftBusyLabId) {
       scanBtn.setAttribute("aria-busy", "true");
-      scanBtn.textContent = "⏳ Checking labs against Microsoft Learn...";
+      scanBtn.textContent = "Checking labs against Microsoft Learn...";
     } else {
       scanBtn.removeAttribute("aria-busy");
-      scanBtn.textContent = "🔄 Check all labs against Microsoft Learn";
+      scanBtn.textContent = "Check all labs against Microsoft Learn";
     }
   }
 
@@ -633,7 +633,7 @@ function lbGenRenderDriftDashboard() {
     } else {
       updateBtn.removeAttribute("aria-busy");
     }
-    updateBtn.textContent = `⚡ Update all labs that changed (${counts.docsUpdated})`;
+    updateBtn.textContent = `Update all labs that changed (${counts.docsUpdated})`;
     updateBtn.setAttribute(
       "aria-label",
       `Update all ${counts.docsUpdated} lab${counts.docsUpdated === 1 ? "" : "s"} that changed on Microsoft Learn`,
@@ -678,7 +678,7 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     const count = Math.max(1, Number(drift.driftedModuleCount || 1));
     const topicWord = count === 1 ? "topic" : "topics";
     badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-warn";
-    badgeText = `⚠ ${count} ${topicWord} updated on Microsoft Learn`;
+    badgeText = `${count} ${topicWord} updated on Microsoft Learn`;
     const driftedNames = drift.driftedModules
       .map((m) => String(m?.title || m?.moduleId || "").trim())
       .filter(Boolean);
@@ -691,11 +691,11 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     quickActionHtml = `<button type="button" class="btn btn-sm btn-primary lb-gen-quick-drift-btn" data-gen-action="quick-learn-update" data-lab-id="${safeId}" ${
       lbGen.driftBusy ? "disabled" : ""
     }${isThisLabBusy ? ' aria-busy="true"' : ""} aria-label="Update ${safeTitle} from Microsoft Learn">${
-      isThisLabBusy && lbGen.driftBusyLabId === lab.labId ? "⏳ Updating..." : "⚡ Update from Microsoft Learn"
+      isThisLabBusy && lbGen.driftBusyLabId === lab.labId ? "Updating..." : "Update from Microsoft Learn"
     }</button>`;
   } else if (drift.status === "up-to-date") {
     badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-ok";
-    badgeText = "✓ Microsoft Learn up to date";
+    badgeText = "Microsoft Learn up to date";
     ariaText = `Microsoft Learn sync status for ${rawTitle}: up to date${checkedText ? `, checked ${checkedText}` : ""}`;
     if (checkedText) {
       detailHtml = `<span class="lb-gen-drift-detail">Checked ${escapeHtml(checkedText)}</span>`;
@@ -705,7 +705,7 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     const progress = lbGenCaptureProgress(lab);
     const shotsText = progress && progress.total > 0 ? progress.text : `${missing} screenshot${missing === 1 ? "" : "s"} pending`;
     badgeClass = "lb-gen-drift-badge";
-    badgeText = `✓ Microsoft Learn up to date · ${shotsText}`;
+    badgeText = `Microsoft Learn up to date · ${shotsText}`;
     ariaText = `Microsoft Learn sync status for ${rawTitle}: documentation up to date, ${shotsText}`;
   } else if (drift.status === "ungrounded") {
     badgeClass = "lb-gen-drift-badge";
@@ -784,7 +784,7 @@ function lbGenItemHtml(lab) {
       ${legacy}
       <div class="lb-gen-actions">
         ${sharedActions}
-        ${!isOpen ? `<button type="button" class="btn btn-sm" data-gen-action="screenshots" aria-label="Open the Screenshot Center for ${title}">📸 Screenshots</button>` : ""}
+        ${!isOpen ? `<button type="button" class="btn btn-sm" data-gen-action="screenshots" aria-label="Open the Screenshot Center for ${title}">Screenshots</button>` : ""}
         <button type="button" class="btn btn-sm" data-gen-action="rename" aria-label="Rename ${title}">Rename</button>
         <button type="button" class="btn btn-sm" data-gen-action="delete" aria-label="Delete ${title}">Delete</button>
       </div>
@@ -1196,8 +1196,8 @@ function lbRenderGeneratedValidationHtml(report) {
     : `All ${passed}/${total} structural checks passed`;
   const rows = (report.tests || [])
     .map((item) => {
-      const icon = item.status === "fail" ? "❌" : item.status === "warn" ? "⚠️" : "✅";
-      return `<li>${icon} <code>${escapeHtml(item.name)}</code> — ${escapeHtml(item.message || "")}</li>`;
+      const outcome = item.status === "fail" ? "Fail" : item.status === "warn" ? "Warn" : "Pass";
+      return `<li><strong>${outcome}</strong> <code>${escapeHtml(item.name)}</code> — ${escapeHtml(item.message || "")}</li>`;
     })
     .join("");
   return `${lbRenderLabHealthHtml(report.health)}
@@ -1231,7 +1231,7 @@ function lbRenderChecklistHtml(list) {
     <p class="lb-checklist-lead"><strong>${total} picture${total === 1 ? "" : "s"} still to capture.</strong> ${list.counts.computer ? `Your computer can capture ${list.counts.computer} of them. ` : ""}${list.counts.you ? `${list.counts.you} need${list.counts.you === 1 ? "s" : ""} you.` : ""}</p>
     <div class="lb-checklist-actions">
       <button type="button" class="btn btn-sm" data-gen-action="shot-checklist-download" data-lab-id="${escapeHtml(list.labId)}">Download checklist (.md)</button>
-      <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">📸 Open the Screenshot Center</button>
+      <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">Open the Screenshot Center</button>
     </div>
     ${you ? `<h4>Only you can do these (${list.counts.you})</h4><ul class="lb-checklist-list">${you}</ul>` : ""}
     ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4><ul class="lb-checklist-list">${computer}</ul>` : ""}

@@ -16,6 +16,7 @@ import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
 import { applyConnectorNames } from "./connector-names-live.js";
+import { plainText, plainTextDeep } from "./plain-text.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { buildModuleTrainingDigest } from "./topic-training.js";
 import { buildModuleTrainingSources } from "./training-plan.js";
@@ -1241,7 +1242,8 @@ export async function generateLab(request, opts = {}) {
     connectorNames: { resolved: connectorNames.resolved, unresolved: connectorNames.unresolved },
   };
   await yieldToEventLoop();
-  const markdown = connectorNames.rewrite(composeLab(
+  // Nothing the lab says carries an emoji, whatever the catalog, Microsoft Learn, or a person typed.
+  const markdown = plainText(connectorNames.rewrite(composeLab(
     plan,
     groundingByFeature,
     screenshots.byFeature,
@@ -1249,7 +1251,7 @@ export async function generateLab(request, opts = {}) {
     generation,
     stepsByFeature,
     vendorByFeature,
-  ));
+  )));
   await yieldToEventLoop();
   // Advisory only: a low score is reported to the learner and never blocks the build.
   const qa = assessLab(markdown, {
@@ -1567,11 +1569,11 @@ export async function generateLab(request, opts = {}) {
       plan.warnings.push(`The training decks could not be built yet (${err.message}). They will be built when you first open them.`);
     }
 
-    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(plainTextDeep(manifest), null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {
       fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");
       if (screenshots.shots.some((s) => s.status !== "captured")) {
-        fs.writeFileSync(path.join(outputDir, "SHOTLIST.md"), buildShotList(plan, screenshots.shots), "utf8");
+        fs.writeFileSync(path.join(outputDir, "SHOTLIST.md"), plainText(buildShotList(plan, screenshots.shots)), "utf8");
       }
     }
 
@@ -1608,7 +1610,7 @@ export async function generateLab(request, opts = {}) {
       failed: result.validation.failed,
       checkedAt: new Date().toISOString(),
     };
-    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(plainTextDeep(manifest), null, 2) + "\n", "utf8");
     // The lab is whole: from here every reader sees it.
     clearBuilding(outputDir);
   } catch (err) {

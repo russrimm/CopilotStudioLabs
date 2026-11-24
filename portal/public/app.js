@@ -37,7 +37,7 @@ let lightboxState = {
 
 const ACTIVE_PROVISION_JOB_STORAGE_KEY = "copilot-studio-labs.activeProvisionJob";
 const PROVISION_POLL_INTERVAL_MS = 5000;
-const DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E";
+const DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a56c7'/%3E%3Cpath d='M18 48L32 16l14 32M24 38h16' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 const CONFIG_FIELD_IDS = {
   AZURE_KEYVAULT_URL: "cfg-keyvault-url",
@@ -604,7 +604,7 @@ function bpSyncToolbar() {
   const del = document.getElementById("bp-delete");
   if (activate) {
     activate.disabled = isNew || !selected || selected.id === brandProfiles.activeProfileId;
-    activate.textContent = selected && selected.id === brandProfiles.activeProfileId ? "✔ Active profile" : "✔ Make active";
+    activate.textContent = selected && selected.id === brandProfiles.activeProfileId ? "Active profile" : "Make active";
   }
   if (duplicate) duplicate.disabled = isNew || !selected;
   if (del) del.disabled = isNew || !selected || brandProfiles.profiles.length <= 1;
@@ -733,7 +733,7 @@ function applyBranding(nextBranding) {
   const taglineEl = document.getElementById("portal-tagline");
   const logoEl = document.getElementById("portal-logo");
 
-  if (titleEl) titleEl.innerHTML = normalized.logo ? escapeHtml(normalized.companyName) : `<span class="accent">⚡</span> ${escapeHtml(normalized.companyName)}`;
+  if (titleEl) titleEl.textContent = normalized.companyName;
   if (taglineEl) taglineEl.textContent = normalized.tagline;
 
   if (logoEl) {
@@ -868,7 +868,7 @@ function bpPayloadFromForm() {
 async function saveBranding() {
   const status = document.getElementById("branding-status");
   if (!bpValidateAll()) {
-    if (status) status.textContent = "❌ Fix the highlighted fields and try again.";
+    if (status) status.textContent = "Fix the highlighted fields and try again.";
     return;
   }
 
@@ -897,13 +897,13 @@ async function saveBranding() {
     brandingLogoFile = null;
     clearBrandingPreviewUrl();
     await loadBranding();
-    announceBrandStatus("✅ Profile saved");
+    announceBrandStatus("Profile saved");
     toast("Brand profile saved.", "success");
     if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
     if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
     if (err.fieldErrors) bpApplyServerErrors(err.fieldErrors);
-    if (status) status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `Error: ${err.message}`;
     toast(`Profile save failed: ${err.message}`, "error");
   }
 }
@@ -925,11 +925,11 @@ async function removeBrandingLogo() {
   try {
     await bpRequest("DELETE", `/api/branding/profiles/${encodeURIComponent(selected.id)}/logo`);
     await loadBranding();
-    announceBrandStatus("✅ Logo removed");
+    announceBrandStatus("Logo removed");
     toast("Logo removed.", "success");
     if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
-    if (status) status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `Error: ${err.message}`;
     toast(`Logo removal failed: ${err.message}`, "error");
   }
 }
@@ -951,12 +951,12 @@ async function resetBranding() {
     brandingLogoFile = null;
     clearBrandingPreviewUrl();
     await loadBranding();
-    announceBrandStatus("✅ Profile reset to the portal defaults");
+    announceBrandStatus("Profile reset to the portal defaults");
     toast("Profile reset to default.", "success");
     if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
     if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
-    if (status) status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `Error: ${err.message}`;
     toast(`Profile reset failed: ${err.message}`, "error");
   }
 }
@@ -967,7 +967,7 @@ async function bpActivateProfile() {
   try {
     await bpRequest("POST", `/api/branding/profiles/${encodeURIComponent(selected.id)}/activate`);
     await loadBranding();
-    announceBrandStatus(`✅ ${selected.name} is now the active profile.`);
+    announceBrandStatus(`${selected.name} is now the active profile.`);
     toast(`${selected.name} is now the active brand profile.`, "success");
     if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
     if (selectedLabId) selectLab(selectedLabId).catch(() => {});
@@ -984,7 +984,7 @@ async function bpDuplicateProfile() {
     brandProfiles.isNew = false;
     brandProfiles.selectedId = copy.id;
     await loadBranding();
-    announceBrandStatus(`✅ Created ${copy.name}.`);
+    announceBrandStatus(`Created ${copy.name}.`);
     toast(`Created ${copy.name}.`, "success");
     document.getElementById("bp-editor-heading")?.focus();
   } catch (err) {
@@ -1008,7 +1008,7 @@ async function bpDeleteProfile() {
     const result = await bpRequest("DELETE", `/api/branding/profiles/${encodeURIComponent(selected.id)}`);
     brandProfiles.selectedId = result.activeProfileId;
     await loadBranding();
-    announceBrandStatus(`✅ Deleted ${selected.name}.`);
+    announceBrandStatus(`Deleted ${selected.name}.`);
     toast(`Deleted ${selected.name}.`, "success");
     if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
     document.getElementById("bp-editor-heading")?.focus();
@@ -1061,7 +1061,7 @@ function renderLabs() {
         <details class="lab-level" data-level="${level}" ${isOpen ? "open" : ""}
                  ontoggle="setLabLevelOpen('${level}', this.open)">
           <summary class="lab-level-summary">
-            <span class="lab-level-name">${meta.icon} ${meta.label}</span>
+            <span class="lab-level-name">${meta.label}</span>
             <span class="lab-level-count">${includedCount}/${groupLabs.length}</span>
           </summary>
           <div class="lab-level-body">
@@ -1115,10 +1115,10 @@ function renderPreviewPicker() {
 // Difficulty level grouping for the Lab chapters list.
 const LAB_LEVEL_ORDER = ["beginner", "intermediate", "advanced", "other"];
 const LAB_LEVEL_META = {
-  beginner: { label: "Beginner", icon: "🟢" },
-  intermediate: { label: "Intermediate", icon: "🟡" },
-  advanced: { label: "Advanced", icon: "🔴" },
-  other: { label: "Other", icon: "⚪" },
+  beginner: { label: "Beginner" },
+  intermediate: { label: "Intermediate" },
+  advanced: { label: "Advanced" },
+  other: { label: "Other" },
 };
 
 // Classify by the lowest level a lab spans so mixed labs sit at their entry point.
@@ -1153,9 +1153,9 @@ function labCardHtml(lab) {
               title="${included ? "Included. Click to exclude" : "Excluded. Click to include"}"></button>
       <div class="lab-card-title">Lab ${escapeHtml(number)}: ${cleanTitle}</div>
       <div class="lab-card-meta">
-        <span>⭐ ${escapeHtml(lab.difficulty || "?")}</span>
-        <span>⏱️ ${escapeHtml(lab.time || "?")}</span>
-        <span>📁 ${sizeKB} KB</span>
+        <span>Difficulty: ${escapeHtml(lab.difficulty || "?")}</span>
+        <span>Time: ${escapeHtml(lab.time || "?")}</span>
+        <span>Size: ${sizeKB} KB</span>
       </div>
       <div style="margin-top: 6px;">
         ${(lab.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join(" ")}
@@ -1373,7 +1373,8 @@ function injectFeedbackButtons(preview) {
     const target = element.closest("p, li, blockquote, td, .checkpoint") || element;
     if (seen.has(target)) return;
     const text = target.textContent?.replace(/\s+/g, " ").trim() || "";
-    if (text.includes("✅ Checkpoint")) {
+    // Hand-written labs mark a checkpoint with a check mark icon (\u2705); generated labs use the plain word.
+    if (text.includes("\u2705 Checkpoint") || /^Checkpoint\b/.test(text)) {
       seen.add(target);
       targets.push(target);
     }
@@ -1386,7 +1387,7 @@ function injectFeedbackButtons(preview) {
     const widget = document.createElement("div");
     widget.className = "feedback-widget";
     widget.dataset.section = section;
-    widget.innerHTML = `<button class="feedback-btn thumbs-up" title="This section was helpful">👍</button><button class="feedback-btn thumbs-down" title="This section needs improvement">👎</button><span class="feedback-status"></span>`;
+    widget.innerHTML = `<button class="feedback-btn thumbs-up" title="This section was helpful">Helpful</button><button class="feedback-btn thumbs-down" title="This section needs improvement">Needs work</button><span class="feedback-status"></span>`;
 
     const voteKey = `${selectedLabId}::${section}`;
     const status = widget.querySelector(".feedback-status");
@@ -1432,7 +1433,7 @@ function injectReportIssueButton(preview) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn btn-sm report-issue-float";
-  button.textContent = "🐛 Report Issue";
+  button.textContent = "Report Issue";
   button.title = "Report an issue with this lab";
   button.addEventListener("click", () => reportIssue(preview.querySelector("h1, h2, h3")?.textContent?.trim() || ""));
   preview.appendChild(button);
@@ -1712,7 +1713,7 @@ function buildPreviewToc(contentEl, tocEl) {
     html += `<div class="toc-row toc-row-${node.level}">`;
 
     if (hasChildren) {
-      html += `<button type="button" class="toc-toggle collapsed" aria-expanded="false" aria-label="Expand ${safeText}">&#9654;</button>`;
+      html += `<button type="button" class="toc-toggle collapsed" aria-expanded="false" aria-label="Expand ${safeText}">&#9656;</button>`;
     } else {
       html += `<span class="toc-toggle-spacer" aria-hidden="true"></span>`;
     }
@@ -1884,7 +1885,7 @@ function paginateLabElement(container) {
     <button type="button" class="lab-page-btn" data-lab-bottom-prev disabled>← Previous</button>
     <span class="lab-pagination-status" data-lab-bottom-status>Page 1 of ${pageSpecs.length}</span>
     <button type="button" class="lab-page-btn lab-page-btn-primary" data-lab-bottom-next>Next: ${escapeHtml(pageSpecs[1].title)} →</button>
-    <span class="lab-complete-badge" data-lab-complete hidden>✓ Final page reached</span>`;
+    <span class="lab-complete-badge" data-lab-complete hidden>Final page reached</span>`;
 
   container.replaceChildren(...pinnedNodes, topNav, ...pages, bottomNav);
   container.classList.add("lab-paged-mode");
@@ -2304,7 +2305,7 @@ function renderScenarioDetails() {
   const title = document.getElementById("scenario-selected-title");
   if (!title) return;
 
-  title.textContent = industry ? `${industry.icon} ${industry.name}` : "Select an industry";
+  title.textContent = industry ? industry.name : "Select an industry";
   document.getElementById("scenario-description").textContent = industry
     ? industry.description
     : "Scenario guidance will appear here.";
@@ -2376,7 +2377,7 @@ async function applyScenarioConfig() {
     status.textContent = `Applied ${includedLabs.size} recommended lab(s)`;
     toast("Scenario applied to lab configuration.", "success");
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Scenario apply failed: " + err.message, "error");
   }
 }
@@ -2540,7 +2541,7 @@ function renderAgentChatPanel(config = {}) {
 
   if (statusBadge) {
     statusBadge.className = `agent-status-badge ${configured ? "connected" : "disconnected"}`;
-    statusBadge.textContent = configured ? `✓ Connected: ${agentName}` : "Not configured";
+    statusBadge.textContent = configured ? `Connected: ${agentName}` : "Not configured";
   }
 
   if (configured) {
@@ -2568,7 +2569,6 @@ function initAgentChat(tokenEndpoint, agentName) {
   container.innerHTML = `
     <div style="display: flex; flex-direction: column; height: 100%; background: var(--surface); color: var(--text);">
       <div style="padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px;">
-        <span style="font-size: 20px;">🤖</span>
         <div>
           <div style="font-weight: 600; color: var(--text); font-size: 15px;">${escapeHtml(agentName)}</div>
           <div style="font-size: 11px; color: var(--text-muted);">Powered by Copilot Studio</div>
@@ -2643,7 +2643,6 @@ async function loadWebChatScript(tokenEndpoint) {
   } catch (err) {
     if (initToken !== agentWebChatInitToken) return;
     host.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger-text);">
-      <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
       <div style="font-weight: 600; margin-bottom: 8px;">Connection Failed</div>
       <div style="font-size: 13px; color: var(--text);">${escapeHtml(err.message)}</div>
       <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">Check that your Token Endpoint URL is correct and the agent is published.</div>
@@ -2671,11 +2670,11 @@ async function saveAgentChatConfig() {
     });
     const config = await res.json();
     if (!res.ok) throw new Error(config.error || "Save failed");
-    if (status) status.textContent = "✅ Connected!";
+    if (status) status.textContent = "Connected!";
     toast(`Agent "${agentName}" connected successfully`, "success");
     renderAgentChatPanel(config);
   } catch (err) {
-    if (status) status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `Error: ${err.message}`;
     toast(`Agent connection failed: ${err.message}`, "error");
   }
 }
@@ -2737,9 +2736,9 @@ function buildValidationData() {
 }
 
 function getValidationBadge(result) {
-  if (result.failed > 0) return { text: "Fail", className: "tag-danger", icon: "❌" };
-  if (result.warnings > 0) return { text: "Warn", className: "tag-warning", icon: "⚠️" };
-  return { text: "Pass", className: "tag-success", icon: "✅" };
+  if (result.failed > 0) return { text: "Fail", className: "tag-danger" };
+  if (result.warnings > 0) return { text: "Warn", className: "tag-warning" };
+  return { text: "Pass", className: "tag-success" };
 }
 
 function renderPreflightStatus() {
@@ -2783,13 +2782,13 @@ function renderPreflightStatus() {
     const result = validationResults.get(labId);
     const title = labs.find((lab) => lab.id === labId)?.title || labId;
     let state;
-    if (!result) state = { cls: "is-missing", icon: "•", label: "Not run" };
-    else if (result.failed > 0) state = { cls: "is-fail", icon: "✕", label: `${result.failed} failing` };
-    else if (result.warnings > 0) state = { cls: "is-warn", icon: "!", label: `${result.warnings} warning${result.warnings === 1 ? "" : "s"}` };
-    else state = { cls: "is-pass", icon: "✓", label: "Passing" };
+    if (!result) state = { cls: "is-missing", label: "Not run" };
+    else if (result.failed > 0) state = { cls: "is-fail", label: `${result.failed} failing` };
+    else if (result.warnings > 0) state = { cls: "is-warn", label: `${result.warnings} warning${result.warnings === 1 ? "" : "s"}` };
+    else state = { cls: "is-pass", label: "Passing" };
     return `
       <div class="preflight-card ${state.cls}" title="${escapeHtml(title)}">
-        <span class="pf-icon">${state.icon}</span>
+        <span class="pf-icon" aria-hidden="true"></span>
         <div class="pf-body">
           <div class="pf-title">${escapeHtml(title)}</div>
           <div class="pf-state">${state.label}</div>
@@ -2805,7 +2804,6 @@ function renderPreflightStatus() {
       ${stat(warningOnly.length + missing.length, "Warn / Missing", "is-warn")}
     </div>
     <div class="preflight-meta">
-      <span>🕒</span>
       <span>${validationTimestamp ? `Last run ${new Date(validationTimestamp).toLocaleString()}` : "No validation timestamp available"}</span>
     </div>
     <div class="preflight-grid">${cards}</div>
@@ -2898,7 +2896,7 @@ function renderValidationResults(data) {
               </div>
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-              <span class="tag ${badge.className}">${badge.icon} ${badge.text}</span>
+              <span class="tag ${badge.className}">${badge.text}</span>
               <button class="btn btn-sm" onclick="runLabValidation('${lab.labId}', { steps: true })">Run</button>
             </div>
           </div>
@@ -2906,10 +2904,11 @@ function renderValidationResults(data) {
             <summary>View ${lab.total} smoke test result(s)</summary>
             <div class="validation-test-list">
               ${(lab.tests || []).map((test) => {
-                const icon = test.status === "pass" ? "✅" : test.status === "warn" ? "⚠️" : "❌";
+                const label = test.status === "pass" ? "Pass" : test.status === "warn" ? "Warn" : "Fail";
+                const tagClass = test.status === "pass" ? "tag-success" : test.status === "warn" ? "tag-warning" : "tag-danger";
                 return `
                   <div class="validation-test">
-                    <span>${icon}</span>
+                    <span class="tag ${tagClass}">${label}</span>
                     <div>
                       <span class="validation-test-name">${escapeHtml(test.name)}</span>
                       <span>${escapeHtml(test.message)}</span>
@@ -2950,7 +2949,7 @@ async function ensureValidationBeforeAction(actionLabel, statusElementId) {
 
     return { data, selectedResults, failing, warningOnly };
   } catch (err) {
-    if (status) status.textContent = `⚠️ Validation unavailable: ${err.message}`;
+    if (status) status.textContent = `Validation unavailable: ${err.message}`;
     toast(`Pre-flight validation failed before ${actionLabel}: ${err.message}`, "error");
     return null;
   }
@@ -2990,7 +2989,7 @@ async function exportZip() {
   const status = document.getElementById("export-status");
   if (!selected.length) {
     if (status) {
-      status.textContent = "⚠️ Select at least one chapter under Lab chapters above before exporting (or export a custom lab from Build a Lab).";
+      status.textContent = "Select at least one chapter under Lab chapters above before exporting (or export a custom lab from Build a Lab).";
     }
     document.getElementById("chapters-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
     toast("Select at least one chapter under Lab chapters before exporting.", "error");
@@ -3021,10 +3020,10 @@ async function exportZip() {
     a.click();
     URL.revokeObjectURL(url);
 
-    status.textContent = `✅ Exported ${selected.length} lab(s)`;
+    status.textContent = `Exported ${selected.length} lab(s)`;
     toast(`Exported ${selected.length} lab(s) as ZIP`, "success");
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Export failed: " + err.message, "error");
   }
 }
@@ -3073,13 +3072,13 @@ function renderRecipients() {
 async function sendEmail() {
   const status = document.getElementById("email-status");
   if (!recipients.length) {
-    if (status) status.textContent = "⚠️ Add at least one recipient email address.";
+    if (status) status.textContent = "Add at least one recipient email address.";
     toast("Add at least one recipient.", "error");
     return;
   }
   const selected = [...includedLabs];
   if (!selected.length) {
-    if (status) status.textContent = "⚠️ Select at least one chapter on the Lab setup tab before sending.";
+    if (status) status.textContent = "Select at least one chapter on the Lab setup tab before sending.";
     toast("Select at least one chapter on the Lab setup tab before sending.", "error");
     return;
   }
@@ -3102,10 +3101,10 @@ async function sendEmail() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Send failed");
 
-    status.textContent = `✅ Sent to ${recipients.length} recipient(s)`;
+    status.textContent = `Sent to ${recipients.length} recipient(s)`;
     toast(`Email sent to ${recipients.length} recipient(s)`, "success");
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Send failed: " + err.message, "error");
   }
 }
@@ -3283,7 +3282,7 @@ async function loadConfig() {
       configStatusCard(
         "SECRET_SOURCE",
         "Secret Source",
-        `${dot(secretSource === "keyvault")} ${secretSource === "keyvault" ? "🔐 Key Vault" : "📄 .env file"}`,
+        `${dot(secretSource === "keyvault")} ${secretSource === "keyvault" ? "Key Vault" : ".env file"}`,
       ),
       configStatusCard("AZURE_KEYVAULT_URL", "Key Vault", `${dot(kvConfigured)} ${kvConfigured ? escapeHtml(cfg.keyVault.vaultName) : "Not configured"}`),
       configStatusCard("AZURE_WEBAPP_NAME", "Web App", `${dot(cfg.deployment.webAppName)} ${cfg.deployment.webAppName ? escapeHtml(cfg.deployment.webAppName) : "Not set"}`),
@@ -3316,7 +3315,7 @@ function updateSummary() {
   if (chapters) chapters.textContent = `${count} of ${total} lab${total !== 1 ? "s" : ""} included`;
 
   const exportStatus = document.getElementById("export-status");
-  if (exportStatus && !exportStatus.querySelector(".spinner") && !exportStatus.textContent.startsWith("✅")) {
+  if (exportStatus && !exportStatus.querySelector(".spinner") && !exportStatus.textContent.startsWith("Exported")) {
     exportStatus.textContent = count
       ? `${count} chapter${count === 1 ? "" : "s"} selected for ZIP export.`
       : "Select one or more chapters under Lab chapters above to export a bundle.";
@@ -3325,7 +3324,7 @@ function updateSummary() {
   const emailHint = document.getElementById("email-selection-hint");
   if (emailHint) {
     emailHint.innerHTML = count
-      ? `📦 <strong>${count}</strong> lab chapter${count === 1 ? "" : "s"} selected to package and send.`
+      ? `<strong>${count}</strong> lab chapter${count === 1 ? "" : "s"} selected to package and send.`
       : `No lab chapters selected yet. Choose chapters on the Lab setup tab before sending. <button type="button" class="btn btn-sm" style="margin-left: 8px;" onclick="goToChapterSelection()">Select lab chapters →</button>`;
   }
 }
@@ -3371,7 +3370,7 @@ function setDeployButtonBusy(isBusy) {
   }
 
   button.disabled = isBusy;
-  button.textContent = isBusy ? "⏳ Deploying..." : button.dataset.defaultLabel;
+  button.textContent = isBusy ? "Deploying..." : button.dataset.defaultLabel;
 }
 
 function saveActiveProvisionJob(job) {
@@ -3401,7 +3400,7 @@ function startProvisionPolling(jobId) {
   provisionPollHandle = window.setInterval(() => {
     refreshProvisionProgress(jobId, { silentReconnect: true }).catch((err) => {
       console.error(err);
-      clearProvisionUi(`❌ ${err.message}`);
+      clearProvisionUi(`Error: ${err.message}`);
     });
   }, PROVISION_POLL_INTERVAL_MS);
 }
@@ -3420,11 +3419,15 @@ function clearProvisionUi(statusMessage = "") {
   }
 }
 
+function provisionDot(status, label) {
+  return `<span class="provision-dot is-${status}" role="img" aria-label="${label}"></span>`;
+}
+
 function getProvisionStepIcon(step) {
   if (step?.status === "running") return '<span class="spinner provision-spinner"></span>';
-  if (step?.status === "done") return "✅";
-  if (step?.status === "failed") return "❌";
-  if (step?.status === "skipped") return "⏭️";
+  if (step?.status === "done") return provisionDot(step.status, "Done");
+  if (step?.status === "failed") return provisionDot(step.status, "Failed");
+  if (step?.status === "skipped") return provisionDot(step.status, "Skipped");
   return "•";
 }
 
@@ -3488,7 +3491,7 @@ function renderDeployStatus(job) {
     return;
   }
 
-  const prefix = job.status === "done" ? "✅ Done" : "❌ Failed";
+  const prefix = job.status === "done" ? "Done" : "Failed";
   status.textContent = `${prefix} — ${summary.deployed} deployed, ${summary.skipped} skipped, ${summary.failed} failed`;
 }
 
@@ -3554,9 +3557,9 @@ function renderProvisionStatusBar(job) {
         <div class="provision-progress-fill" style="width: ${Math.max(0, Math.min(progressPercent, 100))}%;"></div>
       </div>
       <div class="provision-summary-row">
-        <span>✅ ${summary.deployed} deployed</span>
-        <span>⏭️ ${summary.skipped} skipped</span>
-        <span>❌ ${summary.failed} failed</span>
+        <span>${summary.deployed} deployed</span>
+        <span>${summary.skipped} skipped</span>
+        <span>${summary.failed} failed</span>
       </div>
       <div class="provision-completed-list">
         ${completedItems || '<div class="provision-empty">No completed steps yet.</div>'}
@@ -3672,18 +3675,18 @@ function renderResourceManifest() {
       const number = lab.labId.match(/^(\d+)/)?.[1] || "?";
       const resources = lab.resources
         .map((r) => {
-          const typeIcon = {
-            "resource-group": "📁",
-            "sharepoint-site": "📋",
-            "copilot-studio-agent": "🤖",
-            "dataverse-data": "🗃️",
-            "power-automate-flow": "⚡",
-            "mcp-server": "🔌",
-            "container-app": "📦",
-            "api-key": "🔑",
-            "local-tool": "🛠️",
-            "app-service": "🌐",
-          }[r.type] || "📎";
+          const typeLabel = {
+            "resource-group": "Resource group",
+            "sharepoint-site": "SharePoint site",
+            "copilot-studio-agent": "Copilot Studio agent",
+            "dataverse-data": "Dataverse data",
+            "power-automate-flow": "Power Automate flow",
+            "mcp-server": "MCP server",
+            "container-app": "Container app",
+            "api-key": "API key",
+            "local-tool": "Local tool",
+            "app-service": "App service",
+          }[r.type] || "Resource";
 
           const statusTag = r.manual
             ? '<span class="tag tag-warning">Manual</span>'
@@ -3695,10 +3698,9 @@ function renderResourceManifest() {
 
           return `
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 4px;">
-              <span style="font-size: 16px;">${typeIcon}</span>
               <div style="flex: 1;">
                 <div style="font-size: 13px; font-weight: 500;">${escapeHtml(r.name)}</div>
-                <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(r.description)}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${typeLabel} · ${escapeHtml(r.description)}</div>
               </div>
               ${statusTag}
             </div>
@@ -3726,10 +3728,11 @@ async function checkPrereqs() {
 
     container.innerHTML = data.checks
       .map((c) => {
-        const icon = c.ok ? "✅" : "❌";
+        const outcome = c.ok ? "Passed" : "Failed";
+        const outcomeClass = c.ok ? "tag-success" : "tag-danger";
         return `
           <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px;">
-            <span>${icon}</span>
+            <span class="tag ${outcomeClass}">${outcome}</span>
             <strong>${escapeHtml(c.label)}</strong>
             <span style="color: var(--text-muted);">— ${escapeHtml(c.detail)}</span>
           </div>
@@ -3758,7 +3761,7 @@ async function deployResources() {
   if (!selected.length) {
     if (status) {
       status.innerHTML =
-        '⚠️ No lab chapters selected. <button type="button" class="btn btn-sm" style="margin-left: 6px;" onclick="goToChapterSelection()">Select lab chapters →</button>';
+        'No lab chapters selected. <button type="button" class="btn btn-sm" style="margin-left: 6px;" onclick="goToChapterSelection()">Select lab chapters →</button>';
     }
     toast("Select at least one chapter on the Lab setup tab before deploying.", "error");
     return;
@@ -3805,10 +3808,10 @@ async function deployResources() {
     saveActiveProvisionJob({ jobId: data.jobId, baseName, status: "running" });
     await refreshProvisionProgress(data.jobId);
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     logEntries.innerHTML += `<div style="color: var(--danger);">Error: ${escapeHtml(err.message)}</div>`;
     clearProvisionUi();
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Deployment failed: " + err.message, "error");
   }
 }
@@ -3829,13 +3832,13 @@ async function destroyResources() {
 
     const data = await res.json();
     if (data.success) {
-      status.textContent = `🗑️ ${data.detail}`;
+      status.textContent = `${data.detail}`;
       toast("Resource group deletion initiated", "success");
     } else {
       throw new Error(data.error || "Destroy failed");
     }
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Destroy failed: " + err.message, "error");
   }
 }
@@ -3852,28 +3855,28 @@ async function checkDeployStatus() {
     const data = await res.json();
 
     if (!data.exists) {
-      status.textContent = "ℹ️ No resources deployed yet";
+      status.textContent = "No resources deployed yet";
       logContainer.style.display = "none";
       return;
     }
 
     logContainer.style.display = "block";
     logEntries.innerHTML = `
-      <div style="padding: 3px 0;">📁 <strong>Resource Group:</strong> ${escapeHtml(data.resourceGroup.name)} (${escapeHtml(data.resourceGroup.state)})</div>
-      <div style="padding: 3px 0;">📍 <strong>Location:</strong> ${escapeHtml(data.resourceGroup.location)}</div>
+      <div style="padding: 3px 0;"><strong>Resource Group:</strong> ${escapeHtml(data.resourceGroup.name)} (${escapeHtml(data.resourceGroup.state)})</div>
+      <div style="padding: 3px 0;"><strong>Location:</strong> ${escapeHtml(data.resourceGroup.location)}</div>
       <div style="padding: 3px 0; margin-top: 8px;"><strong>Resources (${data.resources.length}):</strong></div>
       ${data.resources
         .map((r) => {
-          const icon = r.state === "Succeeded" ? "✅" : r.state === "Failed" ? "❌" : "🔄";
+          const stateText = String(r.state || "");
           const shortType = r.type.split("/").pop();
-          return `<div style="padding: 2px 0;">${icon} ${escapeHtml(r.name)} <span style="color: var(--text-muted);">(${escapeHtml(shortType)})</span></div>`;
+          return `<div style="padding: 2px 0;">${escapeHtml(r.name)} <span style="color: var(--text-muted);">(${escapeHtml(shortType)}${stateText ? `, ${escapeHtml(stateText)}` : ""})</span></div>`;
         })
         .join("")}
     `;
 
-    status.textContent = `✅ ${data.resources.length} resource(s) in ${data.resourceGroup.name}`;
+    status.textContent = `${data.resources.length} resource(s) in ${data.resourceGroup.name}`;
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
   }
 }
 
@@ -3889,7 +3892,7 @@ async function checkKeyVault() {
     if (!data.configured) {
       container.innerHTML = `
         <div style="padding: 8px 12px; background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); border-radius: 6px; font-size: 13px;">
-          ⚠️ <strong>Key Vault not configured.</strong> Secrets are loaded from <code>.env</code> file.<br/>
+          <strong>Key Vault not configured.</strong> Secrets are loaded from <code>.env</code> file.<br/>
           Set <code>AZURE_KEYVAULT_URL</code> in your environment to enable Key Vault integration.
         </div>`;
       return;
@@ -3897,14 +3900,14 @@ async function checkKeyVault() {
 
     const secrets = data.secretMap
       .map((s) => {
-        const icon = s.hasEnvValue ? "✅" : "⬜";
-        return `<div style="padding: 2px 0; font-size: 13px;">${icon} <code>${escapeHtml(s.envVar)}</code> → <code>${escapeHtml(s.secretName)}</code></div>`;
+        const state = s.hasEnvValue ? "set" : "not set";
+        return `<div style="padding: 2px 0; font-size: 13px;"><code>${escapeHtml(s.envVar)}</code> → <code>${escapeHtml(s.secretName)}</code> (${state})</div>`;
       })
       .join("");
 
     container.innerHTML = `
       <div style="padding: 8px 12px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 6px; font-size: 13px;">
-        🔐 <strong>Key Vault:</strong> ${escapeHtml(data.vaultName)}<br/>
+        <strong>Key Vault:</strong> ${escapeHtml(data.vaultName)}<br/>
         <div style="margin-top: 8px;">${secrets}</div>
       </div>`;
   } catch (err) {
@@ -3990,7 +3993,7 @@ async function ppLoadEnvironments() {
     const authRes = await fetch("/api/pp/auth/status");
     const authData = await authRes.json();
     if (authData.authenticated) {
-      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">✅ Signed in as ${escapeHtml(authData.user.username)}</span>`;
+      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">Signed in as ${escapeHtml(authData.user.username)}</span>`;
       document.getElementById("pp-device-code").style.display = "none";
     }
 
@@ -4019,14 +4022,14 @@ async function ppLoadEnvironments() {
               <tr style="border-bottom: 1px solid var(--border);">
                 <td style="padding: 8px; font-weight: 500;">${escapeHtml(e.displayName)}</td>
                 <td style="padding: 8px;"><span class="tag">${escapeHtml(e.type)}</span></td>
-                <td style="padding: 8px;">${e.state === "Ready" ? "🟢" : "🟡"} ${escapeHtml(e.state)}</td>
+                <td style="padding: 8px;">${escapeHtml(e.state)}</td>
                 <td style="padding: 8px;">${escapeHtml(e.region)}</td>
                 <td style="padding: 8px;">${environmentUrl ? `<a href="${escapeHtml(environmentUrl)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-size: 12px;">${escapeHtml(e.domainName || "Open")}</a>` : "—"}</td>
                 <td style="padding: 8px;">
                   <button class="btn btn-sm btn-danger"
                           data-environment-id="${escapeHtml(e.id)}"
                           data-environment-name="${escapeHtml(e.displayName)}"
-                          onclick="ppDeleteEnvironmentFromButton(this)">🗑️</button>
+                          onclick="ppDeleteEnvironmentFromButton(this)">Delete</button>
                 </td>
               </tr>
             `;
@@ -4118,7 +4121,7 @@ async function ppLoadApprovalConfig() {
     if (status) status.textContent = "Settings loaded";
   } catch (err) {
     const status = document.getElementById("pp-approval-config-status");
-    if (status) status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `Error: ${err.message}`;
   }
 }
 
@@ -4135,11 +4138,11 @@ async function ppSaveApprovalConfig() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to save approval settings");
     ppApplyApprovalConfig(data);
-    status.textContent = "✅ Settings saved";
+    status.textContent = "Settings saved";
     toast("Approval settings saved", "success");
     ppLoadApprovalRequests();
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Save failed: " + err.message, "error");
   }
 }
@@ -4161,8 +4164,8 @@ function ppRenderApprovalRequests(requests = []) {
       <td style="padding: 8px;">
         ${includeActions && request.approvalMethod === "portal" ? `
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button class="btn btn-sm btn-primary" onclick="ppApproveRequest('${escapeHtml(request.id)}')">✅ Approve</button>
-            <button class="btn btn-sm btn-danger" onclick="ppRejectRequest('${escapeHtml(request.id)}')">❌ Reject</button>
+            <button class="btn btn-sm btn-primary" onclick="ppApproveRequest('${escapeHtml(request.id)}')">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="ppRejectRequest('${escapeHtml(request.id)}')">Reject</button>
           </div>
         ` : `
           <div style="font-size: 12px; color: var(--text-muted);">
@@ -4308,17 +4311,17 @@ async function ppCreateEnvironment() {
 
     const request = data.request || {};
     if (request.status === "provisioned") {
-      status.textContent = "✅ Environment created!";
+      status.textContent = "Environment created!";
       toast(`Environment "${name}" created successfully!`, "success");
       ppLoadEnvironments();
     } else {
-      status.textContent = "🕒 Request submitted — awaiting approval";
+      status.textContent = "Request submitted — awaiting approval";
       toast(`Request submitted for "${name}"`, "success");
     }
     document.getElementById("pp-create-env-panel").style.display = "none";
     ppLoadApprovalRequests();
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    status.textContent = `Error: ${err.message}`;
     toast("Create failed: " + err.message, "error");
   }
 }
@@ -4371,7 +4374,7 @@ async function ppLoadSecureScore() {
         </div>
         ${checks.map((c) => `
           <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px;">
-            <span>${c.ok ? "✅" : "❌"}</span>
+            <span>${c.ok ? "Passed" : "Failed"}</span>
             <span>${escapeHtml(c.label)}</span>
           </div>
         `).join("")}
@@ -4397,7 +4400,7 @@ async function ppLoadRecommendations() {
 
     const recs = data.recommendations || [];
     if (!recs.length) {
-      container.innerHTML = '<div style="color: var(--success);">✅ No recommendations — security posture looks good!</div>';
+      container.innerHTML = '<div style="color: var(--success);">No recommendations — security posture looks good!</div>';
       return;
     }
 
@@ -4412,7 +4415,7 @@ async function ppLoadRecommendations() {
           <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${escapeHtml(r.description)}</div>
           <div style="font-size: 12px; margin-bottom: 8px;"><strong>Remediation:</strong> ${escapeHtml(r.remediation || "N/A")}</div>
           ${r.canAutoRemediate
-            ? `<button class="btn btn-sm btn-primary" data-rec-id="${escapeHtml(r.id)}" onclick="ppRemediate(this.dataset.recId)">🔧 Auto-Remediate</button>`
+            ? `<button class="btn btn-sm btn-primary" data-rec-id="${escapeHtml(r.id)}" onclick="ppRemediate(this.dataset.recId)">Auto-Remediate</button>`
             : '<span class="tag tag-warning">Manual action required</span>'}
         </div>
       `;
@@ -4457,10 +4460,9 @@ function ppScheduleTask() {
   const id = Date.now();
   list.innerHTML += `
     <div id="sched-${id}" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
-      <span>📅</span>
       <span style="flex: 1;"><strong>${escapeHtml(taskNames[task])}</strong> — ${escapeHtml(freq)}${email ? ` → ${escapeHtml(email)}` : ""}</span>
       <span class="tag tag-success">Active</span>
-      <button class="btn btn-sm" onclick="document.getElementById('sched-${id}').remove()">✗</button>
+      <button class="btn btn-sm" aria-label="Remove this scheduled task" onclick="document.getElementById('sched-${id}').remove()">×</button>
     </div>
   `;
   toast(`Scheduled "${taskNames[task]}" (${freq})`, "success");
@@ -4722,7 +4724,7 @@ function lbUpdateGeneratingAnimation(elapsedSec) {
       item.classList?.toggle("active", idx === activeStage);
       item.classList?.toggle("done", idx < activeStage);
       const dot = item.querySelector?.(".lb-gen-stage-dot");
-      if (dot) dot.textContent = idx < activeStage ? "✓" : String(idx + 1);
+      if (dot) dot.textContent = String(idx + 1);
     });
   }
 }
@@ -4941,7 +4943,7 @@ function lbShowResult(data) {
     <div class="lb-result-actions">
       ${typeof lbGeneratedActionButtonsHtml === "function"
         ? lbGeneratedActionButtonsHtml(data.labId, labTitle)
-        : `<button type="button" class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">📄 Markdown (.md)</button>`}
+        : `<button type="button" class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">Markdown (.md)</button>`}
     </div>
     ${(data.manifest?.decisions || [])
       .map(

@@ -33,7 +33,7 @@ function extractAnchors(fragment) {
       target: attr("target"),
       rel: attr("rel"),
       ariaLabel: attr("aria-label"),
-      text: inner.replace(/<[^>]+>/g, "").replace(/↗/g, "").trim(),
+      text: inner.replace(/<[^>]+>/g, "").trim(),
     });
   }
   return anchors;

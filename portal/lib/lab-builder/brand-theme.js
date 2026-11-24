@@ -11,6 +11,7 @@
  */
 
 import { PRODUCT_NAME, currentProductName } from "../product-name.js";
+import { plainText } from "./plain-text.js";
 import { normalizeSharepointSiteName, validateSharepointSiteUrl } from "./sharepoint-site.js";
 
 const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F]/g;
@@ -167,7 +168,7 @@ export const FIELD_LABELS = Object.freeze({
 });
 
 export function cleanText(value) {
-  return String(value ?? "")
+  return plainText(String(value ?? ""))
     .replace(CONTROL_CHARS_RE, " ")
     .replace(/[<>]/g, "")
     .replace(/\s+/g, " ")
@@ -474,7 +475,7 @@ export function ensureReadableColor(hex, backgrounds, targetHex, minRatio = 4.5)
 // ── Escaping ────────────────────────────────────────────────────────────────
 
 export function escapeHtmlText(value) {
-  return String(value ?? "")
+  return plainText(String(value ?? ""))
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

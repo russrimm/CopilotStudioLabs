@@ -171,6 +171,6 @@ test("Step 8 generation animation card reveals during lbGenerate, pauses on huma
   context.lbUpdateGeneratingAnimation(7);
   assert.equal(elements.get("lb-generating-elapsed").textContent, "0:07");
   assert.equal(stages[0].classList.contains("done"), true);
-  assert.equal(stages[0].dot.textContent, "✓");
+  assert.equal(stages[0].dot.textContent, "1", "a finished stage keeps its number; the done class marks it");
   assert.equal(stages[2].classList.contains("active"), true);
 });

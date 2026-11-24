@@ -701,7 +701,7 @@ test("a lab nobody has checked shows 'Not checked yet', never a green 'up to dat
   assert.match(checked.text(".sc-header"), /Microsoft Learn: Up to date/);
   assert.ok(checked.center().querySelector(".sc-header .sc-chip-learn").classList.contains("sc-chip-ok"));
   const primary = checked.center().querySelector(".sc-primary-btn");
-  assert.equal(primary.textContent, "\u2713 All screenshots up to date");
+  assert.equal(primary.textContent, "All screenshots up to date");
   assert.equal(primary.disabled, true);
 
   const drifted = makeHarness();
@@ -2096,7 +2096,7 @@ test("saved-lab badges and counts never show an unchecked lab as up to date", ()
   const unchecked = card({ ...base, status: "not-checked" });
   assert.match(unchecked, /Not checked against Microsoft Learn yet/);
   assert.doesNotMatch(unchecked, /up to date|lb-gen-drift-badge-ok/i);
-  assert.match(card({ ...base, status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z" }), /✓ Microsoft Learn up to date/);
+  assert.match(card({ ...base, status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z" }), /Microsoft Learn up to date/);
 
   h.run(`lbGen.labs = [{ labId: "${LAB}", title: "T", moduleCount: 1, screenshots: { total: 1, captured: 1, pending: 0, stale: 0, learnSyncStatus: "up-to-date" } }]`);
   h.run("lbSyncSingleLabDriftFromState")(LAB, { checkState: "not-checked", lastRevalidatedAt: null, summary: { total: 1, captured: 1, missing: 0, stale: 0, learnSyncStatus: "up-to-date", checkState: "not-checked" }, modules: [] });
@@ -2199,7 +2199,7 @@ test("re-checking against Microsoft Learn reports honestly and offers the update
   assert.deepEqual(json(call.body), { autoUpdate: false, updateSteps: false, autoCapture: false, onlyStale: true }, "the server never runs a browser for this");
   assert.match(h.text(".sc-banner"), /Checked just now\. All 2 modules match live Microsoft Learn documentation\./);
   assert.match(h.text(".sc-header"), /Microsoft Learn: Up to date/);
-  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "\u2713 All screenshots up to date");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "All screenshots up to date");
 
   const changed = makeHarness();
   const drifted = stateFor([captured("a.png", { stale: true })]);

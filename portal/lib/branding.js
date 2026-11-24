@@ -195,7 +195,7 @@ export function renderLabEmail({ labCount, labListHtml }, branding = loadBrandin
     : `Your ${PRODUCT_NAME} Package`;
   const html = `
         <div style="font-family: ${fontFamily}; max-width: 600px;">
-          <h2${custom ? ` style="color: ${accent};"` : ""}>⚡ ${heading}</h2>
+          <h2${custom ? ` style="color: ${accent};"` : ""}>${heading}</h2>
           <p>Attached is your customized lab package containing ${Number(labCount) || 0} lab(s):</p>
           <ul>${labListHtml}</ul>
           <p>Unzip the attachment and follow each lab's <code>index.md</code> to get started.</p>

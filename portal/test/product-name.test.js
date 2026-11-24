@@ -114,7 +114,7 @@ test("the new name is not doubled, mis-articled, or shortened", () => {
 test("a person sees the new name in the page title, the header, the README title, and the banners", () => {
   const html = read("portal/public/index.html");
   assert.match(html, /<title>[^<]*Agentic Microsoft Training and Lab Generator[^<]*<\/title>/);
-  assert.match(html, /id="portal-title"[^>]*>[^<]*<span[^>]*>[^<]*<\/span> Agentic Microsoft Training and Lab Generator</);
+  assert.match(html, /id="portal-title"[^>]*>Agentic Microsoft Training and Lab Generator</);
   assert.match(read("README.md"), /^# ⚡ Agentic Microsoft Training and Lab Generator$/m);
   assert.match(read("portal/README.md"), /^# ⚡ Agentic Microsoft Training and Lab Generator — Provisioning Portal$/m);
   assert.match(read("tools/screenshot-capture/companion.mjs"), /^\/\/ Local Capture Companion for the Agentic Microsoft Training and Lab Generator portal\.$/m);

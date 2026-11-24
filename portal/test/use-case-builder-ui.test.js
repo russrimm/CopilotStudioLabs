@@ -869,9 +869,9 @@ test("starting from a shortlist replaces earlier answers and stops editing a sav
 // ── The rename, aliases, and page rules ─────────────────────────────────────
 
 test("the tab is the Use Case Builder, with the same ids and two friendly addresses", () => {
-  assert.match(HTML, /<button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">💡 Use Case Builder<\/button>/);
+  assert.match(HTML, /<button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">Use Case Builder<\/button>/);
   assert.match(HTML, /<div class="tab-panel" id="panel-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" aria-hidden="true">/);
-  assert.match(HTML, /<h3 id="uc-heading" tabindex="-1">💡 Use Case Builder<\/h3>/);
+  assert.match(HTML, /<h3 id="uc-heading" tabindex="-1">Use Case Builder<\/h3>/);
   assert.match(HTML, /<div id="uc-root">/);
   assert.match(HTML, /Also set up the provisioning labs for this scenario/);
   assert.match(HTML, /onclick="applyScenarioConfig\(\)">Apply scenario to Lab setup<\/button>/);
@@ -915,7 +915,7 @@ test("no UI copy or document still calls it Industry scenarios, except the one n
   }
   assert.equal(hits.length, 1, hits.join("\n"));
   assert.match(hits[0], /^docs\/lab-builder\.md:\d+: .*formerly/i);
-  assert.doesNotMatch(HTML, /🏢 Industry|Scenario Planner/i);
+  assert.doesNotMatch(HTML, /Scenario Planner/i);
 });
 
 test("the Use Case Builder script builds DOM safely: no HTML parsing, links only to Microsoft Learn, noopener on every new tab", () => {

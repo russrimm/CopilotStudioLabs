@@ -159,7 +159,7 @@ function processImages(html, labRoot, labId) {
     if (!existsSync(resolved.diskPath)) {
       stats.missing += 1;
       console.warn(`[${labId}] Missing screenshot: ${resolved.relativePath}`);
-      return `<div class="missing-screenshot">📷 Screenshot pending — see <code>${escapeHtml(resolved.relativePath)}</code></div>`;
+      return `<div class="missing-screenshot">Screenshot pending — see <code>${escapeHtml(resolved.relativePath)}</code></div>`;
     }
 
     shotIndex += 1;

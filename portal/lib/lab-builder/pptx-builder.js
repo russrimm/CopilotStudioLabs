@@ -2467,7 +2467,7 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     paragraphs: (training.learningObjectives || []).slice(0, 4).map((obj) => ({
       markdown: truncateText(obj, 240),
       sizePt: 11.5,
-      bulletChar: "✓",
+      bulletChar: "•",
       bulletColorHex: deck.primaryHex,
       spaceAfterPt: 5,
     })),
@@ -2972,7 +2972,7 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
       guardrailParas.push({
         markdown: truncateText(g, 340),
         sizePt: 11.5,
-        bulletChar: "⚠",
+        bulletChar: "•",
         bulletColorHex: COLORS.warnAccent,
         spaceAfterPt: 7,
       });

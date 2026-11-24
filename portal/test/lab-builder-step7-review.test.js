@@ -623,7 +623,7 @@ test("sub-topic rows read 'Sub-topic: title', say 'left out' when unchecked, and
 
   await clickEditOrder(element);
   previewHtml = element("lb-preview").innerHTML;
-  assert.deepEqual(subRowTexts(previewHtml).map((text) => text.replace(/ Microsoft Learn ↗$/, "").replace(/ Microsoft Learn ↗ /, " ")), [
+  assert.deepEqual(subRowTexts(previewHtml).map((text) => text.replace(/ Microsoft Learn$/, "").replace(/ Microsoft Learn /, " ")), [
     "Sub-topic: Connector tools overview about 5 min",
     "Sub-topic: Connector tools limits left out",
   ]);

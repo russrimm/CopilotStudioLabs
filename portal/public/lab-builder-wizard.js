@@ -1641,7 +1641,7 @@ function lbRenderLearnLinks(item, options = {}) {
   const anchors = links
     .map(
       (link) =>
-        `<a class="lb-learn-source" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(link.title)} — Microsoft Learn (opens in a new tab)">${escapeHtml(link.title)}<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+        `<a class="lb-learn-source" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(link.title)} — Microsoft Learn (opens in a new tab)">${escapeHtml(link.title)}</a>`
     )
     .join('<span class="lb-learn-sep" aria-hidden="true">·</span>');
   return `<span class="lb-learn-links"><span class="lb-learn-links-label">Microsoft Learn:</span>${anchors}</span>`;
@@ -2281,7 +2281,7 @@ function lbSubtopicRow(t, s, query) {
   const url = lbLearnUrl(s.url);
   const describedBy = s.summary ? ` aria-describedby="lb-subtopic-desc-${escapeHtml(s.id)}"` : "";
   const link = url
-    ? `<a class="lb-learn-source lb-subtopic-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(s.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+    ? `<a class="lb-learn-source lb-subtopic-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(s.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn</a>`
     : "";
   return `
               <li class="lb-subtopic${checked ? " checked" : ""}${match ? " lb-subtopic-match" : ""}">
@@ -3875,7 +3875,7 @@ function lbRenderOutlineSubtopic(module, sub) {
   const edit = Boolean(labBuilder.editOrder);
   const url = lbLearnUrl(sub.url);
   const link = edit && url
-    ? `<a class="lb-learn-source" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(sub.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+    ? `<a class="lb-learn-source" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(sub.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn</a>`
     : "";
   const spacer = edit ? '<td class="lb-outline-order-cell"></td><td></td>' : "";
   return `<tr class="lb-outline-subrow${sub.included ? "" : " lb-outline-subrow-off"}"><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="${id}" data-outline-subtopic="${escapeHtml(sub.id)}" data-outline-parent="${escapeHtml(module.id)}" autocomplete="off" ${sub.included ? "checked" : ""}></td>${spacer}<th scope="row" class="lb-outline-subhead"><label class="lb-outline-module-label" for="${id}"><span class="lb-outline-subtag">Sub-topic:</span> ${escapeHtml(sub.title)}</label> ${link}</th><td>${sub.included ? `about ${escapeHtml(sub.minutes || 5)} min` : "left out"}</td></tr>`;
