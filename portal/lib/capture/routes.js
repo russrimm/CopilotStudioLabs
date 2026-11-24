@@ -551,6 +551,21 @@ export function registerCaptureRoutes(app, deps = {}) {
       }
     });
 
+    // "This is Standard (Classic)" / "This is Microsoft Copilot": a person says which harness a picture from before harnesses were recorded shows.
+    app.post(base("/harness"), (req, res) => {
+      if (manageLimited(req, res)) return;
+      const target = resolveTarget(req, res);
+      if (!target) return;
+      syncAfter(res);
+      try {
+        const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+        const result = screenshots.tagPicture(target, req.params.filename, body.harness, { by: actor(req) });
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        fail(res, err);
+      }
+    });
+
     app.get(base("/staged"), (req, res) => {
       const target = resolveTarget(req, res);
       if (!target) return;

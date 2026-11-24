@@ -31,6 +31,7 @@ import { getLabScreenshotsStatus, writeLabVerificationRecord } from "../lib/lab-
 import { PLACEHOLDER_PATH } from "../lib/lab-builder/slots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, resolveCapturedScreenshotsDir } from "../lib/storage-config.js";
 import { makePng } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(here, "..", "..");
@@ -67,6 +68,8 @@ function putPicture(lab, filename, bytes, { record = "masked" } = {}) {
       source: "companion",
       acceptedAt: "2026-01-01T00:00:00.000Z",
       redaction: record === "masked" ? { applied: true, masked: 1 } : null,
+      // What a current companion capture leaves: the harness the page was proven to be in (the labs here are Microsoft Copilot harness labs).
+      harness: { id: "microsoft-copilot", proof: "landmarks", at: "2026-01-01T00:00:00.000Z" },
     });
   }
 }
@@ -93,7 +96,9 @@ function putLibrary(store, filename, bytes) {
   assert.equal(result.status, 200, JSON.stringify(result.body));
 }
 
-const libraryFile = (filename) => join(ctx.libDir, filename);
+// The labs here are built for the Microsoft Copilot harness, so the library keeps their pictures under the harness name.
+const libName = (filename) => libraryName(filename, "microsoft-copilot");
+const libraryFile = (filename) => join(ctx.libDir, libName(filename));
 const keptEntries = () => ctx.store.keptOverview().entries;
 const labPrevious = (lab, filename) => join(lab.labDir, "screenshots", ".previous", filename);
 
@@ -179,11 +184,11 @@ test("replacing a lab keeps every real picture: carried, shared, or kept, and a 
   const a = await newLab(["mc-memory"]);
   const b = await newLab(["mc-preview-test"]);
   const [carry, share, other, labOnly] = ["mc-create-agent-build.png", "mc-memory-toggle.png", "mc-knowledge-add-dialog.png", "custom-team-notes.png"];
-  const same = ctx.store.libraryState().shots.map((s) => s.filename).find((f) => ![carry, share, other].includes(f));
+  const same = ctx.store.libraryState().shots.find((s) => s.harness === "microsoft-copilot" && ![carry, share, other].includes(s.slotFilename))?.slotFilename;
   const bytes = { carry: png(1), share: png(2), other: png(3), labOnly: png(4), theirs: png(5), same: png(6) };
 
-  putLibrary(ctx.store, other, bytes.theirs);
-  putLibrary(ctx.store, same, bytes.same);
+  putLibrary(ctx.store, libName(other), bytes.theirs);
+  putLibrary(ctx.store, libName(same), bytes.same);
   putPicture(a, carry, bytes.carry);
   putPicture(a, share, bytes.share);
   putPicture(a, other, bytes.other);
@@ -236,7 +241,7 @@ test("a lab's pictures are copied to the new lab only where it has no picture of
   assert.deepEqual(readFileSync(join(b.labDir, "assets", first)), png(13), "the new lab's own picture is never replaced");
   assert.deepEqual(readFileSync(join(b.labDir, "assets", second)), png(12));
   assert.equal(result.counts.carried, 1);
-  assert.deepEqual(keptEntries()[0].pictures.map((p) => [p.filename, p.why]), [[first, "no-check"]], "the picture that could not be carried or shared is kept");
+  assert.deepEqual(keptEntries()[0].pictures.map((p) => [p.filename, p.why]), [[first, "harness-not-recorded"]], "the picture that could not be carried or shared is kept (no harness is recorded for it)");
 });
 
 // ── Delete ───────────────────────────────────────────────────────────────────
@@ -618,11 +623,11 @@ test("a computer with no setting saves a verified capture to its per-user folder
   const result = capture(mine.store, lab.labId, filename, { seed: 121 });
   assert.equal(result.status, 200);
   assert.equal(result.body.library.outcome, "shared", "no environment variable is needed for automatic sharing");
-  assert.deepEqual(readFileSync(join(resolveCapturedScreenshotsDir(env), filename)), result.bytes);
+  assert.deepEqual(readFileSync(join(resolveCapturedScreenshotsDir(env), libName(filename))), result.bytes);
   assert.equal(getLabScreenshotsStatus(mine.generatedRoot, next.labId, { capturedDir: [resolveCapturedScreenshotsDir(env)] }).body.shots.find((s) => s.filename === filename).captured, true);
   // Deleting the lab that took it changes nothing for the next one, and nothing needs keeping.
   assert.equal(deleteGeneratedLab(mine.generatedRoot, lab.labId).status, 200);
-  assert.deepEqual(readFileSync(join(resolveCapturedScreenshotsDir(env), filename)), result.bytes);
+  assert.deepEqual(readFileSync(join(resolveCapturedScreenshotsDir(env), libName(filename))), result.bytes);
   assert.equal(mine.store.keptOverview().entries.length, 0);
 });
 

@@ -13,9 +13,13 @@ import { ACTION_TIERS, TIER, checkPublicWebsite, checkTypedText, classifyControl
 export const SETUP_VERSION = 1;
 export const MAX_SETUP_STEPS = 24;
 export const MAX_NAME = 80;
-export const SETUP_ACTIONS = Object.freeze(Object.keys(ACTION_TIERS));
+/** Actions only the companion's own code may use: a plan, a shared recipe, and a recorded recipe cannot carry them. */
+export const INTERNAL_ACTIONS = Object.freeze(["switch-experience"]);
+export const SETUP_ACTIONS = Object.freeze(Object.keys(ACTION_TIERS).filter((action) => !INTERNAL_ACTIONS.includes(action)));
 export const TARGET_ROLES = Object.freeze(["button", "link", "tab", "menuitem", "treeitem", "option", "radio", "checkbox", "switch", "textbox", "searchbox", "combobox", "listitem", "row", "heading", "dialog", "region", "log"]);
 export const TARGET_AREAS = Object.freeze(["any", "nav", "main", "header", "dialog", "tablist", "chat", "menu"]);
+/** Where on the page a control must be (the executor keeps only controls there, nearest the corner first). */
+export const TARGET_CORNERS = Object.freeze(["lower-left"]);
 export const SAMPLE_KINDS = Object.freeze(["question", "search", "description", "instruction", "agentName", "instructions", "website", "outOfScope", "guardrail"]);
 export const INTENTS = Object.freeze(["navigate", "open", "choose", "type", "send", "close", "confirm"]);
 const SOURCES = Object.freeze(["recipe", "derived", "shared", "local", "builtin"]);
@@ -36,8 +40,9 @@ export function sanitizeTarget(raw) {
   const role = TARGET_ROLES.includes(raw.role) ? raw.role : undefined;
   const within = TARGET_AREAS.includes(raw.within) ? raw.within : "any";
   const nth = Number.isInteger(raw.nth) && raw.nth >= 0 && raw.nth <= 5 ? raw.nth : undefined;
+  const corner = TARGET_CORNERS.includes(raw.corner) ? raw.corner : undefined;
   if (!name && !alt.length && !role) return null;
-  return { ...(role ? { role } : {}), ...(name ? { name } : {}), ...(alt.length ? { alt } : {}), within, ...(nth !== undefined ? { nth } : {}) };
+  return { ...(role ? { role } : {}), ...(name ? { name } : {}), ...(alt.length ? { alt } : {}), within, ...(nth !== undefined ? { nth } : {}), ...(corner ? { corner } : {}) };
 }
 
 function sanitizeExpect(raw) {
@@ -111,6 +116,8 @@ export function progressPhrase(step) {
     case "confirm":
     case "create":
       return `Working in the practice agent: ${name || "confirming"}`;
+    case "switch-experience":
+      return "Switching to the classic experience";
     default:
       return "Setting up the screen";
   }
@@ -160,6 +167,8 @@ export function describeStep(step) {
       return `Checked that ${name || "the screen"} is showing`;
     case "hover":
       return `Pointed at ${name || "it"}`;
+    case "switch-experience":
+      return `Switched the experience: ${name || "a control"}`;
     default:
       return "Did a step";
   }
@@ -188,10 +197,10 @@ export function plannedTier(step, product = "") {
 }
 
 /** One step, or null when it does not fit the shape. */
-export function sanitizeStep(raw, index = 0, product = "") {
+export function sanitizeStep(raw, index = 0, product = "", { internal = false } = {}) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const action = String(raw.action || "");
-  if (!SETUP_ACTIONS.includes(action)) return null;
+  if (!SETUP_ACTIONS.includes(action) && !(internal && INTERNAL_ACTIONS.includes(action))) return null;
   const target = sanitizeTarget(raw.target);
   const needsTarget = !["wait-answer", "press", "scroll", "send", "close", "discard", "wait-for"].includes(action);
   if (needsTarget && !target && action !== "open-item") return null;
@@ -237,11 +246,11 @@ export function sanitizeStep(raw, index = 0, product = "") {
 }
 
 /** A list of steps, bounded, each one valid, with repeated ids made unique. */
-export function sanitizeSteps(list, { max = MAX_SETUP_STEPS, product = "" } = {}) {
+export function sanitizeSteps(list, { max = MAX_SETUP_STEPS, product = "", internal = false } = {}) {
   const out = [];
   const seen = new Set();
   for (const [i, raw] of (Array.isArray(list) ? list : []).slice(0, max * 2).entries()) {
-    const step = sanitizeStep(raw, i, product);
+    const step = sanitizeStep(raw, i, product, { internal });
     if (!step) continue;
     let id = step.id;
     for (let n = 2; seen.has(id); n += 1) id = `${step.id}-${n}`;

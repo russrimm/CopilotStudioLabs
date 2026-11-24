@@ -29,6 +29,7 @@ import {
   recordLabShotCaptured,
   recordLabShotReset,
   refreshGeneratedLabOutputs,
+  withShotHarness,
   writeLabConfirmation,
   writeLabVerificationRecord,
 } from "../lab-builder/lab-screenshots.js";
@@ -46,7 +47,9 @@ import {
   SHARE_MESSAGES,
   acquireShareLock,
   fileSha256,
+  harnessStampOf,
   makeConfirmation,
+  makeHarnessStamp,
   readRecordsFile,
   replacementVerdict,
   sha256Hex,
@@ -55,9 +58,10 @@ import {
   withShareLockSync,
   writeRecordsFile,
 } from "./library-share.js";
-import { findLibrarySlot, labSlotFilenames, listLibrarySlots } from "./plan.js";
+import { findLibrarySlot, isLibrarySlotName, labSlotFilenames, libraryShotIndex, listLibrarySlots, listUnrecordedLibraryPictures } from "./plan.js";
 import { cleanText, readJson, writeBytesAtomic, writeJsonAtomic } from "./store-util.js";
 import { summarizeVerification, verifyUpload } from "./verify-upload.js";
+import { HARNESS_SHORT, harnessGapMessage, harnessLabel, isSpecificHarness, libraryName, normalizeHarness, pictureFitsSlot, pictureHarnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
 
 const REFRESH_DELAY_MS = 2500;
 const MAX_REFRESH_LABS = 50;
@@ -197,7 +201,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       slot(filename) {
         const shot = slots.get(filename);
         if (!shot) return null;
-        return { expectedLabels: expectedLabelsForShot(shot), feature: shot.featureId || shot.feature || null };
+        return { expectedLabels: expectedLabelsForShot(shot), feature: shot.featureId || shot.feature || null, harness: normalizeHarness(shot.harness), harnessGap: shot.harnessGap || null };
       },
       readRecords: () => readLabVerification(found.labDir),
       writeRecord: (filename, record) => writeLabVerificationRecord(found.labDir, filename, record),
@@ -308,6 +312,17 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         const confirmed = file && confirmations[s.filename] ? validConfirmation(confirmations[s.filename], fileSha256(file)) : null;
         return { ...s, capturedAt, confirmed, verification: records[s.filename] || null, needsReview: records[s.filename]?.state === "needs-review" };
       });
+    const unrecorded = listUnrecordedLibraryPictures({ manifestDir, capturedDir: dirs().search })
+      .filter((p) => !productSet || productSet.has(p.product))
+      .map(({ file, dir, ...p }) => {
+        let capturedAt = null;
+        try {
+          capturedAt = fs.statSync(file).mtime.toISOString();
+        } catch {
+          capturedAt = null;
+        }
+        return { ...p, capturedAt };
+      });
     return {
       summary: {
         total: slots.length,
@@ -315,8 +330,11 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         missing: slots.filter((s) => !s.captured).length,
         needsReview: slots.filter((s) => s.needsReview).length,
         confirmed: slots.filter((s) => s.confirmed).length,
+        harnessNotRecorded: unrecorded.length,
       },
       shots: slots,
+      // Pictures saved before harnesses were recorded: never used for a slot that needs a harness until a person says which one they show.
+      unrecorded,
     };
   }
 
@@ -372,10 +390,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       const shotsFile = path.join(generatedRoot, entry.name, "screenshots", "shots.json");
       if (!fs.existsSync(shotsFile)) continue;
       try {
-        const plan = readJson(shotsFile, null);
+        const plan = withShotHarness(readJson(shotsFile, null) || {});
         // A lab that has its own picture for a slot keeps showing it, so only labs that show the library's picture need refreshing.
         const assets = path.join(generatedRoot, entry.name, "assets");
-        const uses = (plan?.shots || []).some((s) => filenames.has(s.filename) && !capturedImage(assets, s.filename));
+        const uses = (plan?.shots || []).some((s) => filenames.has(libraryName(s.filename, s.harness)) && !capturedImage(assets, s.filename));
         if (!uses) continue;
         if (refreshLab(entry.name).refreshed) refreshed += 1;
       } catch {
@@ -419,38 +437,53 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   }
 
   /**
+   * The name a lab's picture has in the shared library, and what that is for: the library keeps a picture of a slot that needs a harness under
+   * a name that carries it (`agent-overview.classic.png`). For a lab's own picture it is the harness the lab's slot needs; for a picture with
+   * no lab (one carried out of a lab that is being removed, or restored from the kept pictures) it is the harness the picture is recorded as.
+   */
+  function libraryNameFor(target, filename, record, sha) {
+    if (target?.kind === "lab") return libraryName(filename, target.slot(filename)?.harness ?? null);
+    return libraryName(filename, harnessStampOf(record, sha));
+  }
+
+  /**
    * Offer a lab's picture to the shared library ("capture once, reuse everywhere"). Never throws for a rule: the answer says
-   * what happened and, when nothing was shared, why in plain words.
+   * what happened and, when nothing was shared, why in plain words. A picture of a slot that needs a harness is shared only when it is
+   * recorded as taken in that harness; it is saved under the harness's name, so it can never stand in for the other harness's slot.
    *
    * @param {"capture"|"retake"|"accept"|"backfill"|"share"} intent see `replacementVerdict` for what each may replace
    * @returns {{outcome: "shared"|"replaced"|"already-shared"|"skipped"|"would-share", filename: string, code?: string, message?: string}}
    */
   function promoteFromLab(target, filename, { bytes, record, intent, capturedAt = null, callouts = null, defer = true, replaceConfirmed = false, dryRun = false, confirmed = false }) {
-    const done = (outcome, extra = {}) => ({ outcome, filename, ...extra });
+    const sha = Buffer.isBuffer(bytes) ? sha256Hex(bytes) : "";
+    const libFile = libraryNameFor(target, filename, record, sha);
+    const done = (outcome, extra = {}) => ({ outcome, filename, ...(libFile !== filename ? { libraryFilename: libFile } : {}), ...extra });
     const skip = (code, message) => done("skipped", { code, message: message || SHARE_MESSAGES[code] });
-    const verdict = shareVerdict({ filename, bytes, record, slot: findLibrarySlot(filename, { manifestDir }), intent });
+    const slot = findLibrarySlot(libFile, { manifestDir });
+    // A picture with no lab and no harness record, for a slot that needs a harness, is "not recorded", not "lab only".
+    if (!slot && !target && isLibrarySlotName(filename, { manifestDir })) return skip("harness-not-recorded");
+    const verdict = shareVerdict({ filename, bytes, record, slot, intent });
     if (!verdict.ok) return skip(verdict.code, verdict.message);
     // One bad picture must never spread to every lab: a picture that looks like the wrong screen (a start page for a deeper slot, the
     // same picture as other slots, a page that was not signed in) is not shared, unless a person marked this exact picture "Keep this one".
-    const sha = sha256Hex(bytes);
     const kept = confirmed || Boolean(target && validConfirmation(target.readConfirmations?.()[filename], sha));
-    const looksWrong = kept ? null : pictureLooksWrong({ filename, bytes, record, intent });
+    const looksWrong = kept ? null : pictureLooksWrong({ filename: libFile, bytes, record, intent });
     if (looksWrong) return skip("looks-wrong", looksWrong);
     // The committed folder is tracked by Git: a customer's picture must never land there unless a person chose to share it.
     if (libraryIsCommittedFolder() && !["share", "backfill"].includes(intent)) return skip("not-persistent");
 
     const { primary, search } = dirs();
-    const release = dryRun ? () => {} : acquireShareLock(primary, filename);
+    const release = dryRun ? () => {} : acquireShareLock(primary, libFile);
     if (!release) return skip("busy");
     try {
-      const existing = capturedImage(search, filename);
+      const existing = capturedImage(search, libFile);
       const existingSha = existing ? fileSha256(existing.file) : null;
       const records = readRecordsFile(libraryRecordsFile);
       const decision = replacementVerdict({
         existing,
         existingSha,
-        candidateSha: sha256Hex(bytes),
-        confirmed: Boolean(validConfirmation(records.confirmations[filename], existingSha)),
+        candidateSha: sha,
+        confirmed: Boolean(validConfirmation(records.confirmations[libFile], existingSha)),
         intent,
         replaceConfirmed,
       });
@@ -463,13 +496,13 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       try {
         withRecordsLock(() => {
           // A replaced picture is kept (the last one only) so a bad capture cannot destroy a good one.
-          if (existing) writeBytesAtomic(path.join(primary, `${filename}${PREVIOUS_SUFFIX}`), fs.readFileSync(existing.file));
-          writeBytesAtomic(path.join(primary, filename), bytes);
-          if (callouts) writeJsonAtomic(path.join(primary, sidecarName(filename)), { schema: 1, filename, callouts });
-          else fs.rmSync(path.join(primary, sidecarName(filename)), { force: true });
+          if (existing) writeBytesAtomic(path.join(primary, `${libFile}${PREVIOUS_SUFFIX}`), fs.readFileSync(existing.file));
+          writeBytesAtomic(path.join(primary, libFile), bytes);
+          if (callouts) writeJsonAtomic(path.join(primary, sidecarName(libFile)), { schema: 1, filename: libFile, callouts });
+          else fs.rmSync(path.join(primary, sidecarName(libFile)), { force: true });
           const latest = readRecordsFile(libraryRecordsFile);
-          latest.shots[filename] = { ...record, state: "accepted", acceptedAt: capturedAt || record?.acceptedAt || new Date().toISOString() };
-          delete latest.confirmations[filename];
+          latest.shots[libFile] = { ...record, state: "accepted", acceptedAt: capturedAt || record?.acceptedAt || new Date().toISOString() };
+          delete latest.confirmations[libFile];
           writeRecordsFile(libraryRecordsFile, latest);
         });
       } catch (err) {
@@ -477,7 +510,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         throw err;
       }
 
-      libraryPending.add(filename);
+      libraryPending.add(libFile);
       if (defer) scheduleLibraryRefresh();
       else void flushLibraryRefresh().catch(() => {});
       libraryChanged();
@@ -487,10 +520,19 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     }
   }
 
+  /** What a picture that was just accepted is recorded as taken in: the harness the companion proved, or the slot's harness on a person's word (an upload by hand, or a picture accepted after review). */
+  function harnessStampFor(slot, verification) {
+    const need = normalizeHarness(slot?.harness);
+    if (!isSpecificHarness(need)) return null;
+    const proven = verification?.evidence?.harness;
+    return makeHarnessStamp(need, proven && proven.id === need ? "landmarks" : "person");
+  }
+
   function commit(target, filename, bytes, { verification, source, capturedAt, callouts, defer, jobId = null, intent = "capture", extras = {} }) {
     // A library slot is written (picture, then its check) under the slot's lock, so a command-line tool or another portal on
     // the same folder can never leave the picture of one capture beside the check of another.
-    const record = { ...summarizeVerification(verification, extras), state: "accepted", source, jobId, acceptedAt: capturedAt };
+    const harness = harnessStampFor(target.slot(filename), verification);
+    const record = { ...summarizeVerification(verification, extras), state: "accepted", source, jobId, acceptedAt: capturedAt, ...(harness ? { harness } : {}) };
     withSlotLock(target, filename, () => {
       target.writeImage(filename, bytes, callouts);
       clearStaged(target, filename);
@@ -565,6 +607,11 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   function submit(target, filename, bytes, { evidence = null, source = "upload", acceptWarnings = false, defer = false, callouts = null, jobId = null, requireEvidence = false, requireRedaction = false, requireProof = false, productLabel = "", companionVersion = "", expect = null, expectedLabels = null, retake = false } = {}) {
     const slot = target.slot(filename);
     if (!slot) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
+    // A slot whose module is not written for the lab's harness cannot get a picture in the lab's harness: it is a gap in the lab, not a picture to take.
+    if (slot.harnessGap) {
+      const message = harnessGapMessage(slot.harnessGap);
+      return { status: 409, body: { outcome: "rejected", filename, code: "harness-gap", message, verification: { ok: false, level: "fail", reasons: [{ code: "harness-gap", level: "fail", message }] } } };
+    }
     const labels = Array.isArray(expectedLabels) && expectedLabels.length ? expectedLabels : slot.expectedLabels;
     const verification = verifyUpload({
       bytes,
@@ -576,6 +623,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       requireRedaction,
       requireProof,
       productLabel,
+      expectHarness: slot.harness,
     });
     if (verification.level === "fail") {
       const failed = summarizeVerification(verification);
@@ -736,15 +784,15 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     };
   }
 
-  /** The picture a target shows for a slot, and which records hold its confirmation. */
+  /** The picture a target shows for a slot, and which records hold its confirmation (`name` is the name those records use: a library picture's name carries its harness). */
   function pictureOf(target, filename) {
     if (target.kind === "library") {
       const image = capturedImage(dirs().search, filename);
-      return image ? { image, owner: target, scope: "library" } : null;
+      return image ? { image, owner: target, scope: "library", name: filename } : null;
     }
-    const resolved = resolveLabScreenshot(target.labDir, filename, { capturedDir: dirs().search });
+    const resolved = resolveLabScreenshot(target.labDir, filename, { capturedDir: dirs().search, harness: target.slot(filename)?.harness ?? null });
     if (!resolved) return null;
-    return resolved.source === "lab" ? { image: resolved, owner: target, scope: "lab" } : { image: resolved, owner: libraryTarget(), scope: "library" };
+    return resolved.source === "lab" ? { image: resolved, owner: target, scope: "lab", name: filename } : { image: resolved, owner: libraryTarget(), scope: "library", name: resolved.name || filename };
   }
 
   /** "Mark as accurate": a person says this picture is right. It is tied to the picture's exact bytes. Never blocks anything. */
@@ -755,7 +803,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const sha = picture ? fileSha256(picture.image.file) : null;
     if (!sha) return { status: 409, body: { error: "There is no captured picture to mark as accurate yet.", filename } };
     const confirmation = makeConfirmation(sha, { by });
-    picture.owner.writeConfirmation(filename, confirmation);
+    picture.owner.writeConfirmation(picture.name, confirmation);
     if (picture.scope === "library") libraryChanged();
     return { status: 200, body: { outcome: "confirmed", filename, scope: picture.scope, confirmed: { at: confirmation.at }, state: target.state() } };
   }
@@ -764,13 +812,13 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   function unconfirm(target, filename) {
     if (!target.slot(filename)) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
     const picture = pictureOf(target, filename);
-    picture?.owner.writeConfirmation(filename, null);
+    picture?.owner.writeConfirmation(picture.name, null);
     target.writeConfirmation(filename, null);
     if (picture?.scope === "library") libraryChanged();
     return { status: 200, body: { outcome: "unconfirmed", filename, scope: picture?.scope || target.kind, state: target.state() } };
   }
 
-  /** How many other labs show the library's picture for a slot, so a retake can say who it affects. */
+  /** How many other labs show the library's picture for a slot, so a retake can say who it affects. `filename` is the library name (it carries the harness). */
   function libraryUsage(filename, { exceptLabId = null } = {}) {
     if (!findLibrarySlot(filename, { manifestDir })) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
     const picture = capturedImage(dirs().search, filename);
@@ -783,12 +831,119 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         const shotsFile = path.join(generatedRoot, entry.name, "screenshots", "shots.json");
         if (!fs.existsSync(shotsFile)) continue;
         scanned += 1;
-        const plan = readJson(shotsFile, null);
-        if ((plan?.shots || []).some((s) => s.filename === filename) && !capturedImage(path.join(generatedRoot, entry.name, "assets"), filename)) otherLabs += 1;
+        const plan = withShotHarness(readJson(shotsFile, null) || {});
+        if ((plan?.shots || []).some((s) => libraryName(s.filename, s.harness) === filename && !capturedImage(path.join(generatedRoot, entry.name, "assets"), s.filename))) otherLabs += 1;
       }
     }
     const confirmation = picture ? readRecordsFile(libraryRecordsFile).confirmations[filename] : null;
     return { status: 200, body: { filename, hasPicture: Boolean(picture), otherLabs, confirmed: Boolean(picture && validConfirmation(confirmation, fileSha256(picture.file))) } };
+  }
+
+  // ── Saying which harness a picture shows ─────────────────────────────────
+
+  /**
+   * "This is Standard (Classic)" / "This is Microsoft Copilot": a person says which harness a picture from before harnesses were recorded
+   * shows, with one click (the way "Mark as accurate" works). For a lab's own picture the answer is saved on its check, for exactly these
+   * bytes. A picture that shows a different harness than its slot needs is never used for the slot: it is moved to the kept pictures list
+   * (restorable for 90 days) and the slot goes back to pending. For a library picture saved under a slot's plain name, a matching answer
+   * moves it to the harness's name (where the slot finds it), and any other answer moves it to the kept pictures list.
+   *
+   * @param {object} target a lab target, or the library target (then `filename` is the picture's plain name)
+   * @param {string} filename
+   * @param {string} harness "standard" or "microsoft-copilot" (or "customer-conversation")
+   * @returns {{status: number, body: object}}
+   */
+  function tagPicture(target, filename, harness, { by = null } = {}) {
+    const id = normalizeHarness(harness);
+    if (!isSpecificHarness(id)) return { status: 400, body: { error: "Choose which harness the picture shows: Standard (Classic) or Microsoft Copilot.", filename } };
+    return target.kind === "library" ? tagLibraryPicture(target, filename, id, { by }) : tagLabPicture(target, filename, id, { by });
+  }
+
+  function tagLabPicture(target, filename, id, { by = null } = {}) {
+    const slot = target.slot(filename);
+    if (!slot) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
+    if (readStaged(target, filename)) return { status: 409, body: { error: "Accept or discard the picture that is waiting for review first.", filename } };
+    const own = capturedImage(path.join(target.labDir, "assets"), filename);
+    if (!own) return { status: 409, body: { error: "This lab has no picture of its own for this screenshot, so there is nothing to tag.", filename } };
+    const bytes = fs.readFileSync(own.file);
+    const sha = sha256Hex(bytes);
+    const records = target.readRecords();
+    const recorded = harnessStampOf(records[filename], sha);
+    if (recorded) return { status: 409, body: { error: `This picture is already recorded as the ${harnessLabel(recorded)}.`, filename, harness: recorded } };
+    const fit = pictureFitsSlot(slot.harness, id);
+    if (!fit.ok) {
+      const message = `${fit.message} It was moved to the kept pictures list, and the screenshot is waiting for a picture from the ${harnessLabel(slot.harness)}.`;
+      kept().archive({
+        labId: target.labId,
+        labTitle: labTitleOf(target.labDir),
+        reason: "wrong-harness",
+        pictures: [{ filename, bytes, why: "wrong-harness", message: fit.message, record: { ...(records[filename] || {}), sha256: sha, harness: makeHarnessStamp(id, "person") }, confirmation: target.readConfirmations()[filename] || null, callouts: readLabCallouts(target, filename) }],
+      });
+      withSlotLock(target, filename, () => {
+        target.writeRecord(filename, null);
+        target.writeConfirmation(filename, null);
+        target.resetImage(filename);
+      });
+      return { status: 200, body: { outcome: "moved", filename, harness: id, message, state: target.state() } };
+    }
+    const before = records[filename] || {};
+    withSlotLock(target, filename, () => {
+      target.writeRecord(filename, { ...before, sha256: sha, state: before.state || "accepted", source: before.source || "tagged", acceptedAt: before.acceptedAt || new Date().toISOString(), harness: makeHarnessStamp(id, "person") });
+    });
+    return { status: 200, body: { outcome: "tagged", filename, harness: id, harnessLabel: harnessLabel(id), by: by || null, state: target.state() } };
+  }
+
+  function tagLibraryPicture(target, filename, id) {
+    const row = listUnrecordedLibraryPictures({ manifestDir, capturedDir: dirs().search }).find((p) => p.filename === filename);
+    if (!row) return { status: 404, body: { error: "There is no picture saved under that name without a harness.", filename } };
+    const bytes = fs.readFileSync(row.file);
+    const sha = sha256Hex(bytes);
+    const { primary } = dirs();
+    const writable = path.resolve(row.dir) === path.resolve(primary);
+    const callouts = cleanCallouts(readJson(path.join(row.dir, sidecarName(filename)), null)?.callouts);
+    const { shots: records, confirmations } = readRecordsFile(libraryRecordsFile);
+    const removeLegacy = () => {
+      if (!writable) return;
+      fs.rmSync(path.join(primary, filename), { force: true });
+      fs.rmSync(path.join(primary, sidecarName(filename)), { force: true });
+      fs.rmSync(path.join(primary, `${filename}${PREVIOUS_SUFFIX}`), { force: true });
+    };
+    if (!row.harnesses.includes(id)) {
+      const message = `This picture is from the ${harnessLabel(id)}, but this screenshot needs the ${row.harnesses.map(harnessLabel).join(" or the ")}, so it is not used. It was moved to the kept pictures list.`;
+      if (!writable) return { status: 409, body: { error: "This picture is in the committed folder of the code repository, so it is not moved from here.", filename } };
+      kept().archive({ labId: LIBRARY_ENTRY_ID, labTitle: "Shared library", reason: "wrong-harness", pictures: [{ filename, bytes, why: "wrong-harness", message, record: { ...(records[filename] || {}), sha256: sha, harness: makeHarnessStamp(id, "person") }, confirmation: confirmations[filename] || null, callouts }] });
+      withSlotLock(target, filename, () => {
+        removeLegacy();
+        target.writeRecord(filename, null);
+        target.writeConfirmation(filename, null);
+      });
+      libraryChanged();
+      return { status: 200, body: { outcome: "moved", filename, harness: id, message } };
+    }
+    const libFile = libraryName(filename, id);
+    const existing = capturedImage(dirs().search, libFile);
+    if (existing && fileSha256(existing.file) !== sha) {
+      return { status: 409, body: { error: `The library already has a different ${harnessLabel(id)} picture for this screenshot. Retake or replace that one instead.`, filename, libraryFilename: libFile } };
+    }
+    withSlotLock(target, libFile, () => {
+      if (!existing) {
+        fs.mkdirSync(primary, { recursive: true });
+        writeBytesAtomic(path.join(primary, libFile), bytes);
+        if (callouts) writeJsonAtomic(path.join(primary, sidecarName(libFile)), { schema: 1, filename: libFile, callouts });
+      }
+      const before = records[filename] || {};
+      target.writeRecord(libFile, { ...before, sha256: sha, state: "accepted", source: before.source || "tagged", acceptedAt: before.acceptedAt || new Date().toISOString(), harness: makeHarnessStamp(id, "person") });
+      if (confirmations[filename] && validConfirmation(confirmations[filename], sha)) target.writeConfirmation(libFile, confirmations[filename]);
+      removeLegacy();
+      if (writable) {
+        target.writeRecord(filename, null);
+        target.writeConfirmation(filename, null);
+      }
+    });
+    libraryPending.add(libFile);
+    afterSlotLock(() => void flushLibraryRefresh().catch(() => {}));
+    libraryChanged();
+    return { status: 200, body: { outcome: "tagged", filename, libraryFilename: libFile, harness: id, harnessLabel: harnessLabel(id), state: libraryState() } };
   }
 
   // ── Keeping a lab's pictures before the lab is deleted or replaced ───────
@@ -834,13 +989,15 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     for (const picture of pictures) {
       const sha = sha256Hex(picture.bytes);
       const item = { filename: picture.filename, bytes: picture.bytes, sha, earlier: picture.earlier, record: records[picture.filename] || null, confirmation: confirmations[picture.filename] || null, plan: null };
-      const existing = capturedImage(dirs().search, picture.filename);
+      // The library holds a picture of a slot that needs a harness under the harness's name, and only when this picture is recorded as taken in it.
+      const libFile = libraryNameFor(null, picture.filename, item.record, sha);
+      const existing = findLibrarySlot(libFile, { manifestDir }) ? capturedImage(dirs().search, libFile) : null;
       const inLibrary = Boolean(existing && fileSha256(existing.file) === sha);
       if (picture.earlier) {
         item.plan = inLibrary || current.has(`${picture.filename}:${sha}`) ? "shared" : "keep";
         if (item.plan === "keep") Object.assign(item, { code: "previous-version", message: "An earlier version of a picture, kept when it was replaced." });
       } else if (inLibrary) item.plan = "shared";
-      else if (fresh && freshNames.has(picture.filename)) {
+      else if (fresh && freshNames.has(picture.filename) && pictureFitsSlot(fresh.slot(picture.filename)?.harness, harnessStampOf(item.record, sha)).ok) {
         const own = capturedImage(path.join(fresh.labDir, "assets"), picture.filename);
         if (!own) item.plan = "carry";
         else if (fileSha256(own.file) === sha) item.plan = "present";
@@ -967,22 +1124,37 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
 
   // ── The kept-pictures archive ────────────────────────────────────────────
 
-  /** Where a kept picture can go back to: a lab that has the slot and no picture of its own, or the shared library (when it has none). */
+  /** Where a kept picture can go back to: a lab that has the slot, no picture of its own, and needs the harness the picture was taken in, or the shared library (when it has none). */
   function restoreOptionsFor(entry, picture) {
     const options = [];
     for (const id of new Set([entry.labId, entry.replacedBy].filter(Boolean))) {
       const target = labTarget(id);
       if (target.error || !target.filenames.includes(picture.base) || target.hasOwnImage(picture.base)) continue;
+      // A picture is never put back into a slot that needs the other harness, or into one that needs a harness when none was recorded.
+      if (!pictureFitsSlot(target.slot(picture.base)?.harness, picture.harness).ok) continue;
       options.push({ type: "lab", labId: id, title: labTitleOf(target.labDir) || id });
     }
-    if (!picture.earlierVersion && findLibrarySlot(picture.base, { manifestDir }) && !libraryIsCommittedFolder() && !capturedImage(dirs().search, picture.base)) options.push({ type: "library" });
+    const libFile = libraryName(picture.base, picture.harness);
+    if (!picture.earlierVersion && findLibrarySlot(libFile, { manifestDir }) && !libraryIsCommittedFolder() && !capturedImage(dirs().search, libFile)) options.push({ type: "library" });
     return options;
+  }
+
+  /** Whether a kept picture belongs to a slot that needs a harness. A product with no harnesses (SharePoint, Teams) has none, so its pictures are not "Harness not recorded". */
+  function keptHarnessApplies(entry, picture, libraryIndex) {
+    if (picture.harness) return true;
+    for (const slot of libraryIndex.values()) if (slot.shot.slotFilename === picture.base) return Boolean(slot.harness);
+    const target = entry.labId ? labTarget(entry.labId) : null;
+    return Boolean(target && !target.error && target.slot(picture.base)?.harness);
   }
 
   /** Every kept picture with where it can be restored (`GET /api/capture/kept`). */
   function keptOverview() {
     const store = kept();
-    return { retentionDays: store.retentionDays, entries: store.list().map((entry) => ({ ...entry, pictures: entry.pictures.map((p) => ({ ...p, restore: restoreOptionsFor(entry, p) })) })) };
+    const libraryIndex = libraryShotIndex({ manifestDir });
+    return {
+      retentionDays: store.retentionDays,
+      entries: store.list().map((entry) => ({ ...entry, pictures: entry.pictures.map((p) => ({ ...p, harnessApplies: keptHarnessApplies(entry, p, libraryIndex), restore: restoreOptionsFor(entry, p) })) })),
+    };
   }
 
   /** The bytes of one kept picture, for the preview and the download. */
@@ -1022,9 +1194,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       target.afterCommit(base, { source: meta.record?.source || "restored", capturedAt: meta.record?.acceptedAt || new Date(now()).toISOString(), defer: false });
     }
     if (choice.type === "library" && meta.why === "looks-wrong") {
+      const libFile = libraryName(base, picture.harness);
       withRecordsLock(() => {
         const latest = readRecordsFile(libraryRecordsFile);
-        latest.confirmations[base] = makeConfirmation(meta.sha256, { by: "restore" });
+        latest.confirmations[libFile] = makeConfirmation(meta.sha256, { by: "restore" });
         writeRecordsFile(libraryRecordsFile, latest);
       });
       libraryChanged();
@@ -1053,7 +1226,32 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       const confirmation = confirmations[slot.filename] ? validConfirmation(confirmations[slot.filename], sha) : null;
       out.push({ filename: slot.filename, bytes, sha256: sha, record: records[slot.filename] || null, confirmedAt: confirmation?.at || null });
     }
+    // Pictures from before harnesses were recorded travel as they are: still "Harness not recorded" on the other computer.
+    for (const picture of listUnrecordedLibraryPictures({ manifestDir, capturedDir: [dirs().primary] })) {
+      const bytes = fs.readFileSync(picture.file);
+      out.push({ filename: picture.filename, bytes, sha256: sha256Hex(bytes), record: null, confirmedAt: null });
+    }
     return out;
+  }
+
+  /** A picture saved under a slot's plain name (one from before harnesses were recorded) is imported as it is, still unrecorded. */
+  function importUnrecordedPicture(filename, bytes, { replace = false, dryRun = false } = {}) {
+    const done = (outcome, code, message) => ({ outcome, filename, ...(code ? { code, message } : {}) });
+    const ext = path.extname(filename).toLowerCase();
+    if (!isRealScreenshotBytes(bytes, ext)) return done("rejected", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? "placeholder" : "not-real", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? SHARE_MESSAGES.placeholder : SHARE_MESSAGES["not-real"]);
+    const existing = capturedImage(dirs().primary, filename);
+    if (existing) {
+      if (fileSha256(existing.file) === sha256Hex(bytes)) return done("skipped", "already-there", "The library already has exactly this picture.");
+      if (!replace) return done("skipped", "exists", "The library already has a different picture. Choose Replace existing pictures to use the imported one (the old one is kept as a backup).");
+    }
+    if (dryRun) return done(existing ? "would-replace" : "would-import");
+    withShareLockSync(dirs().primary, filename, () => {
+      fs.mkdirSync(dirs().primary, { recursive: true });
+      if (existing) writeBytesAtomic(path.join(dirs().primary, `${filename}${PREVIOUS_SUFFIX}`), fs.readFileSync(existing.file));
+      writeBytesAtomic(path.join(dirs().primary, filename), bytes);
+    });
+    libraryChanged();
+    return done(existing ? "replaced" : "imported", "harness-not-recorded", "This picture has no harness recorded, so it is kept apart until you say which harness it shows.");
   }
 
   /**
@@ -1065,7 +1263,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
   function importLibraryPicture(filename, bytes, { replace = false, dryRun = false, confirmedAt = null, expectedSha = null } = {}) {
     const target = libraryTarget();
     const done = (outcome, code, message) => ({ outcome, filename, ...(code ? { code, message } : {}) });
-    if (!target.slot(filename)) return done("rejected", "not-a-slot", "This is not the name of a shared screenshot, so it was not imported.");
+    if (!target.slot(filename)) {
+      if (isLibrarySlotName(filename, { manifestDir })) return importUnrecordedPicture(filename, bytes, { replace, dryRun });
+      return done("rejected", "not-a-slot", "This is not the name of a shared screenshot, so it was not imported.");
+    }
     const ext = path.extname(filename).toLowerCase();
     if (!isRealScreenshotBytes(bytes, ext)) return done("rejected", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? "placeholder" : "not-real", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? SHARE_MESSAGES.placeholder : SHARE_MESSAGES["not-real"]);
     const sha = sha256Hex(bytes);
@@ -1160,6 +1361,11 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     labTitle: item.labTitle || null,
     filename: item.filename,
     label: item.label,
+    // The harness the screenshot needs and the one the picture is recorded as taken in, so a reviewer can tell at a glance.
+    harness: item.harness || null,
+    harnessLabel: item.harnessLabel || null,
+    pictureHarness: item.pictureHarness || null,
+    pictureHarnessLabel: item.harness ? pictureHarnessLabel(item.pictureHarness) : null,
     level: item.level,
     reason: item.flags[0]?.message || "",
     short: shortReason(item.flags),
@@ -1201,10 +1407,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     return value;
   }
 
-  /** The bytes of a library picture, for the preview in the panel. */
+  /** The bytes of a library picture, for the preview in the panel. A picture saved under a slot's plain name (no harness recorded) is shown too. */
   function libraryPicture(filename) {
     const found = capturedImage(dirs().search, filename);
-    if (!found || !findLibrarySlot(filename, { manifestDir })) return null;
+    if (!found || !(findLibrarySlot(filename, { manifestDir }) || isLibrarySlotName(filename, { manifestDir }))) return null;
     return { bytes: fs.readFileSync(found.file), filename };
   }
 
@@ -1378,6 +1584,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     reset,
     confirm,
     unconfirm,
+    tagPicture,
     shareLabPicture,
     shareLabPictures,
     libraryUsage,

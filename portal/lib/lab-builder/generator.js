@@ -31,6 +31,7 @@ import { assessLab } from "./qa.js";
 import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
 import { plainModuleNames } from "./module-names.js";
 import { getHarnesses } from "./catalog.js";
+import { harnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
 import { getConcepts } from "./concepts.js";
 import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
 import { buildDifferenceBlocks } from "./differences.js";
@@ -1441,6 +1442,9 @@ export async function generateLab(request, opts = {}) {
       concepts: differenceSummary.concepts,
       notFullyDocumented: differenceSummary.uncertain,
     },
+    // The harness every Copilot Studio picture of this lab is taken in, and how it was decided ("chosen", "inferred", or "default").
+    // Null for a lab with no Copilot Studio part. It survives rebuilds, because the plan is rebuilt from it.
+    labHarness: plan.harness ? { id: plan.harness, label: harnessLabel(plan.harness), source: plan.harnessSource || "chosen" } : null,
     grounding: {
       connected: Boolean(session.ok),
       groundedModules: groundedFeatures,

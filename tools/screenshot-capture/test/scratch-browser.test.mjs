@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { detectBrowserAvailability } from "../lab-runner.mjs";
 import { createTrace } from "../trace.mjs";
 import { FAKE_AGENT_URL, FAKE_ENV_ID, FAKE_PRACTICE_ENV_ID } from "./fixtures/fake-product-site.mjs";
-import { startScenario } from "./fixtures/capture-scenarios.mjs";
+import { startScenario, retagLab } from "./fixtures/capture-scenarios.mjs";
 
 const found = await detectBrowserAvailability();
 const skip = !found.available && "Playwright with Chromium is not installed";
@@ -25,10 +25,16 @@ const RUN = { localOptIn: true, writeGapMs: 0, effectMs: 1500, findMs: 3500, rea
 
 async function scenarioFor(site = {}, features = FEATURES, harness = "microsoft-copilot") {
   const scenario = await startScenario({ repoDir: REPO, site: { ...SITE, ...site }, lab: { harness, features } });
+  // The pretend site shows one harness: its newer layout is the Microsoft Copilot harness, its classic layout is the Standard (Classic) harness. A lab keeps the
+  // features (and so the slots) a test needs, and its pictures are taken in the harness the site shows, which is what a lab for that harness would do.
+  retagLab(scenario.lab.labDir, (site.layout ?? SITE.layout) === "classic" ? "standard" : "microsoft-copilot");
   const consent = await scenario.call("PUT", "/api/capture/consent", { consented: true, level: "scratch" });
   assert.equal(consent.status, 200);
   return scenario;
 }
+
+/** The name of a practice agent: the harness marker (or the older prefix) and a short title. */
+const PRACTICE_NAME = /^(?:Lab screenshots|Copilot shots|Classic shots) - /;
 
 const run = (scenario, runOptions = {}) => scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { ...RUN, ...runOptions } });
 const writesOf = (out, prefix) => out.site.stats.writes.filter((w) => w.startsWith(prefix));
@@ -40,7 +46,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
     const out = await run(scenario);
     const writes = out.site.stats.writes;
     assert.equal(writesOf(out, "create-agent:").length, 1, "the agent is made once");
-    assert.match(writesOf(out, "create-agent:")[0], /^create-agent:Lab screenshots - .{1,12}$/, "named from the lab, within the 30 characters the product keeps");
+    assert.match(writesOf(out, "create-agent:")[0], /^create-agent:Copilot shots - .{1,14}$/, "named from the lab, with the harness marker, within the 30 characters the product keeps");
     const at = (prefix) => writes.findIndex((w) => w.startsWith(prefix));
     assert.ok(at("create-agent:") === 0 && at("set-instructions:") > 0 && at("add-knowledge:") > at("set-instructions:"), `the stages follow the lab's order: ${writes.join(" | ")}`);
     assert.equal(writesOf(out, "publish").length, 0, "the lab only shows the Publish dialog, so nothing is published");
@@ -50,7 +56,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
 
     // The portal learns names and counts only.
     const scratch = out.job.result.scratch;
-    assert.match(scratch.name, /^Lab screenshots - /);
+    assert.match(scratch.name, /^Copilot shots - /);
     assert.ok(scratch.stages.includes("instructions") && scratch.stages.includes("knowledge"));
     assert.ok(out.job.result.created.some((c) => c.kind === "agent"));
     const shown = JSON.stringify(out.job);
@@ -58,7 +64,7 @@ test("the agent is built from scratch, every write is inside it, the modules run
     const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
     assert.equal(registry.agents.length, 1);
     assert.deepEqual(registry.pending, []);
-    assert.ok(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8").includes("Lab screenshots - "), "a created-items report is kept on this computer");
+    assert.ok(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8").includes("Copilot shots - "), "a created-items report is kept on this computer");
   } finally {
     await scenario.close();
   }
@@ -343,7 +349,7 @@ test("the older layout: the agent is made on its form, screens are looked at, an
 // ── Which agent the screenshots use: the one created first in the capture ─────────────────────────────────
 
 const botIdsOpened = (out) => [...new Set(out.site.stats.pages.map((p) => /\/bots\/([^/]+)/.exec(p)?.[1]).filter(Boolean))];
-const madeAgentIds = (site) => Object.values(site.envs).flatMap((e) => e.agents).filter((a) => a.name.startsWith("Lab screenshots - ")).map((a) => a.id);
+const madeAgentIds = (site) => Object.values(site.envs).flatMap((e) => e.agents).filter((a) => PRACTICE_NAME.test(a.name)).map((a) => a.id);
 const NON_ZERO_GUID = /\b(?!0{8}-0{4}-0{4}-0{4}-0{12}\b)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
 /** Every text file under a folder, with the ones named `skip` left out. */
@@ -374,7 +380,7 @@ test("the agent created first is used by every later shot with no address suppli
     const made = madeAgentIds(out.site);
     assert.equal(made.length, 1);
     assert.deepEqual(botIdsOpened(out), made, "the only agent page that was opened is the agent the computer made");
-    assert.equal(out.job.result.scratch.name.startsWith("Lab screenshots - "), true);
+    assert.match(out.job.result.scratch.name, PRACTICE_NAME);
 
     // Nothing that identifies the tenant, the environment, or the agent is kept outside this computer's own practice-agent record.
     const storage = path.dirname(scenario.lab.generatedRoot);

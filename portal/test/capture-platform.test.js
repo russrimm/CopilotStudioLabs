@@ -39,6 +39,7 @@ import { buildCompanionZip, COMPANION_FILES, COMPANION_LAUNCHER } from "../lib/c
 import { registerCaptureRoutes } from "../lib/capture/routes.js";
 import { isSafeUploadFilename, MAX_UPLOAD_BYTES, verifyUpload } from "../lib/capture/verify-upload.js";
 import { makeJpeg, makePng, makeWebp, pngChunk } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
 import { createFakePlaywright } from "../../tools/screenshot-capture/test/fixtures/fake-playwright.mjs";
 import { createPortalClient, runJob } from "../../tools/screenshot-capture/companion.mjs";
 
@@ -212,6 +213,8 @@ function goodEvidence(shot) {
     redaction: { applied: true, masked: 2 },
     capturedAt: new Date().toISOString(),
     executedSteps: 5,
+    // What a current companion proves before it takes a Copilot Studio picture: the page is in the harness the shot needs.
+    ...(shot.harness ? { harness: { version: 1, id: shot.harness, proof: "landmarks", landmarks: shot.harness === "standard" ? ["Overview", "Knowledge", "Topics"] : ["Build", "Preview", "Evaluate", "Monitor"], switched: shot.harness === "standard", wanted: shot.harness } } : {}),
   };
 }
 
@@ -1299,6 +1302,8 @@ test("a warning is staged for review and accepted by a person; DELETE resets to 
 test("a companion job for the shared library stores images persistently and every lab uses them", async () => {
   const { base } = ctx;
   const slot = ctx.lab.shots[1].filename;
+  // The library keeps a picture of a slot that needs a harness under the harness's name (this lab is a Microsoft Copilot harness lab).
+  const key = libraryName(slot, "microsoft-copilot");
   const manifest = JSON.parse(readFileSync(join(REPO_ROOT, "tools", "screenshot-capture", "feature-shots.json"), "utf8"));
   assert.ok(manifest.shots.some((s) => s.filename === slot), "the fixture slot is a feature tour shot");
 
@@ -1308,22 +1313,22 @@ test("a companion job for the shared library stores images persistently and ever
 
   const library = (await call(base, "GET", "/api/capture/library?products=copilot-studio")).json;
   assert.ok(library.summary.total > 100);
-  assert.equal(library.shots.find((s) => s.filename === slot).captured, false);
+  assert.equal(library.shots.find((s) => s.filename === key).captured, false);
 
-  const queued = await call(base, "POST", "/api/capture/jobs", { json: { target: { type: "library", products: ["copilot-studio"] }, scope: { mode: "selected", filenames: [slot] } } });
+  const queued = await call(base, "POST", "/api/capture/jobs", { json: { target: { type: "library", products: ["copilot-studio"] }, scope: { mode: "selected", filenames: [key] } } });
   assert.equal(queued.status, 201, queued.text);
   assert.equal(queued.json.job.target.type, "library");
   const claimed = (await companion.next()).json;
   assert.equal(claimed.shots.length, 1);
-  assert.equal(claimed.shots[0].filename, slot);
+  assert.equal(claimed.shots[0].filename, key);
   assert.equal((await companion.upload(claimed.job.id, "not-in-this-job.png", makePng({ mode: "ui" }), goodEvidence(claimed.shots[0]))).status, 404);
-  const uploaded = await companion.upload(claimed.job.id, slot, makePng({ mode: "ui", seed: 21 }), goodEvidence(claimed.shots[0]));
+  const uploaded = await companion.upload(claimed.job.id, key, makePng({ mode: "ui", seed: 21 }), goodEvidence(claimed.shots[0]));
   assert.equal(uploaded.status, 200, uploaded.text);
   assert.equal((await companion.complete(claimed.job.id)).json.job.status, "done");
 
-  const persistentFile = join(ctx.storageRoot, "screenshots", slot);
+  const persistentFile = join(ctx.storageRoot, "screenshots", key);
   assert.ok(existsSync(persistentFile), "the library image lives in the persistent screenshots folder");
-  assert.equal((await call(base, "GET", "/api/capture/library?products=copilot-studio")).json.shots.find((s) => s.filename === slot).captured, true);
+  assert.equal((await call(base, "GET", "/api/capture/library?products=copilot-studio")).json.shots.find((s) => s.filename === key).captured, true);
   assert.equal((await call(base, "GET", "/api/capture/status")).json.sharedLibrary.captured >= 1, true);
 
   const labStatus = (await call(base, "GET", `/api/lab-builder/generated/${ctx.lab.labId}/screenshots`)).json;
@@ -1339,7 +1344,7 @@ test("a companion job for the shared library stores images persistently and ever
   for (let i = 0; i < 40 && !/data:image\/png;base64,/.test(readFileSync(html, "utf8")); i += 1) await new Promise((r) => setTimeout(r, 150));
   assert.match(readFileSync(html, "utf8"), /data:image\/png;base64,/);
 
-  const reset = await call(base, "DELETE", `/api/capture/library/screenshots/${slot}`);
+  const reset = await call(base, "DELETE", `/api/capture/library/screenshots/${key}`);
   assert.equal(reset.status, 200);
   assert.equal(existsSync(persistentFile), false);
   assert.equal((await call(base, "DELETE", "/api/capture/library/screenshots/not-a-slot.png")).status, 404);

@@ -18,6 +18,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
+import { scanLabHarness } from "./lab-harness.js";
+import { harnessGapMessage } from "../../../tools/screenshot-capture/harness.mjs";
 import { scopeProblem } from "./topic-scope.js";
 import { RUN_ON_SUB_STEPS } from "./sub-steps.js";
 import { findConnectorIds } from "./connector-names.js";
@@ -266,8 +268,30 @@ function sentenceFor(grade, totals) {
   return bits.length ? `${GRADES[grade]}: ${bits.join(", ")}.` : `${GRADES[grade]}: nothing found.`;
 }
 
+const listFiles = (files) => `${files.slice(0, 3).join(", ")}${files.length > 3 ? ", ..." : ""}`;
+
+/** The lab-gate findings for a lab's harness (see `labHarnessSummary`). A picture from another harness, or a module not written for the lab's harness, is a gap; a picture with no harness recorded is polish. */
+function harnessFindings(summary) {
+  const out = [];
+  const add = (code, severity, count, message, fix) => out.push({ code, severity, module: null, moduleTitle: null, count, message, fix });
+  if (summary.wrong) {
+    add("wrong-harness-picture", "gap", summary.wrong, `${summary.wrong} picture${summary.wrong === 1 ? " was" : "s were"} taken in a different harness than the lab's (${listFiles(summary.wrongFiles)}). ${summary.statement}`, "Retake them in the lab's harness, in the Screenshot Center.");
+  }
+  if (summary.harnessesSeen.length > 1) {
+    add("mixed-harness-pictures", "gap", 1, summary.mixedMessage, "Retake the pictures from the other harness, so the lab shows one harness only.");
+  }
+  if (summary.gaps) {
+    add("harness-gap", "gap", summary.gaps, `${summary.gaps} screenshot${summary.gaps === 1 ? " belongs" : "s belong"} to a module that is not written for the lab's harness (${listFiles(summary.gapFiles)}), so ${summary.gaps === 1 ? "its picture cannot" : "their pictures cannot"} be taken in it.`, "Remove those modules, or build the lab for the harness they are written for.");
+  }
+  if (summary.notRecorded) {
+    add("harness-not-recorded", "polish", summary.notRecorded, `${summary.notRecorded} picture${summary.notRecorded === 1 ? " has" : "s have"} no harness recorded (${listFiles(summary.notRecordedFiles)}), so nobody can tell which harness ${summary.notRecorded === 1 ? "it shows" : "they show"}.`, "In the Screenshot Center, choose This is Standard (Classic) or This is Microsoft Copilot for each.");
+  }
+  return out;
+}
+
 /**
  * Scan a lab's Markdown.
+ *
  * @param {string} markdown the lab's index.md
  * @param {object} [options]
  * @param {string} [options.labDir] the lab folder; when given, pictures are checked against its assets and the shared library
@@ -355,6 +379,10 @@ export function scanLabMarkdown(markdown, options = {}) {
     });
   }
 
+  // The lab's harness decides every picture of the lab: a lab built for one harness only ever shows that harness's pictures.
+  const harness = labDir && isGenerated ? scanLabHarness(labDir, { capturedDir }) : null;
+  if (harness) findings.push(...harnessFindings(harness.summary));
+
   const count = (severity) => findings.filter((f) => f.severity === severity).reduce((sum, f) => sum + f.count, 0);
   const gapModules = new Set(findings.filter((f) => f.severity === "gap" && f.module).map((f) => f.module)).size;
   const folderPending = modules.reduce((sum, m) => sum + m.pendingPictures, 0);
@@ -397,6 +425,7 @@ export function scanLabMarkdown(markdown, options = {}) {
     grade,
     label: GRADES[grade],
     summary: sentenceFor(grade, totals),
+    ...(harness ? { harness: harness.summary } : {}),
     totals,
     modules: modules.map(({ text: _text, findings: moduleFindings, ...rest }) => ({
       ...rest,

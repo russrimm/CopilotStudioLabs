@@ -48,9 +48,11 @@ import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 import { normalizeAgentSource, orderCreationFirst, resolveStage } from "./walkthrough.mjs";
+import { HARNESS_LABELS, harnessPlan } from "./harness.mjs";
+import { harnessGapMessage, orderByHarness, wantedHarness } from "./harness-run.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.7.0";
+export const COMPANION_VERSION = "1.8.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -310,7 +312,7 @@ const ACCOUNT_CONFIRM_QUESTION = "\nYou are signed in in this window. Use THIS a
 const OPT_IN_QUESTION = [
   "",
   "The Screenshot Center asked this computer to BUILD A PRACTICE AGENT in your demo account and use it to take the lab's screenshots.",
-  "It will create one new agent named “Lab screenshots - <lab title>”, set its instructions, add a public website as knowledge, ask it a sample question,",
+  "It will create one new agent named “Classic shots - <lab title>” (a Standard (Classic) harness lab) or “Copilot shots - <lab title>” (a Microsoft Copilot harness lab), set its instructions, add a public website as knowledge, ask it a sample question,",
   "and publish only that practice agent, once, to its default state (no channels, no sharing, no audience changes). It never deletes anything, never touches another agent,",
   "never shares or publishes to channels, and never changes tenant or admin settings. You can delete the practice agent yourself afterward.",
   "Allow this computer to do that for Copilot Studio? (yes/no) ",
@@ -697,6 +699,8 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
     evidence.executedSteps = (outcome.executedSteps || []).length;
     evidence.routeSteps = outcome.executedSteps || [];
     evidence.setup = setupEvidence(outcome.detail?.setup);
+    // The harness the page was PROVEN to be in (never the one the slot asked for); a picture with no proof carries none, and the portal sends it to review.
+    if (outcome.harness) evidence.harness = outcome.harness;
     evidence.title = scrubSensitiveText(evidence.title, terms);
     const bytes = fs.readFileSync(outcome.filePath);
     const check = verifyImage(bytes, {
@@ -817,8 +821,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   }
   for (const [profile, items] of groups) {
     // Unattended shots go first, the ones that need the person last. Inside the unattended ones, the shots that create the agent come before the first shot that needs it.
+    // Standard (Classic) shots come after every Microsoft Copilot shot: the switch to the classic experience lasts for the browser session, so the default experience is used first.
     const unattended = items.filter((i) => i.effective !== "guided");
-    groups.set(profile, [...(agentSource === "created" ? orderCreationFirst(unattended, (i) => i.shot) : unattended), ...items.filter((i) => i.effective === "guided")]);
+    const ordered = orderByHarness(agentSource === "created" ? orderCreationFirst(unattended, (i) => i.shot) : unattended, (i) => i.shot);
+    groups.set(profile, [...ordered, ...orderByHarness(items.filter((i) => i.effective === "guided"), (i) => i.shot)]);
   }
 
   let fatalError = null;
@@ -827,7 +833,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     for (const [profile, items] of groups) {
       if (stopRequested() || state.paused) break;
       const label = productLabel(profile);
-      const needsBrowserShot = ({ shot, effective }) => effective !== "manual" && effective !== "needs-you" && !(effective === "legacy" && shot.requiresEnv && !env[shot.requiresEnv]);
+      const needsBrowserShot = ({ shot, effective }) => effective !== "manual" && effective !== "needs-you" && !harnessGapMessage(shot) && !(effective === "legacy" && shot.requiresEnv && !env[shot.requiresEnv]);
       const browserShots = items.filter(needsBrowserShot);
       let opened = null;
       // Hidden means no window is shown: either --headless, or --background with a sign-in that still works.
@@ -969,7 +975,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           }
           processed.add(shot.filename);
           const modeTag = effective === "guided" ? "  [you set it up]" : effective === "auto" || effective === "autonomous" ? "  [automatic]" : "";
-          log(`\n[${index}/${shots.length}] ${shot.filename}${shot.moduleTitle ? `  (${shot.moduleTitle})` : ""}${modeTag}`);
+          const wantedHarnessId = wantedHarness(shot);
+          log(`\n[${index}/${shots.length}] ${shot.filename}${shot.moduleTitle ? `  (${shot.moduleTitle})` : ""}${modeTag}${wantedHarnessId ? `  [${HARNESS_LABELS[wantedHarnessId]}]` : ""}`);
+          if (wantedHarnessId) log(`  Harness: ${HARNESS_LABELS[wantedHarnessId]}. ${harnessPlan(wantedHarnessId).switchStep}`);
           const common = { mode: ["guided", "auto", "autonomous"].includes(effective) ? effective : shot.capture?.mode || null, path: shot.capture?.path || undefined };
 
           if (effective === "manual") {
@@ -986,6 +994,15 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             log(`  Not run: ${message}`);
             notRun.push({ filename: shot.filename, why: "It needs you to set it up." });
             await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });
+            continue;
+          }
+          // A module that is not written for the lab's harness is never taken, and never taken in the other harness either.
+          const gapMessage = harnessGapMessage(shot);
+          if (gapMessage) {
+            tally.needsYou += 1;
+            log(`  Not run: ${gapMessage}`);
+            notRun.push({ filename: shot.filename, why: gapMessage });
+            await report(shot, "needs-you", gapMessage, null, { cause: "harness-gap", ...common });
             continue;
           }
           if (effective === "guided" && (!attended || backgroundHidden || state.guidedUnavailable)) {
@@ -1218,7 +1235,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const stoppedSession = scratchSessions.find((s) => s.scratch?.halted) || null;
   const scratchReport = autonomy.scratch
     ? {
-        ...(scratchSession ? { name: scratchSession.scratch.agent.name, reused: scratchSession.scratch.agent.reused === true, createdAt: String(scratchSession.scratch.agent.createdAt || new Date().toISOString()).slice(0, 10), stages: [...scratchSession.scratch.done].slice(0, 12) } : {}),
+        ...(scratchSession ? { name: scratchSession.scratch.agent.name, reused: scratchSession.scratch.agent.reused === true, createdAt: String(scratchSession.scratch.agent.createdAt || new Date().toISOString()).slice(0, 10), stages: [...(scratchSession.scratch.doneAll || scratchSession.scratch.done)].slice(0, 12) } : {}),
         environment: autonomy.practiceEnvironmentUrl ? "set" : "default",
         ...(stoppedSession ? { stopped: String(stoppedSession.scratch.halted.message || "").slice(0, 200) } : {}),
       }
@@ -1351,7 +1368,8 @@ export function plainOutcome(detail, steps, mode) {
   const picked = selected.length ? `, then selected ${selected.join(" and ")}` : "";
   const did = Array.isArray(detail?.setup?.summary) && detail.setup.summary.length ? `, then ${detail.setup.summary.map((s) => String(s).replace(/^(\w)/, (c) => c.toLowerCase())).join(", then ")}` : "";
   const limited = detail?.setup?.limitedBy === "practice-agent" ? " It needs a practice agent to show the final state." : "";
-  return `${opened}${picked}${did}.${mode === "guided" ? " You set up the screen." : ""}${limited}`;
+  const harness = detail?.harness?.proven ? ` Proved the ${HARNESS_LABELS[detail.harness.proven] || detail.harness.proven}: ${(detail.harness.landmarks || []).join(", ")}${detail.harness.switched ? " (switched to the classic experience first)" : ""}.` : "";
+  return `${opened}${picked}${did}.${mode === "guided" ? " You set up the screen." : ""}${limited}${harness}`;
 }
 
 /** The setup that ran for a shot, bounded for the portal: step names and outcomes, never page text or addresses. */

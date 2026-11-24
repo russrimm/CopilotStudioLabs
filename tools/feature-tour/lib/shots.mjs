@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { NAV_SECTIONS, SECTION_LABELS, TOUR_PRODUCT, boldTerms, stripMarkdown } from "./model.mjs";
 import { FEATURE_ASSETS_DIR as ASSETS_DIR, labIdFor, readCaptureConfig, sectionConfig } from "./products.mjs";
+import { normalizeHarness } from "../../screenshot-capture/harness.mjs";
 
 // The lab builder keeps reviewed alt text and a caption for every screenshot slot, keyed by
 // filename. The tour uses the same text so a lab and the tour describe each image alike.
@@ -81,13 +82,25 @@ function numberCallouts(callouts) {
   return callouts.map((c, i) => ({ n: i + 1, label: c.label, text: c.text, ...(c.note ? { note: c.note } : {}) }));
 }
 
+/**
+ * The harness a picture of this slot is taken in: the slot's own (`"either"` for a screen identical in every harness; no slot says so today),
+ * else its feature's harness group. "both" (a feature written for the Standard and the Microsoft Copilot harness) means the library keeps one
+ * picture per harness and the lab that uses the slot decides which one it needs.
+ */
+export function shotHarness(feature, raw) {
+  const own = normalizeHarness(raw.harness);
+  if (own === "either") return own;
+  if (raw.harness !== undefined) throw new Error(`${raw.filename}: a slot may only say harness "either"; the lab's harness decides everything else.`);
+  return feature.harnessGroup;
+}
+
 function makeEntry({ feature, raw, section, caption, alt, instructions, callouts, product, settings }) {
   const entry = {
     feature: feature.id,
     featureName: feature.name,
     product,
   };
-  if (product === TOUR_PRODUCT) entry.harness = feature.harnessGroup;
+  if (product === TOUR_PRODUCT) entry.harness = shotHarness(feature, raw);
   Object.assign(entry, {
     filename: raw.filename,
     section,

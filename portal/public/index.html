@@ -3663,6 +3663,71 @@
     .sc-cause-files { margin: 8px 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
     .sc-cause-files[hidden] { display: none; }
 
+    /* ── Harness identification labels (screenshot center and lab preview) ──────────────────────────────────────────
+       Every picture says which Copilot Studio harness it is for (Standard (Classic), Microsoft Copilot, Customer Conversation) and which one it was
+       taken in, so a trainer can tell at a glance that the two are never mixed. The words carry the meaning; the border style (solid, dashed,
+       dotted) and the tone only help a quick scan. The label wraps and is never cut off, so it has rules of its own and does not use the one-line chip rules. */
+    .sc-harness-label {
+      display: inline-block;
+      box-sizing: border-box;
+      max-width: 100%;
+      min-width: 0;
+      padding: 2px 10px;
+      border: 2px solid var(--sc-neutral-border);
+      border-radius: 8px;
+      background: var(--sc-neutral-bg);
+      color: var(--sc-neutral-fg);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: left;
+      white-space: normal;
+      overflow: visible;
+      overflow-wrap: anywhere;
+    }
+    .sc-harness-label-standard { border-style: solid; border-color: var(--sc-info-border); background: var(--sc-info-bg); color: var(--sc-info-fg); }
+    .sc-harness-label-microsoft-copilot { border-style: dashed; }
+    .sc-harness-label-customer-conversation { border-style: dotted; }
+    .sc-harness-label-either { border-width: 1px; }
+    .sc-harness-label-not-recorded { border-style: dotted; border-color: var(--sc-warn-border); background: var(--sc-warn-bg); color: var(--sc-warn-fg); }
+    .sc-harness { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; max-width: 100%; }
+    .sc-harness-picture { margin: 0; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--text); overflow-wrap: anywhere; }
+    .sc-harness-note { margin: 0; padding: 4px 8px; border-left: 3px solid var(--sc-warn-border); border-radius: 4px; background: var(--sc-warn-bg); color: var(--sc-warn-fg); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+    .sc-harness-flag { margin: 0; padding: 2px 8px; border: 1px dashed var(--sc-warn-border); border-radius: 6px; background: var(--sc-warn-bg); color: var(--sc-warn-fg); font-size: 12.5px; font-weight: 600; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+    .sc-harness-tag { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+    .sc-harness-tag .btn { max-width: 100%; text-align: left; }
+    .sc-harness-pair { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+    .sc-card-body > .sc-harness { padding-bottom: 2px; }
+    .sc-review-col .sc-harness-label { align-self: flex-start; }
+    .sc-pic-caption { overflow-wrap: anywhere; }
+    .sc-harness-banner { margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; border: 1px solid var(--border); border-left: 4px solid var(--sc-info-border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.5; }
+    .sc-harness-banner-warn { border-left-color: var(--sc-warn-border); }
+    .sc-harness-banner p { margin: 0; overflow-wrap: anywhere; }
+    .sc-harness-statement { font-weight: 700; }
+    .sc-harness-source, .sc-harness-gaps, .sc-harness-companion { font-size: 12.5px; color: var(--text-muted); }
+    .sc-harness-mixed, .sc-harness-wrong { padding: 6px 10px; border: 1px solid var(--sc-warn-border); border-left-width: 4px; border-radius: 6px; background: var(--sc-warn-bg); color: var(--sc-warn-fg); font-weight: 600; }
+    .sc-harness-files { margin: 0 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; overflow-wrap: anywhere; }
+    .sc-harness-unrecorded { padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; border: 1px dashed var(--sc-warn-border); border-radius: 8px; background: var(--surface); color: var(--text); }
+    .sc-harness-unrecorded-title, .sc-harness-unrecorded h6 { margin: 0; font-size: 14px; color: var(--text); }
+    .sc-harness-help { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); overflow-wrap: anywhere; }
+    .sc-harness-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .sc-harness-item { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 14px; padding: 10px; min-width: 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .sc-harness-thumb { flex: 0 1 180px; width: 100%; max-width: min(180px, 100%); border: 1px solid var(--border-strong); border-radius: 6px; }
+    .sc-harness-item-body { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .sc-harness-item-name { margin: 0; font-size: 13px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .sc-harness-file { font-size: 12px; overflow-wrap: anywhere; word-break: break-all; }
+    .sc-library-harnesses { flex: 1 1 100%; list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+    .sc-library-harnesses li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+    .sc-library-pictures { margin-top: 8px; font-size: 12.5px; }
+    .sc-library-pictures summary { cursor: pointer; color: var(--link-color); }
+    .sc-library-pic-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .sc-library-pic { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+    .sc-library-pic-name { overflow-wrap: anywhere; word-break: break-all; }
+    .lb-checklist-harness-statement { margin: 8px 0; }
+    .lb-checklist summary .sc-harness-label { margin-left: 6px; }
+    .lab-shot-card .lab-shot-card-harness { margin-top: 6px; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
+    /* ── end of the harness identification labels ── */
+
     .sc-lightbox {
       width: min(1100px, 96vw);
       max-height: 94vh;

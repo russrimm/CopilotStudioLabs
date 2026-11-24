@@ -54,9 +54,12 @@ const SC_KEEP_WHY = Object.freeze({
   "previous-version": "An earlier version of a picture.",
   "carry-failed": "Could not be copied into the new lab.",
   "looks-wrong": "Moved because it looked like the wrong screen.",
+  "wrong-harness": "Moved because it was taken in a different harness than its screenshot needs.",
 });
 
 function scKeepWhy(picture) {
+  // The server's sentence names both harnesses ("This picture is from the Microsoft Copilot harness, but this slot needs the Standard (Classic) harness."), so it is shown as it comes.
+  if (picture.why === "wrong-harness") return scText(picture.message, 300) || SC_KEEP_WHY["wrong-harness"];
   return SC_KEEP_WHY[picture.why] || scText(picture.message, 240) || "Kept so you can restore it.";
 }
 
@@ -86,7 +89,7 @@ function scBuildKeepAsk() {
 
 /** "From “Lab” (deleted Mar 1, 2026). 62 days left." for a kept entry. */
 function scKeepEntryHead(entry) {
-  const how = entry.reason === "replaced" ? "replaced" : entry.reason === "failed-build" ? "removed after a failed build" : entry.reason === "looks-wrong" ? "moved because they looked wrong" : "deleted";
+  const how = entry.reason === "replaced" ? "replaced" : entry.reason === "failed-build" ? "removed after a failed build" : entry.reason === "looks-wrong" ? "moved because they looked wrong" : entry.reason === "wrong-harness" ? "moved because they showed the wrong harness" : "deleted";
   const left = scCount(entry.daysLeft);
   return `From \u201c${scText(entry.labTitle || entry.labId, 80)}\u201d (${how} ${scKeepDate(entry.keptAt)}). ${scPlural(left, "day")} left.`;
 }
@@ -102,6 +105,9 @@ function scBuildKeptEntry(entry) {
     const body = scEl("div", { class: "sc-pic-body" });
     const text = scEl("div", { class: "sc-wrong-text" });
     text.appendChild(scEl("span", { class: "sc-library-name", text: picture.earlierVersion ? `${picture.base} (earlier version)` : picture.filename }));
+    // The harness the picture was recorded as taken in, or "Harness not recorded".
+    const harnessLines = typeof scPicHarnessLines === "function" ? scPicHarnessLines(scPicKeptHarness(picture)) : null;
+    if (harnessLines) text.appendChild(harnessLines);
     text.appendChild(scEl("span", { class: "sc-library-meta", text: scKeepWhy(picture) }));
     body.appendChild(text);
     const actions = scEl("div", { class: "sc-card-actions" });

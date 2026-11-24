@@ -13,7 +13,7 @@ import { createPortalClient } from "../companion.mjs";
 import { createRecipeStore } from "../recipes.mjs";
 import { detectBrowserAvailability } from "../lab-runner.mjs";
 import { FAKE_AGENT_URL, FAKE_PRACTICE_ENV_URL, FAKE_SITE_URL } from "./fixtures/fake-product-site.mjs";
-import { startScenario, WORKTREE_ROOT } from "./fixtures/capture-scenarios.mjs";
+import { startScenario, retagLab, WORKTREE_ROOT } from "./fixtures/capture-scenarios.mjs";
 
 const found = await detectBrowserAvailability({ repoRoot: WORKTREE_ROOT }).catch(() => ({ available: false }));
 const skip = found.available ? false : "Playwright with a browser is not installed";
@@ -93,7 +93,7 @@ test("with consent and the flag a practice agent is created once, reused by the 
     assert.equal(count(first.rows, "captured"), 8, first.lines.join("\n"));
     assert.deepEqual(first.rows.filter((r) => r.status === "needs-review").map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png"], "the screens a recipe cannot check are kept for a person (the pretend site has no activity map; a citation is always checked by a person)");
     assert.equal(scenario.site.practiceAgents().length, 1, "one practice agent");
-    assert.ok(scenario.site.practiceAgents()[0].name.startsWith("Lab screenshots - "));
+    assert.match(scenario.site.practiceAgents()[0].name, /^(?:Lab screenshots|Classic shots|Copilot shots) - /);
     assert.ok(first.job.result.created.length >= 1, "the portal names what was created");
     assert.ok(first.job.result.created.every((c) => !/https?:|[0-9a-f]{8}-[0-9a-f]{4}/i.test(JSON.stringify(c))), "and never links or identifies it");
     const report = path.join(scenario.home, "practice-report.md");
@@ -141,8 +141,9 @@ test("with no agent address given, the practice agent is created first and every
 });
 
 test("when the practice agent cannot be created, the shots that show an agent wait with one plain reason, nothing is guessed, and no other agent is opened", { skip, timeout: 300_000 }, async () => {
-  // The newer layout has no "Create blank agent" button, so the practice agent cannot be made on this site.
+  // The newer layout has no "Create blank agent" button, so the practice agent cannot be made on this site. The newer layout is the Microsoft Copilot harness.
   const scenario = await startScenario({ repoDir: REPO, site: { layout: "newer" } });
+  retagLab(scenario.lab.labDir, "microsoft-copilot");
   try {
     await scenario.call("PUT", "/api/capture/consent", PRACTICE);
     const out = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });

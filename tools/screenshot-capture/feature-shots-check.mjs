@@ -5,9 +5,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { IMAGE_EXTENSIONS, inspectScreenshot, sidecarName } from "../feature-tour/lib/screenshots.mjs";
+import { slotFiles } from "./manifests.mjs";
 
 export const FEATURE_ASSETS_DIR = "docs/feature-tour/screenshots";
-const HARNESSES = new Set(["standard", "microsoft-copilot", "customer-conversation", "both"]);
+// A Copilot Studio slot names exactly one harness, "either" (a screen outside the agent), or "both" (the library keeps one picture per harness: the
+// Standard (Classic) one is saved as <name>.classic.png and the Microsoft Copilot one as <name>.copilot.png, and a lab takes the one its harness needs).
+export const HARNESSES = new Set(["standard", "microsoft-copilot", "customer-conversation", "either", "both"]);
 const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
 
 // knownFilenames is every filename in every product's manifest. The screenshots
@@ -78,7 +81,7 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
       if (!nonEmpty(shot[key])) add("critical", "feature-shots-schema", `${where} must have a non-empty ${key}.`);
     }
     if (hasHarnesses) {
-      if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, customer-conversation, or both.`);
+      if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, customer-conversation, either, or both.`);
     } else if (shot.harness !== undefined) {
       add("critical", "feature-shots-schema", `${where} must not have a harness: ${product} has no harnesses.`);
     }
@@ -108,21 +111,32 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
 
   for (const shot of manifest.shots) {
     if (!nonEmpty(shot?.filename) || path.basename(shot.filename) !== shot.filename) continue;
-    const info = inspectScreenshot(assetsDir, shot.filename);
-    if (info.status === "ready") {
+    // A harness-specific slot is saved under the name that carries its harness (agent-overview.classic.png), and a "both" slot has one picture per harness.
+    const files = slotFiles(shot);
+    const missingFiles = [];
+    for (const file of files) {
+      const info = inspectScreenshot(assetsDir, file);
+      if (info.status === "ready") continue;
+      missingFiles.push({ file, info });
+      if (info.reason === "too-small" || info.reason === "not-an-image" || info.reason === "placeholder") {
+        add("warning", "feature-shots-invalid-image", `${FEATURE_ASSETS_DIR}/${file} exists but is not a usable screenshot (${info.reason}); the site shows it as pending.`, { filename: file });
+      }
+    }
+    if (missingFiles.length === 0) {
       result.captured += 1;
     } else {
-      result.missing.push({ id: shot.id, feature: shot.feature, filename: shot.filename, reason: info.reason, product, ...(shot.manual ? { manual: true } : {}) });
-      if (info.reason === "too-small" || info.reason === "not-an-image" || info.reason === "placeholder") {
-        add("warning", "feature-shots-invalid-image", `${FEATURE_ASSETS_DIR}/${shot.filename} exists but is not a usable screenshot (${info.reason}); the site shows it as pending.`, { filename: shot.filename });
-      } else if (strictMissing) {
-        add("critical", "feature-shots-pending", `${shot.filename} (${shot.feature}) has not been captured.`, { filename: shot.filename });
+      const first = missingFiles[0];
+      result.missing.push({ id: shot.id, feature: shot.feature, filename: first.file, reason: first.info.reason, product, ...(shot.manual ? { manual: true } : {}) });
+      if (strictMissing && !["too-small", "not-an-image", "placeholder"].includes(first.info.reason)) {
+        add("critical", "feature-shots-pending", `${first.file} (${shot.feature}) has not been captured.`, { filename: first.file });
       }
     }
   }
 
   if (fs.existsSync(assetsDir)) {
-    const known = knownFilenames ?? filenames;
+    // The pictures this list owns: each slot's plain name and the names that carry its harness.
+    const ownNames = new Set(manifest.shots.flatMap((shot) => (nonEmpty(shot?.filename) ? [shot.filename, ...slotFiles(shot)] : [])));
+    const known = new Set([...(knownFilenames ?? filenames), ...ownNames]);
     for (const name of fs.readdirSync(assetsDir)) {
       const ext = path.extname(name).toLowerCase();
       if (IMAGE_EXTENSIONS.has(ext) && !known.has(name)) {
@@ -131,7 +145,7 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
       if (name.endsWith(".callouts.json")) {
         const owner = [...known].find((f) => sidecarName(f) === name);
         if (!owner) add("warning", "feature-shots-orphan-sidecar", `${FEATURE_ASSETS_DIR}/${name} has no matching shot.`, { filename: name });
-        else if (filenames.has(owner)) {
+        else if (ownNames.has(owner)) {
           try {
             const parsed = JSON.parse(fs.readFileSync(path.join(assetsDir, name), "utf8"));
             if (!Array.isArray(parsed.callouts)) throw new Error("callouts must be an array");

@@ -81,7 +81,7 @@ export function createFakeApp({ screens, redirects = {}, gotoFailure = null }) {
       exposed.set(name, fn);
     },
     async addInitScript() {},
-    async evaluate(fn) {
+    async evaluate(fn, arg) {
       log.evaluations.push(fn.name);
       if (fn.name === "readinessProbeInPage") {
         const screen = screenNow();
@@ -91,6 +91,10 @@ export function createFakeApp({ screens, redirects = {}, gotoFailure = null }) {
       }
       if (fn.name === "collectVisibleLabelsInPage") return [...(screenNow().text || [])];
       if (fn.name === "maskSensitiveInPage") return { masked: 0, controls: 0, texts: 0, selectors: 0 };
+      // The "Powered by" cell of an agent's row in the Agents list: `poweredBy` maps an agent name to the cell's text.
+      if (fn.name === "poweredByInPage") return (screenNow().poweredBy || {})[arg] ?? null;
+      // A feedback prompt on the screen: `feedback` is what the page shows (`{prompt, skip, submit}`).
+      if (fn.name === "feedbackPromptInPage") return screenNow().feedback || { prompt: false, skip: false, submit: false };
       return undefined;
     },
     async screenshot(options = {}) {

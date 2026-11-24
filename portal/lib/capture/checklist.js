@@ -41,9 +41,13 @@ export function buildLabChecklist({ generatedRoot, labId, values = {}, capturedD
       module: shot.moduleTitle || null,
       caption: shot.caption || slot.caption || null,
       shows: slot.alt || shot.caption || null,
-      who: mode === "auto" ? "computer" : "you",
+      // The harness the picture must be taken in (null for a product with no harnesses), and a gap when the module is not written for the lab's harness.
+      harness: shot.harness || null,
+      harnessLabel: shot.harnessLabel || null,
+      harnessGapNote: shot.harnessGapNote || null,
+      who: shot.harnessGap ? "you" : mode === "auto" ? "computer" : "you",
       mode,
-      why: shot.capture?.why || "",
+      why: shot.harnessGapNote || shot.capture?.why || "",
       steps,
       needsSettings: (shot.capture?.missing || []).length > 0,
     };
@@ -55,6 +59,8 @@ export function buildLabChecklist({ generatedRoot, labId, values = {}, capturedD
     status: 200,
     labId: plan.labId,
     title: plan.title,
+    // The harness every Copilot Studio picture of this lab is taken in, in one sentence.
+    labHarness: plan.labHarness || null,
     counts: { missing: sorted.length, computer: computer.length, you: you.length },
     computer,
     you,
@@ -66,6 +72,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /** The checklist as Markdown a person can print, paste into a ticket, or keep next to the lab. */
 export function renderChecklistMarkdown(list, { generatedAt = new Date().toISOString().slice(0, 10) } = {}) {
   const lines = [`# Screenshot to-do list: ${list.title}`, "", `${generatedAt}. ${plural(list.counts.missing, "picture")} still to capture.`, ""];
+  if (list.labHarness?.statement) lines.push(`**${list.labHarness.statement}**`, "");
   if (!list.counts.missing) {
     lines.push("Nothing is left. Every picture in this lab is a real screenshot.", "");
     return lines.join("\n");
@@ -86,6 +93,7 @@ export function renderChecklistMarkdown(list, { generatedAt = new Date().toISOSt
     for (const item of list.you) {
       lines.push(`### ${item.figure ? `Figure ${item.figure}: ` : ""}${item.caption || item.filename}`, "");
       lines.push(`- **File:** \`${item.filename}\``);
+      if (item.harnessLabel) lines.push(`- **Harness:** ${item.harnessLabel}`);
       if (item.module) lines.push(`- **Module:** ${item.module}`);
       if (item.shows) lines.push(`- **It should show:** ${item.shows}`);
       if (item.why) lines.push(`- **Why it needs you:** ${item.why}`);
@@ -99,7 +107,7 @@ export function renderChecklistMarkdown(list, { generatedAt = new Date().toISOSt
   if (list.computer.length) {
     lines.push(`## The computer will capture these (${list.computer.length})`, "");
     for (const item of list.computer) {
-      lines.push(`- ${item.figure ? `Figure ${item.figure}: ` : ""}${item.caption || item.filename} (\`${item.filename}\`)${item.needsSettings ? " — needs your Copilot Studio address in the Screenshot Center settings first" : ""}`);
+      lines.push(`- ${item.figure ? `Figure ${item.figure}: ` : ""}${item.caption || item.filename} (\`${item.filename}\`${item.harnessLabel ? `, ${item.harnessLabel}` : ""})${item.needsSettings ? " — needs your Copilot Studio address in the Screenshot Center settings first" : ""}`);
     }
     lines.push("");
   }

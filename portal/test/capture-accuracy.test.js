@@ -30,6 +30,8 @@ const AGENT_URL = `https://copilotstudio.microsoft.com/environments/${ENV}/bots/
 const SITE_URL = "https://contoso.sharepoint.com/sites/training";
 const cleanups = [];
 const ctx = {};
+/** What a current companion proves before it takes a Standard (Classic) picture; the fixture lab is built for that harness. */
+const STANDARD_PROOF = { version: 1, id: "standard", proof: "landmarks", landmarks: ["Overview", "Knowledge", "Topics"], switched: true, wanted: "standard" };
 
 function tmp(prefix) {
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -335,7 +337,7 @@ test("an upload is checked against the screen the plan expects, not against what
   assert.equal(queued.status, 201, queued.text);
   const claimed = await ctx.client.next();
   const upload = (filename, url, extra = {}) =>
-    ctx.client.upload(claimed.job.id, filename, { bytes: makePng({ mode: "ui", seed: 3 }), mime: "image/png", evidence: { version: 2, finalUrl: url, title: "Copilot Studio", visibleText: ["Overview", "Instructions"], redaction: { applied: true, masked: 0 }, capturedAt: new Date().toISOString(), executedSteps: 2, mode: "auto", routeSteps: [{ action: "open", label: "Copilot Studio", ok: true, found: true }], ...extra } });
+    ctx.client.upload(claimed.job.id, filename, { bytes: makePng({ mode: "ui", seed: 3 }), mime: "image/png", evidence: { version: 2, finalUrl: url, title: "Copilot Studio", visibleText: ["Overview", "Instructions"], redaction: { applied: true, masked: 0 }, capturedAt: new Date().toISOString(), executedSteps: 2, mode: "auto", routeSteps: [{ action: "open", label: "Copilot Studio", ok: true, found: true }], harness: STANDARD_PROOF, ...extra } });
   const home = await upload("agent-overview.png", `https://copilotstudio.microsoft.com/environments/${ENV}/home`, { expect: { family: "url", host: "copilotstudio.microsoft.com" } });
   assert.equal(home.status, 202, "the wrong page is never accepted, even with every label visible and a made-up expectation");
   assert.equal(home.body.outcome, "needs-review");
@@ -370,6 +372,7 @@ test("an upload is checked against the screen the plan expects, not against what
 test("a paused capture says so once, keeps its shots resumable, and is not counted as failed", async () => {
   await putProfile({ copilotStudioAgentUrl: AGENT_URL });
   const queued = await labQueue(ctx.cs.labId, { options: { mode: "smart" } });
+  assert.equal(queued.status, 201, queued.text);
   const claimed = await ctx.client.next();
   assert.equal(claimed.job.id, queued.body.job.id);
   await ctx.client.progress(claimed.job.id, { shot: { filename: claimed.shots[0].filename, status: "running", message: "Capturing.", mode: "auto", path: ["Copilot Studio", "Home"] } });

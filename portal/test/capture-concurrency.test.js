@@ -26,6 +26,10 @@ import { cleanOwnerKey, mineFlag, ownerOf } from "../lib/capture/owner.js";
 import { LIVE_RETENTION_MS, createPairingStore } from "../lib/capture/pairing.js";
 import { registerCaptureRoutes } from "../lib/capture/routes.js";
 import { makePng } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
+
+/** The shared library keeps a Microsoft Copilot slot's picture under a name that carries the harness. */
+const libName = (filename) => libraryName(filename, "microsoft-copilot");
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = resolve(here, "..");
@@ -659,10 +663,10 @@ test("only a few pictures are read at once: the others wait a short while, then 
   const app = await startApp({ env: { CAPTURE_UPLOAD_CONCURRENCY: "1", CAPTURE_UPLOAD_WAIT_MS: "250" } });
   const [{ files }] = ctx.labs;
   const picture = (seed) => makePng({ mode: "ui", seed });
-  const upload = (seed) => api(app.base, "PUT", `/api/capture/library/screenshots/${encodeURIComponent(files[0])}`, { as: BOB, body: picture(seed), headers: { "Content-Type": "image/png" } });
+  const upload = (seed) => api(app.base, "PUT", `/api/capture/library/screenshots/${encodeURIComponent(libName(files[0]))}`, { as: BOB, body: picture(seed), headers: { "Content-Type": "image/png" } });
   const uploads = () => app.platform.uploads.snapshot();
 
-  const slow = startUpload(app, files[0], picture(1));
+  const slow = startUpload(app, libName(files[0]), picture(1));
   await until("the first upload to hold the only place", () => uploads().active === 1);
   const turnedAway = await upload(2);
   assert.equal(turnedAway.status, 503);
@@ -684,9 +688,9 @@ test("an upload that has to wait is served as soon as the place before it frees"
   const bytes = makePng({ mode: "ui", seed: 5 });
   const uploads = () => app.platform.uploads.snapshot();
 
-  const first = startUpload(app, files[0], bytes);
+  const first = startUpload(app, libName(files[0]), bytes);
   await until("the first upload to hold the only place", () => uploads().active === 1);
-  const second = api(app.base, "PUT", `/api/capture/library/screenshots/${encodeURIComponent(files[1] || files[0])}`, { as: BOB, body: makePng({ mode: "ui", seed: 6 }), headers: { "Content-Type": "image/png" } });
+  const second = api(app.base, "PUT", `/api/capture/library/screenshots/${encodeURIComponent(libName(files[1] || files[0]))}`, { as: BOB, body: makePng({ mode: "ui", seed: 6 }), headers: { "Content-Type": "image/png" } });
   await until("the second upload to be waiting", () => uploads().waiting === 1);
   first.finish();
   const [firstResult, secondResult] = await Promise.all([first.done, second]);
@@ -817,18 +821,18 @@ test("three processes promoting different verified pictures into the same shared
   const inputs = pictures.map((p) => sha(readFileSync(p)));
   let written = 0;
   for (const filename of files) {
-    const slotFile = join(ctx.libDir, filename);
+    const slotFile = join(ctx.libDir, libName(filename));
     if (!existsSync(slotFile)) continue;
     written += 1;
     const bytes = readFileSync(slotFile);
     assert.ok(inputs.includes(sha(bytes)), `${filename} is one of the pictures, whole`);
-    assert.equal(records.shots[filename]?.sha256, sha(bytes), `${filename} has a record, and it describes exactly this picture`);
-    assert.equal(records.shots[filename].state, "accepted");
+    assert.equal(records.shots[libName(filename)]?.sha256, sha(bytes), `${filename} has a record, and it describes exactly this picture`);
+    assert.equal(records.shots[libName(filename)].state, "accepted");
     const previous = `${slotFile}.previous`;
     if (existsSync(previous)) assert.ok(inputs.includes(sha(readFileSync(previous))), "an earlier picture is kept whole");
   }
   assert.equal(written, files.length, "every slot somebody wrote has its picture");
-  assert.deepEqual(Object.keys(records.shots).sort(), files.filter((f) => existsSync(join(ctx.libDir, f))).sort(), "and no record was lost to another process's write");
+  assert.deepEqual(Object.keys(records.shots).sort(), files.filter((f) => existsSync(join(ctx.libDir, libName(f)))).map(libName).sort(), "and no record was lost to another process's write");
   assert.deepEqual(readdirSync(ctx.libDir).filter((name) => name.includes(".blob-tmp-")), [], "no lock or half-written file is left");
   assert.deepEqual(readdirSync(captureDir).filter((name) => name.includes(".blob-tmp-")), [], "nor beside the records");
 });

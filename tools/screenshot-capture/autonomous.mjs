@@ -82,7 +82,7 @@ export const needsAgent = (shot) => (shot?.capture?.agentNeeds || []).includes("
  * the agent over from the creation step (`agentSource: "created"`), every shot that needs an agent needs this one, so the agent is made
  * (or reused) once, for the first of them, and the rest find it in the session.
  */
-export async function preparePractice({ page, shot, session, go, trace = null, log = null, sleep, terms = [], home = null, companion = "" }) {
+export async function preparePractice({ page, shot, session, go, trace = null, log = null, sleep, terms = [], home = null, companion = "", harness = null, readiness = {} }) {
   const autonomy = session.autonomy;
   const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
   const product = shot.capture?.product || shot.product || "copilot-studio";
@@ -91,7 +91,9 @@ export async function preparePractice({ page, shot, session, go, trace = null, l
   if (!needed) return { needed: false, info: null, error: "" };
   if (!practiceAllowed || !session.registry) return { needed: true, info: null, error: handoff ? autonomy.refusedPractice || "The practice agent could not be created, because this job does not allow it" : "" };
   const executorFor = (practice) => createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, onProgress: session.onProgress, shouldStop: session.shouldStop });
-  const ensured = await ensurePracticeAgent({ page, autonomy, registry: session.registry, session, executorFor, go, trace, log });
+  // One practice agent per harness: the one this shot's harness needs (a Classic agent for a Standard picture, a Microsoft Copilot agent for a Microsoft Copilot picture).
+  const ensured = await ensurePracticeAgent({ page, autonomy, registry: session.registry, session, executorFor, go, trace, log, harness, sleep, readiness });
+  if (ensured.signIn) return { needed: true, info: null, error: "", signIn: ensured.signIn };
   return ensured.ok ? { needed: true, info: ensured, error: "" } : { needed: true, info: null, error: ensured.error || "The practice agent could not be set up.", cause: ensured.cause || "" };
 }
 

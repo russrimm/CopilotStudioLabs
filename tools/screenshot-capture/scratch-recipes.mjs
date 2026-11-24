@@ -22,7 +22,10 @@ export function tabSteps(tab, id = tab.toLowerCase()) {
   ];
 }
 
-/** Whether the agent page has the newer layout's tab strip is decided at run time; these are the two names the executor looks for. */
+/**
+ * The agent page's landmarks (the tab strip of the Build, Preview, Evaluate, and Monitor tabs, or the classic side navigation) are what prove which harness
+ * an agent is in (see harness-run.mjs). This pair of names is only the quick probe a caller with no harness can use; the harness decides the steps, not the probe.
+ */
 export const LAYOUT_PROBE = Object.freeze({ newer: T("tab", "Build", ["Design", "Configure"], "tablist"), classic: T("link", "Overview", [], "nav") });
 
 // ── Prepare: the steps that change the practice agent ───────────────────────

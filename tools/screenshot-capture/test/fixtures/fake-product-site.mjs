@@ -131,15 +131,42 @@ export function createFakeProductSite(options = {}) {
     knowledgeDialogTitle: "",
     editableInstructions: false,
     signedOutHome: false,
+    // The Standard (Classic) and Microsoft Copilot harnesses. `harnessMode` makes each agent belong to a harness (`agent.harness`) and shows the Agents
+    // list's "Powered by" column; the session is in the default experience until "Open classic experience" is chosen from the ellipsis menu in the
+    // lower left corner of the side bar (then the feedback prompt follows). A new agent belongs to the harness of the session that made it.
+    harnessMode: false,
+    // The session decides what every agent page looks like (the classic side navigation once switched, the tab strip before), instead of the agent's own harness.
+    experienceDecides: false,
+    // The feedback prompt after "Open classic experience": "skip" (Skip feedback and Submit), "submit-only" (Submit and nothing else), or "none" (no prompt).
+    feedback: "skip",
+    // The "Open classic experience" item is there and does nothing (the session stays in the default experience).
+    switchBroken: false,
+    // There is no ellipsis menu in the side bar at all.
+    noExperienceMenu: false,
+    // Opening the product's start address (https://copilotstudio.microsoft.com/) puts the session back in the default experience.
+    rootResetsExperience: true,
     ...options,
   };
-  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0 };
+  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0, classicClicks: 0, feedbackSkips: 0, feedbackSubmits: 0, rootVisits: 0, menuOpens: 0 };
   let abortedOnce = false;
   let navClickPending = false;
   let nextId = 0;
 
   // The pretend tenant: two environments, the agents in them, and what has been done to those agents.
-  const envs = { [FAKE_ENV_ID]: { agents: [FAKE_AGENT, OTHER_AGENT] }, [FAKE_PRACTICE_ENV_ID]: { agents: [] } };
+  const agentHarnessOf = (agent, fallback) => (config.harnessMode ? { ...agent, harness: fallback } : agent);
+  const envs = {
+    [FAKE_ENV_ID]: { agents: [agentHarnessOf(FAKE_AGENT, config.fakeAgentHarness || "standard"), agentHarnessOf(OTHER_AGENT, config.otherAgentHarness || "microsoft-copilot")] },
+    [FAKE_PRACTICE_ENV_ID]: { agents: [] },
+  };
+  // What this browser session did to the experience: it is in the classic experience from the start only when the site is the classic layout.
+  const experience = { classic: config.harnessMode ? false : config.layout !== "newer" };
+  const sessionLayout = () => (config.harnessMode ? (experience.classic ? "classic" : "newer") : config.layout);
+  const agentLayout = (agent) => {
+    if (!config.harnessMode) return config.layout;
+    if (config.experienceDecides) return sessionLayout();
+    return agent.harness === "standard" ? "classic" : "newer";
+  };
+  const harnessName = (agent) => ({ standard: "Standard harness", "microsoft-copilot": "Microsoft Copilot harness", "customer-conversation": "Customer Conversation harness" })[agent.harness] || "Standard harness";
   const knowledge = new Set();
   const published = new Set();
   const newer = newerState(published);
@@ -156,8 +183,14 @@ export function createFakeProductSite(options = {}) {
     return `<nav class="side" aria-label="Agent navigation">${item("overview", "Overview")}${item("knowledge", "Knowledge")}${item(toolsSegment(), "Tools")}${item("topics", "Topics")}${item("analytics", "Analytics")}${item("settings", "Settings")}</nav>`;
   };
 
+  // The ellipsis in the lower left corner of the side bar: its menu offers "Open classic experience" in the default experience (and, once switched, only Help).
+  const experienceMenu = () =>
+    config.noExperienceMenu
+      ? ""
+      : `<button type="button" id="x-ellipsis" aria-label="More options" aria-haspopup="menu" data-act="x-menu-open" style="position:fixed;left:12px;bottom:12px">&#8230;</button><div role="menu" id="x-menu" aria-label="More options menu" hidden style="position:fixed;left:12px;bottom:56px;background:#fff;border:1px solid #475569;padding:6px;z-index:30">${experience.classic ? '<button type="button" role="menuitem" data-act="x-help">Help</button>' : '<button type="button" role="menuitem" data-act="x-classic">Open classic experience</button>'}</div>`;
+
   const envNav = (current, envId) =>
-    `<nav class="side" aria-label="Environment navigation"><a href="${envBase(envId)}/home"${current === "home" ? ' aria-current="page"' : ""}>Home</a><a href="${envBase(envId)}/agents"${current === "agents" ? ' aria-current="page"' : ""}>Agents</a><a href="${envBase(envId)}/apps/new">Apps</a></nav>`;
+    `<nav class="side" aria-label="Environment navigation"><a href="${envBase(envId)}/home"${current === "home" ? ' aria-current="page"' : ""}>Home</a><a href="${envBase(envId)}/agents"${current === "agents" ? ' aria-current="page"' : ""}>Agents</a><a href="${envBase(envId)}/apps/new">Apps</a>${experienceMenu()}</nav>`;
 
   const lv = config.labelVariants;
   const topBar = (agent, envId) =>
@@ -244,7 +277,19 @@ document.addEventListener('click',function(e){
   else if(act==='builder-open'){post('/__builder',{}); var bm=$('main'); if(bm) bm.innerHTML=window.__builderHtml}
   else if(act==='builder-tab'){var which=t.getAttribute('data-tab'); document.querySelectorAll('[data-act=builder-tab]').forEach(function(x){x.setAttribute('aria-selected',String(x===t))}); $('builder-panel').innerHTML=window.__builderPanels[which]}
   else if(act==='builder-create'){post('/__write/create-builder-agent',{})}
+  else if(act==='x-menu-open'){var xm=$('x-menu'); if(xm) xm.hidden=!xm.hidden; post('/__experience/menu',{})}
+  else if(act==='x-classic'){
+    post('/__experience/classic',{}).then(function(){
+      var xm2=$('x-menu'); if(xm2) xm2.hidden=true;
+      var fb=CFG.feedback;
+      if(fb==='skip'||fb==='submit-only'){document.body.insertAdjacentHTML('beforeend','<div id="x-feedback" role="dialog" aria-label="Feedback" style="position:fixed;left:30%;top:30%;background:#fff;border:1px solid #475569;padding:16px;z-index:50"><h2>Tell us why you switched</h2><p>Your feedback helps us improve the new experience.</p>'+(fb==='skip'?'<button type="button" data-act="x-fb-skip">Skip feedback</button> ':'')+'<button type="button" data-act="x-fb-submit">Submit</button></div>')}
+      else location.reload();
+    });
+  }
+  else if(act==='x-fb-skip'){post('/__experience/feedback',{action:'skip'}).then(function(){location.reload()})}
+  else if(act==='x-fb-submit'){post('/__experience/feedback',{action:'submit'}).then(function(){location.reload()})}
 });
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true}});
 document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false}});
 if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window.__dirty){e.preventDefault();e.returnValue=''}})}
 })();`;
@@ -259,7 +304,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     const lateJs = late ? `setTimeout(function(){${late}},${Number(config.lateTextMs) || 600});` : "";
     const cookieHtml = config.cookieBanner ? `<script>if(document.cookie.indexOf('cookies_ok=1')<0){document.body.insertAdjacentHTML('beforeend',${JSON.stringify(cookieBanner)})}</script>` : "";
     const data = ` data-bot="${esc(agent?.id || "")}" data-env="${esc(envId)}"`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
   }
   function delayFor(name) {
     return Number.isFinite(config.delays[name]) ? config.delays[name] : config.defaultDelayMs;
@@ -301,7 +346,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     }
     if (area === "agents" && segs[3] === "new") {
       // The newer layout opens the unsaved agent (Name and Instructions, a Save button); the classic layout asks on a form.
-      const newer = config.layout === "newer";
+      const newer = sessionLayout() === "newer";
       return shell({
         title: newer ? "New agent" : "Create an agent",
         envId,
@@ -314,15 +359,22 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       });
     }
     if (area === "agents" && segs.length === 3) {
-      const rows = (envs[envId]?.agents || []).map((a) => `<div><a href="${agentBase(a, envId)}/overview"><b>${esc(a.name)}</b></a> Last edited today <button type="button" data-act="danger" data-what="delete-listed-agent">Delete</button></div>`).join("");
-      const create = config.layout === "newer" ? `<p><input type="search" aria-label="Search agents by name" placeholder="Search agents by name">${config.createDisabled ? "" : ` <button type="button" id="new-agent" data-act="n-new-agent">New agent</button>`}</p>` : `<p><button type="button" id="create-blank" data-act="create-blank">Create blank agent</button></p>`;
+      const newerList = sessionLayout() === "newer";
+      const deleteButton = `<button type="button" data-act="danger" data-what="delete-listed-agent">Delete</button>`;
+      // With harnesses the list is a table whose "Powered by" column names the harness of each agent.
+      const rows = config.harnessMode
+        ? (envs[envId]?.agents || []).length
+          ? `<table><thead><tr><th>Name</th><th>Powered by</th><th>Last edited</th><th></th></tr></thead><tbody>${(envs[envId]?.agents || []).map((a) => `<tr><td><a href="${agentBase(a, envId)}/overview"><b>${esc(a.name)}</b></a></td><td>${harnessName(a)}</td><td>today</td><td>${deleteButton}</td></tr>`).join("")}</tbody></table>`
+          : ""
+        : (envs[envId]?.agents || []).map((a) => `<div><a href="${agentBase(a, envId)}/overview"><b>${esc(a.name)}</b></a> Last edited today ${deleteButton}</div>`).join("");
+      const create = newerList ? `<p><input type="search" aria-label="Search agents by name" placeholder="Search agents by name">${config.createDisabled ? "" : ` <button type="button" id="new-agent" data-act="n-new-agent">New agent</button>`}</p>` : `<p><button type="button" id="create-blank" data-act="create-blank">Create blank agent</button></p>`;
       return shell({
         title: "Agents",
         envId,
         sideNav: envNav("agents", envId),
         delay: delayFor("agents"),
         content: `<h1>Agents</h1>${rows || "<p>No agents yet.</p>"}${create}`,
-        extraBody: config.layout === "newer" ? newerExtraBody({ config }) : "",
+        extraBody: newerList ? newerExtraBody({ config }) : "",
       });
     }
     if (area === "apps") {
@@ -341,8 +393,8 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     }
     if (area === "bots" && agent) {
       // The newer layout: whatever the address says (/knowledge, /analytics...), the page opens on its Build tab and the tab strip decides what is shown.
-      if (config.layout === "newer") {
-        return shell({ title: `${agent.name} - Build`, agent, envId, sideNav: "", delay: delayFor("overview"), content: newerContent({ agent, envId, state: newer, config }), topHtml: newerTop(agent), extraBody: newerExtraBody({ config }), testPane: false });
+      if (agentLayout(agent) === "newer") {
+        return shell({ title: `${agent.name} - Build`, agent, envId, sideNav: "", delay: delayFor("overview"), content: newerContent({ agent, envId, state: newer, config: { ...config, deployTab: agent.harness === "customer-conversation" } }), topHtml: newerTop(agent), extraBody: newerExtraBody({ config }), testPane: false });
       }
       let section = segs[4] || "overview";
       const known = ["overview", "knowledge", toolsSegment(), "topics", "analytics", "settings"];
@@ -438,6 +490,20 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       stats.cookieAccepts += 1;
       return json({});
     }
+    if (url.pathname === "/__experience/menu") {
+      stats.menuOpens += 1;
+      return json({});
+    }
+    if (url.pathname === "/__experience/classic") {
+      stats.classicClicks += 1;
+      if (!config.switchBroken) experience.classic = true;
+      return json({});
+    }
+    if (url.pathname === "/__experience/feedback") {
+      if (body().action === "submit") stats.feedbackSubmits += 1;
+      else stats.feedbackSkips += 1;
+      return json({});
+    }
     if (url.pathname === "/__builder") {
       stats.builderOpens += 1;
       return json({});
@@ -462,7 +528,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       if (handled) return json(handled);
       if (what === "create-agent") {
         const envId = envs[data.env] ? data.env : FAKE_ENV_ID;
-        const agent = { id: newBotId(), name: String(data.name || "Untitled agent").slice(0, 80) };
+        const agent = { id: newBotId(), name: String(data.name || "Untitled agent").slice(0, 80), ...(config.harnessMode ? { harness: experience.classic ? "standard" : "microsoft-copilot" } : {}) };
         envs[envId].agents.push(agent);
         stats.writes.push(`create-agent:${agent.name}`);
         return json({ id: agent.id });
@@ -489,6 +555,8 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
 
     if (url.pathname === "/__frame/test") return html(frameDoc(url.searchParams.get("bot") || ""));
     if (url.pathname === "/" || url.pathname === "") {
+      stats.rootVisits += 1;
+      if (config.harnessMode && config.rootResetsExperience) experience.classic = false;
       if (config.abortFirstNavigation && !abortedOnce && request.isNavigationRequest()) {
         abortedOnce = true;
         stats.aborted += 1;
@@ -519,6 +587,12 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     published,
     /** What was done to agents in the newer layout: instructions, knowledge sites, memory, evaluations, sessions. */
     newer,
+    /** What this browser session did to the experience (`classic` is true once "Open classic experience" worked). */
+    experience,
+    /** The browser session ends: the product forgets the switch and the next page is in the default experience again. */
+    endSession() {
+      experience.classic = config.layout !== "newer" && !config.harnessMode;
+    },
     agentUrl: (section = "overview") => `${agentBase()}/${section}`,
     /** The practice agents in the pretend practice environment (the ones a companion created). */
     practiceAgents: () => envs[FAKE_PRACTICE_ENV_ID].agents,

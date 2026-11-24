@@ -26,6 +26,8 @@ export const COMPANION_FILES = Object.freeze([
   "tools/screenshot-capture/locator.mjs",
   "tools/screenshot-capture/readiness.mjs",
   "tools/screenshot-capture/targets.mjs",
+  "tools/screenshot-capture/harness.mjs",
+  "tools/screenshot-capture/harness-run.mjs",
   "tools/screenshot-capture/causes.mjs",
   "tools/screenshot-capture/trace.mjs",
   "tools/screenshot-capture/callouts.mjs",

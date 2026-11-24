@@ -27,6 +27,7 @@ import { buildLabJobPlan } from "../lib/capture/plan.js";
 import { registerCaptureRoutes } from "../lib/capture/routes.js";
 import { createScreenshotStore } from "../lib/capture/screenshot-store.js";
 import { makePng } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
+import { libraryName } from "../../tools/screenshot-capture/harness.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = resolve(here, "..");
@@ -90,6 +91,8 @@ function evidenceFor(target, filename, { redaction = { applied: true, masked: 2 
     ...(redaction ? { redaction } : {}),
     capturedAt: new Date().toISOString(),
     executedSteps: 4,
+    // What a current companion proves before it takes the picture: the page is in the harness the labs here are built for.
+    harness: { version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Build", "Preview", "Evaluate", "Monitor"], switched: false, wanted: "microsoft-copilot" },
   };
 }
 
@@ -102,7 +105,9 @@ function capture(labId, filename, { seed = 1, bytes, retake = false, source = "c
   return { ...result, bytes: png };
 }
 
-const libraryFile = (filename) => join(ctx.libDir, filename);
+// The labs here are built for the Microsoft Copilot harness, so the library keeps their pictures under the harness's name.
+const libName = (filename) => libraryName(filename, "microsoft-copilot");
+const libraryFile = (filename) => join(ctx.libDir, libName(filename));
 const libraryRecords = () => JSON.parse(readFileSync(join(ctx.dataDir, "capture", "library-verification.json"), "utf8"));
 const status = (labId) => getLabScreenshotsStatus(ctx.generatedRoot, labId, { capturedDir: [ctx.libDir] }).body;
 const row = (labId, filename) => status(labId).shots.find((s) => s.filename === filename);
@@ -165,7 +170,7 @@ test("a verified capture of a shared slot also goes into the shared library, and
   assert.equal(result.status, 200);
   assert.equal(result.body.library.outcome, "shared");
   assert.deepEqual(readFileSync(libraryFile(filename)), result.bytes, "the same bytes, under the same file name");
-  const record = libraryRecords().shots[filename];
+  const record = libraryRecords().shots[libName(filename)];
   assert.equal(record.state, "accepted");
   assert.equal(record.sha256, sha(result.bytes));
   assert.equal(record.redaction.applied, true);
@@ -190,8 +195,8 @@ test("a verified capture of a shared slot also goes into the shared library, and
   assert.deepEqual(queued.json.job.shots.map((s) => s.filename), second.files.filter((f) => f !== filename));
   assert.equal((await call("POST", `/api/capture/jobs/${queued.json.job.id}/cancel`)).status, 200, "the job is not left waiting for another test's companion");
   const library = ctx.store.libraryState();
-  assert.equal(library.shots.find((s) => s.filename === filename).captured, true);
-  assert.ok(library.shots.find((s) => s.filename === filename).capturedAt);
+  assert.equal(library.shots.find((s) => s.filename === libName(filename)).captured, true);
+  assert.ok(library.shots.find((s) => s.filename === libName(filename)).capturedAt);
 });
 
 test("when every shot of a new lab is already in the library, nothing is queued, and a lab built later reuses it", async () => {
@@ -338,10 +343,10 @@ test("a library picture marked accurate is never replaced automatically; Use thi
   const [a, b] = [await newLab(), await newLab()];
   const filename = a.files[0];
   const first = capture(a.labId, filename, { seed: 61 });
-  const mark = await call("POST", `/api/capture/library/screenshots/${filename}/confirm`);
+  const mark = await call("POST", `/api/capture/library/screenshots/${libName(filename)}/confirm`);
   assert.equal(mark.status, 200);
   assert.equal(mark.json.scope, "library");
-  assert.equal(ctx.store.libraryState().shots.find((s) => s.filename === filename).confirmed.at, mark.json.confirmed.at);
+  assert.equal(ctx.store.libraryState().shots.find((s) => s.filename === libName(filename)).confirmed.at, mark.json.confirmed.at);
   assert.equal(ctx.store.libraryState().summary.confirmed, 1);
 
   const retake = capture(b.labId, filename, { seed: 62, retake: true });
@@ -363,8 +368,8 @@ test("a library picture marked accurate is never replaced automatically; Use thi
   assert.equal(replaced.json.outcome, "replaced");
   assert.deepEqual(readFileSync(libraryFile(filename)), retake.bytes);
   assert.deepEqual(readFileSync(`${libraryFile(filename)}.previous`), first.bytes);
-  assert.equal(ctx.store.libraryState().shots.find((s) => s.filename === filename).confirmed, null, "replacing clears the mark");
-  assert.equal(libraryRecords().confirmations?.[filename], undefined);
+  assert.equal(ctx.store.libraryState().shots.find((s) => s.filename === libName(filename)).confirmed, null, "replacing clears the mark");
+  assert.equal(libraryRecords().confirmations?.[libName(filename)], undefined);
   assert.ok(ctx.syncs >= 2);
 });
 
@@ -373,9 +378,9 @@ test("two labs sharing the same slot at once leave exactly one consistent pictur
   const filename = a.files[0];
 
   // A lock held by another process: nothing is shared and nothing is damaged; once it is released the share works.
-  const release = acquireShareLock(ctx.libDir, filename);
+  const release = acquireShareLock(ctx.libDir, libName(filename));
   assert.equal(typeof release, "function");
-  assert.equal(acquireShareLock(ctx.libDir, filename), null, "one writer at a time");
+  assert.equal(acquireShareLock(ctx.libDir, libName(filename)), null, "one writer at a time");
   assert.equal(capture(a.labId, filename, { seed: 71 }).body.library.code, "busy");
   assert.equal(existsSync(libraryFile(filename)), false);
   release();
@@ -415,7 +420,7 @@ test("two labs sharing the same slot at once leave exactly one consistent pictur
   assert.ok(outcomes.every((o) => ["shared", "skipped"].includes(o.outcome)));
   const written = readFileSync(libraryFile(filename));
   assert.ok(inputs.some((bytes) => bytes.equals(written)), "the library holds one of the two pictures, whole");
-  assert.equal(libraryRecords().shots[filename].sha256, sha(written), "and its record describes exactly that picture");
+  assert.equal(libraryRecords().shots[libName(filename)].sha256, sha(written), "and its record describes exactly that picture");
   assert.equal(readdirSync(ctx.libDir).filter((name) => name.includes(".blob-tmp-")).length, 0);
   assert.equal(existsSync(`${libraryFile(filename)}.previous`), false, "nothing was replaced");
   for (const [index, lab] of [a, b].entries()) assert.deepEqual(readFileSync(join(lab.labDir, "assets", filename)), inputs[index], "each lab keeps its own picture");
@@ -551,7 +556,7 @@ test("marking a picture served from the shared library marks the shared picture 
   assert.equal(marked.status, 200);
   assert.equal(marked.json.scope, "library");
   assert.ok(row(b.labId, filename).confirmed);
-  assert.ok(ctx.store.libraryState().shots.find((s) => s.filename === filename).confirmed);
+  assert.ok(ctx.store.libraryState().shots.find((s) => s.filename === libName(filename)).confirmed);
   assert.equal(await call("DELETE", `/api/lab-builder/generated/${b.labId}/screenshots/${filename}/confirm`).then((r) => r.status), 200);
   assert.equal(row(b.labId, filename).confirmed, null);
   assert.equal(ctx.store.libraryState().summary.confirmed, 0);
@@ -640,11 +645,11 @@ test("the library says how many other labs show a picture, so a retake can ask f
   const [x, y] = [await newLab(root), await newLab(root)];
   await newLab(root);
   const filename = x.files[0];
-  assert.equal(usage.screenshots.libraryUsage(filename).body.hasPicture, false);
+  assert.equal(usage.screenshots.libraryUsage(libName(filename)).body.hasPicture, false);
   capture(x.labId, filename, { seed: 121, store: usage.screenshots });
-  assert.deepEqual(usage.screenshots.libraryUsage(filename, { exceptLabId: x.labId }).body, { filename, hasPicture: true, otherLabs: 2, confirmed: false });
+  assert.deepEqual(usage.screenshots.libraryUsage(libName(filename), { exceptLabId: x.labId }).body, { filename: libName(filename), hasPicture: true, otherLabs: 2, confirmed: false });
   capture(y.labId, filename, { seed: 122, store: usage.screenshots });
-  assert.equal(usage.screenshots.libraryUsage(filename, { exceptLabId: x.labId }).body.otherLabs, 1, "a lab with its own picture does not use the shared one");
+  assert.equal(usage.screenshots.libraryUsage(libName(filename), { exceptLabId: x.labId }).body.otherLabs, 1, "a lab with its own picture does not use the shared one");
   assert.equal(usage.screenshots.libraryUsage("not-a-slot.png").status, 404);
 });
 
@@ -682,13 +687,13 @@ test("a shared picture, its backup, and the library records are mirrored to Azur
   const first = capture(a.labId, filename, { seed: 131 });
   assert.ok(ctx.syncs >= 1, "the library asked for the write-through");
   await mirror.syncToBlob();
-  assert.deepEqual(blobs.get(`screenshots/${filename}`).body, first.bytes);
+  assert.deepEqual(blobs.get(`screenshots/${libName(filename)}`).body, first.bytes);
   assert.ok(blobs.has("data/capture/library-verification.json"), "the saved checks that go with it");
 
   const retake = capture(b.labId, filename, { seed: 132, retake: true });
   await mirror.syncToBlob();
-  assert.deepEqual(blobs.get(`screenshots/${filename}`).body, retake.bytes);
-  assert.deepEqual(blobs.get(`screenshots/${filename}.previous`).body, first.bytes, "the backup survives a restart too");
+  assert.deepEqual(blobs.get(`screenshots/${libName(filename)}`).body, retake.bytes);
+  assert.deepEqual(blobs.get(`screenshots/${libName(filename)}.previous`).body, first.bytes, "the backup survives a restart too");
   assert.equal([...blobs.keys()].some((name) => name.includes(".blob-tmp-")), false, "locks and temporary files are never uploaded");
 });
 

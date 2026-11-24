@@ -22,6 +22,7 @@ import { sleepSync } from "../concurrency/atomic-file.js";
 import { LockTimeoutError } from "../concurrency/file-lock.js";
 import { isPlaceholder } from "../lab-builder/placeholder-detect.js";
 import { isRealScreenshotBytes } from "../lab-builder/captured.js";
+import { normalizeHarness, pictureFitsSlot } from "../../../tools/screenshot-capture/harness.mjs";
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
 
 /** The backup kept beside a library picture before it is replaced (the last one only). Never served as a slot. */
@@ -41,6 +42,8 @@ export const SHARE_MESSAGES = Object.freeze({
   "not-masked": "Account details were not hidden in this picture, so it is not shared. Retake it with hiding turned on.",
   "masking-unproven": "We could not confirm that account details are hidden, so this picture stays in this lab. After you check it, choose Use this one for every lab.",
   "library-has-one": "The shared library already has a picture for this, so this lab keeps its own.",
+  "harness-not-recorded": "This picture has no harness recorded, so it is not shared. Say which harness it shows first (This is Standard (Classic), or This is Microsoft Copilot).",
+  "wrong-harness": "This picture is from a different harness than this screenshot needs, so it is not shared.",
   "library-confirmed": "The shared picture is marked accurate, so it was kept and this lab keeps its own. Choose Use this one for every lab to replace it.",
   "not-persistent": "The shared library here is the committed folder in the code repository, so pictures are only shared when you choose Use this one for every lab.",
   busy: "Another change to this picture is in progress, so nothing was shared. Try again in a moment.",
@@ -108,6 +111,22 @@ export function validConfirmation(confirmation, sha256) {
 const hasReason = (record, code) => Array.isArray(record?.reasons) && record.reasons.some((r) => r?.code === code);
 
 /**
+ * The harness a picture was recorded as taken in: the stamp on its saved check, but only while the check belongs to these exact bytes
+ * (a picture that was replaced by hand is not stamped). Null when nothing was recorded.
+ * @returns {string|null}
+ */
+export function harnessStampOf(record, sha256) {
+  const id = normalizeHarness(record?.harness?.id);
+  if (!id || id === "either" || !sha256 || record.sha256 !== sha256) return null;
+  return id;
+}
+
+/** A harness stamp for a saved check: the harness, how it was proven, and when. `proof` is "landmarks" (the companion read the page), "person" (a person said so), or "library". */
+export function makeHarnessStamp(id, proof, at = new Date().toISOString()) {
+  return { id: normalizeHarness(id), proof: ["landmarks", "person", "library"].includes(proof) ? proof : "person", at };
+}
+
+/**
  * Decide whether one lab picture may enter the shared library.
  *
  * @param {object} input
@@ -123,6 +142,9 @@ export function shareVerdict({ filename, bytes, record, slot, intent }) {
   if (!slot) return no("lab-only");
   const ext = path.extname(String(filename)).toLowerCase();
   if (!Buffer.isBuffer(bytes) || !isRealScreenshotBytes(bytes, ext)) return no(Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? "placeholder" : "not-real");
+  // A picture of a slot that needs a harness enters the library only when it is recorded as taken in that harness (never "I think so").
+  const fit = pictureFitsSlot(slot.harness, harnessStampOf(record, sha256Hex(bytes)));
+  if (!fit.ok) return { ok: false, code: fit.code === "not-recorded" ? "harness-not-recorded" : "wrong-harness", message: fit.message };
   // A check only counts for the exact bytes it was made on. A person sharing a picture on purpose can vouch for one without a check.
   const check = record && typeof record === "object" && record.sha256 === sha256Hex(bytes) ? record : null;
   if (!check) {

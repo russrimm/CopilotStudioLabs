@@ -1212,14 +1212,26 @@ function lbRenderGeneratedValidationHtml(report) {
 
 function lbRenderChecklistHtml(list) {
   const total = Number(list?.counts?.missing) || 0;
+  // The harness every Copilot Studio picture of this lab is taken in, in one sentence, so a person never mixes the Standard (Classic) and Microsoft Copilot harnesses.
+  const statement = String(list?.labHarness?.statement || "").trim();
+  const statementHtml = statement ? `<p class="lb-checklist-harness-statement"><strong>${escapeHtml(statement)}</strong></p>` : "";
   if (!total) {
-    return `<div class="lb-checklist"><p class="lb-checklist-done">Nothing is left. Every picture in this lab is a real screenshot.</p></div>`;
+    return `<div class="lb-checklist">${statementHtml}<p class="lb-checklist-done">Nothing is left. Every picture in this lab is a real screenshot.</p></div>`;
   }
+  // "Standard (Classic) harness" next to a picture's name: words first; its class only adds a border style.
+  const harnessChip = (entry) => {
+    const label = String(entry.harnessLabel || "").trim();
+    if (!label) return "";
+    const kind = ["standard", "microsoft-copilot", "customer-conversation", "either"].includes(String(entry.harness)) ? entry.harness : "either";
+    return `<span class="sc-harness-label sc-harness-label-${kind}">${escapeHtml(label)}</span>`;
+  };
   const item = (entry, withSteps) => {
     const name = `${entry.figure ? `Figure ${escapeHtml(entry.figure)}: ` : ""}${escapeHtml(entry.caption || entry.filename)}`;
-    if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code></li>`;
+    const chip = harnessChip(entry);
+    if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code> ${chip}</li>`;
     const steps = (entry.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
-    return `<li><details><summary>${name}</summary>
+    return `<li><details><summary>${name} ${chip}</summary>
+      ${entry.harnessLabel ? `<p><strong>Harness:</strong> ${escapeHtml(entry.harnessLabel)}</p>` : ""}
       ${entry.shows ? `<p><strong>It should show:</strong> ${escapeHtml(entry.shows)}</p>` : ""}
       ${entry.why ? `<p><strong>Why it needs you:</strong> ${escapeHtml(entry.why)}</p>` : ""}
       ${steps ? `<ol>${steps}</ol>` : ""}
@@ -1229,6 +1241,7 @@ function lbRenderChecklistHtml(list) {
   const computer = (list.computer || []).map((entry) => item(entry, false)).join("");
   return `<div class="lb-checklist">
     <p class="lb-checklist-lead"><strong>${total} picture${total === 1 ? "" : "s"} still to capture.</strong> ${list.counts.computer ? `Your computer can capture ${list.counts.computer} of them. ` : ""}${list.counts.you ? `${list.counts.you} need${list.counts.you === 1 ? "s" : ""} you.` : ""}</p>
+    ${statementHtml}
     <div class="lb-checklist-actions">
       <button type="button" class="btn btn-sm" data-gen-action="shot-checklist-download" data-lab-id="${escapeHtml(list.labId)}">Download checklist (.md)</button>
       <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">Open the Screenshot Center</button>

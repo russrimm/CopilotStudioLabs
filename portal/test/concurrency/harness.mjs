@@ -150,6 +150,9 @@ function evidenceFor(shot) {
   } else if (expect?.family === "url" && expect.host) {
     finalUrl = `https://${expect.host}/`;
   }
+  // A current companion proves the harness before it takes a picture (a product with no harnesses has none).
+  const harness = shot.harness === "standard" || shot.harness === "microsoft-copilot" || shot.harness === "customer-conversation" ? shot.harness : null;
+  const landmarks = harness === "standard" ? ["Overview", "Knowledge", "Topics"] : ["Build", "Preview", "Evaluate", harness === "customer-conversation" ? "Deploy" : "Monitor"];
   return {
     version: 2,
     finalUrl: `${finalUrl}?token=SECRET#frag`,
@@ -158,6 +161,7 @@ function evidenceFor(shot) {
     redaction: { applied: true, masked: 2 },
     capturedAt: new Date().toISOString(),
     executedSteps: 5,
+    ...(harness ? { harness: { version: 1, id: harness, proof: "landmarks", landmarks, switched: harness === "standard", wanted: harness } } : {}),
   };
 }
 

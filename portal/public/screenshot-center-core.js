@@ -533,6 +533,128 @@ function scAutomaticReportText(report) {
   return `${parts.join(", ")}.`;
 }
 
+// ── Which harness a picture is for ──────────────────────────────────────────
+//
+// Copilot Studio has harnesses: Standard (Classic), Microsoft Copilot, and Customer Conversation (preview). A lab is built for one of them and
+// every Copilot Studio picture of the lab is taken in it, so a trainer must be able to tell, on every picture, which harness it is. The portal
+// says it for each screenshot (`harnessLabel`: the harness the slot needs; `pictureHarnessLabel`: the harness the picture was taken in, or
+// "Harness not recorded"). These words are the server's (tools/screenshot-capture/harness.mjs); the table below is only the fallback when a
+// label did not come with the data. A product with no harnesses (SharePoint, Foundry, ...) has none and shows nothing.
+
+const SC_HARNESS_LABELS = Object.freeze({
+  standard: "Standard (Classic) harness",
+  "microsoft-copilot": "Microsoft Copilot harness",
+  "customer-conversation": "Customer Conversation harness (preview)",
+  either: "Works in either harness",
+});
+const SC_HARNESS_SHORT = Object.freeze({ standard: "Standard (Classic)", "microsoft-copilot": "Microsoft Copilot", "customer-conversation": "Customer Conversation" });
+const SC_HARNESS_NOT_RECORDED = "Harness not recorded";
+const SC_HARNESS_IDS = Object.freeze(["standard", "microsoft-copilot", "customer-conversation"]);
+const SC_HARNESS_STATES = Object.freeze(["none", "pending", "ok", "not-recorded", "wrong-harness"]);
+const SC_HARNESS_SOURCE_TEXT = Object.freeze({
+  chosen: "This harness was chosen when the lab was built.",
+  inferred: "This harness was picked because most of the lab's modules are written for it.",
+  default: "Nothing was chosen when the lab was built, so the Standard (Classic) harness is used.",
+  saved: "This harness is saved with the lab.",
+});
+const SC_HARNESS_FLAG_SHORT = Object.freeze({
+  HARNESS_MISMATCH: "Taken in the other harness",
+  HARNESS_MIXED: "The same picture is used for two harnesses",
+});
+
+/** The harness a value names ("standard", "microsoft-copilot", "customer-conversation", or "either"), or null. */
+function scHarnessId(value) {
+  const id = String(value ?? "").trim().toLowerCase();
+  return id === "either" || SC_HARNESS_IDS.includes(id) ? id : null;
+}
+
+/** "Standard (Classic) harness": the label the server sent, or the same words from the id. Empty for a value that is not a harness. */
+function scHarnessLabelOf(value, serverLabel = "") {
+  const id = scHarnessId(value);
+  return scText(serverLabel, 80) || (id ? SC_HARNESS_LABELS[id] : "");
+}
+
+/** The one-click answers to "which harness does this picture show?": Customer Conversation only where the slot or the lab is built for it. */
+function scHarnessTagChoices(...needs) {
+  const ids = needs.some((need) => scHarnessId(need) === "customer-conversation") ? SC_HARNESS_IDS : SC_HARNESS_IDS.slice(0, 2);
+  return ids.map((id) => ({ id, short: SC_HARNESS_SHORT[id], text: `This is ${SC_HARNESS_SHORT[id]}` }));
+}
+
+/**
+ * The name a slot's picture has in the shared library. A slot that needs a harness is saved there under a name that carries it
+ * (`agent-overview.png` is `agent-overview.classic.png` for the Standard (Classic) harness, `.copilot.png` for the Microsoft Copilot harness,
+ * and `.customer.png` for Customer Conversation), so the two can sit side by side; any other slot keeps its plain name. Same rule as
+ * `libraryName` in tools/screenshot-capture/harness.mjs.
+ */
+function scLibraryName(filename, harness) {
+  const name = String(filename ?? "");
+  const id = scHarnessId(harness);
+  if (!id || id === "either") return name;
+  const tag = { standard: "classic", "microsoft-copilot": "copilot", "customer-conversation": "customer" }[id];
+  const base = name.replace(/^(.+)\.(?:classic|copilot|customer)(\.[A-Za-z0-9]+)$/, "$1$2");
+  const ext = /\.[A-Za-z0-9]+$/.exec(base)?.[0] || "";
+  return `${base.slice(0, base.length - ext.length)}.${tag}${ext}`;
+}
+
+/** " \u00b7 Standard (Classic) harness" for a row of a lab status or a capture job that names a harness; "" otherwise. */
+function scHarnessSuffix(row) {
+  const label = scHarnessLabelOf(row?.harness, row?.harnessLabel);
+  return label ? ` \u00b7 ${label}` : "";
+}
+
+/**
+ * What a screenshot says about its harness, or null when it needs none (a product with no harnesses).
+ * @param {object} shot a shot from `GET .../screenshots`
+ * @param {string|null} [labHarness] the lab's harness (decides whether Customer Conversation is offered)
+ * @returns {{need: string, label: string, state: string, pictureLabel: string, message: string, gap: boolean, gapNote: string, choices: Array<{id: string, short: string, text: string}>}|null}
+ */
+function scHarnessModel(shot, labHarness = null) {
+  const need = scHarnessId(shot?.harness);
+  if (!need) return null;
+  const label = scHarnessLabelOf(need, shot.harnessLabel);
+  const state = SC_HARNESS_STATES.includes(shot.harnessState) ? shot.harnessState : "none";
+  const picture = scHarnessId(shot.pictureHarness);
+  const pictureLabel = need === "either" ? "" : scText(shot.pictureHarnessLabel, 80) || (state === "not-recorded" ? SC_HARNESS_NOT_RECORDED : state === "wrong-harness" ? scHarnessLabelOf(picture) : "");
+  let message = "";
+  if (state === "not-recorded") {
+    message = scText(shot.harnessMessage, 300) || "This picture has no harness recorded, so it is not used for another lab until you say which harness it shows.";
+  } else if (state === "wrong-harness") {
+    message = scText(shot.harnessMessage, 300) || `This picture is from the ${pictureLabel || "other harness"}, but this slot needs the ${label}.`;
+  }
+  const gap = Boolean(shot.harnessGap);
+  const gapNote = gap ? scText(shot.harnessGapNote, 300) || "This screenshot belongs to a module that is not written for the harness this lab is built for, so it is never captured in another harness." : "";
+  return { need, label, state, pictureLabel, message, gap, gapNote, choices: state === "not-recorded" ? scHarnessTagChoices(need, labHarness) : [] };
+}
+
+/**
+ * What a lab's status says about its harness, or null for a lab with no Copilot Studio part: the statement, whether pictures from two
+ * harnesses are mixed, how many pictures are from the wrong harness, how many slots are a gap, and the pictures with no harness recorded.
+ */
+function scHarnessLabModel(state) {
+  const info = state?.harnessInfo && typeof state.harnessInfo === "object" ? state.harnessInfo : null;
+  const summary = state?.harnessSummary && typeof state.harnessSummary === "object" ? state.harnessSummary : null;
+  const id = scHarnessId(info?.id ?? summary?.labHarness ?? state?.harness);
+  if (!id || id === "either") return null;
+  const label = scHarnessLabelOf(id, info?.label || state?.harnessLabel);
+  const shots = Array.isArray(state?.shots) ? state.shots : [];
+  const files = (list) => (Array.isArray(list) ? list : []).filter((name) => SC_SAFE_FILENAME.test(String(name))).map(String);
+  const fromShots = (key) => shots.filter((shot) => shot?.harnessState === key).map((shot) => shot.filename);
+  const wrongFiles = summary ? files(summary.wrongFiles) : fromShots("wrong-harness");
+  const gapFiles = summary ? files(summary.gapFiles) : shots.filter((shot) => shot?.harnessGap).map((shot) => shot.filename);
+  return {
+    id,
+    label,
+    statement: scText(info?.statement || summary?.statement, 300) || `This lab: ${label}.`,
+    source: SC_HARNESS_SOURCE_TEXT[info?.source] || "",
+    mixed: Boolean(summary?.mixed),
+    mixedMessage: scText(summary?.mixedMessage, 400) || "This lab has pictures from more than one harness. A lab must only show pictures from its own harness.",
+    wrong: Math.max(scCount(summary?.wrong), wrongFiles.length),
+    wrongFiles,
+    gaps: Math.max(scCount(summary?.gaps), gapFiles.length),
+    notRecordedFiles: fromShots("not-recorded"),
+  };
+}
+
 // ── Shot status ─────────────────────────────────────────────────────────────
 
 const SC_STATUS_LABELS = Object.freeze({
@@ -827,6 +949,13 @@ function scReasonText(reason, verification = null, limits = SC_DEFAULT_LIMITS) {
       return scLandingSentence(verification) || SC_WRONG_SCREEN;
     case "no-evidence":
       return "This image came without page details, so it was checked as a picture only.";
+    // The server names both harnesses in these; the sentences below are only used when its message is missing.
+    case "harness-unproven":
+      return scText(reason.message, 300) || "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer.";
+    case "wrong-harness":
+      return scText(reason.message, 300) || "This picture was taken in a different harness than this screenshot needs, so it was not saved. Retake it in the harness this lab is built for.";
+    case "harness-gap":
+      return scText(reason.message, 300) || "This screenshot belongs to a module that is not written for the harness this lab is built for, so it cannot be taken in this lab.";
     default:
       return String(reason?.message || "This image needs a closer look.").slice(0, 300);
   }

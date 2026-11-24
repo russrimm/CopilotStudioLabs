@@ -5,6 +5,8 @@
 // Shared by the companion, the lab runner, and the portal's step derivation, so a step that
 // would leave the signed-in state is dropped when the plan is built and again on this computer.
 
+import { CLASSIC_SWITCH } from "./harness.mjs";
+
 /** Controls that delete or undo something in the tenant. */
 export const DESTRUCTIVE_LABEL_RE = /\b(?:delete|remove|erase|purge|destroy|disconnect|unregister|revoke|reset all|delete all)\b/i;
 
@@ -156,7 +158,7 @@ export const NEVER_LIST = Object.freeze([
 
 /** What "build the agent from scratch" creates and changes, in plain words: the consent card lists exactly this. */
 export const SCRATCH_CREATES_LIST = Object.freeze([
-  "One new agent named “Lab screenshots - <short lab title>” in the environment you choose (or the one Copilot Studio opens for this account)",
+  "One new agent in the environment you choose (or the one Copilot Studio opens for this account), named “Classic shots - <short lab title>” for a Standard (Classic) harness lab or “Copilot shots - <short lab title>” for a Microsoft Copilot harness lab",
   "That agent's instructions and description, using the text from your lab",
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
@@ -194,6 +196,10 @@ export const ACTION_TIERS = Object.freeze({
   create: 2,
   // Looks for a control without touching it: the walkthrough uses it to prove a screen is the one it expects.
   verify: 0,
+  // The switch to the classic experience (the ellipsis in the lower left corner, Open classic experience, Skip feedback). It changes which
+  // experience this browser session shows and nothing in the tenant, so it is a look. It is an internal action: a plan, a shared recipe, or a
+  // recorded recipe cannot carry it (see INTERNAL_ACTIONS in setup-steps.mjs), and `classifyControl` allows it only on the controls named in CLASSIC_SWITCH.
+  "switch-experience": 0,
 });
 
 const PROTECTED_BRANDS = /\b(?:SharePoint|OneDrive|OneNote|PowerPoint|PowerApps|PowerBI|PowerShell|PowerPlatform|LinkedIn|YouTube|GitHub|DevOps|ServiceNow|WhatsApp|OpenAI|Dataverse|ChatGPT|Salesforce)\b/gi;
@@ -253,6 +259,11 @@ const CREDIT_TERMS = ["evaluate", "run", "run evaluation", "run all", "run test 
 const isCreditName = wordMatcher(CREDIT_TERMS);
 // Views of the test pane that only show what already happened: the activity map and the activity trace.
 const isTestViewName = wordMatcher(["activity map", "show activity map", "open activity map", "hide activity map", "activity trace", "show activity trace", "hide activity trace"], { start: true });
+// The only controls the switch to the classic experience may touch, by accessible name: the ellipsis, Open classic experience, Skip feedback, and the
+// older New experience switch. "Submit" and "Send feedback" are not in the list: the computer never submits feedback.
+const SWITCH_NAMES = new Set([...CLASSIC_SWITCH.menu.names, ...CLASSIC_SWITCH.item.names, ...CLASSIC_SWITCH.skipFeedback.names, ...CLASSIC_SWITCH.toggle.names].map((n) => normalizeControlName(n)).filter(Boolean));
+// An ellipsis that has no word for a name (three dots, or a horizontal ellipsis character).
+const ELLIPSIS_GLYPH = /^[.\u2026\u22ef\u00b7\u2022\s]{1,6}$/;
 // Links into the tenant's admin area (a path segment or host named admin): never followed by an action.
 const ADMIN_LINK_RE = /(?:^|\/\/)admin\.|\/(?:admin|tenantsettings|tenant-settings|billing|licenses?|security-center)(?:[/?#]|$)/i;
 
@@ -386,6 +397,14 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (desc.href && isAccountLink(desc.href)) return verdict(TIER.NEVER, "account", "This link signs out or switches the account.");
   if (names.some(isAccountName) || names.some((n) => ACCOUNT_LABEL_RE.test(n))) return verdict(TIER.NEVER, "account", "Signing out or switching accounts is never done.");
   if (isText && (names.some(isCredentialName) || /secret|password|token|api[-_ ]?key/i.test(String(desc.placeholder || "")))) return verdict(TIER.NEVER, "credential", "Credential fields are never filled in.");
+
+  // The switch to the classic experience is allowed on its own few controls and nowhere else (a look: nothing in the tenant changes).
+  if (action === "switch-experience") {
+    const raw = [desc.name, desc.aria, desc.text, desc.title].map((v) => String(v ?? "").trim()).filter(Boolean);
+    const glyph = role === "button" && raw.length > 0 && raw.every((v) => ELLIPSIS_GLYPH.test(v));
+    if (glyph || names.some((n) => SWITCH_NAMES.has(n))) return verdict(TIER.LOOK, "classic-switch", "Switching to the classic experience only changes which experience this browser session shows.");
+    return verdict(TIER.NEVER, "classic-switch-name", "Only the ellipsis, Open classic experience, and Skip feedback are used to switch to the classic experience; nothing else is clicked there.");
+  }
 
   if (!names.length) return verdict(TIER.NEVER, "unnamed", "A control with no name cannot be checked, so it is not touched.");
 

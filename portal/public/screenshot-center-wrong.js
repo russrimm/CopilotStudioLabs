@@ -119,6 +119,8 @@ function scWrongContents(labId) {
       text.appendChild(scEl("span", { class: "sc-library-name", text: picture.title }));
       const chip = picture.levelText ? scChip(picture.levelText, picture.level === "definite" ? "warn" : "info", `sc-wrong-chip sc-wrong-chip-${picture.level}`) : null;
       text.appendChild(scEl("span", { class: "sc-library-meta" }, [`${picture.where} `, chip]));
+      const harnessLines = scPicHarnessLines(picture.harness);
+      if (harnessLines) text.appendChild(harnessLines);
       text.appendChild(scEl("p", { class: "sc-wrong-reason", text: picture.reason }));
       body.appendChild(text);
       const data = { scope: item.scope, labId: item.labId || "", filename: item.filename };

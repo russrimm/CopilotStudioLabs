@@ -888,7 +888,9 @@ Every feature has a `harness` array that names the harnesses its steps and check
 describe. Features whose id starts with `mc-` and a few others are
 `["microsoft-copilot"]`; most older features are `["standard"]`; a feature is
 tagged for both only when Learn shows the same behavior on both harnesses (for
-example `dlp-governance` and `mc-harness-choice`). Three optional fields add
+example `dlp-governance` and `mc-harness-choice`). The lab's chosen harness, not this
+tag, decides which harness a **screenshot** is taken in; see *Which harness a picture
+shows: Standard (Classic) or Microsoft Copilot, never mixed*. Three optional fields add
 detail, and each is set only when a Learn page says it:
 
 - `availability`: `ga`, `preview`, or `retired`. The wizard shows it as a badge.
@@ -2204,7 +2206,7 @@ in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints e
 After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
 
-**Build the agent from scratch (the default for shots that show an agent).** The old inline prompt *N screenshots need your agent
+**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, created after the switch to the classic experience, and a Microsoft Copilot agent, created in the default experience), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
 address* is replaced by one choice per lab, **Which agent should these screenshots use?** (see *Capture settings* above): **The agent created earlier in this capture
 (recommended)** or **An agent I choose** (an address or a name, as before; a saved address counts as that choice). The created agent is the practice agent the
 computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
@@ -2274,7 +2276,8 @@ section: for each recipe, what it did on which shot, what it created (or *Create
 
 **The dry plan (read it before a run).** `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id> [--all] [--json]` and `POST /api/capture/dry-plan` (`{ target: { type: "lab", labId }, scope }`; or `GET /api/capture/dry-plan?labId=…&scope=all`)
 list which shots will now run automatically and in which order (with the recipe, its panel or opener, whether it has been seen on a real tenant, and how it is judged), which practice-agent objects will be created for them,
-and which stay manual with the reason and the manual steps. It queues nothing and needs no companion.
+and which stay manual with the reason and the manual steps. From companion 1.8.0 it also states the lab's harness (*This lab: Standard (Classic) harness. Every picture is taken in the Classic harness.*), the practice agent each harness needs, and per shot the harness, the switch step
+(*switch: ellipsis in the lower left corner > Open classic experience > Skip feedback*, or *no switch: open copilotstudio.microsoft.com*), and the proof landmark. It queues nothing and needs no companion.
 
 **An older companion.** Jobs still queue for a companion older than 1.6.3, which runs them the old way and ignores the new fields. The queue response then carries `recipes: { supported: false, min, version, shots, message }`
 (and the status carries `autonomy.recipesSupported` and `autonomy.recipesMinCompanion`), the Screenshot Center says in plain words that the new recipes need the newer companion (*N screenshots … still need you. Download the companion again and replace the old one*), and
@@ -2448,6 +2451,126 @@ node tools/lab-builder/share-lab-screenshots.mjs --apply --lab=<id> --root=<gene
 The tool follows the portal's storage rules (`PORTAL_STORAGE_ROOT`, `FEATURE_TOUR_SCREENSHOTS_DIR`), so run it against the
 portal's storage folder; the Azure Blob mirror uploads what it wrote on its next sync. It is not part of the container
 image.
+
+#### Which harness a picture shows: Standard (Classic) or Microsoft Copilot, never mixed
+
+A Copilot Studio screenshot is a **Standard (Classic) harness** picture or a **Microsoft Copilot harness** picture, and the two are never
+mixed. A new agent in Copilot Studio is a Microsoft Copilot harness agent by default (the layout with the **Build**, **Preview**,
+**Evaluate**, and **Monitor** tabs). A Standard (Classic) agent exists only after a person switches to the classic experience first. The
+Customer Conversation harness (preview) adds a **Deploy** tab. Sources:
+[Switch between experiences](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/switch-experiences),
+[Microsoft Copilot harness overview](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview),
+[Customer Conversation overview](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation),
+[the Agents list](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/agents-page), and
+[Harnesses in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview). The shared definitions (labels,
+file names, the never-mix rule, the switch path, the landmark names) live in one module, `tools/screenshot-capture/harness.mjs`, which the
+portal and the companion both import.
+
+**The labels.** Plain text, never color alone, no emoji:
+
+| Label | Means |
+|---|---|
+| `Standard (Classic) harness` | The picture was taken in the classic experience. |
+| `Microsoft Copilot harness` | The picture was taken in the default experience (Build, Preview, Evaluate, Monitor). |
+| `Customer Conversation harness (preview)` | The picture was taken on the Customer Conversation harness. |
+| `Works in either harness` | A slot that is truly identical in both (a screen outside the agent). The rule: a slot may say `either` only in `slots.js`, and no slot in the catalog does today, so every Copilot Studio slot has one harness. A feature tagged for both harnesses in the catalog does **not** make a slot `either`. |
+| `Harness not recorded` | A picture from before harnesses were recorded. It is never used for a harness-specific slot (see *Pictures from before harnesses were recorded* below). |
+
+**How a slot's harness is decided.** The lab's harness is the authority for every Copilot Studio slot in the lab, including the slots of a
+feature the catalog tags for both harnesses and the build-the-practice-agent flow. A lab built for the Standard (Classic) harness takes (and
+reuses) only Standard (Classic) pictures; a lab built for the Microsoft Copilot harness takes only Microsoft Copilot pictures. The planner
+decides the lab's harness once, and says how (`harnessSource`: `chosen` when the person picked it in the wizard, `inferred` from the plurality of
+the picked modules that name one harness, `default` for the Standard harness, or `saved` for a lab built before this was recorded). It is saved
+as `manifest.labHarness` (`{ id, label, source }`), as the `harness` block of `screenshots/shots.json`, and as `harness`/`harnessLabel` on every
+shot, so it survives rebuilds, and `SHOTLIST.md`, the exported manifest, and the Screenshot Center all read it from there. A product with no
+harnesses (Power Automate, Teams) has none, shows no label, and keeps plain file names.
+
+A shot whose module is **not written for the lab's harness** (for example a Microsoft Copilot memory module in a Standard lab) is a **gap**. It
+is never captured in the wrong place: the Screenshot Center says why on the card, the capture plan marks the shot, the companion job row ends as
+*Needs you*, an upload is refused (`409 harness-gap`), and **lab-gate** reports it (`harness-gap`). Change the lab's modules or its harness.
+For a module tagged for both harnesses, the shared library keeps **one picture per harness** (two slots), and the lab uses the one for its harness.
+
+**Where the label shows.** Screenshot Center (the **Screenshots left** list, each slot card, review, the *Needs you* reasons,
+**Pictures that look wrong**, **Kept pictures**, the shared library list, and the full-size picture viewer), the lab preview's
+*Screenshot to add* cards (`Harness: Standard (Classic) harness`), the capture plan and the dry plan, `SHOTLIST.md`, `shots.json`, the
+exported manifest and contents list, and the companion's own progress lines. A lab with a Copilot Studio part also states its harness once:
+*This lab: Standard (Classic) harness. Every picture is taken in the Classic harness.* The label chip wraps inside its card and never clips
+(`.sc-harness-label`, one clearly named CSS block). Learner-facing lab text is unchanged: no module covers both harnesses in one picture, so no
+caption or alt text names a harness.
+
+**File names carry it.** The shared library keeps a picture of a harness-specific slot under a name that says the harness:
+`agent-overview.classic.png`, `agent-overview.copilot.png`, `agent-overview.customer.png` (the lab's own `assets/` keep the plain slot name,
+because the lab's Markdown points at it). A name with no tag, such as `agent-overview.png`, in the library means *Harness not recorded*. The
+saved check of every picture (`screenshots/verification.json` for a lab, `library-verification.json` for the library) carries
+`harness: { id, proof, at }`, where `proof` is `landmarks` (the companion saw the harness's landmarks before it took the picture) or `person`
+(a person said so, by uploading into the slot or by tagging). A stamp counts only while the picture's SHA-256 still matches.
+
+**Capturing in the right harness (companion 1.8.0).** The companion treats the harness as an explicit, per-shot requirement and proves it
+before it takes the picture. It no longer trusts whichever layout the agent opened in.
+
+- **Standard (Classic).** Switch once per browser session, as a person does: click the **ellipsis (three dots) in the lower left corner**
+  of the page, click **Open classic experience**, then click **Skip feedback** on the feedback prompt that follows. It never submits
+  feedback; **Skip feedback** is the only button it clicks there. Then it proves the classic layout by landmarks (the side navigation with
+  **Overview** and at least one of **Knowledge**, **Tools**, **Topics**, **Analytics**, or **Channels**, and no Build, Preview, Evaluate,
+  Monitor tab strip). The landmarks are checked again before every Classic picture, in case the page fell back.
+- **Microsoft Copilot.** No switch. It opens `https://copilotstudio.microsoft.com` (the default experience) and proves the **Build**,
+  **Preview**, **Evaluate**, and **Monitor** tabs are present, with no **Deploy** tab. A page found in the classic experience goes back to the
+  default experience and is proven again; if it cannot get back, the shot stops as *Needs you*.
+- **Wrong harness.** When the page is in the wrong harness after the attempt, the shot stops as *Needs you* with a plain reason, for example
+  *This agent is in the Microsoft Copilot harness; this picture needs the Standard (Classic) harness.* The picture is never saved as good.
+- **Practice agents.** The practice-agent builder makes one agent per harness: a Classic practice agent (created inside the classic
+  experience, after the switch) for Classic slots and a Microsoft Copilot practice agent (created in the default experience) for the others.
+  The names are distinct, within the 30-character agent-name cap, and carry a short harness marker. **The agent created earlier in this
+  capture** resolves to the agent of the right harness per slot and never reuses one for the other; **An agent I choose** is refused for a slot
+  of the other harness. The practice agents are remembered per environment, lab, and harness.
+- **Stamping.** The upload carries `evidence.harness` (`{ version: 1, id, proof: "landmarks", landmarks, switched, wanted }`), and the portal
+  stamps the picture with the harness it was **actually** taken in, not the one that was hoped for. Proof for the wrong harness is rejected
+  (`422 wrong-harness`); no proof at all goes to review (`harness-unproven`).
+- **Older companions.** A companion older than **1.8.0** sends no proof, so its pictures go to **review** (the same pattern as the earlier
+  version gates), never straight into good pictures. The job queue says so: *Update your Local Capture Companion to 1.8.0 or newer. Older versions
+    cannot prove which harness a picture is taken in (Standard (Classic) or Microsoft Copilot), so their Copilot Studio pictures are saved for
+    review.* The check is `HARNESS_MIN_COMPANION` in `harness.mjs`.
+
+The exact switch path was given by the owner and matches the Learn page above (Home, the three dots at the bottom of the side bar, **Open
+classic experience**). It has **not been run on a real tenant**: the ellipsis has no visible name, so the companion tries a short list of
+accessible names, and the control names are written as recipes in `harness.mjs` (`CLASSIC_SWITCH`) so they can be corrected in one place.
+
+**The plan and the dry plan.** Every shot of a capture plan carries `harness`, `harnessLabel`, `capture.harness` (`{ id, label, switch,
+switchStep, proof }`), and, for a gap, `harnessGap`. `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id>` prints the lab's
+statement and, per shot, the harness, the switch step (*switch: ellipsis in the lower left corner > Open classic experience > Skip feedback*,
+or *no switch: open copilotstudio.microsoft.com*), and the proof landmark, and says which practice agent each harness needs. `--json` and
+`POST /api/capture/dry-plan` return the same fields (`labHarness`, `practiceAgentHarness`, `gaps`, and per shot `harness`, `switchStep`,
+`proof`).
+
+**Never mix.** The harness is part of a picture's identity:
+
+- A picture taken in one harness can never satisfy a slot that needs the other: library reuse, **Mark as accurate**, replace and retake,
+  the duplicate guard (`picture-integrity.js`: `HARNESS_MISMATCH` and `HARNESS_MIXED`, both definite, so **Keep this one** does not override
+  them), the shared library's share rules, export and import of shared screenshots, and **Restore** from the kept pictures all compare the
+  harness. A kept picture is restored only into a slot of its own harness.
+- The same picture bytes filed under both harnesses are wrong for both.
+- A lab with pictures from both harnesses, where it should have only its own, shows a warning in the Screenshot Center (*This lab is built for
+  the Standard (Classic) harness, but it has pictures from the Microsoft Copilot harness...*), and the wrong-stamped picture is not used: its
+  slot is pending again.
+- **Lab-gate** (`npm run lab-gate`) flags, as **Fix** (`gap`): `wrong-harness-picture` (a picture stamped with another harness than its
+  slot's), `mixed-harness-pictures` (both harnesses in one lab), and `harness-gap` (a module not written for the lab's harness). It flags, as
+  `polish`: `harness-not-recorded` (a picture with no harness recorded).
+- Pictures reused from the hand-written labs under `labs/` were taken in the classic experience, so they are copied only into a Standard
+  (Classic) lab (where they show as *Harness not recorded* until tagged). A lab for another harness keeps those slots pending.
+
+**Pictures from before harnesses were recorded.** Existing pictures and saved labs have no harness stamp. They are `Harness not recorded`: a
+lab keeps showing the picture it has (a person already reviewed it), but nothing shares it, reuses it in another lab, or counts it as proven.
+In the Screenshot Center they sit in a clearly labeled group, **Pictures with no harness recorded**, in the lab and in the shared library, and each
+has two buttons that work like **Mark as accurate**: **This is Standard (Classic)** and **This is Microsoft Copilot** (`POST
+.../screenshots/:filename/harness` with `{ harness: "standard" | "microsoft-copilot" }`, for a lab and for the library). Choosing the harness the
+slot needs records it (`proof: "person"`). Choosing the **other** harness never puts the picture into the slot: a lab picture moves to the kept
+pictures (reason *wrong-harness*) and the slot is pending again; a library picture named for a slot is moved the same way. Nothing is converted
+on its own. A **one-off migration** for an existing library is the same action done in bulk: for each name in `libraryState().unrecorded`, call
+`tagPicture` with the harness the person confirms (look at each picture first; the harness cannot be read from its bytes).
+
+**Not verified on a real tenant.** The exact accessible names of the ellipsis, **Open classic experience**, and **Skip feedback**; the proof for
+Standard screens outside an agent (Home, the agent list: the landmark there is that the menu no longer offers **Open classic experience**);
+the **Powered by** column text (the Agents list names the harness an agent uses); and other browsers.
 
 #### Where the shared library lives
 
@@ -2645,7 +2768,7 @@ the environment display name (`<name> (default)`), email addresses and user prin
 and the portal refuses to auto-accept a picture whose evidence says masking was requested but not applied, or lists a page that was not covered.
 
 **What the companion does now.** It reads the page before masking (`readPageSignals`: a visible Sign in control, and an account control). On a public page it stops the product's shots with *You are not signed in to <product>. Sign in once in the companion window, then retake the shot.* instead of capturing. When no recipe can reach the expected screen, the shot becomes a person shot with the portal's fixed reason (*Use “Retake guided”, or upload the picture.*) and nothing is photographed. The evidence it sends is `version: 2`.
-The job queue tells the Screenshot Center when the connected companion is older than **1.7.0**: *Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.* An older companion keeps working; nothing it captures is silently accepted.
+The job queue tells the Screenshot Center when the connected companion is older than **1.7.0**: *Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.* An older companion keeps working; nothing it captures is silently accepted. From **1.8.0** the companion also proves the harness (Standard (Classic) or Microsoft Copilot) before each Copilot Studio picture; an older one is told to update in the same way and its Copilot Studio pictures are saved for review (see *Which harness a picture shows*).
 
 #### Move the shared library between computers
 
@@ -3253,8 +3376,8 @@ the hand-written labs under `labs/`. Each finding has one of three severities:
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*), a Learn-only module that Learn says is for classic chatbots only (`topic-not-for-harness`) |
-| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a step whose choices are one run-on sentence, "(a) ...; (b) ..." (`run-on-substeps`: rebuild the lab so each choice has its own lettered line), a title over 110 characters |
+| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*), a Learn-only module that Learn says is for classic chatbots only (`topic-not-for-harness`), a picture stamped with another harness than its slot's (`wrong-harness-picture`), pictures from both harnesses in one lab (`mixed-harness-pictures`), a module not written for the lab's harness (`harness-gap`) |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a step whose choices are one run-on sentence, "(a) ...; (b) ..." (`run-on-substeps`: rebuild the lab so each choice has its own lettered line), a title over 110 characters, a picture with no harness recorded (`harness-not-recorded`) |
 | `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
 
 The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**
@@ -3960,6 +4083,7 @@ Browser-facing:
 | `POST` | `.../screenshots/:filename/accept` | Commit the staged image. |
 | `DELETE` | `.../screenshots/:filename` | Discard a picture waiting for review (the picture in place and its check stay), or reset a committed picture to the placeholder. A reset picture is kept as a backup (`<file>.previous` beside a library picture, `<lab>/screenshots/.previous/<file>` for a lab). |
 | `POST` | `.../screenshots/:filename/confirm` | **Mark as accurate**: `{ outcome: "confirmed", scope: "lab" \| "library", confirmed: { at }, state }`. Tied to the picture's SHA-256. 409 when there is no captured picture (or one is waiting for review), 404 for a name that is not a slot. Optional; never blocks anything. |
+| `POST` | `.../screenshots/:filename/harness` | **This is Standard (Classic)** / **This is Microsoft Copilot**: `{ harness: "standard" \| "microsoft-copilot" }` for a picture with no harness recorded (a lab picture, or a library picture by its name). `{ outcome: "tagged", harness, state }` when it matches the slot (stamped `proof: "person"`), `{ outcome: "moved", message }` when it is the other harness (the picture goes to the kept pictures, reason `wrong-harness`, and the slot is pending again), 409 when a harness is already recorded. Library pictures are named with the harness (`agent-overview.classic.png`); `GET /api/capture/library` adds `unrecorded: [{ filename, harnesses }]` and `summary.harnessNotRecorded`. |
 | `DELETE` | `.../screenshots/:filename/confirm` | **Clear confirmation**: `{ outcome: "unconfirmed", state }`. |
 | `POST` | `/api/lab-builder/generated/:labId/screenshots/:filename/share` | **Use this one for every lab**: `{ confirm: true, replaceConfirmed?: true }`. 400 without `confirm`; 409 `{ outcome: "skipped", code, message }` when it was not shared (`needsReplaceConfirmation: true` when the library's picture is marked accurate and `replaceConfirmed` was not sent); 200 `{ outcome: "shared" \| "replaced" \| "already-shared", state }`. A replaced picture is kept as `<file name>.previous`. |
 | `POST` | `/api/lab-builder/generated/:labId/screenshots/share` | **Share all of this lab's eligible pictures**: `{ dryRun?: true }`. `{ labId, dryRun, promoted: [file names], alreadyShared: [file names], skipped: [{ filename, code, message }], counts: { promoted, alreadyShared, skipped, noPicture }, state }`. Never overwrites. |

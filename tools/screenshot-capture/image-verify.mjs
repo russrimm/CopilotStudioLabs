@@ -13,6 +13,7 @@ import zlib from "node:zlib";
 import { cleanExpectedLabels, labelIsVisible, visibleWordSet } from "./labels.mjs";
 import { PLACEHOLDER_MESSAGE, detectPlaceholder } from "./placeholder-detect.mjs";
 import { assessLanding } from "./targets.mjs";
+import { HARNESS_LABELS, HARNESS_MIN_COMPANION, isSpecificHarness, normalizeHarness, sanitizeHarnessProof } from "./harness.mjs";
 
 export const IMAGE_LIMITS = Object.freeze({
   maxBytes: 8 * 1024 * 1024,
@@ -343,6 +344,8 @@ export function sanitizeEvidence(raw) {
         }
       : null,
     capturedAt: cleanText(raw.capturedAt, 40),
+    // What the companion proved about the harness the page was in (see harness.mjs): absent from an older companion, and never trusted unless it is complete.
+    harness: sanitizeHarnessProof(raw.harness),
     executedSteps: Number.isFinite(Number(raw.executedSteps)) ? Math.max(0, Math.min(1000, Number(raw.executedSteps))) : null,
     mode: ["auto", "guided", "legacy", "autonomous"].includes(raw.mode) ? raw.mode : null,
     setup: sanitizeSetupEvidence(raw.setup),
@@ -567,6 +570,16 @@ export function verifyImage(bytes, options = {}) {
       reasons.push(reason("list-not-masked", "warn", "This page lists recent items or chats, and the list was not hidden. Check the screenshot for names and titles."));
     }
     if (options.requireProof && evidence.version < EVIDENCE_VERSION) reasons.push(reason("old-companion", "warn", OLD_COMPANION_MESSAGE));
+    // The harness the page was proven to be in. Only a companion's picture is judged (`requireProof`): the portal says which harness the slot
+    // needs (`expectHarness`), an older companion proves none (saved for review), and a picture taken in the other harness is never saved.
+    const wantedHarness = normalizeHarness(options.expectHarness);
+    if (options.requireProof && isSpecificHarness(wantedHarness)) {
+      if (!evidence.harness) {
+        reasons.push(reason("harness-unproven", "warn", `The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to ${HARNESS_MIN_COMPANION} or newer.`));
+      } else if (evidence.harness.id !== wantedHarness) {
+        reasons.push(reason("wrong-harness", "fail", `This picture was taken in the ${HARNESS_LABELS[evidence.harness.id]}, but this screenshot needs the ${HARNESS_LABELS[wantedHarness]}, so it was not saved.`));
+      }
+    }
     if (evidence.setup?.limitedBy === "practice-agent") {
       reasons.push(reason("needs-practice-agent", "warn", "This shows the screen as far as the computer could take it without a practice agent. Allow a practice agent, then retake it, to capture the final state."));
     }
@@ -632,6 +645,8 @@ export function summarizeVerification(result, extra = {}) {
     redaction: result.evidence?.redaction || null,
     // What the companion could say about the page (see EVIDENCE_VERSION): the version, and the sign-in and account signals it read.
     ...(result.evidence ? { evidenceVersion: result.evidence.version || 1, ...(result.evidence.signals ? { signals: result.evidence.signals } : {}) } : {}),
+    // The harness the companion proved the page was in (a complete proof only). Named apart from `harness`, which is the picture's saved stamp.
+    ...(result.evidence?.harness?.id ? { harnessSeen: { id: result.evidence.harness.id, ...(result.evidence.harness.wanted ? { wanted: result.evidence.harness.wanted } : {}) } } : {}),
     checkedAt: new Date().toISOString(),
     ...extra,
   };

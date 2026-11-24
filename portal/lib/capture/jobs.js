@@ -497,6 +497,9 @@ export function createJobStore({
       shotId: shot.shotId ?? null,
       featureId: shot.featureId ?? null,
       product: shot.product ?? null,
+      // The harness this picture is taken in (Copilot Studio only), shown beside the file name wherever a person identifies the picture.
+      harness: shot.harness ?? null,
+      harnessLabel: shot.harnessLabel ?? null,
       status: "pending",
       attempts: 0,
       startedAt: null,
@@ -516,7 +519,12 @@ export function createJobStore({
       needsPractice: capture?.setup?.needsPractice === true || (capture?.scratch?.scoped === true && !capture.scratch.blocker),
     };
     const effective = effectiveModeFor(shot, mode);
-    if (effective === "manual") {
+    if (shot.harnessGap) {
+      // The lab's harness decides every picture of the lab. A module written for another harness is a gap in the lab, never captured in the wrong harness.
+      row.status = "needs-you";
+      row.cause = "needs-you";
+      row.message = shot.harnessGapNote || "This module is not written for the harness this lab is built for, so its picture cannot be taken here.";
+    } else if (effective === "manual") {
       row.status = "manual-required";
       row.cause = "manual";
       row.message = "This screen is outside the browser. Capture it with an OS screenshot tool and upload it.";

@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import { getProduct, productOf } from "./products.js";
 import { stepLeadSentence } from "./sub-steps.js";
+import { harnessGapFor, labSlotNeed, libraryVariants, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SLOTS_PATH = path.join(__dirname, "screenshot-slots.json");
@@ -53,6 +54,22 @@ function overlayShots() {
 export function slotsForFeature(feature) {
   if (feature?.screenshots?.length) return feature.screenshots;
   return overlayShots()[feature?.id] || [];
+}
+
+/**
+ * The harness a picture of one slot IN A LAB is taken in, and whether the lab's feature is written for it. The lab's harness is the
+ * authority for every Copilot Studio slot (see `labSlotNeed`); a feature written for another harness is a `gap`, never captured elsewhere.
+ * @returns {{id: string|null, source: string, gap: {feature: string[], lab: string}|null}}
+ */
+export function slotNeedFor(feature, slot, { labHarness = null } = {}) {
+  const product = productOf(feature);
+  const need = labSlotNeed({ product, labHarness, slotHarness: slot?.harness });
+  return { ...need, gap: harnessGapFor({ product, featureHarness: feature?.harness, need: need.id }) };
+}
+
+/** The harnesses the shared library keeps a picture for, for one slot of a feature (one per harness the feature is written for). */
+export function slotLibraryVariants(feature, slot) {
+  return libraryVariants({ product: productOf(feature), slotHarness: slot?.harness, featureHarness: feature?.harness });
 }
 
 /** Remove Markdown emphasis so instruction text reads as plain words. */
@@ -166,6 +183,12 @@ export function validateScreenshotSlots({ features, meta = getSlotMeta(), overla
 
   for (const [featureId, slot] of all) {
     seen.add(slot.filename);
+    const owner = features.find((f) => f.id === featureId);
+    // A slot's harness comes from the lab that uses it (the lab's harness is the authority). The one thing a slot may say itself is "either":
+    // its screen is identical in every harness.
+    if (slot.harness !== undefined && normalizeHarness(slot.harness) !== "either") {
+      problems.push(`${featureId}: slot ${slot.filename} has the harness "${slot.harness}"; a slot may only say "either" (the lab's harness decides everything else)`);
+    }
     const entry = meta[slot.filename];
     if (!entry) {
       problems.push(`${featureId}: slot ${slot.filename} has no entry in screenshot-slots.json`);
