@@ -168,6 +168,17 @@ export function harnessGapFor({ product = "copilot-studio", featureHarness = nul
   return variants.includes(wanted) ? null : { feature: variants, lab: wanted };
 }
 
+/**
+ * The statement for a lab that covers two harnesses one after another (a combined lab). The lab has no single harness: every picture is taken
+ * in the harness of the part it sits in, and a shared part (taught once, the same in both) is taken in the first harness of the order.
+ * @param {string[]} order the two harness ids, first one first
+ */
+export function combinedHarnessStatement(order) {
+  const ids = (Array.isArray(order) ? order : []).map(normalizeHarness).filter(isSpecificHarness);
+  if (ids.length !== 2) return "";
+  return `This lab: both harnesses, one after another (${HARNESS_LABELS[ids[0]]} first, then ${HARNESS_LABELS[ids[1]]}). Each picture is taken in the harness of the part it sits in, and the two are never crossed. A shared topic is taken in the ${HARNESS_LABELS[ids[0]]}.`;
+}
+
 /** The one sentence a lab's harness is stated with, on the Screenshot Center, in the capture plan, and in the dry plan. */
 export function labHarnessStatement(harness) {
   const id = normalizeHarness(harness);
@@ -235,7 +246,7 @@ export function wrongHarnessMessage(found, wanted) {
   const have = normalizeHarness(found);
   const need = normalizeHarness(wanted);
   const left = have && have !== EITHER ? `This agent is in the ${HARNESS_LABELS[have]}` : "The companion could not tell which harness this agent is in";
-  return `${left}; this picture needs the ${need && need !== EITHER ? HARNESS_LABELS[need] : "right"} harness.`;
+  return `${left}; this picture needs the ${need && need !== EITHER ? HARNESS_LABELS[need] : "right harness"}.`;
 }
 
 // ── What proves the page is in a harness (read by the companion) ───────────

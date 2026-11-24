@@ -122,6 +122,7 @@ function lbGenSearchText(lab) {
     lab.sharepointSite?.url || "",
     lbGenIndustryName(lab.vertical),
     lbGenHarnessName(lab.harness),
+    ...(Array.isArray(lab.harnesses) ? lab.harnesses.map(lbGenHarnessName) : []),
     lbGenLevelName(lab.level),
     ...lbGenProductNames(lab),
   ]
@@ -731,6 +732,7 @@ function lbGenItemHtml(lab) {
   if (lab.level) chips.push(escapeHtml(lbGenLevelName(lab.level)));
   else chips.push("Level not recorded");
   if (lab.harness) chips.push(escapeHtml(lbGenHarnessName(lab.harness)));
+  else if (Array.isArray(lab.harnesses) && lab.harnesses.length === 2) chips.push(escapeHtml(`Both: ${lab.harnesses.map(lbGenHarnessName).join(", then ")}`));
   chips.push(`About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))} (estimate)`);
   const recaps = Number(lab.prerequisiteCount) || 0;
   const topics = Math.max((Number(lab.moduleCount) || 0) - recaps, 0);
@@ -1230,15 +1232,34 @@ function lbRenderChecklistHtml(list) {
     const chip = harnessChip(entry);
     if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code> ${chip}</li>`;
     const steps = (entry.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+    // A shared topic of a lab built for both harnesses works in either; its picture is taken in the first one (the list says so when it sends the flag).
+    const shared = entry.harnessScope === "shared" && entry.harnessLabel ? `<p>Shared topic: works in either harness. This picture is taken in the ${escapeHtml(entry.harnessLabel)}.</p>` : "";
     return `<li><details><summary>${name} ${chip}</summary>
       ${entry.harnessLabel ? `<p><strong>Harness:</strong> ${escapeHtml(entry.harnessLabel)}</p>` : ""}
+      ${shared}
       ${entry.shows ? `<p><strong>It should show:</strong> ${escapeHtml(entry.shows)}</p>` : ""}
       ${entry.why ? `<p><strong>Why it needs you:</strong> ${escapeHtml(entry.why)}</p>` : ""}
       ${steps ? `<ol>${steps}</ol>` : ""}
       <p class="lb-checklist-file">File: <code>${escapeHtml(entry.filename)}</code></p></details></li>`;
   };
-  const you = (list.you || []).map((entry) => item(entry, true)).join("");
-  const computer = (list.computer || []).map((entry) => item(entry, false)).join("");
+  // A lab built for both harnesses, one after another, lists its pictures under one heading per harness, in the order the lab takes them.
+  const grouped = (entries, render) => {
+    if (!entries.length) return "";
+    const plain = (items) => `<ul class="lb-checklist-list">${items.map(render).join("")}</ul>`;
+    if (list?.labHarness?.mode !== "both") return plain(entries);
+    const order = Array.isArray(list.labHarness.order) ? list.labHarness.order.map(String) : [];
+    const kinds = [...new Set([...order, ...entries.map((entry) => entry.harness || null)])];
+    return kinds
+      .map((kind) => {
+        const items = entries.filter((entry) => (entry.harness || null) === kind);
+        if (!items.length) return "";
+        const label = String(items[0].harnessLabel || "").trim();
+        return `${kind && label ? `<h5 class="lb-checklist-harness-group">${escapeHtml(label)} pictures</h5>` : ""}${plain(items)}`;
+      })
+      .join("");
+  };
+  const you = grouped(list.you || [], (entry) => item(entry, true));
+  const computer = grouped(list.computer || [], (entry) => item(entry, false));
   return `<div class="lb-checklist">
     <p class="lb-checklist-lead"><strong>${total} picture${total === 1 ? "" : "s"} still to capture.</strong> ${list.counts.computer ? `Your computer can capture ${list.counts.computer} of them. ` : ""}${list.counts.you ? `${list.counts.you} need${list.counts.you === 1 ? "s" : ""} you.` : ""}</p>
     ${statementHtml}
@@ -1246,8 +1267,8 @@ function lbRenderChecklistHtml(list) {
       <button type="button" class="btn btn-sm" data-gen-action="shot-checklist-download" data-lab-id="${escapeHtml(list.labId)}">Download checklist (.md)</button>
       <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">Open the Screenshot Center</button>
     </div>
-    ${you ? `<h4>Only you can do these (${list.counts.you})</h4><ul class="lb-checklist-list">${you}</ul>` : ""}
-    ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4><ul class="lb-checklist-list">${computer}</ul>` : ""}
+    ${you ? `<h4>Only you can do these (${list.counts.you})</h4>${you}` : ""}
+    ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4>${computer}` : ""}
   </div>`;
 }
 

@@ -34,6 +34,10 @@ const labBuilder = {
   chosenSteps: new Set(),
   level: 100,
   harness: "standard",
+  // "single" builds for the harness chosen above. "both" covers two harnesses one after another in one lab (see lbIsBoth).
+  harnessMode: "single",
+  // The two harnesses a "both" lab covers, in the order they are taught: Standard (Classic) first, then Microsoft Copilot.
+  harnessOrder: ["standard", "microsoft-copilot"],
   // null means "the default counterpart harness"; a Set is the learner's own choice.
   differencesFor: null,
   differenceDefaults: {},
@@ -391,6 +395,8 @@ function lbSaveSelections() {
     roles: [...labBuilder.selectedRoles],
     level: labBuilder.level,
     harness: lbHasHarnessProduct() ? labBuilder.harness : null,
+    harnessMode: lbHasHarnessProduct() ? labBuilder.harnessMode : "single",
+    harnesses: [...labBuilder.harnessOrder],
     features: labBuilder.rec ? [...labBuilder.rec.selectedIds] : [...(labBuilder.picked || [])],
     excluded: [...labBuilder.excluded],
     excludedSubtopics: lbExcludedSubtopicList(),
@@ -589,6 +595,48 @@ function lbHarnessOwner(harnessId) {
   return labBuilder.harnesses.find((h) => h.id === harnessId)?.product || LB_DEFAULT_PRODUCT;
 }
 
+// ── "Both, one after another": two harnesses in one lab ─────────────────────
+const LB_BOTH = "both";
+const LB_HARNESS_SHORT = {
+  standard: "Standard (Classic)",
+  "microsoft-copilot": "Microsoft Copilot",
+  "customer-conversation": "Customer Conversation",
+};
+
+/** "Standard (Classic)": the short form used in the choice, the order line, and the topic rows. */
+function lbHarnessShort(id) {
+  return LB_HARNESS_SHORT[id] || lbHarnessName(id).replace(/\s+harness$/i, "");
+}
+
+/** True while the product that owns both harnesses is chosen, so "Both, one after another" can be offered. */
+function lbBothAvailable() {
+  if (!lbHasHarnessProduct()) return false;
+  const order = labBuilder.harnessOrder;
+  return (
+    Array.isArray(order) &&
+    order.length === 2 &&
+    order.every((id) => labBuilder.harnesses.some((h) => h.id === id && labBuilder.selectedProducts.has(h.product || LB_DEFAULT_PRODUCT)))
+  );
+}
+
+/** True when the lab covers two harnesses one after another. */
+function lbIsBoth() {
+  return labBuilder.harnessMode === LB_BOTH && lbBothAvailable();
+}
+
+/** The harness choice in words: "Standard harness", or "Both: Standard (Classic), then Microsoft Copilot". */
+function lbHarnessChoiceName() {
+  return lbIsBoth() ? `Both: ${labBuilder.harnessOrder.map(lbHarnessShort).join(", then ")}` : lbHarnessName(labBuilder.harness);
+}
+
+/** Which harness a topic row is for, in a lab that covers both: its own, or "Either harness" when it is tagged for both. */
+function lbTopicHarnessTag(topic) {
+  if (!lbIsBoth()) return "";
+  const tags = (topic.harnesses || []).filter((id) => labBuilder.harnessOrder.includes(id));
+  if (tags.length > 1) return "Either harness";
+  return tags.length === 1 ? lbHarnessShort(tags[0]) : "";
+}
+
 /** The products picked in the first step, in catalog order. */
 function lbSelectedProductList() {
   if (!labBuilder.selectedProducts.size) return [];
@@ -650,7 +698,14 @@ function lbAnswers() {
     products: lbSelectedProductList().map((p) => p.id),
     level: labBuilder.level,
   };
-  if (lbHasHarnessProduct()) answers.harness = labBuilder.harness;
+  if (lbHasHarnessProduct()) {
+    if (lbIsBoth()) {
+      answers.harnessMode = LB_BOTH;
+      answers.harnesses = [...labBuilder.harnessOrder];
+    } else {
+      answers.harness = labBuilder.harness;
+    }
+  }
   return answers;
 }
 
@@ -1149,6 +1204,7 @@ function lbSelectLevel(level) {
 }
 
 // ── Step 2: tailor it (harness, only for products that have harnesses) ─────
+const lbBoundSwapButtons = new WeakSet();
 function lbRenderHarnesses() {
   const row = document.getElementById("lb-harness-row");
   const hasHarness = lbHasHarnessProduct();
@@ -1171,7 +1227,7 @@ function lbRenderHarnesses() {
       // A harness is only unavailable when it has no topic at any level; a level with none is explained instead.
       const unavailable = onHarness.length + lbLearnNewCount(h.id) === 0;
       const shown = atLevel + fromLearn;
-      const checked = labBuilder.harness === h.id && !unavailable;
+      const checked = labBuilder.harness === h.id && !unavailable && !lbIsBoth();
       const meta = unavailable
         ? "No lab topics yet, so it cannot be selected"
         : shown
@@ -1187,29 +1243,85 @@ function lbRenderHarnesses() {
         <span class="lb-radio-desc">${escapeHtml(lead)}</span>
       </label>`;
     })
-    .join("");
+    .join("") + lbBothOptionHtml(features, level);
   el.querySelectorAll("input[type=radio]").forEach((input) => {
     input.addEventListener("change", () => lbSelectHarness(input.value));
   });
+  const swap = document.getElementById("lb-harness-swap");
+  if (swap && !lbBoundSwapButtons.has(swap)) {
+    lbBoundSwapButtons.add(swap);
+    swap.addEventListener("click", lbSwapHarnessOrder);
+  }
   lbRenderHarnessHint();
+  lbRenderHarnessOrder();
   lbRenderDifferenceOptions();
+}
+
+/** The "Both, one after another" choice, next to the single-harness choices. */
+function lbBothOptionHtml(features, level) {
+  if (!lbBothAvailable()) return "";
+  const order = labBuilder.harnessOrder;
+  const either = features.filter((f) => (f.harness || []).some((id) => order.includes(id)));
+  const shown = either.filter((f) => f.level === level).length + order.reduce((sum, id) => sum + lbLearnNewCount(id, level), 0);
+  const meta = shown ? `${shown} ${lbLevelName(level)} ${shown === 1 ? "topic" : "topics"}` : `No ${lbLevelName(level)} topics yet`;
+  const checked = lbIsBoth();
+  return `
+      <label class="lb-radio-option lb-radio-both">
+        <input type="radio" name="lb-harness" value="${LB_BOTH}" autocomplete="off" ${checked ? "checked" : ""}>
+        <span class="lb-radio-name">Both, one after another <span class="lb-seg-count">· ${escapeHtml(meta)}</span></span>
+        <span class="lb-radio-desc">Covers the ${escapeHtml(lbHarnessShort(order[0]))} harness first, then the ${escapeHtml(lbHarnessShort(order[1]))} harness. Shared topics appear once.</span>
+      </label>`;
+}
+
+/** The order line and its Swap button, shown only while "Both" is chosen. */
+function lbRenderHarnessOrder() {
+  const box = document.getElementById("lb-harness-order");
+  const text = document.getElementById("lb-harness-order-text");
+  const swap = document.getElementById("lb-harness-swap");
+  if (!box) return;
+  const both = lbIsBoth();
+  box.hidden = !both;
+  if (!both) return;
+  const [first, second] = labBuilder.harnessOrder;
+  if (text) text.textContent = `Order: ${lbHarnessShort(first)} first, then ${lbHarnessShort(second)}.`;
+  if (swap) swap.setAttribute("aria-label", `Swap the order: teach ${lbHarnessShort(second)} first, then ${lbHarnessShort(first)}`);
+}
+
+/** Teach the other harness first. */
+function lbSwapHarnessOrder() {
+  labBuilder.harnessOrder = [...labBuilder.harnessOrder].reverse();
+  labBuilder.chosenSteps.add("tailor");
+  lbRenderHarnessHint();
+  lbRenderHarnessOrder();
+  lbAnswersChanged();
 }
 
 function lbRenderHarnessHint() {
   const hint = document.getElementById("lb-harness-hint");
   if (!hint) return;
+  if (lbIsBoth()) {
+    hint.textContent = `Both harnesses are selected, ${lbHarnessShort(labBuilder.harnessOrder[0])} first, then ${lbHarnessShort(labBuilder.harnessOrder[1])}. A topic that is the same in both is covered once.`;
+    return;
+  }
   hint.textContent = labBuilder.harness === "standard"
     ? `${lbHarnessName(labBuilder.harness)} is selected. Not sure? Keep it.`
     : `${lbHarnessName(labBuilder.harness)} is selected.`;
 }
 
 function lbSelectHarness(id) {
+  const previousMode = labBuilder.harnessMode;
   const previous = labBuilder.harness;
   labBuilder.chosenSteps.add("tailor");
-  labBuilder.harness = id;
-  if (labBuilder.harness !== previous) {
+  if (id === LB_BOTH) {
+    labBuilder.harnessMode = LB_BOTH;
+  } else {
+    labBuilder.harnessMode = "single";
+    labBuilder.harness = id;
+  }
+  if (labBuilder.harness !== previous || labBuilder.harnessMode !== previousMode) {
     labBuilder.differencesFor = null;
     lbRenderHarnessHint();
+    lbRenderHarnessOrder();
     lbRenderDifferenceOptions();
     lbRenderLearnBar();
     lbAnswersChanged();
@@ -1226,7 +1338,10 @@ function lbDifferencesFor() {
 function lbRenderDifferenceOptions() {
   const el = document.getElementById("lb-differences-options");
   if (!el) return;
-  if (!lbHasHarnessProduct()) {
+  // A lab that covers both harnesses teaches the other one itself, so the comparison notes are not offered.
+  const more = typeof el.closest === "function" ? el.closest("details") : null;
+  if (more) more.hidden = lbIsBoth();
+  if (!lbHasHarnessProduct() || lbIsBoth()) {
     el.innerHTML = "";
     return;
   }
@@ -1729,6 +1844,11 @@ function lbLearnNewCount(harness, level) {
   return Object.values(byLevel).reduce((sum, n) => sum + n, 0);
 }
 
+/** New-from-Learn topics at a level for the harness choice: the chosen harness, or both when the lab covers both. */
+function lbLearnNewForChoice(level) {
+  return (lbIsBoth() ? labBuilder.harnessOrder : [labBuilder.harness]).reduce((sum, id) => sum + lbLearnNewCount(id, level), 0);
+}
+
 function lbApplyLearn(data) {
   labBuilder.learn = data;
   labBuilder.learnNew = lbLearnNewByHarness(data.topics);
@@ -1768,7 +1888,7 @@ function lbRenderLearnBar() {
     const label = learn.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
     parts.push(`${label}: ${stamp} (${lbAgo(learn.ageMs)}).`);
     if (lbHasHarnessProduct()) {
-      parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewCount(labBuilder.harness, labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
+      parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewForChoice(labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
     }
   }
   // Every other selected product has its own list from Microsoft Learn, with its own refresh time.
@@ -2374,7 +2494,7 @@ function lbTopicCard(t) {
   const open = labBuilder.openRows.has(t.id) || Boolean(view && query && view.subs.some((s) => lbSubtopicMatches(s, query)));
   // The generic "Recommended for level N" reason is said once, in the suggestion sentence, not on every row.
   const reasons = (t.reasons || []).filter((reason) => !/^Recommended for level \d+/i.test(reason));
-  const subtitle = view ? ` · ${view.included} of ${view.total} sub-topics` : "";
+  const subtitle = `${view ? ` · ${view.included} of ${view.total} sub-topics` : ""}${lbTopicHarnessTag(t) ? ` · ${lbTopicHarnessTag(t)}` : ""}`;
   const details = `
               <div class="lb-row-details" id="lb-row-details-${id}"${open ? "" : " hidden"}>
                 <span class="lb-feature-body">
@@ -2454,7 +2574,7 @@ function lbRenderTopics() {
   const forceOpen = lbForceGroupsOpen();
   const onlyCopilotStudio = (rec.answers.products || [LB_DEFAULT_PRODUCT]).every((id) => id === LB_DEFAULT_PRODUCT);
   // Copilot Studio alone is described by its harness, as before; any other selection is described by its products.
-  const scopeName = onlyCopilotStudio && rec.answers.harness ? `the ${lbHarnessName(rec.answers.harness)}` : lbJoinNames((rec.products || []).map((p) => p.shortName));
+  const scopeName = onlyCopilotStudio && rec.answers.harnessMode === LB_BOTH ? "both harnesses" : onlyCopilotStudio && rec.answers.harness ? `the ${lbHarnessName(rec.answers.harness)}` : lbJoinNames((rec.products || []).map((p) => p.shortName));
 
   // Groups with no topic for these answers share one closed disclosure, so they never push the real groups down.
   const mutedItems = [];
@@ -3023,7 +3143,7 @@ function lbIsStepChosen(stepKey) {
         labBuilder.industry !== null ||
         labBuilder.selectedRoles.size > 0 ||
         labBuilder.level !== 100 ||
-        (lbHasHarnessProduct() && (labBuilder.harness !== "standard" || labBuilder.differencesFor !== null))
+        (lbHasHarnessProduct() && (labBuilder.harness !== "standard" || labBuilder.harnessMode !== "single" || labBuilder.differencesFor !== null))
       );
     case "topics":
       return (
@@ -3045,6 +3165,7 @@ function lbHasProgress() {
     labBuilder.selectedRoles.size > 0 ||
     labBuilder.level !== 100 ||
     labBuilder.harness !== "standard" ||
+    labBuilder.harnessMode !== "single" ||
     labBuilder.differencesFor !== null ||
     labBuilder.picked !== null ||
     labBuilder.excluded.size > 0 ||
@@ -3088,7 +3209,7 @@ function lbRenderSummary() {
       const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
       parts.push(escapeHtml(departments.length ? `Departments: ${departments.join(", ")}` : "All departments"));
       parts.push(escapeHtml(lbLevelName(labBuilder.level)));
-      if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
+      if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessChoiceName()));
     }
     // Topics and Review and build say the topic count, the time, the quiz choice, and the SharePoint site on the screen itself, so the bar does not repeat them there.
     const onTopicsOrReview = labBuilder.step === LB_STEP.topics || labBuilder.step === LB_STEP.review;
@@ -3393,6 +3514,8 @@ function lbResetAnswers() {
   labBuilder.chosenSteps = new Set();
   labBuilder.level = 100;
   labBuilder.harness = "standard";
+  labBuilder.harnessMode = "single";
+  labBuilder.harnessOrder = ["standard", "microsoft-copilot"];
   labBuilder.differencesFor = null;
   labBuilder.picked = null;
   labBuilder.pickedAuto = false;
@@ -3552,6 +3675,12 @@ function lbApplySavedSelections(saved, draft = null) {
     labBuilder.harness = harnessUsable ? saved.harness : "standard";
   }
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
+  // A lab or draft that covers both harnesses comes back as "Both, one after another", in the order it was saved.
+  const savedOrder = Array.isArray(saved.harnesses) ? saved.harnesses : null;
+  const orderKnown = Boolean(savedOrder) && savedOrder.length === 2 && new Set(savedOrder).size === 2 && savedOrder.every((id) => labBuilder.harnesses.some((h) => h.id === id));
+  labBuilder.harnessOrder = orderKnown ? [...savedOrder] : ["standard", "microsoft-copilot"];
+  labBuilder.harnessMode = saved.harnessMode === LB_BOTH && orderKnown && lbBothAvailable() ? LB_BOTH : "single";
+  if (saved.harnessMode === LB_BOTH && labBuilder.harnessMode !== LB_BOTH && lbHasHarnessProduct()) dropped.harness = "both harnesses";
   labBuilder.picked = draft ? (draft.picked ? new Set(draft.picked) : null) : new Set(saved.features);
   labBuilder.pickedAuto = false;
   labBuilder.excluded = new Set(saved.excluded);
@@ -3691,8 +3820,13 @@ function lbRequest() {
     useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
     useLlm: document.getElementById("lb-use-llm")?.checked !== false,
     includeKnowledgeCheck: lbIncludeKnowledgeCheck(),
-    // A harness, and the notes comparing harnesses, only exist for a product that has harnesses.
-    ...(lbHasHarnessProduct() ? { harness: labBuilder.harness, differencesFor: [...lbDifferencesFor()] } : {}),
+    // A harness, and the notes comparing harnesses, only exist for a product that has harnesses. A lab that covers both
+    // harnesses names them in order and carries no comparison notes: it teaches the other harness itself.
+    ...(lbHasHarnessProduct()
+      ? lbIsBoth()
+        ? { harnessMode: LB_BOTH, harnesses: [...labBuilder.harnessOrder] }
+        : { harness: labBuilder.harness, differencesFor: [...lbDifferencesFor()] }
+      : {}),
   };
   return request;
 }
@@ -4141,11 +4275,18 @@ async function lbPreview(options = {}) {
     const edit = Boolean(labBuilder.editOrder);
     let recapCount = 0;
     let stepCount = 0;
+    let lastPart = null;
     const moduleRowsHtml = data.modules
       .map((m, idx) => {
         const isRecap = m.role === "prerequisite";
         if (isRecap) recapCount += 1;
         else stepCount += 1;
+        // A lab that covers both harnesses starts each part with a heading row, so the order reads as parts.
+        const part = m.harnessPart && m.harnessPart !== lastPart ? data.harnessParts?.parts?.find((p) => p.id === m.harnessPart) : null;
+        if (m.harnessPart) lastPart = m.harnessPart;
+        const partRow = part
+          ? `<tr class="lb-outline-part-row"><th scope="colgroup" colspan="${edit ? 5 : 3}">Part ${escapeHtml(part.n)}: ${escapeHtml(part.label)}${part.harness ? "" : " (works in either harness)"}</th></tr>`
+          : "";
         const stepLabel = lbModuleLabel(
           m.stepLabel ||
             (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`),
@@ -4154,7 +4295,7 @@ async function lbPreview(options = {}) {
         const orderCells = edit ? `${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td>` : "";
         const detail = edit ? `<div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}` : "";
         const describedBy = edit ? ` aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"` : "";
-        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked${describedBy}></td>${orderCells}<th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Refresher: " : ""}${escapeHtml(m.name)}</label>${detail}</th><td>about ${m.minutes} min</td></tr>${(m.subtopics || []).map((sub) => lbRenderOutlineSubtopic(m, sub)).join("")}`;
+        return `${partRow}<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked${describedBy}></td>${orderCells}<th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Refresher: " : ""}${escapeHtml(m.name)}</label>${detail}</th><td>about ${m.minutes} min</td></tr>${(m.subtopics || []).map((sub) => lbRenderOutlineSubtopic(m, sub)).join("")}`;
       })
       .join("");
     const subtopicTotal = data.modules.reduce((sum, m) => sum + (m.subtopics || []).length, 0);

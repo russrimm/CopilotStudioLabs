@@ -13,7 +13,7 @@ import { createPortalClient } from "../companion.mjs";
 import { createRecipeStore } from "../recipes.mjs";
 import { detectBrowserAvailability } from "../lab-runner.mjs";
 import { FAKE_AGENT_URL, FAKE_PRACTICE_ENV_URL, FAKE_SITE_URL } from "./fixtures/fake-product-site.mjs";
-import { startScenario, retagLab, WORKTREE_ROOT } from "./fixtures/capture-scenarios.mjs";
+import { startScenario, WORKTREE_ROOT } from "./fixtures/capture-scenarios.mjs";
 
 const found = await detectBrowserAvailability({ repoRoot: WORKTREE_ROOT }).catch(() => ({ available: false }));
 const skip = found.available ? false : "Playwright with a browser is not installed";
@@ -141,9 +141,9 @@ test("with no agent address given, the practice agent is created first and every
 });
 
 test("when the practice agent cannot be created, the shots that show an agent wait with one plain reason, nothing is guessed, and no other agent is opened", { skip, timeout: 300_000 }, async () => {
-  // The newer layout has no "Create blank agent" button, so the practice agent cannot be made on this site. The newer layout is the Microsoft Copilot harness.
-  const scenario = await startScenario({ repoDir: REPO, site: { layout: "newer" } });
-  retagLab(scenario.lab.labDir, "microsoft-copilot");
+  // The account cannot create agents (the newer Agents page has no New agent button), so the practice agent cannot be made on this site. The newer layout is the
+  // Microsoft Copilot harness, so the lab is a Microsoft Copilot harness lab.
+  const scenario = await startScenario({ repoDir: REPO, site: { layout: "newer", createDisabled: true }, lab: { harness: "microsoft-copilot", features: ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test"] } });
   try {
     await scenario.call("PUT", "/api/capture/consent", PRACTICE);
     const out = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });

@@ -988,7 +988,7 @@ function scBuildConsentCard(labId, consent) {
   scratchLabel.appendChild(scratchBox);
   scratchLabel.appendChild(scEl("span", { text: "Build the agent from scratch (recommended): it creates one new practice agent and follows the lab on it" }));
   scratchRow.appendChild(scratchLabel);
-  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Lab screenshots - ” and a short title from your lab. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
+  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Classic shots - ” (Standard (Classic) harness) or “Copilot shots - ” (Microsoft Copilot harness) and a short title from your lab; a lab that covers both harnesses gets one of each. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
   card.appendChild(scratchRow);
 
   const practiceId = "sc-consent-practice";
@@ -1862,6 +1862,8 @@ function scBuildHarnessBlock(labId, shot, { idPrefix = "card" } = {}) {
   if (!model) return null;
   const box = scEl("div", { class: "sc-harness", data: { scHarness: model.need, scHarnessState: model.state } });
   box.appendChild(scHarnessChip(model.label, model.need));
+  // A shared topic of a lab built for both harnesses works in either; its picture is taken in the first one, and the card says so in words.
+  if (model.shared) box.appendChild(scEl("p", { class: "sc-harness-shared", text: model.sharedNote, data: { scHarnessShared: "1" } }));
   if (model.pictureLabel) box.appendChild(scEl("p", { class: "sc-harness-picture", text: `Picture: ${model.pictureLabel}`, data: { scHarnessPicture: model.state } }));
   const note = model.message || model.gapNote;
   if (note) box.appendChild(scEl("p", { class: "sc-harness-note", text: note, data: { scHarnessNote: model.gap ? "gap" : model.state } }));
@@ -1881,28 +1883,50 @@ function scBuildHarnessBlock(labId, shot, { idPrefix = "card" } = {}) {
   return box;
 }
 
-/** What the lab says about its harness, at the top of the Screenshot Center: the statement, and a warning when pictures are mixed or from the wrong harness. */
+/**
+ * What the lab says about its harness, at the top of the Screenshot Center: the statement, and a warning when pictures are mixed or from the wrong
+ * harness. A lab built for both harnesses, one after another, is never "mixed": it says how many pictures each part has taken in its own harness.
+ */
 function scBuildHarnessBanner(labId) {
   const lab = scLab(labId);
   const model = scHarnessLabModel(lab.state);
   if (!model) return null;
-  const box = scEl("section", { class: `sc-harness-banner${model.mixed || model.wrong ? " sc-harness-banner-warn" : ""}`, attrs: { "aria-label": "The harness this lab is built for" }, data: { scHarnessBanner: model.id } });
+  const box = scEl("section", {
+    class: `sc-harness-banner${model.mixed || model.wrong ? " sc-harness-banner-warn" : ""}`,
+    attrs: { "aria-label": model.combined ? "The harnesses this lab is built for" : "The harness this lab is built for" },
+    data: { scHarnessBanner: model.combined ? "both" : model.id },
+  });
   box.appendChild(scEl("p", { class: "sc-harness-statement", text: model.statement, data: { scHarnessStatement: "1" } }));
   if (model.source) box.appendChild(scEl("p", { class: "sc-harness-source", text: model.source }));
-  if (model.mixed) {
+  if (model.combined && model.parts.length) {
+    const parts = scEl("ul", { class: "sc-harness-parts", attrs: { "aria-label": "Pictures taken in each harness" } });
+    for (const part of model.parts) {
+      const li = scEl("li", { class: `sc-harness-part${part.wrong ? " sc-harness-part-warn" : ""}`, data: { scHarnessPart: part.id } });
+      li.appendChild(scHarnessChip(part.label, part.id));
+      li.appendChild(document.createTextNode(` ${scHarnessPartText(part)}`));
+      parts.appendChild(li);
+    }
+    box.appendChild(parts);
+  }
+  if (model.mixed && !model.combined) {
     const warning = scEl("p", { class: "sc-harness-mixed", attrs: { role: "status" }, data: { scHarnessMixed: "1" } });
     warning.appendChild(scEl("strong", { text: "Mixed harnesses. " }));
     warning.appendChild(document.createTextNode(model.mixedMessage));
     box.appendChild(warning);
   }
   if (model.wrong) {
-    const words = model.wrong === 1 ? "1 picture was taken in a different harness than the lab's" : `${model.wrong} pictures were taken in a different harness than the lab's`;
-    box.appendChild(scEl("p", { class: "sc-harness-wrong", text: `${words}. ${model.wrong === 1 ? "It is" : "They are"} not used until you retake ${model.wrong === 1 ? "it" : "them"} in the ${model.label}.`, data: { scHarnessWrong: String(model.wrong) } }));
+    const one = model.wrong === 1;
+    const count = one ? "1 picture was" : `${model.wrong} pictures were`;
+    const text = model.combined
+      ? `${count} taken in a different harness than ${one ? "the part it sits in needs" : "the part each one sits in needs"}. ${one ? "It is" : "They are"} not used until you retake ${one ? "it" : "them"} in ${one ? "that part's harness" : "their part's harness"}.`
+      : `${count} taken in a different harness than the lab's. ${one ? "It is" : "They are"} not used until you retake ${one ? "it" : "them"} in the ${model.label}.`;
+    box.appendChild(scEl("p", { class: "sc-harness-wrong", text, data: { scHarnessWrong: String(model.wrong) } }));
     const shots = lab.state?.shots || [];
     const list = scEl("ul", { class: "sc-harness-files", attrs: { "aria-label": "Pictures taken in a different harness" } });
     for (const filename of model.wrongFiles.slice(0, 12)) {
       const shot = shots.find((s) => s.filename === filename);
-      list.appendChild(scEl("li", { text: shot ? `${scShotLabel(shot)} \u00b7 Picture: ${scText(shot.pictureHarnessLabel, 80) || "another harness"}` : filename }));
+      const needs = model.combined && shot ? scHarnessLabelOf(shot.harness, shot.harnessLabel) : "";
+      list.appendChild(scEl("li", { text: shot ? `${scShotLabel(shot)}${needs ? ` \u00b7 Needs: ${needs}` : ""} \u00b7 Picture: ${scText(shot.pictureHarnessLabel, 80) || "another harness"}` : filename }));
     }
     if (list.children.length) box.appendChild(list);
   }
@@ -1910,7 +1934,7 @@ function scBuildHarnessBanner(labId) {
     box.appendChild(
       scEl("p", {
         class: "sc-harness-gaps",
-        text: `${scPlural(model.gaps, "screenshot")} ${model.gaps === 1 ? "belongs" : "belong"} to modules that are not written for this lab's harness (${model.label}). Each one says so on its card, and none is captured in another harness.`,
+        text: `${scPlural(model.gaps, "screenshot")} ${model.gaps === 1 ? "belongs" : "belong"} to modules that are not written for ${model.combined ? "the harness of the part they sit in" : `this lab's harness (${model.label})`}. Each one says so on its card, and none is captured in another harness.`,
         data: { scHarnessGaps: String(model.gaps) },
       }),
     );
@@ -1947,7 +1971,7 @@ function scBuildHarnessUnrecorded(labId) {
   section.appendChild(
     scEl("p", {
       class: "sc-harness-help",
-      text: `${scPlural(shots.length, "picture")} in this lab ${shots.length === 1 ? "was" : "were"} saved before the harness was recorded, so the file does not say which harness ${shots.length === 1 ? "it shows" : "each one shows"}. This lab keeps showing ${shots.length === 1 ? "it" : "them"}, but ${shots.length === 1 ? "it is" : "they are"} not reused for another lab until you tag ${shots.length === 1 ? "it" : "each one"}. Look at the picture, then choose the harness it shows. If it is not the ${model.label}, it is moved to the kept pictures list and its screenshot goes back to pending.`,
+      text: `${scPlural(shots.length, "picture")} in this lab ${shots.length === 1 ? "was" : "were"} saved before the harness was recorded, so the file does not say which harness ${shots.length === 1 ? "it shows" : "each one shows"}. This lab keeps showing ${shots.length === 1 ? "it" : "them"}, but ${shots.length === 1 ? "it is" : "they are"} not reused for another lab until you tag ${shots.length === 1 ? "it" : "each one"}. Look at the picture, then choose the harness it shows. If it is not ${model.combined ? "the harness its screenshot needs" : `the ${model.label}`}, it is moved to the kept pictures list and its screenshot goes back to pending.`,
     }),
   );
   const list = scEl("ul", { class: "sc-harness-list", attrs: { "aria-label": "Pictures with no harness recorded" } });
@@ -1962,8 +1986,9 @@ function scBuildHarnessUnrecorded(labId) {
     body.appendChild(scEl("code", { class: "sc-harness-file", text: shot.filename }));
     const chips = scEl("div", { class: "sc-harness-pair" });
     chips.appendChild(scHarnessChip(SC_HARNESS_NOT_RECORDED, "not-recorded"));
-    chips.appendChild(scHarnessChip(`Needs: ${harness?.label || model.label}`, harness?.need || model.id));
+    chips.appendChild(scHarnessChip(`Needs: ${harness?.label || model.label}`, harness?.need || model.id || "either"));
     body.appendChild(chips);
+    if (harness?.shared) body.appendChild(scEl("p", { class: "sc-harness-shared", text: harness.sharedNote }));
     if (harness?.message) body.appendChild(scEl("p", { class: "sc-harness-note", text: harness.message }));
     body.appendChild(
       scHarnessTagButtons(harness?.choices?.length ? harness.choices : scHarnessTagChoices(model.id), {
@@ -2985,6 +3010,7 @@ function scBuildReviewCompare(shot, label, url) {
   const asks = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-asks" } });
   asks.appendChild(scEl("h6", { id: "sc-review-asks", text: "What the lab asks for" }));
   if (harness) asks.appendChild(scHarnessChip(harness.label, harness.need));
+  if (harness?.shared) asks.appendChild(scEl("p", { class: "sc-harness-shared", text: harness.sharedNote }));
   if (shot.caption) asks.appendChild(scEl("p", { class: "sc-review-caption", text: String(shot.caption) }));
   const instructions = scLbInstructions(shot);
   if (instructions) asks.appendChild(instructions);

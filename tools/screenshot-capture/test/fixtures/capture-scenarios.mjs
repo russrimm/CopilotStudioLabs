@@ -105,22 +105,6 @@ export async function buildFixtureLab({ repoDir, storageRoot, features = FIXTURE
   return { labId: build.labId, labDir: build.outputDir, generatedRoot };
 }
 
-/**
- * Say that every Copilot Studio slot of a generated lab is taken in one harness (the plan reads the lab's own shot list). The pretend site
- * shows one harness: its newer layout is the Microsoft Copilot harness and its classic layout is the Standard (Classic) harness, so a test that
- * keeps the features it needs from the other harness retags the lab to the harness the site shows, which is what a lab for that harness would do.
- */
-export function retagLab(labDir, harness) {
-  const file = path.join(labDir, "screenshots", "shots.json");
-  const plan = JSON.parse(fs.readFileSync(file, "utf8"));
-  for (const shot of plan.shots) {
-    shot.harness = harness;
-    delete shot.harnessGap;
-    delete shot.harnessGapNote;
-  }
-  fs.writeFileSync(file, JSON.stringify(plan, null, 2));
-}
-
 export async function call(base, method, route, json) {
   const res = await fetch(`${base}${route}`, { method, headers: json === undefined ? {} : { "Content-Type": "application/json" }, body: json === undefined ? undefined : JSON.stringify(json) });
   const text = await res.text();

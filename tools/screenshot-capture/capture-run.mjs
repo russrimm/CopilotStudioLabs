@@ -26,7 +26,7 @@ import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 import { collectVisibleLabels, readPageSignals } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
 import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, STANDARD, harnessPlan } from "./harness.mjs";
-import { chooseAgentFix, ensureClassicExperience, ensureDefaultExperience, harnessEvidence, harnessGapMessage, harnessScopeOf, harnessState, proveHarness, proveWithRecovery, provedLine, readPoweredBy, wantedHarness, wrongHarness } from "./harness-run.mjs";
+import { chooseAgentFix, ensureClassicExperience, ensureDefaultExperience, harnessEvidence, harnessGapMessage, harnessScopeOf, harnessState, proveEnvironmentPage, proveHarness, proveWithRecovery, provedLine, readPoweredBy, wantedHarness, wrongHarness } from "./harness-run.mjs";
 import { CUSTOMER_AGENT_MESSAGE } from "./practice.mjs";
 import { normalizeAgentSource, resolveAutomation } from "./walkthrough.mjs";
 import {
@@ -432,6 +432,11 @@ export async function runCaptureShot({
       // A person who sets the screen up (guided) is told what to do instead of being stopped: they switch themselves.
       if (effectiveMode === "guided") log?.(`  ${switched.error}`);
       else return stopForHarness({ code: switched.cause, message: switched.error });
+    } else if (switched.switched && effectiveMode !== "guided") {
+      // The switch was just made: nothing is built or opened until the page says it took effect (the menu no longer offers the command). A page that
+      // still says it is in the default experience stops the shot here, before a practice agent is made in the wrong experience.
+      const seen = await proveEnvironmentPage(page, { session, allowClicks: true, sleep, trace, log, deps: session.harnessDeps || null });
+      if (seen && seen.harness !== STANDARD) return stopForHarness({ code: "wrong-harness", found: seen.harness, message: wrongHarness(seen.harness, STANDARD) });
     }
   } else if (wanted === MICROSOFT_COPILOT) {
     const back = await ensureDefaultExperience({ page, session, go: goTo, trace, log, sleep, readiness });

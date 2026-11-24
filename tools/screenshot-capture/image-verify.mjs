@@ -575,7 +575,7 @@ export function verifyImage(bytes, options = {}) {
     const wantedHarness = normalizeHarness(options.expectHarness);
     if (options.requireProof && isSpecificHarness(wantedHarness)) {
       if (!evidence.harness) {
-        reasons.push(reason("harness-unproven", "warn", `The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to ${HARNESS_MIN_COMPANION} or newer.`));
+        reasons.push(reason("harness-unproven", "warn", `The companion did not prove which harness this picture was taken in (companions older than ${HARNESS_MIN_COMPANION} never do, and a screen outside an agent cannot be proven), so it is saved for review. Check which harness it shows before you accept it.`));
       } else if (evidence.harness.id !== wantedHarness) {
         reasons.push(reason("wrong-harness", "fail", `This picture was taken in the ${HARNESS_LABELS[evidence.harness.id]}, but this screenshot needs the ${HARNESS_LABELS[wantedHarness]}, so it was not saved.`));
       }

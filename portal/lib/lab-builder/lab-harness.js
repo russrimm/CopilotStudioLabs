@@ -11,19 +11,49 @@ import path from "node:path";
 
 import { getFeature } from "./catalog.js";
 import { capturedImage, capturedScreenshotsDirs, labPictureHarness, setLabSlotHarnessResolver } from "./captured.js";
+import { combinedHarnessOrder, harnessForModule, isCombinedHarnessMode } from "./harness-parts.js";
 import { DEFAULT_PRODUCT } from "./products.js";
 import { slotNeedFor, slotsForFeature } from "./slots.js";
-import { harnessLabel, isSpecificHarness, labHarnessStatement, normalizeHarness, pictureFitsSlot } from "../../../tools/screenshot-capture/harness.mjs";
+import { combinedHarnessStatement, harnessLabel, isSpecificHarness, labHarnessStatement, normalizeHarness, pictureFitsSlot } from "../../../tools/screenshot-capture/harness.mjs";
 
 /**
  * The lab's harness as the lab data records it: `{ id, label, source, statement }` or null for a lab with no Copilot Studio part.
  * `source` says how it was decided: "chosen" (the person picked it), "inferred" (most of the lab's single-harness modules are written for it),
  * "default" (nothing said, so Standard), or "saved" (a lab built before this was recorded, read from its manifest).
+ *
+ * A lab that covers both harnesses one after another has no single harness: pass its `order` and the answer is
+ * `{ id: null, mode: "both", order, label, source, statement }`, where each picture's harness is that of the part it sits in.
  */
-export function labHarnessInfo(id, source = "saved") {
+export function labHarnessInfo(id, source = "saved", { order = null } = {}) {
+  const both = (Array.isArray(order) ? order : []).map(normalizeHarness).filter(isSpecificHarness);
+  if (both.length === 2) {
+    return { id: null, mode: "both", order: both, label: `Both harnesses: ${harnessLabel(both[0])}, then ${harnessLabel(both[1])}`, source, statement: combinedHarnessStatement(both) };
+  }
   const harness = normalizeHarness(id);
   if (!harness || harness === "either") return null;
   return { id: harness, label: harnessLabel(harness), source, statement: labHarnessStatement(harness) };
+}
+
+/** The two harnesses a plan (a planner plan, a shots.json, or a manifest) covers one after another, in order, or an empty list for any other lab. */
+export function labHarnessOrder(plan) {
+  const fromPlan = combinedHarnessOrder(plan);
+  if (fromPlan.length === 2) return fromPlan;
+  const info = plan?.harnessInfo;
+  return info?.mode === "both" && Array.isArray(info.order) && info.order.length === 2 ? [...info.order] : [];
+}
+
+/**
+ * The harness a feature's pictures are taken in. For a single-harness lab that is the lab's harness. For a combined lab it is the harness of
+ * the part the feature sits in; a shared part (a topic that is the same in both harnesses) is taken in the first harness of the order, so it
+ * has exactly one harness and never crosses. Reads the part through `harnessForModule`, never from the feature's catalog tags.
+ * @param {object} plan a planner plan, a shots.json, or a manifest (`harnessMode`/`harnesses`, or `harness`)
+ * @param {{id?: string, harnessPart?: string}} feature the feature or module (only its id and part are read)
+ */
+export function featureLabHarness(plan, feature) {
+  const order = labHarnessOrder(plan);
+  if (order.length !== 2) return plan?.harness ?? null;
+  const read = harnessForModule({ harnessMode: "both", harnesses: order, harnessParts: plan?.harnessParts }, { id: feature?.id, harnessPart: feature?.harnessPart });
+  return read.harness || read.harnesses?.[0] || order[0];
 }
 
 /**
@@ -44,21 +74,36 @@ export function shotHarnessNeed(shot, { labHarness = null } = {}) {
  */
 export function withShotHarness(shotsPlan) {
   if (!shotsPlan || typeof shotsPlan !== "object") return shotsPlan;
+  const order = labHarnessOrder(shotsPlan);
+  const hasCopilotStudio = (shotsPlan.shots || []).some((s) => (s.product || DEFAULT_PRODUCT) === "copilot-studio") || (shotsPlan.products || []).includes("copilot-studio");
+  if (order.length === 2 && hasCopilotStudio) {
+    // A lab that covers both harnesses has no single harness: each shot needs the harness of the part it sits in.
+    shotsPlan.harnessMode = "both";
+    shotsPlan.harnesses = order;
+    shotsPlan.harness = null;
+    shotsPlan.harnessInfo = labHarnessInfo(null, shotsPlan.harnessInfo?.source || "saved", { order });
+    shotsPlan.harnessLabel = shotsPlan.harnessInfo.label;
+    for (const shot of shotsPlan.shots || []) {
+      const need = shotHarnessNeed(shot, { labHarness: featureLabHarness(shotsPlan, { id: shot.featureId || shot.feature, harnessPart: shot.harnessPart }) });
+      applyNeed(shot, need);
+    }
+    return shotsPlan;
+  }
   const lab = normalizeHarness(shotsPlan.harnessInfo?.id ?? shotsPlan.harness);
   const labHarness = lab && lab !== "either" ? lab : null;
-  const hasCopilotStudio = (shotsPlan.shots || []).some((s) => (s.product || DEFAULT_PRODUCT) === "copilot-studio") || (shotsPlan.products || []).includes("copilot-studio");
   shotsPlan.harness = labHarness || (hasCopilotStudio ? "standard" : null);
   shotsPlan.harnessInfo = labHarnessInfo(shotsPlan.harness, shotsPlan.harnessInfo?.source || (labHarness ? "saved" : "default"));
   if (shotsPlan.harnessInfo) shotsPlan.harnessLabel = shotsPlan.harnessInfo.label;
-  for (const shot of shotsPlan.shots || []) {
-    const need = shotHarnessNeed(shot, { labHarness: shotsPlan.harness });
-    shot.harness = need.id;
-    shot.harnessLabel = harnessLabel(need.id);
-    shot.harnessSource = need.source;
-    if (need.gap) shot.harnessGap = need.gap;
-    else delete shot.harnessGap;
-  }
+  for (const shot of shotsPlan.shots || []) applyNeed(shot, shotHarnessNeed(shot, { labHarness: shotsPlan.harness }));
   return shotsPlan;
+}
+
+function applyNeed(shot, need) {
+  shot.harness = need.id;
+  shot.harnessLabel = harnessLabel(need.id);
+  shot.harnessSource = need.source;
+  if (need.gap) shot.harnessGap = need.gap;
+  else delete shot.harnessGap;
 }
 
 const slotHarnessCache = new Map();
@@ -98,9 +143,11 @@ setLabSlotHarnessResolver(labSlotHarness);
  * @param {string|null} labHarness the lab's harness
  * @param {Array<{filename: string, harnessState?: string, pictureHarness?: string|null, harnessGap?: object|null}>} shots a lab status's shots
  */
-export function labHarnessSummary(labHarness, shots) {
+export function labHarnessSummary(labHarness, shots, { order = [] } = {}) {
   const lab = normalizeHarness(labHarness);
-  const specific = isSpecificHarness(lab);
+  const both = (Array.isArray(order) ? order : []).map(normalizeHarness).filter(isSpecificHarness);
+  const combined = both.length === 2;
+  const specific = !combined && isSpecificHarness(lab);
   const list = Array.isArray(shots) ? shots : [];
   const files = (state) => list.filter((s) => s.harnessState === state).map((s) => s.filename);
   const notRecordedFiles = files("not-recorded");
@@ -108,14 +155,30 @@ export function labHarnessSummary(labHarness, shots) {
   const gapFiles = list.filter((s) => s.harnessGap).map((s) => s.filename);
   const seen = [...new Set(list.map((s) => normalizeHarness(s.pictureHarness)).filter(isSpecificHarness))];
   const other = specific ? seen.filter((h) => h !== lab) : [];
+  // A combined lab is expected to show both harnesses, each in its own part, so "mixed" never applies to it: every part is checked against
+  // its own harness instead (the wrong pictures above, and the per-part counts below).
   const mixed = specific && (other.length > 0 || seen.length > 1);
   const names = (ids) => ids.map(harnessLabel);
   const mixedMessage = !mixed
     ? ""
     : `This lab is built for the ${harnessLabel(lab)}, but it has pictures from ${seen.length > 1 ? `both the ${names(seen).join(" and the ")}` : `the ${names(other).join(" and the ")}`}. A lab must only show pictures from its own harness. Retake the ones from the other harness.`;
+  const parts = combined
+    ? both.map((id) => {
+        const own = list.filter((s) => normalizeHarness(s.harness) === id);
+        return {
+          harness: id,
+          label: harnessLabel(id),
+          shots: own.length,
+          taken: own.filter((s) => s.harnessState === "ok").length,
+          wrong: own.filter((s) => s.harnessState === "wrong-harness").length,
+          notRecorded: own.filter((s) => s.harnessState === "not-recorded").length,
+        };
+      })
+    : [];
   return {
     labHarness: specific ? lab : null,
-    statement: specific ? labHarnessStatement(lab) : "",
+    ...(combined ? { combined: true, order: both, parts } : {}),
+    statement: combined ? combinedHarnessStatement(both) : specific ? labHarnessStatement(lab) : "",
     notRecorded: notRecordedFiles.length,
     wrong: wrongFiles.length,
     gaps: gapFiles.length,
@@ -149,5 +212,5 @@ export function scanLabHarness(labDir, { capturedDir = capturedScreenshotsDirs()
     const state = !isSpecificHarness(need) ? "none" : !own ? "pending" : pictureFitsSlot(need, pictureHarness).code;
     return { filename: shot.filename, harness: need, harnessGap: shot.harnessGap || null, pictureHarness, harnessState: state };
   });
-  return { labHarness: plan.harness, shots, summary: labHarnessSummary(plan.harness, shots) };
+  return { labHarness: plan.harness, order: labHarnessOrder(plan), shots, summary: labHarnessSummary(plan.harness, shots, { order: labHarnessOrder(plan) }) };
 }

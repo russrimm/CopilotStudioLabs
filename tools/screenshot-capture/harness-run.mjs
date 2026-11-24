@@ -81,14 +81,21 @@ export function harnessEvidence({ id, landmarks, switched = false, wanted = null
 }
 
 /**
- * Microsoft Copilot (and Customer Conversation) shots first, Standard (Classic) shots last. The switch to the classic experience lasts for
- * the browser session and there is no safe way back inside it, so every shot that needs the default experience is taken before it.
- * The order inside each group is unchanged.
+ * One harness at a time, in the order each harness first appears, so the experience changes once between them: the switch to the classic experience
+ * lasts for the browser session, and going back to the default one is a navigation. A shot with no harness (or "either") stays with the shot before it.
+ * The order inside each group is unchanged, so a plan that is already one harness at a time keeps its order (creation step first inside each).
  */
 export function orderByHarness(items, pick = (item) => item) {
   const list = Array.isArray(items) ? items : [];
-  const classic = (item) => wantedHarness(pick(item)) === STANDARD;
-  return [...list.filter((item) => !classic(item)), ...list.filter(classic)];
+  const groups = new Map();
+  let last = "none";
+  for (const item of list) {
+    const wanted = wantedHarness(pick(item));
+    if (wanted) last = wanted;
+    if (!groups.has(last)) groups.set(last, []);
+    groups.get(last).push(item);
+  }
+  return [...groups.values()].flat();
 }
 
 // ── What this browser session has done ─────────────────────────────────────
@@ -385,7 +392,7 @@ export async function ensureClassicExperience({ page, session, go, trace = null,
 export async function ensureDefaultExperience({ page, session, go, trace = null, log = null, sleep = sleepDefault, readiness = {}, force = false }) {
   const state = harnessState(session, page);
   if (!state.classic && !force) return { ok: true, returned: false };
-  log?.(`  Going back to the default experience: ${DEFAULT_EXPERIENCE_URL}`);
+  log?.(`  Changing experience: going back to the default experience for the Microsoft Copilot harness (${DEFAULT_EXPERIENCE_URL}).`);
   const opened = await go(DEFAULT_EXPERIENCE_URL, "Copilot Studio");
   if (opened.signIn) return { ok: false, returned: false, signIn: opened.signIn };
   state.classic = false;

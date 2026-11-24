@@ -21,7 +21,8 @@ const CS_PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 import { getHarnesses } from "./catalog.js";
 import { DEFAULT_PRODUCT, getProduct, joinNames, productName, productOf, productsPhrase } from "./products.js";
 import { getConcepts } from "./concepts.js";
-import { buildDifferenceBlocks } from "./differences.js";
+import { buildDifferenceBlocks, buildHarnessPairPointers } from "./differences.js";
+import { SHARED_NOTE, harnessTitle } from "./harness-parts.js";
 import { levelName } from "./levels.js";
 import {
   buildArchitectureBlock,
@@ -189,6 +190,7 @@ function metadataTable(plan, generation = {}) {
     `| **TRAINING** | Training: about ${formatTrainingDuration(estimateLabTrainingMinutes(plan).total)}, delivered before the hands-on lab (estimate, not a limit) |`,
     `| **PRODUCTS** | ${productsRow(plan)} |`,
     plan.harness ? `| **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
+    plan.harnessParts ? `| **HARNESS** | Both, one after another: ${plan.harnessParts.order.map((id) => harnessTitle(id)).join(", then ")} |` : null,
     `| **TAGS** | ${tags} |`,
     `| **INDUSTRIES** | ${industries} |`,
     freshnessRow(generation),
@@ -390,6 +392,11 @@ function prerequisitesSection(plan) {
     );
   }
   for (const id of ids.filter((pid) => pid !== DEFAULT_PRODUCT)) items.push(...(getProduct(id)?.labPrerequisites || []));
+  if (plan.harnessParts) {
+    items.push(
+      `Two practice agents, one for each harness this lab covers (${plan.harnessParts.order.map((id) => harnessTitle(id)).join(" and ")}). Each harness part has you create its own agent, so the two do not share settings.`,
+    );
+  }
   items.push("A modern browser signed in with the account that owns that environment.");
 
   const spSite = sharepointSiteForPlan(plan);
@@ -774,14 +781,22 @@ function subtopicSections(feature, stepsRecord) {
   return lines;
 }
 
+/** The harness a module belongs to in a lab that covers two harnesses, as the label its heading line carries. */
+function harnessPartLabel(feature, plan) {
+  if (!plan.harnessParts || !feature.harnessPart) return "";
+  const part = plan.harnessParts.parts.find((p) => p.id === feature.harnessPart);
+  return part?.harness ? harnessTitle(part.harness) : SHARED_NOTE;
+}
+
 /** A prerequisite recap: the lower-level topic a selected topic builds on, kept short and clearly labeled. */
 function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
   const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
   const steps = source.map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
+  const harnessLabel = harnessPartLabel(feature, plan);
   return [
     `### Recap ${feature.recapOrder ?? feature.order} - ${feature.name}`,
     "",
-    `*Prerequisite recap from Level ${feature.level} · about ${feature.minutes} minutes. This is a refresher for a lower-level topic that the ${levelName(plan.level)} modules build on. Skip it if you already know it.*`,
+    `*Prerequisite recap from Level ${feature.level} · about ${feature.minutes} minutes${harnessLabel ? ` · ${harnessLabel}` : ""}. This is a refresher for a lower-level topic that the ${levelName(plan.level)} modules build on. Skip it if you already know it.*`,
     "",
     `**What you are doing.** ${scrubForbidden(feature.summary)}`,
     ...groundedInsight(grounding, feature.summary),
@@ -828,7 +843,58 @@ function scopeNoteLines(feature, plan) {
   return ["", `**Check before you teach this.** Microsoft Learn says: "${quoted}" ${advice}`];
 }
 
-function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
+/**
+ * In a lab that covers two harnesses, a sample input or a troubleshooting item that both versions of an idea would print word
+ * for word is printed once, and the second version points back. `echo` is only created for such a lab, so every other lab
+ * keeps its text exactly.
+ */
+const echoKey = (text) => String(text).toLowerCase().replace(/\s+/g, " ").trim();
+
+function onceSampleInput(lines, echo, stepNum) {
+  if (!echo || !lines.length) return lines;
+  const key = echoKey(lines.join(" "));
+  const earlier = echo.samples.get(key);
+  if (earlier === undefined) {
+    echo.samples.set(key, stepNum);
+    return lines;
+  }
+  return ["", `**Sample input.** Use the same sample input as in Step ${earlier}.`];
+}
+
+function onceScenarioNote(text, echo, stepNum) {
+  if (!echo) return text;
+  const key = echoKey(text);
+  if (key.length < 90) return text;
+  const earlier = echo.scenarios.get(key);
+  if (earlier === undefined) {
+    echo.scenarios.set(key, stepNum);
+    return text;
+  }
+  return `**In your scenario.** The same as in Step ${earlier}.`;
+}
+
+function onceTroubleshooting(block, echo, stepNum) {
+  if (!echo) return block;
+  const list = block[block.length - 1];
+  if (typeof list !== "string") return block;
+  const origins = [];
+  const kept = list.split("\n").filter((line) => {
+    const key = echoKey(line);
+    if (key.length < 90) return true;
+    const earlier = echo.bullets.get(key);
+    if (earlier === undefined) {
+      echo.bullets.set(key, stepNum);
+      return true;
+    }
+    origins.push(earlier);
+    return false;
+  });
+  if (!origins.length) return block;
+  kept.push(`- **More in Step ${origins[0]}.** The other troubleshooting items for this idea are the same as in Step ${origins[0]}.`);
+  return [...block.slice(0, -1), kept.join("\n")];
+}
+
+function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = [], pointerLines = null, echo = null) {
   if (feature.prerequisite) return recapSection(feature, plan, grounding, stepsRecord, vendorRecords);
   const applied =
     enrichment?.applied || buildFeatureScenarioNote(feature, plan, TEACH);
@@ -843,16 +909,18 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     : feature.steps;
   const steps = source.map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
   const stepNum = feature.stepOrder ?? feature.order;
+  const harnessLabel = harnessPartLabel(feature, plan);
 
   return [
     `### Step ${stepNum} - ${feature.name}`,
     "",
-    `*Level ${feature.level} · about ${feature.minutes} minutes${isAdminAudienceTopic(feature) ? ` · ${ADMIN_AUDIENCE_LABEL}` : ""}*`,
+    `*Level ${feature.level} · about ${feature.minutes} minutes${isAdminAudienceTopic(feature) ? ` · ${ADMIN_AUDIENCE_LABEL}` : ""}${harnessLabel ? ` · ${harnessLabel}` : ""}*`,
     "",
     `**What you are doing.** ${scrubForbidden(feature.summary)}`,
     ...scopeNoteLines(feature, plan),
     "",
-    `**Why it matters.** ${scrubForbidden(feature.whyItMatters)}`,
+    // The second harness's version of an idea points back to the first instead of explaining the idea again.
+    ...(pointerLines?.length ? pointerLines : [`**Why it matters.** ${scrubForbidden(feature.whyItMatters)}`]),
     ...groundedInsight(grounding, feature.summary),
     "",
     "**Concepts before you click**",
@@ -867,19 +935,43 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     ...subtopicSections(feature, stepsRecord),
     ...expectedResultBlock(feature, shots, TEACH),
     "",
-    `**In your scenario.** ${scrubForbidden(applied)}`,
-    ...sampleInputBlock(feature, plan, stepNum - 1, TEACH),
+    onceScenarioNote(`**In your scenario.** ${scrubForbidden(applied)}`, echo, stepNum),
+    ...onceSampleInput(sampleInputBlock(feature, plan, stepNum - 1, TEACH), echo, stepNum),
     ...screenshotBlock(shots),
     ...differenceLines,
     "",
     "**Check your work**",
     "",
     bullets(checkItems(feature, stepsRecord).map((v) => `[ ] ${scrubForbidden(v)}`)),
-    ...troubleshootingBlock(feature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []),
+    ...onceTroubleshooting(troubleshootingBlock(feature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []), echo, stepNum),
     ...knowledgeCheckBlock(feature, plan, TEACH, grounding),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),
   ].join("\n");
+}
+
+/**
+ * The paragraph and list at the top of Step-by-Step in a lab that covers two harnesses: the parts in the order they are
+ * taught, which steps each holds, and what a shared step means. Empty for any other lab.
+ */
+function harnessPartsNote(plan) {
+  const info = plan.harnessParts;
+  if (!info?.parts?.length) return [];
+  const byId = new Map(plan.features.map((f) => [f.id, f]));
+  const rows = info.parts.map((part) => {
+    const mods = part.moduleIds.map((id) => byId.get(id)).filter(Boolean);
+    const span = formatPartSpan(mods[0], mods[mods.length - 1]);
+    const what = part.harness ? "" : ` (${SHARED_NOTE.toLowerCase()})`;
+    return `**Part ${part.n} - ${part.label}**${what}: ${span}, about ${part.minutes} minutes`;
+  });
+  return [
+    `This lab covers both harnesses, one after another, so no step is repeated. A step marked **${SHARED_NOTE}** is the same in both harnesses and is done once. Where both harnesses have their own version of an idea, each version sits in its own harness part, and the second one says only what is different.`,
+    "",
+    bullets(rows),
+    "",
+    "You build one practice agent in each harness: the first in the first harness part, and the second in the second harness part. Keep the two agents separate.",
+    "",
+  ];
 }
 
 function validationSection(plan) {
@@ -1170,6 +1262,10 @@ export function composeLab(
     clean: (text) => escapeMarkdown(scrubForbidden(text)),
     concepts: getConcepts(),
   });
+  const pointers = buildHarnessPairPointers(plan, {
+    harnesses: getHarnesses(),
+    clean: (text) => escapeMarkdown(scrubForbidden(text)),
+  });
   const harnessLabel = getHarnesses().find((h) => h.id === plan.harness)?.name;
   const differencesNote = differences.byFeature.size
     ? [
@@ -1205,8 +1301,10 @@ export function composeLab(
     }`,
     "",
     ...differencesNote,
+    ...harnessPartsNote(plan),
   ];
 
+  const echo = plan.harnessParts ? { samples: new Map(), scenarios: new Map(), bullets: new Map() } : null;
   for (const feature of plan.features) {
     sections.push(
       featureSection(
@@ -1218,6 +1316,8 @@ export function composeLab(
         stepsByFeature.get(feature.id),
         vendorByFeature.get(feature.id),
         differences.byFeature.get(feature.id),
+        pointers.byFeature.get(feature.id),
+        echo,
       ),
       "",
     );

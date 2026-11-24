@@ -184,3 +184,54 @@ test("with a practice agent (not built from scratch) the agent handed over from 
     assert.match(lines.join("\n"), /Proved the Standard \(Classic\) harness: Overview/);
   });
 });
+
+test("one job with both harnesses, one harness after the other: the classic switch is made once, the default experience is opened again once, two practice agents are made, each picture carries the harness it was proven in, and a page still in the wrong harness after the switch is Needs you", { skip, timeout: 420_000 }, async () => {
+  await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines }) => {
+    // The plan gives all the Standard shots, then all the Microsoft Copilot shots (the creation step first inside each).
+    const first = await shoot(agentShot("a.classic.png", "standard"));
+    const second = await shoot(agentShot("b.classic.png", "standard"));
+    assert.deepEqual([first.status, second.status], ["captured", "captured"], first.error || second.error);
+    assert.deepEqual([first.harness.id, second.harness.id], ["standard", "standard"]);
+    assert.equal(site.stats.classicClicks, 1, "the switch to the classic experience was made once for both Standard shots");
+    assert.equal(first.harness.switched, true);
+    assert.equal(site.experience.classic, true);
+    assert.doesNotMatch(lines.join("\n"), /Changing experience/, "no return to the default experience before the Microsoft Copilot part");
+
+    const third = await shoot(agentShot("c.copilot.png", "microsoft-copilot"));
+    const fourth = await shoot(agentShot("d.copilot.png", "microsoft-copilot"));
+    assert.deepEqual([third.status, fourth.status], ["captured", "captured"], third.error || fourth.error);
+    assert.deepEqual([third.harness.id, fourth.harness.id], ["microsoft-copilot", "microsoft-copilot"]);
+    assert.equal(third.harness.switched, false, "a Microsoft Copilot picture is never marked as switched");
+    assert.equal(site.experience.classic, false, "the session is back in the default experience");
+    assert.equal(site.stats.classicClicks, 1, "going back to the default experience clicked nothing in the classic one");
+    const text = lines.join("\n");
+    assert.equal((text.match(/Switching to the classic experience:/g) || []).length, 1);
+    assert.equal((text.match(/Changing experience: going back to the default experience/g) || []).length, 1, "one return to the default experience");
+    assert.match(text, /Proved the Microsoft Copilot harness: Build, Preview, Evaluate, Monitor/);
+
+    // Two practice agents inside the same job, each proven in its own experience and neither used for the other.
+    assert.deepEqual(practiceAgents(site), [
+      { name: "Classic shots - Team Assistant", harness: "standard" },
+      { name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" },
+    ]);
+    assert.deepEqual(registry.items().agents.map((a) => a.harness), ["standard", "microsoft-copilot"]);
+    assert.deepEqual([first, second, third, fourth].map((r) => r.detail.practice.harness), ["standard", "standard", "microsoft-copilot", "microsoft-copilot"]);
+
+    // A plan that goes back to the first harness switches again, only because the session was left in the default experience.
+    const back = await shoot(agentShot("e.classic.png", "standard"));
+    assert.equal(back.status, "captured", back.error);
+    assert.equal(back.harness.id, "standard");
+    assert.equal(site.stats.classicClicks, 2, "an interleaved Standard shot switched again, proved again");
+    assert.equal(site.practiceAgents().length, 2, "and used the Classic agent it already had");
+  });
+
+  // The switch did nothing: the page is still in the Microsoft Copilot harness, the shot is Needs you, nothing is built, and no picture is kept.
+  await withTenant({ level: "scratch", switchBroken: true }, async ({ site, shoot, dir }) => {
+    const result = await shoot(agentShot("f.classic.png", "standard"));
+    assert.deepEqual([result.status, result.cause], ["needs-you", "wrong-harness"]);
+    assert.match(result.error, /This agent is in the Microsoft Copilot harness; this picture needs the Standard \(Classic\) harness\./);
+    assert.equal(result.harness, undefined, "no harness is stamped on a picture that was not taken");
+    assert.equal(site.practiceAgents().length, 0, "no practice agent was made in the wrong experience");
+    assert.ok(!fs.existsSync(path.join(dir, "a", "f.classic.png")), "the picture was not saved");
+  });
+});

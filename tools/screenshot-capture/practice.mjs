@@ -1,5 +1,6 @@
 // The practice agent: the one agent the companion may change, and only after the person opted in. It is created
-// by the companion itself in the practice environment the person chose, named "Lab screenshots - <code>", and
+// by the companion itself in the practice environment the person chose, one per harness, named "Classic shots - <code>" or
+// "Copilot shots - <code>" (before 1.8.0: "Lab screenshots - <code>"), and
 // recorded in a local registry so the next job reuses it. The companion never deletes anything: after a run it
 // writes a plain-language report of everything it created, so the person can delete the practice agent themselves.
 //

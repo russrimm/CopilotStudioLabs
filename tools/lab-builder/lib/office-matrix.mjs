@@ -202,6 +202,17 @@ const SPECIAL_LAB = {
   includeKnowledgeCheck: false,
 };
 
+// Both Copilot Studio harnesses, one after another: the section dividers, the "Same idea, different place" slide, and the
+// per-part training decks, the facilitator guide and the administrator guide of a combined lab.
+const BOTH_LAB = {
+  title: "Fabrikam Two Harness Lab",
+  industry: "retail",
+  products: ["copilot-studio"],
+  harnessMode: "both",
+  features: ["mc-harness-choice", "dlp-governance", "create-agent", "knowledge-sharepoint", "mc-create-agent", "mc-knowledge"],
+  includeKnowledgeCheck: true,
+};
+
 function collectStream() {
   const chunks = [];
   const stream = new Writable({
@@ -282,7 +293,7 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
     const { writeGeneratedLabTopicDocuments } = await portal("lab-builder/topic-documents.js");
     const { writeGeneratedLabTrainingDecks } = await portal("lab-builder/training-decks.js");
 
-    const labSpecs = [["lab-small", SMALL_LAB], ["lab-special", SPECIAL_LAB]];
+    const labSpecs = [["lab-small", SMALL_LAB], ["lab-special", SPECIAL_LAB], ["lab-both", BOTH_LAB]];
     if (largeLab) labSpecs.push(["lab-large", LARGE_LAB]);
     const logoPath = join(dir, "logo.png");
     writeFileSync(logoPath, png);

@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getFeature } from "./catalog.js";
+import { SHARED_NOTE, harnessTitle } from "./harness-parts.js";
 import { learnerGuideMarkdown, isAdminAudienceTopic } from "./learner-guide.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
@@ -947,6 +948,8 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
       `| **LAB** | ${labTitle.replace(/\|/g, "\\|")} |`,
       `| **MODULE** | ${stepLabel} — ${cleanTitle.replace(/\|/g, "\\|")} |`,
       matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${isRecap ? " (Prerequisite Recap)" : ""} |` : null,
+      // A lab that covers two harnesses: which harness this module is for (or that it works in either).
+      matchedMeta.harnessPart ? `| **HARNESS** | ${matchedMeta.harness ? harnessTitle(matchedMeta.harness) : SHARED_NOTE} |` : null,
       matchedMeta.minutes ? `| **ESTIMATED TIME** | About ${matchedMeta.minutes} minutes |` : null,
       isAdminAudienceTopic(catalogMod || matchedMeta) ? `| **AUDIENCE** | Administrators |` : null,
       productsLabel ? `| **PRODUCTS** | ${productsLabel.replace(/\|/g, "\\|")} |` : null,

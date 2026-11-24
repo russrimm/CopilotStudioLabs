@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-20T05:55:44.770Z",
+  "generatedAt": "2026-11-24T07:43:40.201Z",
   "source": "microsoft-learn-mcp",
   "product": "power-platform-ai-hub",
   "catalogVersion": 1,
   "partial": false,
   "partialReason": null,
   "stats": {
-    "calls": 91,
+    "calls": 116,
     "errors": 0,
-    "pagesRead": 34,
+    "pagesRead": 30,
     "searches": 12
   },
   "topics": [
@@ -28,7 +28,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "5ac69ae830edc9ea"
     },
@@ -49,7 +49,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "49fa4e861256b9b1"
     },
@@ -71,7 +71,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "d0455d207accf675"
     },
@@ -92,7 +92,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "f2ca8d7346a1d27c"
     },
@@ -111,7 +111,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "fa2b5e6a3adf2792"
     },
@@ -124,18 +124,18 @@
         "https://learn.microsoft.com/ai-builder/availability-region"
       ],
       "harnesses": [],
-      "conceptId": "ai-capability-selection",
+      "conceptId": "prebuilt-ai-models",
       "availability": null,
       "status": "covered",
       "featureIds": [
-        "ppai-check-region-and-prerequisites",
         "ppai-document-processing-model",
+        "ppai-flow-classify-extract-route-text",
         "ppai-prebuilt-sentiment-analysis",
         "ppai-prompt-inputs-and-model-settings"
       ],
-      "level": 100,
+      "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "fc048c75de5a9e0b"
     },
@@ -152,12 +152,11 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
-        "ppai-check-region-and-prerequisites",
         "ppai-explore-ai-hub-models"
       ],
-      "level": 100,
+      "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "0f0108330f69d5ab"
     },
@@ -176,7 +175,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "3ab73734be9bee9c"
     },
@@ -197,7 +196,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "5402a0d4d67fe0ae"
     },
@@ -218,7 +217,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "b25315635f1c21b5"
     },
@@ -231,15 +230,17 @@
         "https://learn.microsoft.com/ai-builder/credit-management"
       ],
       "harnesses": [],
-      "conceptId": "billing",
+      "conceptId": "ai-consumption",
       "availability": null,
       "status": "covered",
       "featureIds": [
-        "ppai-credits-licensing-transition"
+        "ppai-credits-licensing-transition",
+        "ppai-flow-monitor-troubleshoot-runs",
+        "ppai-flow-reliable-ai-actions"
       ],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "3f817d9dfff704e8"
     },
@@ -260,7 +261,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "b6be2950d679c783"
     },
@@ -279,7 +280,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "74ec453668adefb8"
     },
@@ -298,7 +299,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "1d42317d4d567b99"
     },
@@ -317,7 +318,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "70127e53b360a62f"
     },
@@ -336,7 +337,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "6f31ee06ba2786b2"
     },
@@ -344,7 +345,7 @@
       "id": "learn-ai-builder-form-processing-faq",
       "title": "FAQ for document processing",
       "product": "power-platform-ai-hub",
-      "summary": "This article consists of frequently asked questions about the document processing model in AI Builder. If you don't find your question here, review Overview of the document processing AI model or submit your question to the Power Automate Community for AI Builder.",
+      "summary": "This article answers frequently asked questions about the document processing model in AI Builder. If you don't find your question here, review Overview of the document processing AI model or submit your question to the Power Automate Community for AI Builder.",
       "urls": [
         "https://learn.microsoft.com/ai-builder/form-processing-faq"
       ],
@@ -355,9 +356,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
-      "changedAt": null,
-      "contentHash": "aca93d8b79cc16e0"
+      "lastSeen": "2026-11-24",
+      "changedAt": "2026-11-24",
+      "contentHash": "21700e23f80ebcb9"
     },
     {
       "id": "learn-ai-builder-form-processing-model-in-flow",
@@ -373,12 +374,13 @@
       "status": "covered",
       "featureIds": [
         "ppai-document-processing-model",
+        "ppai-flow-process-documents-on-arrival",
         "ppai-migrate-from-text-generation",
         "ppai-predict-action-dynamic-model"
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "6cf20f34ff2232f8"
     },
@@ -399,7 +401,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "8b3aa3aead1cbefd"
     },
@@ -418,7 +420,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "52090c9dd8f1797d"
     },
@@ -437,7 +439,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "62e94ce987fcc59d"
     },
@@ -456,7 +458,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "e06d6c54457fad8a"
     },
@@ -475,7 +477,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "df51ec8525a1404e"
     },
@@ -494,7 +496,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "420078ca19a468a5"
     },
@@ -515,9 +517,9 @@
         "ppai-powerfx-ai-models-in-canvas-app",
         "ppai-prebuilt-sentiment-analysis"
       ],
-      "level": 100,
+      "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "9cfcaab404e91b7b"
     },
@@ -536,7 +538,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "5a5e5d73aea8c78a"
     },
@@ -553,12 +555,11 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
-        "ppai-check-region-and-prerequisites",
         "ppai-explore-ai-hub-models"
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "7d9132be981c55c3"
     },
@@ -579,7 +580,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "77a5f1e941d22929"
     },
@@ -601,7 +602,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "a787e9f549908450"
     },
@@ -620,7 +621,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "9c1f4bff6b32fca2"
     },
@@ -633,13 +634,15 @@
         "https://learn.microsoft.com/ai-builder/prebuilt-category-classification"
       ],
       "harnesses": [],
-      "conceptId": "model-orchestration",
+      "conceptId": "ai-consumption",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "ppai-flow-classify-extract-route-text"
+      ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "e6b628fd8cf7cda8"
     },
@@ -652,13 +655,15 @@
         "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate"
       ],
       "harnesses": [],
-      "conceptId": "integrations",
+      "conceptId": "ai-consumption",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "ppai-flow-classify-extract-route-text"
+      ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "2ab8c49b9da10bfe"
     },
@@ -677,7 +682,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "6e830aeff67f7c92"
     },
@@ -696,7 +701,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "fab031d93b3c192e"
     },
@@ -709,13 +714,15 @@
         "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction-pwr-automate"
       ],
       "harnesses": [],
-      "conceptId": "integrations",
+      "conceptId": "ai-consumption",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "ppai-flow-classify-extract-route-text"
+      ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "7ceed56d8ca62113"
     },
@@ -734,7 +741,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "7f82e8a5f0bb6ce8"
     },
@@ -753,7 +760,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "4fb414df8525bf6e"
     },
@@ -766,13 +773,15 @@
         "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing"
       ],
       "harnesses": [],
-      "conceptId": "publish",
+      "conceptId": "content-ai",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "ppai-flow-process-documents-on-arrival"
+      ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "b0029a0b2941c5e7"
     },
@@ -791,7 +800,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "aa72784993d2fbce"
     },
@@ -810,7 +819,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "36d247f9ea9ecd7e"
     },
@@ -829,7 +838,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "e54a71980be414cc"
     },
@@ -850,7 +859,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "b89a23326fbb48ab"
     },
@@ -871,7 +880,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "fae8d6e7efb3ffdc"
     },
@@ -890,7 +899,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "ec90392a0f4e7abf"
     },
@@ -909,7 +918,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "3b8f0e930d3c2685"
     },
@@ -930,7 +939,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "cc9e970020c50d46"
     },
@@ -949,7 +958,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "df70177da77accc0"
     },
@@ -968,7 +977,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "0258b73ed5e0ce1c"
     },
@@ -992,7 +1001,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "6ecc82de2acd3b27"
     },
@@ -1011,7 +1020,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "63630e2935855c8b"
     },
@@ -1032,7 +1041,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "3f92f44a2dc08954"
     },
@@ -1051,7 +1060,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "9dc71299cbdfc62c"
     },
@@ -1070,7 +1079,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "40ef8ea65750b719"
     },
@@ -1087,13 +1096,14 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "ppai-flow-add-ai-builder-actions",
         "ppai-prebuilt-receipt-processing-flow",
         "ppai-predict-action-dynamic-model",
         "ppai-use-prompt-in-flow-and-app"
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "d39137601da361f0"
     },
@@ -1115,7 +1125,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "5e97d90486ed6768"
     },
@@ -1134,7 +1144,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "337babdcd0fd29fa"
     },
@@ -1153,7 +1163,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-20",
-      "lastSeen": "2026-11-20",
+      "lastSeen": "2026-11-24",
       "changedAt": null,
       "contentHash": "baef7af72a746789"
     }
@@ -1163,6 +1173,13 @@
       "featureId": "ppai-admin-governance-security",
       "status": "current",
       "contentHash": "e90cbd8bb171f928",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-agent-tools-prompt-and-flow",
+      "status": "current",
+      "contentHash": "5fc6b475121eda6e",
       "changedAt": null,
       "missing": []
     },
@@ -1184,13 +1201,6 @@
       "featureId": "ppai-category-classification-model",
       "status": "current",
       "contentHash": "28478abc3720d9f8",
-      "changedAt": null,
-      "missing": []
-    },
-    {
-      "featureId": "ppai-check-region-and-prerequisites",
-      "status": "current",
-      "contentHash": "12b0924708524b4c",
       "changedAt": null,
       "missing": []
     },
@@ -1226,6 +1236,41 @@
       "featureId": "ppai-explore-ai-hub-models",
       "status": "current",
       "contentHash": "55d4b13bebb8c732",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-flow-add-ai-builder-actions",
+      "status": "current",
+      "contentHash": "edd44a0efd4cdb48",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-flow-classify-extract-route-text",
+      "status": "current",
+      "contentHash": "1bb81bab72da94ac",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-flow-monitor-troubleshoot-runs",
+      "status": "current",
+      "contentHash": "fa680977c31facc7",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-flow-process-documents-on-arrival",
+      "status": "current",
+      "contentHash": "ae322e682dc8f1df",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-flow-reliable-ai-actions",
+      "status": "current",
+      "contentHash": "4dc3fc36bf848f02",
       "changedAt": null,
       "missing": []
     },
@@ -1319,8 +1364,12 @@
     "https://learn.microsoft.com/ai-builder/entity-extraction-overview": "1d42317d4d567b99",
     "https://learn.microsoft.com/ai-builder/entity-extraction-sample-data": "70127e53b360a62f",
     "https://learn.microsoft.com/ai-builder/entity-extraction-train": "6f31ee06ba2786b2",
+    "https://learn.microsoft.com/ai-builder/flow-invoice-processing": "31e8d836e556d98c",
+    "https://learn.microsoft.com/ai-builder/flow-key-phrase-extraction": "e3e09450f6d3c0e5",
+    "https://learn.microsoft.com/ai-builder/flow-language-detection": "3302a74ede3fbb8a",
     "https://learn.microsoft.com/ai-builder/flow-receipt-processing": "8fc3e366fc875276",
-    "https://learn.microsoft.com/ai-builder/form-processing-faq": "aca93d8b79cc16e0",
+    "https://learn.microsoft.com/ai-builder/flow-sentiment-analysis": "28feca0d25ffaa4e",
+    "https://learn.microsoft.com/ai-builder/form-processing-faq": "21700e23f80ebcb9",
     "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow": "6cf20f34ff2232f8",
     "https://learn.microsoft.com/ai-builder/form-processing-model-overview": "8b3aa3aead1cbefd",
     "https://learn.microsoft.com/ai-builder/form-processing-sample-data": "52090c9dd8f1797d",
@@ -1329,6 +1378,7 @@
     "https://learn.microsoft.com/ai-builder/improve-form-processing-performance": "df51ec8525a1404e",
     "https://learn.microsoft.com/ai-builder/learn-ai-builder": "420078ca19a468a5",
     "https://learn.microsoft.com/ai-builder/manage-model": "37907efce566437d",
+    "https://learn.microsoft.com/ai-builder/message-management": "37002d1e93b555dd",
     "https://learn.microsoft.com/ai-builder/model-types": "9cfcaab404e91b7b",
     "https://learn.microsoft.com/ai-builder/object-detection-sample-data": "5a5e5d73aea8c78a",
     "https://learn.microsoft.com/ai-builder/overview": "7d9132be981c55c3",
@@ -1374,13 +1424,33 @@
     "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview": "5e97d90486ed6768",
     "https://learn.microsoft.com/ai-builder/use-model": "337babdcd0fd29fa",
     "https://learn.microsoft.com/ai-builder/use-prompt-to-read-a-receipt": "baef7af72a746789",
+    "https://learn.microsoft.com/connectors/office365": "ae80cb74e207758d",
+    "https://learn.microsoft.com/connectors/sharepointonline": "9bf086679aabe0fd",
     "https://learn.microsoft.com/microsoft-copilot-studio/add-inputs-prompt": "cdac58864713c022",
+    "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent": "d14d9530e22d305d",
+    "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create": "8d8e7bf23031242e",
+    "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow": "0e65cf22f68ea572",
     "https://learn.microsoft.com/microsoft-copilot-studio/azure-openai-human-review": "0e47d4e7136c9964",
     "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts": "87c0d5379675d4cb",
     "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt": "63a89a9843fefbdb",
+    "https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node": "899ac46485874902",
     "https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-settings": "53550e30beb81a9c",
-    "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview": "18fba6ae7bc5f717"
+    "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview": "18fba6ae7bc5f717",
+    "https://learn.microsoft.com/power-automate/add-condition": "181ffa0e6e706067",
+    "https://learn.microsoft.com/power-automate/dataverse/create": "9c299a5f7929ac3f",
+    "https://learn.microsoft.com/power-automate/fix-flow-failures": "dc28e32ddc912d6e",
+    "https://learn.microsoft.com/power-automate/flows-designer": "482c4fa2f911004f",
+    "https://learn.microsoft.com/power-automate/get-started-logic-flow": "fac78d862bf86ceb",
+    "https://learn.microsoft.com/power-automate/get-started-with-cloud-flows": "f8388bb4d468628f",
+    "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling": "f3da87a33379881c",
+    "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/implement-parallel-execution": "eb2721f57cc69eb0",
+    "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/monitoring-and-alerting": "436e38f24b2af3a2",
+    "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/test-cloud-flows": "502855d703bd144e",
+    "https://learn.microsoft.com/power-automate/limits-and-config": "ff03aa8815dff2c4",
+    "https://learn.microsoft.com/power-automate/modern-approvals": "1b2acf637fac791a",
+    "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/dependency-timeout-error-when-using-a-form-processing-model-in-power-automate": "efeca2392d06ff33",
+    "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate": "9d375d1a1a6963b8"
   },
-  "listHash": "4f47693c85455b6a",
+  "listHash": "b1f5aa463df3156b",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

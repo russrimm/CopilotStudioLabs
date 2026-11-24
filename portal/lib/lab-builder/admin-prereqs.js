@@ -18,6 +18,7 @@
 
 import { getFeature, getHarnesses } from "./catalog.js";
 import { resolveConnector } from "./connector-names.js";
+import { combinedHarnessOrder, harnessShortName, harnessTitle, isCombinedHarnessMode } from "./harness-parts.js";
 import { DEFAULT_PRODUCT, productOf, productsPhrase } from "./products.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
@@ -82,11 +83,14 @@ function normalizeModules(input = {}) {
 }
 
 function stepLabel(mod) {
-  if (mod.stepLabel) return `${mod.stepLabel} - ${mod.name}`;
+  // A lab that covers two harnesses says which harness a module belongs to, so "Required by" never leaves it unclear.
+  // (A plan's feature carries its catalog tags in `harness`, so the part is what says where it sits.)
+  const where = mod.harnessPart ? ` · ${["shared", "shared-late"].includes(mod.harnessPart) ? "Either harness" : harnessShortName(mod.harnessPart)}` : "";
+  if (mod.stepLabel) return `${mod.stepLabel} - ${mod.name}${where}`;
   if (mod.prerequisite || mod.role === "prerequisite") {
-    return `Recap ${mod.recapOrder ?? mod.order} - ${mod.name}`;
+    return `Recap ${mod.recapOrder ?? mod.order} - ${mod.name}${where}`;
   }
-  return `Step ${mod.stepOrder ?? mod.order} - ${mod.name}`;
+  return `Step ${mod.stepOrder ?? mod.order} - ${mod.name}${where}`;
 }
 
 function uniqueLabels(mods) {
@@ -125,12 +129,19 @@ export function buildAdminPrerequisites(input = {}) {
     [...new Set(modules.map((m) => m.product).filter(Boolean))];
   const products = rawProducts.length ? rawProducts : [DEFAULT_PRODUCT];
 
-  const harness =
-    input.harness ||
-    input.request?.harness ||
-    input.manifest?.request?.harness ||
-    input.manifest?.differences?.labHarness ||
-    (products.includes("copilot-studio") ? "standard" : null);
+  // A lab that covers two harnesses has no single harness: its checks apply when either one is used.
+  const combinedSource = [input, input.manifest, input.request, input.manifest?.request].find((s) => isCombinedHarnessMode(s));
+  const combinedOrder =
+    Array.isArray(input.harnesses) && input.harnesses.length === 2 ? input.harnesses : combinedSource ? combinedHarnessOrder(combinedSource) : [];
+  const harness = combinedOrder.length
+    ? null
+    : input.harness ||
+      input.request?.harness ||
+      input.manifest?.request?.harness ||
+      input.manifest?.differences?.labHarness ||
+      (products.includes("copilot-studio") ? "standard" : null);
+  const harnessList = combinedOrder.length ? combinedOrder : harness ? [harness] : [];
+  const usesHarness = (id) => harnessList.includes(id);
 
   const harnessInfo = harness ? getHarnesses().find((h) => h.id === harness) : null;
 
@@ -218,6 +229,7 @@ export function buildAdminPrerequisites(input = {}) {
         "dca-knowledge-sharepoint-onedrive",
         "mc-knowledge-enterprise",
         "ppai-document-processing-model",
+        "ppai-flow-process-documents-on-arrival",
       ]) ||
       m.product === "sharepoint-ai" ||
       /\bsharepoint|onedrive\b/i.test(m.name),
@@ -260,9 +272,11 @@ export function buildAdminPrerequisites(input = {}) {
         "mc-publish-m365-channels",
         "mc-knowledge-enterprise",
         "cc-handoff-human",
-        "ppai-summarize-emails-teams",
+        "ppai-flow-classify-extract-route-text",
+        "ppai-use-prompt-in-flow-and-app",
+        "ppai-human-review-prompt-output",
       ]) ||
-      harness === "microsoft-copilot" ||
+      usesHarness("microsoft-copilot") ||
       /\bteams|outlook|email\b/i.test(m.name),
   );
   addConnector(
@@ -283,7 +297,8 @@ export function buildAdminPrerequisites(input = {}) {
   const approvalsMods = matchModules(modules, (m) =>
     hasId(null, m, [
       "human-in-the-loop",
-      "ppai-ai-approvals",
+      "ppai-human-review-prompt-output",
+      "ppai-flow-process-documents-on-arrival",
       "sp-ai-page-approval-flow",
       "dca-workflows-agent",
     ]) || /\bapproval|human-in-the-loop\b/i.test(m.name),
@@ -303,13 +318,43 @@ export function buildAdminPrerequisites(input = {}) {
     approvalsMods,
   );
 
+  // The AI hub topics that build a cloud flow, so the flow connector and the flow license item apply to them.
+  const aiHubFlowIds = [
+    "ppai-use-prompt-in-flow-and-app",
+    "ppai-human-review-prompt-output",
+    "ppai-prebuilt-receipt-processing-flow",
+    "ppai-document-processing-model",
+    "ppai-category-classification-model",
+    "ppai-predict-action-dynamic-model",
+    "ppai-flow-add-ai-builder-actions",
+    "ppai-flow-classify-extract-route-text",
+    "ppai-flow-process-documents-on-arrival",
+    "ppai-flow-reliable-ai-actions",
+    "ppai-flow-monitor-troubleshoot-runs",
+    "ppai-agent-tools-prompt-and-flow",
+  ];
+  const contentConversionMods = matchModules(modules, (m) => hasId(null, m, ["ppai-flow-classify-extract-route-text"]));
+  addConnector(
+    {
+      id: "content-conversion",
+      name: "Content Conversion (Preview)",
+      connectorApis: ["shared_conversionservice"],
+      classification: "Standard (Preview)",
+      dataGroup: "Business",
+      adminPath: "Power Platform admin center > Policies > Data policies",
+      details:
+        "Allow the Content Conversion connector, which converts an email body to plain text before an AI Builder action reads it, and keep it in the same Business DLP group as Office 365 Outlook and Dataverse. Learn says the connector is no longer available in US Government (GCC and GCC High) regions for creating new implementations.",
+      endpoints: [],
+    },
+    contentConversionMods,
+  );
+
   const flowMods = matchModules(modules, (m) =>
     hasId(null, m, [
       "agent-flows",
       "autonomous-triggers",
       "human-in-the-loop",
-      "ppai-use-prompt-in-flow-and-app",
-      "ppai-ai-approvals",
+      ...aiHubFlowIds,
       "sp-ai-metadata-autofill",
       "sp-ai-content-assembly",
       "sp-ai-page-approval-flow",
@@ -563,7 +608,11 @@ export function buildAdminPrerequisites(input = {}) {
         status: "Required",
         details: `Assign ${
           activeConnectorNames.length ? activeConnectorNames.join(", ") : "all required lab connectors"
-        } to the Business data group in every tenant-level and environment-level DLP policy targeting the lab environment, and confirm none are in Blocked.`,
+        } to the Business data group in every tenant-level and environment-level DLP policy targeting the lab environment, and confirm none are in Blocked.${
+          hasAiHub
+            ? " AI Builder is part of the Dataverse connector, so a flow that sends the output of an AI Builder model to another connector, such as Outlook, needs both connectors in the same data group."
+            : ""
+        }`,
       },
       ppMods.length ? ppMods : modules,
     );
@@ -778,6 +827,113 @@ export function buildAdminPrerequisites(input = {}) {
     aiCreditsMods,
   );
 
+  // AI hub (AI Builder) environment prerequisites. They replace the former "Check regional availability and environment
+  // prerequisites" lab: this is administrator work, so it lives here, with the rest of the prerequisites, and only shows
+  // when a Power Platform AI hub topic is in the lab. Credits and capacity are the item above, so they are not repeated.
+  const aiHubMods = modules.filter((m) => m.product === "power-platform-ai-hub");
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-model-region-availability",
+      title: "AI Builder Models Available, and Their Release Status, in the Environment's Region",
+      adminPath: "Power Platform admin center > Manage > Environments (Region column)",
+      status: "Required",
+      details:
+        "AI Builder models are deployed in the region that hosts the environment, so the region sets which models are available and whether each is generally available (GA) or in preview. Read the Region column for the lab environment, find that region in the Custom models and Prebuilt models tables on Feature availability by region, and record the release status of each model type the lab uses. A dash means the feature is not available.",
+    },
+    aiHubMods,
+  );
+
+  const aiHubPromptMods = matchModules(modules, (m) =>
+    hasId(null, m, [
+      "ppai-build-custom-prompt",
+      "ppai-prompt-inputs-and-model-settings",
+      "ppai-use-prompt-in-flow-and-app",
+      "ppai-human-review-prompt-output",
+      "ppai-migrate-from-text-generation",
+      "ppai-code-interpreter-prompts",
+      "ppai-flow-reliable-ai-actions",
+      "ppai-agent-tools-prompt-and-flow",
+    ]),
+  );
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-prompt-model-availability",
+      title: "Prompt Models Available in the Environment's Region",
+      adminPath: "Power Platform admin center > Manage > Environments (Region column)",
+      status: "Required",
+      details:
+        "Prompts run on generative AI models, and which models are offered, and at what release stage, depends on the environment's region. Find the region in the Public availability table on Prompt model availability by region and updates, or in the US Government table for a government cloud environment.",
+    },
+    aiHubPromptMods,
+  );
+
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-us-government-limits",
+      title: "US Government Limits for AI Builder (GCC, GCC High, and DoD)",
+      adminPath: "Power Platform admin center > Manage > Environments (Region column)",
+      status: "Required if US Government Cloud",
+      details:
+        "Some AI Builder features in the commercial cloud are not available to US Government customers: 30-day user trials, copying AI models across cloud boundaries, Document Automation, and adding an image or document input to a prompt (the last two in GCC and GCC High). Check the US Government tables before planning a lab there.",
+    },
+    aiHubMods,
+  );
+
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-enabled-for-environment",
+      title: "AI Builder Turned On for the Lab Environment (Dataverse, AI Prompts, Preview Models)",
+      adminPath: "Power Platform admin center > Manage > Environments > [Environment] > Settings > Product > Features",
+      status: "Required",
+      details:
+        "AI Builder requires a Microsoft Dataverse database and must be enabled for the environment. Prompts also need the AI prompts setting on, and preview models need the Preview and experimental AI models setting on.",
+    },
+    aiHubMods,
+  );
+
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-sample-data",
+      title: "Optional: Deploy Sample Apps and Data When Creating the Environment",
+      adminPath: "Power Platform admin center > Manage > Environments > New",
+      status: "Optional",
+      details:
+        "When you create the environment, set Deploy sample apps and data to Yes to add Microsoft's sample apps and data for exploring AI Builder. The setting appears only when Enable Dynamics 365 apps is No.",
+    },
+    aiHubMods,
+  );
+
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-flow-license",
+      title: "Power Automate License for Flows That Use AI Builder Actions",
+      adminPath: "Microsoft 365 admin center > Active users",
+      status: "Required",
+      details:
+        "Confirm which Power Automate license the people who build and run the lab flows need. Not confirmed in Microsoft Learn: whether a flow that uses an AI Builder action is a premium flow, because the AI Builder licensing overview says it is and the AI Builder credits article says adding an AI Builder action does not turn a flow into a premium flow.",
+    },
+    matchModules(modules, (m) => hasId(null, m, aiHubFlowIds)),
+  );
+
+  addItem(
+    environmentSettings,
+    {
+      id: "ai-builder-agent-tools-environment",
+      title: "Copilot Studio Access and a Dataverse Environment for Agent Tools",
+      adminPath: "Power Platform admin center > Manage > Environments",
+      status: "Required",
+      details:
+        "The agent tools lab builds a Copilot Studio agent with a prompt tool and an agent flow tool. Builders need access to Copilot Studio with a license that includes the use of flows in Copilot Studio, and a Microsoft Dataverse environment. Agent flows and agent flow tools are not supported in Dataverse for Teams environments.",
+    },
+    matchModules(modules, (m) => hasId(null, m, ["ppai-agent-tools-prompt-and-flow"])),
+  );
+
   const codeInterpreterMods = matchModules(modules, (m) =>
     hasId(null, m, [
       "ppai-code-interpreter-prompts",
@@ -837,7 +993,7 @@ export function buildAdminPrerequisites(input = {}) {
   const voiceMods = matchModules(
     modules,
     (m) =>
-      harness === "customer-conversation" ||
+      usesHarness("customer-conversation") ||
       hasId(null, m, [
         "voice-agents",
         "cc-voice-dtmf-bargein",
@@ -923,7 +1079,7 @@ export function buildAdminPrerequisites(input = {}) {
   const m365CopilotMods = matchModules(
     modules,
     (m) =>
-      harness === "microsoft-copilot" ||
+      usesHarness("microsoft-copilot") ||
       m.product === "m365-copilot-agent-builder" ||
       m.product === "m365-copilot-hub" ||
       hasId(null, m, [
@@ -1028,7 +1184,11 @@ export function buildAdminPrerequisites(input = {}) {
   );
 
   const productListText = productsPhrase(products);
-  const harnessText = harnessInfo?.name ? ` (${harnessInfo.name})` : "";
+  const harnessText = combinedOrder.length
+    ? ` (${combinedOrder.map((id) => harnessTitle(id)).join(" and ")}, with one practice agent in each)`
+    : harnessInfo?.name
+      ? ` (${harnessInfo.name})`
+      : "";
   const summary =
     `Complete this pre-flight checklist in a non-production environment before running the lab across ${productListText}${harnessText}: ` +
     `${connectors.length} connector/endpoint rule${connectors.length === 1 ? "" : "s"}, ` +
@@ -1041,6 +1201,8 @@ export function buildAdminPrerequisites(input = {}) {
     products,
     harness: harness || null,
     harnessName: harnessInfo?.name || null,
+    // A lab that covers two harnesses lists them in order; one checklist covers both, so no prerequisite appears twice.
+    ...(combinedOrder.length ? { harnesses: combinedOrder, harnessNames: combinedOrder.map((id) => harnessTitle(id)) } : {}),
     sharepointSite:
       (sharePointMods.length || hasSharePointProduct) && sharepointSite.configured
         ? {

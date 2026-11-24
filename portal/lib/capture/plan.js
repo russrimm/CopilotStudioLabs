@@ -17,6 +17,7 @@ import { capturedImage, capturedScreenshotsDirs, resolveLabScreenshot } from "..
 import {
   derivePlaywrightSteps,
   ensurePerLabScreenshotPlan,
+  labHarnessOrder,
   resolveGeneratedLabDir,
 } from "../lab-builder/lab-screenshots.js";
 import { getSlotMeta } from "../lab-builder/slots.js";
@@ -159,6 +160,8 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
     featureId: src.featureId ?? src.feature ?? null,
     harness,
     harnessLabel: harness ? harnessLabel(harness) : null,
+    // A lab that covers both harnesses: the part the slot sits in, and for a shared topic the note "Works in either harness".
+    ...(src.harnessPart ? { harnessPart: text(src.harnessPart, 40), harnessScope: src.harnessScope === "shared" ? "shared" : "harness", ...(src.harnessNote ? { harnessNote: text(src.harnessNote, 80) } : {}) } : {}),
     ...(harnessGap ? { harnessGap, harnessGapNote: harnessGapMessage(harnessGap) } : {}),
     kind: text(full.kind, 30) || null,
     moduleOrder: Number.isInteger(src.moduleOrder) && src.moduleOrder >= 0 && src.moduleOrder < 1000 ? src.moduleOrder : null,
@@ -306,7 +309,20 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
   }
   // Built from scratch, the lab's modules are the order the agent is built in. When the agent comes from the creation step, that step goes first.
   const ordered = scratch ? orderForWalkthrough(shots) : shots;
-  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, labHarness: shotsPlan.harnessInfo || null, shots: agentSource === "created" && !agentFallback ? orderCreationFirst(ordered) : ordered };
+  // A lab that covers both harnesses is captured one harness at a time, so the computer changes experience as few times as possible (the classic
+  // switch once, the default experience once): every slot of the first harness (its part, and the shared topics, which are taken in it), then every
+  // slot of the second. The creation step goes first within each harness, because each harness has its own practice agent.
+  const harnessOrder = labHarnessOrder(shotsPlan);
+  const groups = harnessOrder.length === 2 ? groupByHarness(ordered, harnessOrder) : [ordered];
+  const arranged = groups.flatMap((group) => (agentSource === "created" && !agentFallback ? orderCreationFirst(group) : group));
+  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, labHarness: shotsPlan.harnessInfo || null, shots: arranged };
+}
+
+/** Shots in groups by the harness they are taken in, in the lab's order; shots with no harness (another product) come last. */
+function groupByHarness(shots, order) {
+  const groups = order.map((id) => shots.filter((s) => normalizeHarness(s.harness) === id));
+  const rest = shots.filter((s) => !order.includes(normalizeHarness(s.harness)));
+  return [...groups, rest].filter((group) => group.length);
 }
 
 /** Every filename a lab accepts uploads for. */

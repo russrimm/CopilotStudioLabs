@@ -805,6 +805,190 @@ test("the 'Screenshots left' list states the lab's harness and names the harness
   assert.ok(!escaped.includes("<b>Standard</b>") && !escaped.includes("<img"), "nothing from the network is parsed as markup");
 });
 
+// ── A lab built for both harnesses, one after another ───────────────────────
+
+const BOTH_ORDER = ["standard", "microsoft-copilot"];
+const BOTH_LABEL = "Both harnesses: Standard (Classic) harness, then Microsoft Copilot harness";
+const BOTH_STATEMENT = "This lab: both harnesses, one after another (Standard (Classic) harness first, then Microsoft Copilot harness). Each picture is taken in the harness of the part it sits in, and the two are never crossed. A shared topic is taken in the Standard (Classic) harness.";
+
+/** A slot of a combined lab: `part` is "shared", "shared-late", or the harness of the section it sits in. */
+function partSlot(filename, harness, state, part, extra = {}) {
+  const shared = part === "shared" || part === "shared-late";
+  return slot(filename, harness, state, { harnessPart: part, harnessScope: shared ? "shared" : "harness", ...(shared ? { harnessNote: "Works in either harness" } : {}), ...extra });
+}
+
+/** What `GET .../screenshots` returns for a lab that covers both harnesses: no single harness, the statement, and the pictures of each part. */
+function combinedState(shots, { order = BOTH_ORDER, source = "chosen", summary = {}, info = {} } = {}) {
+  const base = labState(shots, { harness: null });
+  const files = (name) => shots.filter((s) => s.harnessState === name).map((s) => s.filename);
+  const parts = order.map((id) => {
+    const own = shots.filter((s) => s.harness === id);
+    const count = (name) => own.filter((s) => s.harnessState === name).length;
+    return { harness: id, label: LABELS[id], shots: own.length, taken: count("ok"), wrong: count("wrong-harness"), notRecorded: count("not-recorded") };
+  });
+  return {
+    ...base,
+    harness: null,
+    harnessLabel: BOTH_LABEL,
+    harnessInfo: { id: null, mode: "both", order, label: BOTH_LABEL, source, statement: BOTH_STATEMENT, ...info },
+    harnessSummary: { labHarness: null, combined: true, order, parts, statement: BOTH_STATEMENT, mixed: false, mixedMessage: "", wrong: files("wrong-harness").length, notRecorded: files("not-recorded").length, gaps: 0, notRecordedFiles: files("not-recorded"), wrongFiles: files("wrong-harness"), gapFiles: [], harnessesSeen: [...new Set(shots.map((s) => s.pictureHarness).filter(Boolean))], ...summary },
+  };
+}
+
+const combinedShots = () => [
+  partSlot("shared.png", "standard", "pending", "shared", { figure: "1.1", caption: "Choose a harness" }),
+  partSlot("std-ok-1.png", "standard", "ok", "standard", { id: 2, figure: "2.1", caption: "Create an agent" }),
+  partSlot("std-ok-2.png", "standard", "ok", "standard", { id: 3, figure: "2.2", caption: "Add knowledge" }),
+  partSlot("std-pending.png", "standard", "pending", "standard", { id: 4, figure: "2.3", caption: "Test the agent" }),
+  partSlot("mc-ok.png", "microsoft-copilot", "ok", "microsoft-copilot", { id: 5, figure: "3.1", caption: "Build the agent" }),
+  partSlot("mc-wrong.png", "microsoft-copilot", "wrong-harness", "microsoft-copilot", { id: 6, figure: "3.2", caption: "Add a skill", pictureHarness: "standard" }),
+];
+
+test("a lab built for both harnesses states them at the top, counts the pictures of each part, and never says the lab is mixed", async () => {
+  const h = await ready(combinedState(combinedShots()));
+  const banner = h.center().querySelector("[data-sc-harness-banner]");
+  assert.equal(banner.dataset.scHarnessBanner, "both", "a lab with no single harness (harness is null) still has a banner");
+  assert.equal(banner.getAttribute("aria-label"), "The harnesses this lab is built for");
+  assert.equal(banner.querySelector("[data-sc-harness-statement]").textContent, BOTH_STATEMENT);
+  assert.equal(banner.querySelector(".sc-harness-source").textContent, "Both harnesses were chosen when the lab was built.");
+  assert.ok(!banner.querySelector("[data-sc-harness-mixed]"), "no 'pictures from both harnesses' warning");
+  assert.doesNotMatch(words(banner), /Mixed harnesses|built for the (Standard|Microsoft)|lab's harness/);
+
+  // One line per part, in the order the lab takes them, with the harness's own label and how many pictures are in it.
+  const lines = banner.querySelectorAll("[data-sc-harness-part]");
+  assert.deepEqual(lines.map((li) => li.dataset.scHarnessPart), ["standard", "microsoft-copilot"]);
+  assert.deepEqual(lines.map((li) => li.textContent), [`${STANDARD} part: 2 of 4 pictures taken in it`, `${COPILOT} part: 1 of 2 pictures taken in it, 1 taken in a different harness`]);
+  assert.deepEqual(lines.map((li) => li.querySelector(".sc-harness-label").className.split(" ").pop()), ["sc-harness-label-standard", "sc-harness-label-microsoft-copilot"], "the label's border style tells them apart as well");
+  assert.ok(lines[1].classList.contains("sc-harness-part-warn"));
+  assert.ok(!lines[0].classList.contains("sc-harness-part-warn"));
+
+  // The wrong picture is named, with what it needs and what it was taken in.
+  assert.equal(banner.querySelector("[data-sc-harness-wrong]").textContent, "1 picture was taken in a different harness than the part it sits in needs. It is not used until you retake it in that part's harness.");
+  assert.deepEqual(banner.querySelectorAll(".sc-harness-files li").map((li) => li.textContent), [`Figure 3.2: Add a skill \u00b7 Needs: ${COPILOT} \u00b7 Picture: ${STANDARD}`]);
+  assert.ok(banner.classList.contains("sc-harness-banner-warn"));
+
+  // Even if a server (wrongly) sent the single-harness warning, a combined lab never shows it.
+  const guarded = await ready(combinedState(combinedShots(), { summary: { mixed: true, mixedMessage: "This lab is built for the Standard (Classic) harness, but it has pictures from both harnesses." }, info: {} }));
+  assert.ok(!guarded.center().querySelector("[data-sc-harness-mixed]"));
+  const noSummaryFlag = combinedState(combinedShots());
+  delete noSummaryFlag.harnessSummary.combined;
+  noSummaryFlag.harnessSummary.mixed = true;
+  const byMode = await ready(noSummaryFlag);
+  assert.ok(!byMode.center().querySelector("[data-sc-harness-mixed]"), "the lab's mode decides, not one flag");
+  assert.equal(byMode.center().querySelector("[data-sc-harness-banner]").dataset.scHarnessBanner, "both");
+
+  // The part counts come from the pictures when the server sent none.
+  const bare = combinedState(combinedShots());
+  delete bare.harnessSummary.parts;
+  const derived = json(makeHarness().run("scHarnessLabModel")(bare));
+  assert.deepEqual(derived.parts.map((p) => [p.id, p.shots, p.taken, p.wrong, p.notRecorded]), [["standard", 4, 2, 0, 0], ["microsoft-copilot", 2, 1, 1, 0]]);
+  assert.deepEqual([derived.combined, derived.id, derived.mixed], [true, null, false]);
+
+  // A lab that took the other order says so: the Microsoft Copilot part comes first.
+  const reversed = await ready(combinedState([partSlot("a.png", "microsoft-copilot", "ok", "microsoft-copilot"), partSlot("b.png", "standard", "pending", "standard", { id: 2 })], { order: ["microsoft-copilot", "standard"] }));
+  assert.deepEqual(reversed.center().querySelectorAll("[data-sc-harness-part]").map((li) => li.dataset.scHarnessPart), ["microsoft-copilot", "standard"]);
+});
+
+test("each card of a lab built for both harnesses names the harness of its part, and a picture from the other harness says so", async () => {
+  const h = await ready(combinedState(combinedShots()));
+  assert.equal(h.card("std-ok-1.png").querySelector(".sc-harness-label").textContent, STANDARD);
+  assert.equal(h.card("mc-ok.png").querySelector(".sc-harness-label").textContent, COPILOT);
+  assert.ok(h.card("mc-ok.png").querySelector(".sc-harness-label").classList.contains("sc-harness-label-microsoft-copilot"));
+  assert.equal(h.card("mc-ok.png").querySelector(".sc-harness-picture").textContent, `Picture: ${COPILOT}`);
+  assert.ok(!h.card("mc-ok.png").querySelector(".sc-harness-shared") && !h.card("std-ok-1.png").querySelector(".sc-harness-shared"), "only a shared topic carries the shared note");
+
+  const wrong = h.card("mc-wrong.png");
+  assert.equal(wrong.dataset.status, "pending", "a picture from the other harness is not used");
+  assert.equal(wrong.querySelector(".sc-harness-label").textContent, COPILOT, "the card says what its part needs");
+  assert.equal(wrong.querySelector(".sc-harness-picture").textContent, `Picture: ${STANDARD}`);
+  assert.equal(wrong.querySelector(".sc-harness-note").textContent, `This picture is from the ${STANDARD}, but this slot needs the ${COPILOT}.`);
+  assert.equal(wrong.querySelector(".sc-harness").dataset.scHarnessState, "wrong-harness");
+  assert.ok(!wrong.querySelector(".sc-harness-tag"), "nothing to tag");
+});
+
+test("a shared topic says it works in either harness and in which harness its picture is taken", async () => {
+  const h = await ready(combinedState(combinedShots()));
+  const card = h.card("shared.png");
+  assert.equal(card.querySelector(".sc-harness-label").textContent, STANDARD, "the chip is the harness the picture is taken in");
+  const note = card.querySelector("[data-sc-harness-shared]");
+  assert.equal(note.textContent, `Shared topic: works in either harness. This picture is taken in the ${STANDARD}.`);
+  assert.equal(note.tagName, "P", "plain text, never color alone");
+  assert.ok(card.querySelector(".sc-harness").children.indexOf(note) === 1, "right under the label");
+
+  // The enlarged picture says the same, and so does a shared topic that comes after both parts.
+  await h.click(h.action("preview", card));
+  assert.equal(h.host.querySelector("dialog.sc-lightbox .sc-lb-info [data-sc-harness-shared]").textContent, note.textContent);
+  const late = await ready(combinedState([partSlot("late.png", "standard", "pending", "shared-late"), partSlot("mc.png", "microsoft-copilot", "ok", "microsoft-copilot", { id: 2 })]));
+  assert.match(late.card("late.png").querySelector("[data-sc-harness-shared]").textContent, /^Shared topic: works in either harness\. This picture is taken in the Standard \(Classic\) harness\.$/);
+
+  // When the lab takes the Microsoft Copilot harness first, the shared topic is taken there.
+  const reversed = await ready(combinedState([partSlot("shared.png", "microsoft-copilot", "pending", "shared")], { order: ["microsoft-copilot", "standard"] }));
+  assert.equal(reversed.card("shared.png").querySelector(".sc-harness-label").textContent, COPILOT);
+  assert.equal(reversed.card("shared.png").querySelector("[data-sc-harness-shared]").textContent, `Shared topic: works in either harness. This picture is taken in the ${COPILOT}.`);
+});
+
+test("in a lab built for both harnesses, pictures with no harness recorded are tagged against the harness of their own part", async () => {
+  const state = combinedState([partSlot("std.png", "standard", "not-recorded", "standard", { caption: "Create an agent" }), partSlot("mc.png", "microsoft-copilot", "not-recorded", "microsoft-copilot", { id: 2, figure: "2.1", caption: "Build the agent" }), partSlot("shared.png", "standard", "not-recorded", "shared", { id: 3, figure: "3.1", caption: "Choose a harness" })]);
+  const h = await ready(state);
+  const group = h.center().querySelector('[data-sc-harness-unrecorded="lab"]');
+  assert.match(group.querySelector(".sc-harness-help").textContent, /If it is not the harness its screenshot needs, it is moved to the kept pictures list/);
+  assert.doesNotMatch(group.querySelector(".sc-harness-help").textContent, /If it is not the (Standard|Microsoft)/);
+  const items = group.querySelectorAll("[data-sc-harness-item]");
+  assert.deepEqual(items.map((li) => li.querySelectorAll(".sc-harness-pair .sc-harness-label").map((el) => el.textContent)), [[NOT_RECORDED, `Needs: ${STANDARD}`], [NOT_RECORDED, `Needs: ${COPILOT}`], [NOT_RECORDED, `Needs: ${STANDARD}`]]);
+  assert.ok(items[1].querySelector(".sc-harness-label-microsoft-copilot"), "each picture is tagged as needing its own part's harness");
+  assert.ok(!items[0].querySelector(".sc-harness-shared") && items[2].querySelector(".sc-harness-shared").textContent.startsWith("Shared topic: works in either harness."));
+  assert.deepEqual(tagButtons(items[1]).map((b) => b.textContent), ["This is Standard (Classic)", "This is Microsoft Copilot"], "no Customer Conversation in a lab of the two harnesses");
+
+  const after = combinedState([partSlot("std.png", "standard", "not-recorded", "standard", { caption: "Create an agent" }), partSlot("mc.png", "microsoft-copilot", "ok", "microsoft-copilot", { id: 2, figure: "2.1", caption: "Build the agent" }), partSlot("shared.png", "standard", "not-recorded", "shared", { id: 3, figure: "3.1", caption: "Choose a harness" })]);
+  h.route("POST", /\/screenshots\/mc\.png\/harness$/, { status: 200, body: { outcome: "tagged", harness: "microsoft-copilot", harnessLabel: COPILOT, state: after } });
+  await h.click(tagButtons(items[1])[1]);
+  assert.deepEqual(h.callsTo("POST", /\/harness$/)[0].body, { harness: "microsoft-copilot" });
+  assert.equal(h.live(), `Recorded as the ${COPILOT}.`);
+  assert.equal(h.center().querySelector("[data-sc-harness-banner]").dataset.scHarnessBanner, "both", "the banner stays");
+});
+
+test("a picture that looks wrong in a lab built for both harnesses names the slot's harness and the picture's", async () => {
+  const pictures = [flagged("mc-wrong.png", { label: "Add a skill", harness: "microsoft-copilot", harnessLabel: COPILOT, pictureHarness: "standard", pictureHarnessLabel: STANDARD, reason: `This picture was taken in the ${STANDARD}, but this screenshot needs the ${COPILOT}.`, flags: [{ code: "HARNESS_MISMATCH", level: "definite", message: `This picture was taken in the ${STANDARD}, but this screenshot needs the ${COPILOT}.` }] })];
+  const h = makeHarness();
+  h.route("GET", /\/api\/capture\/suspect-pictures/, suspectReply(pictures));
+  await h.setStatus(statusPayload());
+  await h.render(combinedState(combinedShots()));
+  await h.flush();
+  await h.click(h.action("wrong-review"));
+  const row = h.host.querySelector("[data-sc-wrong-picture]");
+  assert.equal(row.querySelector(".sc-harness-label").textContent, COPILOT);
+  assert.equal(row.querySelector(".sc-harness-picture").textContent, `Picture: ${STANDARD}`);
+  assert.equal(row.querySelector("[data-sc-harness-flag]").textContent, "Taken in the other harness");
+});
+
+test("the 'Screenshots left' list of a lab built for both harnesses groups its pictures under one heading per harness", () => {
+  const h = makeHarness({ generated: true });
+  const entry = (filename, harness, extra = {}) => ({ filename, figure: "1.1", caption: `Picture ${filename}`, shows: "A screen", why: "", steps: ["Open Copilot Studio"], harness, harnessLabel: harness ? LABELS[harness] : null, ...extra });
+  const list = {
+    labId: LAB,
+    counts: { missing: 6, computer: 3, you: 3 },
+    labHarness: { id: null, mode: "both", order: BOTH_ORDER, label: BOTH_LABEL, source: "chosen", statement: BOTH_STATEMENT },
+    you: [entry("shared.png", "standard", { harnessScope: "shared" }), entry("std.png", "standard"), entry("mc.png", "microsoft-copilot")],
+    computer: [entry("std-2.png", "standard"), entry("mc-2.png", "microsoft-copilot"), entry("site.png", null)],
+  };
+  const html = h.run("lbRenderChecklistHtml")(list);
+  assert.ok(html.includes(`<p class="lb-checklist-harness-statement"><strong>${BOTH_STATEMENT}</strong></p>`), "the combined statement");
+  const headings = [...html.matchAll(/<h5 class="lb-checklist-harness-group">([^<]*)<\/h5>/g)].map((m) => m[1]);
+  assert.deepEqual(headings, [`${STANDARD} pictures`, `${COPILOT} pictures`, `${STANDARD} pictures`, `${COPILOT} pictures`], "one heading per harness in each of the two lists");
+  const you = html.slice(html.indexOf("Only you can do these"), html.indexOf("Your computer will capture these"));
+  const where = (name) => you.indexOf(`<code>${name}</code>`) >= 0 ? you.indexOf(`<code>${name}</code>`) : you.indexOf(`File: <code>${name}</code>`);
+  assert.ok(you.indexOf("Standard (Classic) harness pictures") < where("std.png") && where("std.png") < you.indexOf("Microsoft Copilot harness pictures") && you.indexOf("Microsoft Copilot harness pictures") < where("mc.png"), "each picture sits under its own harness's heading");
+  assert.ok(you.includes(`<p>Shared topic: works in either harness. This picture is taken in the ${STANDARD}.</p>`), "a shared topic says so");
+  const computer = html.slice(html.indexOf("Your computer will capture these"));
+  assert.ok(computer.indexOf("site.png") > computer.indexOf("Microsoft Copilot harness pictures"), "a picture with no harness comes last, under no heading");
+  assert.equal([...computer.matchAll(/<h5 /g)].length, 2);
+
+  // A lab with one harness has no headings.
+  const single = h.run("lbRenderChecklistHtml")({ ...list, labHarness: { id: "standard", label: STANDARD, statement: STATEMENTS.standard } });
+  assert.ok(!single.includes("lb-checklist-harness-group"));
+  assert.equal([...single.matchAll(/<ul class="lb-checklist-list">/g)].length, 2, "one list for each of the two groups, as before");
+});
+
 // ── The library name carries the harness ────────────────────────────────────
 
 test("the shared library keeps a harness slot's picture under a name that carries the harness, and a retake asks about that name", async () => {
@@ -864,8 +1048,8 @@ test("all the harness CSS is one clearly named block next to the other Screensho
   assert.match(ruleOf(".sc-harness-label-standard"), /border-style:\s*solid/);
   assert.match(ruleOf(".sc-harness-label-microsoft-copilot"), /border-style:\s*dashed/);
   assert.match(ruleOf(".sc-harness-label-customer-conversation"), /border-style:\s*dotted/);
-  // The existing pill rules were not touched: the single-line chip still does not wrap.
-  assert.match(STYLE.match(/\.sc-chip \{([^}]*)\}/)[1], /white-space:\s*nowrap/);
+  // The rules for a lab built for both harnesses are in the same block.
+  for (const selector of [".sc-harness-shared", ".sc-harness-parts", ".sc-harness-part", ".lb-checklist-harness-group"]) assert.ok(ruleOf(selector), `${selector} is in the harness block`);
   // The lab preview's "Screenshot to add" card wraps its harness line too.
   const line = ruleOf(".lab-shot-card .lab-shot-card-harness");
   assert.match(line, /white-space:\s*normal/);

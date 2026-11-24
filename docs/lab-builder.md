@@ -14,7 +14,7 @@ Which is which matters, because the two age differently:
 | Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, deduplicated by canonical article URL and visible citation title (`learn-citations.js`), and link-checked before use. |
 | **Vendor documentation** links and their quote | Specifications published outside Microsoft Learn (MCP, A2A, OpenAPI, Adaptive Cards), listed per feature in the catalog and read live at build time from an allowlist of hosts. See [Vendor documentation](#3b-vendor-documentation). |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
-| Module set, ordering, prerequisites, concepts, **Check your work**, **Lesson mini-quiz** | The curated six-product, 195-capability catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
+| Module set, ordering, prerequisites, concepts, **Check your work**, **Lesson mini-quiz** | The curated six-product, 200-capability catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
 | **Administrator setup** (connectors, data policies, environment, tenant, identity, and cloud settings, each with `Required By` topics) | Derived deterministically (`admin-prereqs.js`) from the planned products, harness, and modules. It is written **only** to the [Administrator setup guide and Prerequisites checklist](#administrator-setup-guide-and-prerequisites-checklist-kept-separate-from-learner-guides), never into the learner guides. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
 | Screenshots | Reused from existing labs or `docs/feature-tour/screenshots/`, or written as a per-lab `shots.json` manifest that the portal's Screenshot Center captures on your own computer against your tenant. |
@@ -90,6 +90,7 @@ Useful flags:
 | `--roles <a,b>` | Learner role ids (`maker`, `developer`, `admin`, `architect`, `customer-service`, and so on). |
 | `--levels <100,200,300>` | Restrict planned modules to one or more catalog levels (`100`, `200`, `300`); `--level <n>` is accepted for a single level. Lower-level prerequisites are included automatically as short recaps. |
 | `--harnesses <a,b>` | Copilot Studio harness filter (`standard`, `microsoft-copilot`, `customer-conversation`); `--harness <id>` sets a single primary harness. Ignored for products without harnesses. |
+| `--both-harnesses` | Cover two harnesses one after another in one lab (order from `--harnesses a,b`; default `standard`, then `microsoft-copilot`). Shared topics are taught once. See [Both harnesses, one after another](#both-harnesses-one-after-another). |
 | `--features <a,b>` | Capability ids to teach; prerequisites within the product are added automatically unless listed in `--excluded <a,b>`. |
 | `--exclude-subtopics <a,b>` | Sub-topic ids to leave out of a Microsoft Learn topic. Every sub-topic is included unless it is named here; an unknown id is an error. List the ids with `npm run export-topics -- --format json` (see [Export All Topics](#export-all-topics)). |
 | `--time <minutes>` | Preferred lab length. Guidance only: no module is ever removed. A lab that runs longer gets a suggestion to split it into parts. |
@@ -227,7 +228,10 @@ arrow, Home, and End keys move among the tabs of the current area.
         Conversation* (preview), with *Standard* selected and a one-line explanation of
         what a harness is. This choice appears **only when a selected product has
         harnesses** (today, Copilot Studio); otherwise it is not shown and the request
-        carries no harness. **Add "How this differs" notes** (collapsed) lists the other
+        carries no harness. **Both, one after another** (Copilot Studio) teaches the Standard
+        (Classic) harness and then the Microsoft Copilot harness in one lab, with shared topics
+        once; an **Order** row with a **Swap** button changes which comes first (see
+        [Both harnesses, one after another](#both-harnesses-one-after-another)). **Add "How this differs" notes** (collapsed) lists the other
         harnesses the lab compares against; each reads "Compare with ...", and Microsoft
         Copilot is ticked by default.
 
@@ -471,7 +475,7 @@ people on one portal never see or overwrite each other's drafts, autosave, or ba
 boundary** (see [Many people at once](#many-people-at-once)). Drafts saved before browsers had ids sat in one shared `local` space;
 the first browser to open the portal after the upgrade adopts them, and every other browser starts empty. Each person can keep up to 50 drafts, and a draft can be up to 256 KB. Two tabs
 saving at once resolve by last write wins, and the response and the list show the saved time. Each file records a schema version.
-A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading. Version 2 (the four-step wizard) moves a version 1 draft or autosave copy onto the new steps when it is read: old Product stays Product; Vertical, Departments, Level, and Harness become **Tailor it**; Topics becomes Topics; and Review and Generate become **Review and build**. The answered-step list and the furthest step move the same way, and every choice is untouched.
+A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading. Version 2 (the four-step wizard) moves a version 1 draft or autosave copy onto the new steps when it is read: old Product stays Product; Vertical, Departments, Level, and Harness become **Tailor it**; Topics becomes Topics; and Review and Generate become **Review and build**. The answered-step list and the furthest step move the same way, and every choice is untouched. Version 3 adds **Both, one after another**: `harnessMode` (`single` or `both`) and the two `harnesses` in teaching order. A version 2 draft was always single-harness, so it opens with a single harness and every other choice untouched; a mode that is not `single` or `both`, or a pair that is not two harnesses, is refused with a message.
 The draft routes are listed in the [API](#api) table.
 
 ### First-time setup
@@ -773,6 +777,17 @@ Foundry hubs and projects (`ai-foundry`), the Microsoft 365 Copilot hub
 product is one entry in `products.json` plus one file in `catalog/`, so pruning one
 means deleting those two and the ids that name it in `concepts.json` and
 `recommendations.json`.
+
+**The AI hub curriculum (25 topics).** Besides the AI hub tour, the prompt, prebuilt-model, custom-model, and administration
+topics, the Power Platform AI hub teaches how to **use AI Builder in Power Automate** at three levels: at level 100, *Add an AI Builder
+action to a cloud flow and use its outputs*; at level 200, *Use a prompt in Power Automate and Power Apps*, *Add human review to a prompt in a flow*,
+*Extract receipt data in a flow*, *Classify incoming email text in a flow and route the result*, and *Process documents automatically when a file arrives
+in SharePoint*; at level 300, *Make AI flows reliable with error handling, retries, and concurrency*, *Monitor and troubleshoot failed runs of an
+AI Builder flow*, *Choose the model at run time with the Predict action*, and *Call a prompt or a flow with AI Builder from a Copilot Studio agent
+as a tool*. The recommended starting set at each level leads with these topics. Each topic cites the Microsoft Learn pages it was written from
+and says "Not confirmed in Microsoft Learn" wherever Learn is silent or two pages disagree. The topic list that the wizard shows from Microsoft Learn
+(`learn-topics.power-platform-ai-hub.snapshot.json`) is regenerated, not edited by hand: run
+`node tools/lab-builder/refresh-topics.mjs --product power-platform-ai-hub`, then `npm run feature-tour:build` for the shot lists.
 
 Rules the catalog enforces (`validateProducts`, `validateCategories`, `validateConcepts`):
 
@@ -1135,15 +1150,15 @@ sessions that deepen a product fill in. The matrix below is generated by `buildC
 
 | Concept | Coverage |
 | --- | --- |
-| Choose an AI capability | variant (3) |
+| Choose an AI capability | variant (2) |
 | Instructions | variant (1) |
 | Model and orchestration | variant (1) |
 | Prebuilt AI models | variant (2) |
-| Content AI and document processing | variant (1) |
+| Content AI and document processing | variant (2) |
 | Custom AI models | variant (3) |
 | Files and code execution | variant (1) |
-| Use AI in apps and flows | variant (3) |
-| Monitor and analytics | variant (1) |
+| Use AI in apps and flows | variant (7) |
+| Monitor and analytics | variant (2) |
 | Authentication and safety | variant (1) |
 | Governance and ALM | variant (2) |
 | Credits and billing | variant (1) |
@@ -1187,6 +1202,35 @@ in the portal validator and the details check inside `accessible-markdown` in
 `validate_labs.py` require a non-empty `<summary>` first, content after it, and
 balanced tags. Step validation skips these notes, because they describe a
 different harness than the lab's steps.
+
+#### Both harnesses, one after another
+
+A lab is normally written for one harness. For Copilot Studio there is a second choice in the wizard's **Tailor it** step, next to the harness radios: **Both, one after another**, with the hint *Covers the Standard (Classic) harness first, then the Microsoft Copilot harness. Shared topics appear once.* An **Order** row with a **Swap** button changes which harness comes first (the default is Standard (Classic), then Microsoft Copilot). The command line has `--both-harnesses` (`--harnesses a,b` sets the order). A request carries `harnessMode: "both"` and an ordered `harnesses` pair. A plain two-harness list without `harnessMode` keeps its old meaning (the first harness is the lab's harness and the other is only used for the "How this differs" notes), and a single-harness lab is unchanged, byte for byte: none of the keys below appear in it.
+
+The one place that decides which part a module belongs to is [`harness-parts.js`](../portal/lib/lab-builder/harness-parts.js) (`partitionIntoHarnessParts`). The rules are deterministic and are read from the catalog's `harness` tags, never from the module's text.
+
+1. **Shared once.** A topic tagged for both harnesses is *shared*. It is taught once, in the first part, **Shared foundations**. A shared topic that depends on a topic that exists in only one harness (for example `alm-solutions` needs the Standard-only `publish-agent`) goes in the last part, **Shared wrap-up**, so a prerequisite is never taught after the topic that needs it.
+2. **Then each harness.** A topic tagged for only one harness appears only in that harness's part, in the order the lab already uses (prerequisite, category, level, or a custom `moduleOrder`). Part order is Shared foundations, the first harness, the second harness, then Shared wrap-up when there is one. Parts with no module are left out.
+3. **Same idea, different steps: a pair.** When a concept has its own topic in each harness (for example `create-agent` and `mc-create-agent`, or `knowledge-sharepoint` and `mc-knowledge`; the catalog keeps two features because the steps differ), the first harness's topic teaches the idea in full. The second harness's topic does not repeat it: where the single-harness lab says *Why it matters*, it says **What is different here** and points back to the first topic, using the curated record in `harness-differences.json` (where to find it, terms, availability, limits). A concept that only one harness has, or that only shared topics cover, is not a pair.
+4. **A topic for neither harness** (for example a Customer Conversation topic in a Standard plus Microsoft Copilot lab) is dropped with a warning in the plan.
+5. **Two agents.** A combined lab needs one practice agent per harness. Its **Prerequisites** list says so (*Two practice agents, one for each harness*), the Step-by-Step intro lists the parts with their minutes, and each module's italic line names its harness (or *Works in either harness*).
+6. **Titles stay short.** A module name drops the catalog's "(... harness)" suffix because its part already says which harness it belongs to. Only when two names would collide does it add "(Standard)" or "(Microsoft Copilot)".
+
+*What this does on the real catalog.* The Standard (Classic) plus Microsoft Copilot catalog has 72 topics: 45 only on Standard, 22 only on Microsoft Copilot, and 5 shared (`mc-harness-choice`, `mc-upgrade-from-standard`, `dlp-governance`, `agent-inventory` up front, and `alm-solutions` in the wrap-up). They form 16 concept pairs. The other 25 Copilot Studio topics belong to the Customer Conversation harness and are not part of this option.
+
+**What is recorded for later work.** A combined lab's `manifest.json` has `request.harnessMode: "both"`, `request.harnesses` (ordered), `differences.labHarness: null`, and `harnessParts`: `{ mode, order, parts: [{ id, n, label, harness, scope, note, moduleIds, orders, minutes }], differs: [{ concept, modules }] }`. Every module record, and every slot in `shots.json`, carries `harness` (the harness id, or `null` when shared), `harnessPart`, and `harnessScope` (`shared` or `harness`); a shared item also carries `harnesses` (both ids) and `harnessNote` (*Works in either harness*). A slot's harness is the harness of the section it sits in, and a shared slot is only used where the screen is identical in both. Code reads this through one helper, `harnessForModule(manifest, module)`, which returns `{ part, scope, harness, harnesses, label, note }`; for a single-harness lab it falls back to the lab's own harness, so a reader needs no special case.
+
+**Decks and other outputs.** Every output follows the same rule: a concept is covered once.
+
+- *Training decks* (see [Training decks](#training-decks-deliver-before-the-hands-on-lab)): foundations once, then sections, then one check, one set of key terms, one set of Learn links, and one closing slide.
+- *Lab text*: the second harness's version of a paired idea says **What is different here** instead of **Why it matters**. A **Sample input**, an **In your scenario** note, or a troubleshooting item that would print word for word the same as an earlier step is printed once, and the later step says *Use the same sample input as in Step N*, *The same as in Step N*, or *More in Step N*. Quiz options and per-question Learn references can still repeat, as they do in a single-harness lab (the quality check warns about them in both).
+- *Topic documents and decks*: a topic in the second harness's part points back instead of repeating the shared explanation.
+- *Administrator setup guide and checklist*: one entry per prerequisite. A prerequisite two parts both need appears once and its **Required By** list names every module, each tagged `· Standard (Classic)`, `· Microsoft Copilot`, or `· Either harness`; a setting that only one harness needs lists only that harness's modules.
+- *ZIP*: the training decks sort ahead of everything, the complete deck first and then the decks in part order, because each deck's number is the module's place in the combined teaching order. The README **Contents** tables gain a **Harness** column, and the training bullet says the decks are for both harnesses. Every entry stays within the 100-character budget.
+
+**Saved labs and drafts.** A saved lab built without the option keeps its files and its saved decks. A lab built with it records its harnesses in the manifest, and the saved-lab card shows both. A draft records `harnessMode` and `harnesses`; draft schema version 3 migrates a version 1 or 2 draft when it is read (nothing is rewritten by reading, and the choice defaults to a single harness), and an invalid pair is refused with a message. See [Training decks](#training-decks-deliver-before-the-hands-on-lab) for the version policy.
+
+**Learn grounding.** The harness names, the Standard (Classic) entry point (**Open classic experience**), and every per-concept difference come from the Microsoft Learn pages already listed in `harness-differences.json` (*Harnesses in Copilot Studio*, the harness FAQ, and the per-capability pages), each with its verified date. Learn calls the first harness the *standard harness*; "Classic" is the label the product uses for its entry point. Where Learn is silent, the record is marked `unknown`, the slide shows **Not confirmed in Microsoft Learn**, and the speaker notes say to check before presenting.
 
 ### 2. Planner
 
@@ -2063,7 +2107,7 @@ capture settings:
   nothing to type, and those screenshots are never shown as *Waiting for your agent address*. The Screenshot Center says
   **Will use the practice agent the computer creates first.**, and once the agent exists **Using the practice agent created
   for this lab.** The plan runs the shots that create the agent (`create-agent`, `harness-choice`) before the first shot that
-  needs it.
+  needs it. A lab built with [Both, one after another](#both-harnesses-one-after-another) needs one practice agent per harness (a Classic agent, created after the switch to the classic experience, and a Microsoft Copilot agent, created in the default experience), and the capture plan runs one harness at a time; see *A lab that covers both harnesses* under [Which harness a picture shows](#which-harness-a-picture-shows-standard-classic-or-microsoft-copilot-never-mixed).
 - **An agent I choose.** Exactly as it worked before: the agent address or name from the settings above is required
   (validation, masking, `values` handling, and the wizard hand-off are unchanged), the shots wait for it, and the old note
   *Waiting for your agent address. Add it above, then capture this one.* applies. Typing an address or name while the default
@@ -2490,6 +2534,28 @@ is never captured in the wrong place: the Screenshot Center says why on the card
 *Needs you*, an upload is refused (`409 harness-gap`), and **lab-gate** reports it (`harness-gap`). Change the lab's modules or its harness.
 For a module tagged for both harnesses, the shared library keeps **one picture per harness** (two slots), and the lab uses the one for its harness.
 
+**A lab that covers both harnesses.** A lab built with [Both, one after another](#both-harnesses-one-after-another) has no single harness
+(`manifest.labHarness` is null; the parts are in `manifest.harnessParts`). Each slot's harness is the harness of the **section it sits in**,
+read through `harnessForModule()` in `harness-parts.js` (the plan carries `harnessMode: "both"` and the ordered `harnesses`, and each slot its
+`harnessPart`, `harnessScope`, and for a shared topic `harnesses` and the note *Works in either harness*). A picture in the Standard (Classic)
+part is a Standard (Classic) picture, a picture in the Microsoft Copilot part is a Microsoft Copilot picture, and the two are never crossed
+in the same lab. A **shared topic** (the same in both harnesses, taught once) is taken in the **first harness of the order**: it has exactly one
+harness, shown as a chip with the note *Shared topic: works in either harness*, so a picture of the second harness never stands in for it. The
+`shots.json` of the lab root keeps main's rule for a shared slot (`harness: null`) and adds `captureHarness` (the harness its picture is taken
+in); `screenshots/shots.json` has `harness` (the harness it is taken in) beside `harnessPart` and `harnessScope`, so every reader of "which
+harness will this picture be taken in" reads one field. The Screenshot Center states the lab once (*This lab: both harnesses, one after
+another (Standard (Classic) harness first, then Microsoft Copilot harness). Each picture is taken in the harness of the part it sits in...*)
+and counts each part against its own harness (`harnessSummary.parts`); the *pictures from both harnesses* warning never shows for it, because
+both are expected. **Lab-gate** checks each part against its own harness (`wrong-harness-picture`: a Microsoft Copilot picture in a Standard
+slot, or the reverse) and does not raise `mixed-harness-pictures` for a combined lab.
+
+The capture plan of a combined lab runs **one harness at a time**: every slot of the first harness (its part, plus the shared topics), then
+every slot of the second, with each harness's creation step first, so the companion switches experience as few times as possible (the classic
+switch once, then back to the default experience once). It makes **one practice agent per harness** (`Classic shots - ...` created inside the
+classic experience after the switch, `Copilot shots - ...` created in the default experience), neither used for the other. The dry plan
+says so: *This lab: both harnesses, one after another...*, the two practice agents, *The computer takes one harness at a time and changes
+experience 1 time*, and per shot the harness, the switch step, and the proof landmark.
+
 **Where the label shows.** Screenshot Center (the **Screenshots left** list, each slot card, review, the *Needs you* reasons,
 **Pictures that look wrong**, **Kept pictures**, the shared library list, and the full-size picture viewer), the lab preview's
 *Screenshot to add* cards (`Harness: Standard (Classic) harness`), the capture plan and the dry plan, `SHOTLIST.md`, `shots.json`, the
@@ -2549,11 +2615,12 @@ or *no switch: open copilotstudio.microsoft.com*), and the proof landmark, and s
   them), the shared library's share rules, export and import of shared screenshots, and **Restore** from the kept pictures all compare the
   harness. A kept picture is restored only into a slot of its own harness.
 - The same picture bytes filed under both harnesses are wrong for both.
-- A lab with pictures from both harnesses, where it should have only its own, shows a warning in the Screenshot Center (*This lab is built for
+- A lab built for one harness that has pictures from both harnesses shows a warning in the Screenshot Center (*This lab is built for
   the Standard (Classic) harness, but it has pictures from the Microsoft Copilot harness...*), and the wrong-stamped picture is not used: its
-  slot is pending again.
+  slot is pending again. A lab that covers both harnesses is checked part by part instead (a wrong picture in a part is flagged on its own
+  card and by lab-gate; nothing says the lab is "mixed").
 - **Lab-gate** (`npm run lab-gate`) flags, as **Fix** (`gap`): `wrong-harness-picture` (a picture stamped with another harness than its
-  slot's), `mixed-harness-pictures` (both harnesses in one lab), and `harness-gap` (a module not written for the lab's harness). It flags, as
+  slot's), `mixed-harness-pictures` (both harnesses in one single-harness lab), and `harness-gap` (a module not written for the lab's harness). It flags, as
   `polish`: `harness-not-recorded` (a picture with no harness recorded).
 - Pictures reused from the hand-written labs under `labs/` were taken in the classic experience, so they are copied only into a Standard
   (Classic) lab (where they show as *Harness not recorded* until tagged). A lab for another harness keeps those slots pending.
@@ -2964,6 +3031,8 @@ the lab no longer includes that Markdown. The four groups:
 3. **Environment and Feature Settings** — checkable toggles for Dataverse capacity, Generative AI / knowledge search, Code Interpreter, Computer Use, Power Apps Code Apps, ALM solutions, or real-time voice channels, each listing the requiring steps.
 4. **Tenant, Identity, and Cloud Admin Prerequisites** — checkable role and licensing prerequisites across Entra ID app registrations, Entra Agent Identities, Microsoft 365 Copilot & Teams custom app upload policies, Microsoft Purview DLP / DSPM for AI, SharePoint Administrator / SharePoint Advanced Management (SAM), and Azure / Microsoft Foundry RBAC and TPM quota, each attributed to its `Step N` / `Recap N` modules.
 
+For a lab built with [Both, one after another](#both-harnesses-one-after-another), the guide covers both harnesses and still has one entry per prerequisite. Harness-specific settings (for example the Copilot Credits settings of the Microsoft Copilot harness) appear when either harness is in the lab, and each **Required By** module is tagged with its part: `· Standard (Classic)`, `· Microsoft Copilot`, or `· Either harness`. The lab's Prerequisites section and the training's closing slide say that a combined lab needs one practice agent per harness.
+
 #### Interactive paged HTML (`html-lab.js` and `interactive-elements.js`)
 
 Every build writes a self-contained `generated-labs/<slug>/index.html` alongside
@@ -3055,7 +3124,7 @@ or headless browser dependencies required at runtime) by `portal/lib/exporter.js
 | Standalone HTML (`.html`) | `generated-labs/<slug>/index.html` or `/export?format=html` | Self-contained multi-page interactive HTML with `localStorage` checklists, interactive mini-quizzes, theme toggle, embedded base64/asset images, and full-lab `@media print` styling. |
 | Word (`.docx`) | `/export?format=docx` | OOXML Word handout (`docx-builder.js`) with cover metadata, architecture overview table, embedded screenshots, callouts, checklists, printable quiz & answer key, and clickable titled hyperlinks. No administrator settings. |
 | PDF (`.pdf`) | `/export?format=pdf` | Multi-page printable PDF guide (`pdf-builder.js`) with typography hierarchy, architecture overview, embedded PNG/JPEG figures, callout boxes, and clickable link annotations. No administrator settings. |
-| PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with ECMA-376 PresentationML Speaker Notes (`notesMaster1.xml` + `notesSlideN.xml`) for PowerPoint Presenter View, including pacing cues, live-demo talking points, coaching callouts, fast rescue tips, and non-spoiler Knowledge Check slides whose answer keys and rationales live exclusively in speaker notes. |
+| PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with ECMA-376 PresentationML Speaker Notes (`notesMaster1.xml` + `notesSlideN.xml`) for PowerPoint Presenter View, including pacing cues, live-demo talking points, coaching callouts, fast rescue tips, and non-spoiler Knowledge Check slides whose answer keys and rationales live exclusively in speaker notes. Slide headers are measured, not guessed (`pptx-text-fit.js`): the kicker, badge, title, and divider never touch, a long title steps down from 21 pt to two lines at 20 or 18 pt (the divider moves down with it) and is shortened only past that, with the full title kept in the speaker notes (`FULL TITLE:`) and the title's alt text; the topic and cover title slides fit their text stack the same way and keep the first lines clear of the logo. |
 | Per-topic `.docx` & `.pptx` (hands-on deck: lab day) | `generated-labs/<slug>/topics/` and `/topics/:order/:format` | Individual Word handout and 16:9 PowerPoint deck (complete with ECMA-376 Presenter View speaker notes) for each module or recap, named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `<Lab Name> - Recap N - <Topic Name>.docx` / `.pptx`). The deck is the lab-day deck: concepts and the hands-on walkthrough together. Synthesized automatically at build time (and refreshed on demand for older generated labs) and renamed whenever the lab title is updated via `PATCH`. |
 | Pre-lab training decks (`.pptx`) | `generated-labs/<slug>/training/`, `/training` (list), `/training/:deck/:format`, and `/export?format=training` (`training-complete`, `training-foundations`) | Concepts-only decks for people who know little or nothing, delivered BEFORE the hands-on lab: a complete deck, a foundations deck per product, and one deck per module and prerequisite refresher, each with full speaker notes and no lab steps. Saved on disk as `Training deck - Complete.pptx`, `Training deck - 00 Foundations - <Product>.pptx`, `Training deck - Module NN - <Title>.pptx` (a single-deck download keeps that descriptive name, held to 120 characters); inside a ZIP they get the short names `Training - complete.pptx`, `Training 00 Foundations <Product>.pptx`, `Training NN <short title>.pptx` (see [ZIP layout and the Windows path budget](#zip-layout-and-the-windows-path-budget)). Built when the lab is generated and synthesized on demand for older labs. See [Training decks: deliver before the hands-on lab](#training-decks-deliver-before-the-hands-on-lab). |
 | Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, downloaded as `<Lab Title> - Facilitator Guide.<ext>`, held to 120 characters; `Facilitator guide.<ext>` inside a ZIP) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h readiness runbook (an **Administrator Readiness** pointer to the Administrator setup guide and the Prerequisites checklist, a SharePoint check, and the sample-files inventory; it does not repeat the administrator's settings), and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
@@ -3122,6 +3191,7 @@ AFTER   README.md                          Contents: every file with its full ti
 - *Module documents:* `NN <short title> - <Kind>.<ext>` with a fixed vocabulary: Handout (`.docx`), Slides (`.pptx`), PDF (`.pdf`), Web page (`.html`). The title is repeated when the whole short title fits the 90-character target, otherwise the first two or more words that fit are kept, otherwise it is left out (`02 - Handout.docx`) because the folder name and the document's cover already carry it. The names do not change with the formats you ask for.
 - *Sample files:* names are left alone when they fit; a name that would push the path past 100 loses its domain prefix and filler words first (`starter-inputs-and-prompts.md` becomes `starter-inputs.md`). The module's `sample-files/README.txt` and the Facilitator Guide list the names as written.
 - *Fixed files:* `Administrator setup guide.<ext>`, `Prerequisites checklist.<ext>`, `Facilitator guide.<ext>`, `Lab Overview.<ext>`, `Training - complete.pptx`, `Training 00 Foundations <product>.pptx`, and `Training NN <short title>.pptx` (the same short title as the module's folder).
+- *Both harnesses:* a combined lab uses the same names, folders, and 100-character budget. Modules are numbered in the combined teaching order (Shared foundations, the first harness, the second harness, then Shared wrap-up), so the folders and the `Training NN` decks list in part order, with `Training - complete.pptx` first. The README **Contents** tables and `export-manifest.json` `index` (`harness`) name the harness of each module and deck (`Standard (Classic)`, `Microsoft Copilot`, `Both harnesses ...`, or `Works in either harness`), and the training bullet says the decks cover both harnesses.
 - *Uniqueness and order:* names are unique when case is ignored (Windows is case-insensitive), two modules with the same short title still differ by `NN`, and the same lab always gets the same names.
 - *The guard:* every entry passes `createZipPathGuard`. Outside tests, a path still over 100 (a picture with a 110-character name, say) is shortened at a word boundary and ends with a 4 character hash (`~a1b2`), and the change is recorded in `export-manifest.json` under `pathBudget.warnings`; the export does not fail. Under `node --test` the guard throws an `ExportBudgetError` instead, so a naming mistake fails the suite and never reaches a customer.
 
@@ -3162,6 +3232,8 @@ a question for the room, what to demo if there is time, and sources. Slides are 
 flat shapes, no gradients or decoration, a real title on every slide, shapes in reading order (title, content, then footer), a text description on every diagram, and a fit check on every
 text box so nothing overflows. The brand profile (colors, font, logo, footer) applies the same way as for every other deck.
 
+**Titles never overlap.** The eyebrow, title, subtitle, and first body shape of every training slide are laid out from one measured vertical budget (`pptx-text-fit.js`). The title is anchored to the top of its box, so it can only grow downward. Width is measured with an Arial Bold advance table scaled per brand font (Segoe UI Semibold, Segoe UI, Arial, Calibri, Verdana, Georgia, Times New Roman; any other font is measured wide), padded about 5 percent, and each line is as tall as the font's own line height, so the estimate is on the wide side. A content-slide title steps 30 > 26 > 24 > 22 pt (two lines at most) and the title-slide title steps 36 > 32 > 28 > 24 pt (it may grow its box down to three or four lines and push the subtitle and outcomes down); a short title keeps its size and its place. If it still does not fit at the smallest size it is cut at a word boundary with an ellipsis ("Name … — what this slide is" keeps the part after the dash), the full title goes in the slide's speaker notes (`FULL TITLE:`) and in the title shape's alt text, and a very long subtitle (the lab name) is fitted and kept in full the same way (`FULL SUBTITLE:`). On a title slide with a logo, a long title narrows so it stays clear of the logo. `TRAINING_SCHEMA_VERSION` 2 makes saved decks re-lay out on their next view or export; the lab's text is not rewritten.
+
 **What is never in them.** No lab steps, no click paths, no `Do this`, no `Screenshot to add` cards, no administrator settings (those stay in the Administrator
 setup guide; a topic written for administrators is taught as what it is and why it matters), and no tenant, environment, agent, user, account, or customer values. A leak scan in `training-guard.js` and the tests enforces it.
 
@@ -3188,7 +3260,20 @@ they are rebuilt on the next request. When the Learn drift check sees a changed 
 
 **How they differ from the lab-day decks.** The lab-day deck keeps its concept slides (core concepts, best practices, availability) and then walks through the steps. The training deck contains only the concepts, written for zero knowledge. The two overlap only a little. Measured on six sample labs (18 module decks): the concept-type slides (core concepts, design best practices, use cases) are about 1 of every 8 lab-day slides (36 of 299, 12%), and of the 425 sentences on those slides, 15% have a near-duplicate in the matching training deck and 6% are word for word the same. The overlap is in the idea (both explain what the topic is and when to use it), not in the wording, because the training deck is written from the curated plain-language briefs. The owner can decide later whether to trim the lab-day concept slides; the most overlapping ones are the definition and when-to-use content. Neither deck changes the other.
 
-**Contributors.** The new modules are `training-library.js` and `training/*.json` (content), `training-plan.js` (the plan, minutes, fingerprint), `training-slides.js` (slide content and speaker notes), `training-pptx.js` (drawing on the shared deck assembler in `pptx-builder.js`, with a real title placeholder), `training-decks.js` (files, cache, race-safe writes, ZIP entries), `training-routes.js` (routes), and `public/training-decks.js` (the UI group). The decks are in the Office validation matrix (`npm run validate:office`).
+**Both harnesses.** For a lab built with [Both, one after another](#both-harnesses-one-after-another) the decks cover each concept once.
+
+- *Complete deck sections:* **Shared foundations** (each product's foundations and the shared topics), **Standard (Classic) harness**, **Microsoft Copilot harness** (or the chosen order), **Shared wrap-up** when there is one, then **Check, key terms, and next steps**. The agenda slide is titled **Agenda: both harnesses** and lists the sections with their minutes. Each part starts with a divider, **Part n of N: ...**, that repeats the agenda with the current part highlighted. Titles stay under about 60 characters, and no title repeats the product or harness name as a suffix.
+- *Same idea, different place:* where a concept has a topic in each harness, the second harness's slides show one **Same idea, different place: ...** slide with the two harnesses side by side (name, availability, where to find it, limits), built only from the curated record in `harness-differences.json`, instead of a second near-identical explanation. It appears once per concept; a later topic of the same concept uses **What this adds**. The speaker notes cite the record's Learn sources and its checked date, and a record Learn does not fully document says **Not confirmed in Microsoft Learn** with a presenter check.
+- *Pooled slides:* one knowledge check (up to 8 questions, 4 per slide, answers in the notes), one key-terms set (up to 24 words; the foundations vocabulary is merged in, so no word is defined twice), one **Learn links** set (up to 12, 4 per slide), and one closing slide. A "You will need to know" slide and a Licensing row are shown once.
+- *Per-topic and foundations decks:* the foundations deck is built once per product. The per-topic decks are built in teaching order and share what was already introduced, so a second-harness topic points back instead of repeating the idea (a topic whose concept was already taught is 12 minutes).
+- *Minutes:* the plan decides them, and the deck, the agenda, the facilitator guide and the portal all read the same number. Title, agenda, divider and closing slides take no time; the check, terms, and Learn slides have fixed minutes (3, 2, and 1); the remaining time is spread over the topic slides by weight. The total always equals the sum of the unique slides' minutes.
+- *Duplication guard:* [`training-duplicates.js`](../portal/lib/lab-builder/training-duplicates.js) fingerprints every slide (normalized title plus body text). Two slides in one deck fail the guard when they share a title, or when their bodies are near-identical (3-word shingle similarity of 0.85 or more, for bodies of at least 12 words). Series titles that end in `(n of m)` and the title-only divider and agenda slides are compared by title alone. Under `node --test` a duplicate throws, so a mistake fails the suite; in production it logs a warning and drops the later slide, adding its minutes to the previous slide so the total still matches.
+- *Facilitator guide:* the **Pre-Lab Training Session** table has one row per topic with its part, and the agenda lists the same sections and minutes as the deck. The header reads *Both, one after another: Standard (Classic), then Microsoft Copilot*.
+- *Versions:* `TRAINING_SCHEMA_VERSION` and `TOPIC_DOCUMENTS_SCHEMA_VERSION` are **not** bumped. A new `TRAINING_COMBINED_VERSION` (in `training-plan.js`) is added to the fingerprint of a combined lab only, so every saved single-harness deck keeps its fingerprint and is not rebuilt; bump `TRAINING_COMBINED_VERSION` when combined output changes. `training.json` of a combined lab also lists `combined: { order, parts }`.
+- *Validation:* the Office validation matrix (`npm run validate:office`) builds a combined lab (`lab-both`) next to the single-harness labs, so its decks, facilitator guide, administrator guide, and ZIP entries go through the strict and Open XML checks too.
+- *The numbers:* for a sample 10-topic retail lab (three shared topics, three Standard only, four Microsoft Copilot only), the two single-harness complete decks concatenated would be 225 slides (100 + 125). The combined complete deck is 107 slides and 235 minutes (sections of 59, 88, 59, 12, and 17 minutes). The whole Standard plus Microsoft Copilot catalog (72 topics) builds to 524 slides and 1,175 minutes, with the guard passing.
+
+**Contributors.** The new modules are `training-library.js` and `training/*.json` (content), `training-plan.js` (the plan, minutes, fingerprint), `training-slides.js` (slide content and speaker notes), `training-pptx.js` (drawing on the shared deck assembler in `pptx-builder.js`, with a real title placeholder; titles and subtitles are fitted by `pptx-text-fit.js`, which the lab-day decks in `pptx-builder.js` use too), `training-decks.js` (files, cache, race-safe writes, ZIP entries), `training-routes.js` (routes), and `public/training-decks.js` (the UI group). The decks are in the Office validation matrix (`npm run validate:office`).
 
 #### Administrator setup guide and prerequisites checklist: kept separate from learner guides
 
@@ -3231,6 +3316,27 @@ whenever a lab is read for a learner (preview, Markdown, web page, Word, PDF, Po
 pointer, and does nothing to a guide that no longer has the section (so running it twice changes nothing). The administrator
 documents are built from the saved manifest and Markdown, as before. `TOPIC_DOCUMENTS_SCHEMA_VERSION` is 5, so per-topic files
 saved with the administrator slides are rebuilt the next time they are asked for.
+
+**AI hub (AI Builder) prerequisites.** Regional availability and environment prerequisites are administrator work, not a lab,
+so the Power Platform AI hub has no "Check regional availability and environment prerequisites" topic. The same content is
+in the guide and the checklist as items that appear **only when a Power Platform AI hub topic is in the lab**, once each,
+each with a plain *why*, a **How to check** line, and Microsoft Learn links (all read from Microsoft Learn on 2026-11-24):
+
+| Item (`id` in `admin-prereqs.js`) | When it shows | Source |
+|---|---|---|
+| AI Builder models available, and their release status, in the environment's region (`ai-builder-model-region-availability`) | Every AI hub lab | Feature availability by region; Choose the region when setting up an environment (the **Region** column) |
+| Prompt models available in the environment's region (`ai-builder-prompt-model-availability`) | A lab with a prompt topic | Prompt model availability by region and updates |
+| US Government limits for AI Builder (`ai-builder-us-government-limits`) | Every AI hub lab, marked **Only if** the environment is in GCC, GCC High, or DoD | Feature availability by region (US Government section) |
+| AI Builder turned on for the environment: Dataverse, AI prompts, preview models (`ai-builder-enabled-for-environment`) | Every AI hub lab | Administer AI Builder; Build a model in AI Builder |
+| Optional: Deploy sample apps and data when you create the environment (`ai-builder-sample-data`) | Every AI hub lab, marked **Only if** you want it | Create and manage environments; Build a model in AI Builder |
+| Power Automate license for flows that use AI Builder actions (`ai-builder-flow-license`) | A lab with a flow topic; Learn's pages disagree on whether such a flow is premium, so it says **Not confirmed in Microsoft Learn** | Overview of licensing; Licensing and AI Builder credits |
+| Copilot Studio access and a Dataverse environment for agent tools (`ai-builder-agent-tools-environment`) | The agent tools topic | Create an agent flow as a tool |
+
+Credits and capacity are not repeated: they stay in the existing **Copilot Credits or AI Builder capacity for the environment**
+item, which the AI Builder item refers to once. The Content Conversion (Preview) connector appears with the email routing topic.
+`ADMIN_COPY` entries may carry a `check` line (**How to check**), which the guide and the checklist print in Markdown, web page,
+Word, and PDF. A lab saved before these items existed keeps the administrator model saved in its manifest, so it does not show
+them; a saved lab with no administrator model gets them built from its modules.
 
 **Get it.**
 

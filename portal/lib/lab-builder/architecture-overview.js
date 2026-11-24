@@ -304,7 +304,6 @@ const FEATURE_RULES = Object.freeze({
   "fdy-create-hub-based-project": { zone: "anchor" },
   "fdy-create-prompt-agent": { zone: "anchor" },
   "ppai-explore-ai-hub-models": { zone: "anchor" },
-  "ppai-check-region-and-prerequisites": { zone: "anchor" },
 
   // ── Lane 1: Audience & Experience / Entry Points ──────────────────────────
   "publish-agent": {
@@ -743,6 +742,27 @@ const FEATURE_RULES = Object.freeze({
     title: "Historical Dataverse Prediction Model",
     role: () => "Predicts business outcomes from historical Microsoft Dataverse table patterns.",
   },
+  "ppai-flow-add-ai-builder-actions": {
+    zone: "orchestration",
+    group: "orch-ppai-flow-actions",
+    icon: "bolt",
+    title: "AI Builder Actions in a Cloud Flow",
+    role: () => "Sends flow input to prebuilt AI Builder actions and reuses their outputs as dynamic content.",
+  },
+  "ppai-flow-classify-extract-route-text": {
+    zone: "orchestration",
+    group: "orch-ppai-route-text",
+    icon: "branch",
+    title: "Text Classification and Routing Flow",
+    role: (c) => `Classifies incoming ${c.domain} text and routes each result by category and confidence score.`,
+  },
+  "ppai-flow-process-documents-on-arrival": {
+    zone: "orchestration",
+    group: "orch-ppai-doc-arrival",
+    icon: "file",
+    title: "Automatic Document Processing on Arrival",
+    role: (c) => `Extracts fields from ${c.domain} files as they arrive, then saves them or routes them for review by confidence score.`,
+  },
   "spai-autofill-columns": {
     zone: "orchestration",
     group: "orch-spai-autofill",
@@ -1081,6 +1101,13 @@ const FEATURE_RULES = Object.freeze({
     icon: "code",
     title: "Prompt Code Interpreter Execution",
     role: () => "Executes deterministic Python calculations and structured transformations inside prompts.",
+  },
+  "ppai-agent-tools-prompt-and-flow": {
+    zone: "grounding",
+    group: "act-ppai-agent-tools",
+    icon: "plug",
+    title: "AI Builder Prompt and Agent Flow Tools",
+    role: () => "Lets a Copilot Studio agent call a saved prompt or an agent flow with Run a prompt as a tool.",
   },
   "computer-use": {
     zone: "grounding",
@@ -1499,6 +1526,20 @@ const FEATURE_RULES = Object.freeze({
     title: "AI Builder Activity & Audit Monitoring",
     detail: "Reviews model execution logs, prompt run history, and environment activity data.",
   },
+  "ppai-flow-monitor-troubleshoot-runs": {
+    zone: "foundation",
+    group: "fnd-diagnostics",
+    icon: "check",
+    title: "AI Flow Run Troubleshooting",
+    detail: "Finds the failing AI Builder step in run history, reads its inputs and outputs, and resubmits the run.",
+  },
+  "ppai-flow-reliable-ai-actions": {
+    zone: "foundation",
+    group: "fnd-diagnostics",
+    icon: "shield",
+    title: "Error Handling, Retries & Concurrency for AI Flows",
+    detail: "Catches AI action failures with run after scopes and keeps calls inside model limits with retries and concurrency.",
+  },
   "spai-agent-insights-reports": {
     zone: "foundation",
     group: "fnd-telemetry",
@@ -1794,7 +1835,9 @@ export function buildArchitectureModel(plan = {}) {
         id: harnessId,
         label: HARNESS_LABELS[harnessId] || harnessId,
       }
-    : null;
+    : plan.harnessParts
+      ? { id: "both", label: plan.harnessParts.order.map((id) => HARNESS_LABELS[id] || id).join(" and ") }
+      : null;
 
   const levelNum = Number(plan.level) || 200;
   const levelLabelName = cleanText(plan.difficulty || plan.levelName, LEVEL_NAMES[levelNum] || "Intermediate");

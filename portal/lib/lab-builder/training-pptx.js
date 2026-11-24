@@ -3,9 +3,11 @@
  * theme, brand profile, speaker-notes parts, and package code as every other deck the portal makes.
  *
  * Design rules (calm, clear, trustworthy): one idea per slide, large type (nothing in the body under 16 pt, titles
- * 30 pt), one accent color (the brand's), flat shapes with no gradients, no side stripes, no boxes inside boxes,
- * generous whitespace, a real title on every slide, shapes in reading order (title, content, then footer),
- * a text description on every diagram, and a fit check on every text box so nothing overflows.
+ * 30 pt, stepping down to 22 pt for a long one), one accent color (the brand's), flat shapes with no gradients, no side
+ * stripes, no boxes inside boxes, generous whitespace, a real title on every slide, shapes in reading order (title,
+ * content, then footer), a text description on every diagram, and a fit check on every text box so nothing overflows.
+ * The eyebrow, title, subtitle, and first body shape are laid out from one measured vertical budget (pptx-text-fit.js),
+ * so a long title can never run into the text above or below it.
  */
 
 import {
@@ -19,6 +21,7 @@ import {
 } from "./pptx-builder.js";
 import { plainText } from "./training-text.js";
 import { loadTrainingLibrary } from "./training-library.js";
+import { fitHeading, fitSingleLine } from "./pptx-text-fit.js";
 
 const MARGIN = 640080;
 const CONTENT_W = SLIDE_CX - MARGIN * 2;
@@ -28,6 +31,27 @@ const FOOTER_Y = SLIDE_CY - 365760;
 const MIN_BODY_PT = 16;
 const LINE_SPACING = 105000;
 const EMU_PER_INCH = 914400;
+
+// The top of every slide is laid out from one vertical budget (EMU): the brand bar, then the eyebrow, then the title
+// (anchored to the top of its box, so it can only grow downward), then the subtitle and the body. A short title sits
+// where it always has (its last line ends at *_REST); a longer one first steps down in size, then grows its box
+// downward as far as *_LIMIT allows, and only then is shortened.
+const EYEBROW_Y = 250000;
+const EYEBROW_H = 270000;
+const EYEBROW_W = CONTENT_W - 2200000;
+const TITLE_TOP = 530000;
+const CONTENT_TITLE_REST = 1460000;
+const CONTENT_TITLE_LIMIT = 1500000;
+const COVER_TITLE_REST = 1600000;
+const COVER_TITLE_LIMIT = 2180000;
+const COVER_SUBTITLE_Y = 1700000;
+const TITLE_GAP = 100000;
+const LOGO_CLEAR_Y = 900000;
+const LOGO_CLEAR_W = 1850000;
+const spacedSteps = (sizes, spacingPct) => sizes.map((sizePt) => ({ sizePt, spacingPct }));
+const CONTENT_TITLE_STEPS = spacedSteps([30, 26, 24, 22], 95000);
+const COVER_TITLE_STEPS = spacedSteps([36, 32, 28, 24], 95000);
+const SUBTITLE_STEPS = spacedSteps([20, 18, 16], LINE_SPACING);
 
 /** Relative luminance of a hex color, 0 (black) to 1 (white). */
 function luminance(hex) {
@@ -117,8 +141,8 @@ class TrainingDeckAssembler extends PptxDeckAssembler {
       `$1
       <p:sp>
         <p:nvSpPr><p:cNvPr id="2" name="Title Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="${MARGIN}" y="520000"/><a:ext cx="${CONTENT_W}" cy="840000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody><a:bodyPr vert="horz" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="b"><a:normAutofit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${TITLE_PLACEHOLDER_TEXT}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></p:txBody>
+        <p:spPr><a:xfrm><a:off x="${MARGIN}" y="${TITLE_TOP}"/><a:ext cx="${CONTENT_W}" cy="${CONTENT_TITLE_LIMIT - TITLE_TOP}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+        <p:txBody><a:bodyPr vert="horz" lIns="0" tIns="0" rIns="0" bIns="0" rtlCol="0" anchor="t"><a:normAutofit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>${TITLE_PLACEHOLDER_TEXT}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p></p:txBody>
       </p:sp>$2`,
     );
   }
@@ -153,6 +177,7 @@ class Painter {
     this.tint = deck.primaryTintHex;
     this.border = deck.primaryBorderHex;
     this.heading = deck.brandFont || "Segoe UI Semibold";
+    this.bodyFont = deck.brandFont || "Segoe UI";
   }
 
   p(text, sizePt, opts = {}) {
@@ -226,23 +251,73 @@ class Painter {
   }
 }
 
-/** The title placeholder, in the slide's chrome so it is read first. */
-function addTitle(slide, painter, text, { sizePt = 30, y = 480000, cy = 980000 } = {}) {
+/**
+ * Where the title goes and how big it is, measured, so it can never run into the eyebrow above it or the content
+ * below it. Returns the fitted text (with the full text beside it) and the title's own box.
+ */
+function layoutTitle(painter, text, { isCover, hasLogo, accept }) {
+  const rest = isCover ? COVER_TITLE_REST : CONTENT_TITLE_REST;
+  const limit = isCover ? COVER_TITLE_LIMIT : CONTENT_TITLE_LIMIT;
+  const steps = isCover ? COVER_TITLE_STEPS : CONTENT_TITLE_STEPS;
+  const attempt = (cx, stepList) => {
+    const fit = fitHeading({ text, fontName: painter.heading, widthEmu: cx, maxHeightEmu: limit - TITLE_TOP, steps: stepList });
+    return { fit, x: MARGIN, y: Math.max(TITLE_TOP, rest - fit.heightEmu), cx, cy: fit.heightEmu };
+  };
+  const place = (stepList) => {
+    const layout = attempt(CONTENT_W, stepList);
+    // A long title on a cover with a logo narrows so its first lines stay clear of the logo.
+    return isCover && hasLogo && layout.y < LOGO_CLEAR_Y ? attempt(CONTENT_W - LOGO_CLEAR_W, stepList) : layout;
+  };
+  // On a cover the title is one part of a stack, so the largest size wins only if everything below it still fits too.
+  if (accept) {
+    for (const step of steps) {
+      const layout = place([step]);
+      if (!layout.fit.shortened && accept(layout)) return layout;
+    }
+  }
+  return place(steps);
+}
+
+/**
+ * The stack under a title slide's title: subtitle, details, outcomes heading, outcomes. A taller title pushes it down;
+ * the push is first taken out of the spare gaps, and `fits` says whether the outcomes still fit at the smallest body size.
+ */
+function titleSlideStack(p, body, { titleBottom, bottom }) {
+  const subW = CONTENT_W - 2200000;
+  // The subtitle can be a whole lab name, so it is measured too: it steps down a little, grows its box, and pushes
+  // what follows, instead of being squeezed into a fixed 520000.
+  const subtitle = fitHeading({ text: body.subtitle || "", fontName: p.bodyFont, widthEmu: subW, maxHeightEmu: 900000, steps: SUBTITLE_STEPS, bold: Boolean(p.deck.brandFont) });
+  const subtitleY = Math.max(COVER_SUBTITLE_Y, titleBottom + TITLE_GAP);
+  const subtitleH = Math.max(520000, subtitle.heightEmu + 20000);
+  const push = subtitleY - COVER_SUBTITLE_Y + subtitleH - 520000;
+  const afterSubtitle = subtitleY + Math.max(600000, subtitleH + 80000);
+  const hasTags = Boolean(body.tags?.length);
+  const tagsGap = 560000 - Math.min(push, 120000);
+  const headingY = (hasTags ? afterSubtitle + tagsGap : afterSubtitle) + 160000 - Math.min(Math.max(0, push - 120000), 120000);
+  const outcomesTop = headingY + 500000;
+  const outcomesH = Math.max(900000, bottom - outcomesTop);
+  const paragraphs = body.outcomes.map((o, i) => p.p(`${i + 1}.  ${o}`, 24, { spaceAfterPt: 10 }));
+  const fits = fitParagraphs(paragraphs, CONTENT_W, outcomesH, { l: 0, t: 0, r: 0, b: 0 }).fits;
+  return { subtitle, subW, subtitleY, subtitleH, detailsY: hasTags ? afterSubtitle : null, headingY, outcomesTop, outcomesH, paragraphs, fits };
+}
+
+/** The title placeholder, in the slide's chrome so it is read first. Anchored to the top: it can only grow downward. */
+function addTitle(slide, painter, layout) {
+  const { fit } = layout;
   const id = slide.allocateShapeId();
-  const para = slide.renderParagraphXml({ text, sizePt, bold: true, colorHex: COLORS.ink, font: painter.heading, spaceAfterPt: 0, lineSpacingPct: 95000 });
-  const needed = estimateHeight([{ text, sizePt, bold: true, spaceAfterPt: 0 }], CONTENT_W);
-  if (needed > cy) painter.report.push({ slide: painter.label, shape: "Title", needed, have: cy });
+  const para = slide.renderParagraphXml({ text: fit.text, sizePt: fit.sizePt, bold: true, colorHex: COLORS.ink, font: painter.heading, spaceAfterPt: 0, lineSpacingPct: fit.spacingPct });
+  const alt = fit.shortened ? ` descr="${xmlEscape(fit.fullText)}"` : "";
   slide.chromeXml.push(`<p:sp>
       <p:nvSpPr>
-        <p:cNvPr id="${id}" name="Title"/>
+        <p:cNvPr id="${id}" name="Title"${alt}/>
         <p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>
         <p:nvPr><p:ph type="title"/></p:nvPr>
       </p:nvSpPr>
       <p:spPr>
-        <a:xfrm><a:off x="${MARGIN}" y="${y}"/><a:ext cx="${CONTENT_W}" cy="${cy}"/></a:xfrm>
+        <a:xfrm><a:off x="${layout.x}" y="${layout.y}"/><a:ext cx="${layout.cx}" cy="${layout.cy}"/></a:xfrm>
       </p:spPr>
       <p:txBody>
-        <a:bodyPr vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="b"><a:normAutofit/></a:bodyPr>
+        <a:bodyPr vert="horz" wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"><a:normAutofit/></a:bodyPr>
         <a:lstStyle/>
         ${para}
       </p:txBody>
@@ -262,14 +337,15 @@ function addChrome(slide, painter) {
 
 function addEyebrow(slide, painter, eyebrow) {
   if (!eyebrow) return;
+  const fit = fitSingleLine({ text: eyebrow, fontName: painter.heading, widthEmu: EYEBROW_W, sizes: [13, 12, 11] });
   slide.chromeXml.push(
     slide.renderShapeXml({
       name: "Eyebrow",
       x: MARGIN,
-      y: 250000,
-      cx: CONTENT_W - 2200000,
-      cy: 240000,
-      paragraphs: [{ text: eyebrow, sizePt: 13, bold: true, colorHex: painter.accentText, font: painter.heading, spaceAfterPt: 0 }],
+      y: EYEBROW_Y,
+      cx: EYEBROW_W,
+      cy: EYEBROW_H,
+      paragraphs: [{ text: fit.text, sizePt: fit.sizePt, bold: true, colorHex: painter.accentText, font: painter.heading, spaceAfterPt: 0 }],
       insets: { l: 0, t: 0, r: 0, b: 0 },
     }),
   );
@@ -312,24 +388,14 @@ function wordsStrip(painter, words, library) {
 const DRAW = {
   title(p, slide, body, ctx) {
     const { deck } = p;
-    let y = 1700000;
-    p.box("Subtitle", MARGIN, y, CONTENT_W - 2200000, 520000, [p.p(body.subtitle || "", 20, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
-    y += 600000;
-    if (body.tags?.length) {
-      p.box("Details", MARGIN, y, CONTENT_W, 380000, [p.p(body.tags.join("   ·   "), 18, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
-      y += 560000;
+    const stack = titleSlideStack(p, body, { titleBottom: ctx.titleBottom, bottom: ctx.bottom });
+    if (stack.subtitle.shortened) ctx.notes.push(`FULL SUBTITLE: ${stack.subtitle.fullText}`);
+    p.box("Subtitle", MARGIN, stack.subtitleY, stack.subW, stack.subtitleH, [p.p(stack.subtitle.text, stack.subtitle.sizePt, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
+    if (stack.detailsY !== null) {
+      p.box("Details", MARGIN, stack.detailsY, CONTENT_W, 380000, [p.p(body.tags.join("   ·   "), 18, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
     }
-    p.box("Outcomes Heading", MARGIN, y + 160000, CONTENT_W, 420000, [p.p(body.outcomesHeading || "", 22, { bold: true, colorHex: p.accentText, font: p.heading, spaceAfterPt: 0 })]);
-    const top = y + 660000;
-    const bottom = ctx.bottom;
-    p.box(
-      "Outcomes",
-      MARGIN,
-      top,
-      CONTENT_W,
-      Math.max(900000, bottom - top),
-      body.outcomes.map((o, i) => p.p(`${i + 1}.  ${o}`, 24, { spaceAfterPt: 10 })),
-    );
+    p.box("Outcomes Heading", MARGIN, stack.headingY, CONTENT_W, 420000, [p.p(body.outcomesHeading || "", 22, { bold: true, colorHex: p.accentText, font: p.heading, spaceAfterPt: 0 })]);
+    p.box("Outcomes", MARGIN, stack.outcomesTop, CONTENT_W, stack.outcomesH, stack.paragraphs);
     if (deck.logoMedia) {
       slide.addPicture({ media: deck.logoMedia, x: SLIDE_CX - MARGIN - 1700000, y: 250000, maxCx: 1700000, maxCy: 560000, alt: deck.organizationName ? `${deck.organizationName} logo` : "Organization logo" });
     }
@@ -694,6 +760,38 @@ const DRAW = {
     });
   },
 
+  /** "Same idea, different place": one column for each harness, side by side. */
+  compare(p, slide, body, ctx) {
+    p.box("Intro", MARGIN, TOP - 60000, CONTENT_W, 360000, [p.p(body.intro, 20, { colorHex: COLORS.muted, spaceAfterPt: 0 })]);
+    const top = TOP + 320000;
+    const gap = 300000;
+    const colW = Math.floor((CONTENT_W - gap) / 2);
+    const height = Math.max(1200000, ctx.bottom - top);
+    body.columns.forEach((col, i) => {
+      const paragraphs = [
+        p.p(col.name, 20, { bold: true, colorHex: p.dark, font: p.heading, spaceAfterPt: 2 }),
+        {
+          runs: [
+            { text: `Called "${col.term}"`, bold: true, colorHex: p.accentText, font: p.heading },
+            { text: `   ${col.availability}`, bold: true, colorHex: COLORS.muted },
+          ],
+          sizePt: 20,
+          spaceAfterPt: 8,
+          lineSpacingPct: LINE_SPACING,
+        },
+        ...(col.summary ? [p.p(col.summary, 18, { spaceAfterPt: 6 })] : []),
+        ...(col.where ? [p.p(`Where: ${col.where}`, 18, { spaceAfterPt: 6 })] : []),
+        ...col.limits.map((limit) => p.p(limit, 16, { bulletChar: "•", bulletColorHex: p.primary, spaceAfterPt: 0 })),
+      ];
+      p.box(`Harness ${i + 1}`, MARGIN + i * (colW + gap), top, colW, height, paragraphs, {
+        fillHex: p.tint,
+        borderHex: p.border,
+        geom: "roundRect",
+        insets: { l: 200000, t: 120000, r: 200000, b: 100000 },
+      });
+    });
+  },
+
   divider(p, slide, body, ctx) {
     const rows = body.rows;
     const windowed = rows.length > 12 ? rows.slice(Math.max(0, Math.min(body.current - 3, rows.length - 7)), Math.max(0, Math.min(body.current - 3, rows.length - 7)) + 7) : rows;
@@ -739,14 +837,23 @@ export function renderTrainingDeck(spec, { branding, library = loadTrainingLibra
     slide.altText = s.alt || "";
     addChrome(slide, painter);
     const isTitle = s.kind === "title";
-    addTitle(slide, painter, s.title, isTitle ? { sizePt: 36, y: 480000, cy: 1200000 } : {});
-    addEyebrow(slide, painter, s.eyebrow);
     const strip = wordsStrip(painter, s.words, library);
+    const header = layoutTitle(painter, s.title, {
+      isCover: isTitle,
+      hasLogo: Boolean(deck.logoMedia),
+      accept: isTitle ? (layout) => titleSlideStack(painter, s.body, { titleBottom: layout.y + layout.cy, bottom: strip.top }).fits : null,
+    });
+    addTitle(slide, painter, header);
+    addEyebrow(slide, painter, s.eyebrow);
     const draw = DRAW[s.kind];
     if (!draw) throw new Error(`No drawing for training slide kind "${s.kind}"`);
-    draw(painter, slide, s.body, { bottom: strip.top });
+    const extraNotes = [];
+    draw(painter, slide, s.body, { bottom: strip.top, titleBottom: header.y + header.cy, notes: extraNotes });
     strip.draw();
     slide.setNotes(s.notes || []);
+    // Nothing is lost when a title or subtitle had to be shortened: the full text is in the speaker notes (and, for the title, its alt text).
+    if (header.fit.shortened) extraNotes.unshift(`FULL TITLE: ${header.fit.fullText}`);
+    if (extraNotes.length) slide.appendNotes(extraNotes);
   });
   return { buffer: deck.toPptxBuffer(), overflow };
 }

@@ -29,7 +29,8 @@ import {
 import { clearBuilding, markBuilding } from "./lab-state.js";
 import { assessLab } from "./qa.js";
 import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
-import { plainModuleNames } from "./module-names.js";
+import { combinedModuleNames, plainModuleNames } from "./module-names.js";
+import { moduleHarnessRecord } from "./harness-parts.js";
 import { getHarnesses } from "./catalog.js";
 import { harnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
 import { getConcepts } from "./concepts.js";
@@ -1222,7 +1223,7 @@ export async function generateLab(request, opts = {}) {
   onProgress?.({ stage: "compose", message: "Composing the lab" });
   // Grounding and step reading are done with the catalog names; the lab itself uses plain module names
   // (no repeated "(Microsoft Copilot harness)"), because its HARNESS row already says which one it is.
-  plan = { ...plan, features: plainModuleNames(plan.features, plan.harness) };
+  plan = { ...plan, features: plan.harnessParts ? combinedModuleNames(plan.features) : plainModuleNames(plan.features, plan.harness) };
   // Credit the model with the narrative only if some of its narrative survived.
   // Choosing the catalog narrative after a partial failure discards all of it,
   // and the lab must not then claim the narrative was model-drafted.
@@ -1324,6 +1325,8 @@ export async function generateLab(request, opts = {}) {
         level: f.level,
         role: f.prerequisite ? "prerequisite" : "level",
         minutes: f.minutes,
+        // Which harness part this module sits in (a lab that covers two harnesses only); see harness-parts.js.
+        ...(plan.harnessParts ? moduleHarnessRecord(plan.harnessParts, f) : {}),
         grounded: Boolean(groundingByFeature.get(f.id)?.grounded),
         // Narrower than `grounded`: this module's citations came from a live
         // Learn search that cleared the relevance floor, not from the catalog's
@@ -1443,8 +1446,12 @@ export async function generateLab(request, opts = {}) {
       notFullyDocumented: differenceSummary.uncertain,
     },
     // The harness every Copilot Studio picture of this lab is taken in, and how it was decided ("chosen", "inferred", or "default").
-    // Null for a lab with no Copilot Studio part. It survives rebuilds, because the plan is rebuilt from it.
+    // Null for a lab with no Copilot Studio part, and for a combined lab (each part names its own harness, see harnessParts below).
+    // It survives rebuilds, because the plan is rebuilt from it.
     labHarness: plan.harness ? { id: plan.harness, label: harnessLabel(plan.harness), source: plan.harnessSource || "chosen" } : null,
+    // A lab that covers two harnesses: the order they are taught in, the parts (which modules sit in each), and which
+    // ideas have their own version in each harness. Read it with harnessForModule() in harness-parts.js.
+    ...(plan.harnessParts ? { harnessParts: plan.harnessParts } : {}),
     grounding: {
       connected: Boolean(session.ok),
       groundedModules: groundedFeatures,

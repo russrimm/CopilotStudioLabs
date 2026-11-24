@@ -279,7 +279,7 @@ function scConsentModel(autonomy) {
 }
 
 const SC_CREATES_FALLBACK = Object.freeze([
-  "One new agent named “Lab screenshots - <short lab title>” in the environment you choose (or the one Copilot Studio opens for this account)",
+  "One new agent in the environment you choose (or the one Copilot Studio opens for this account), named “Classic shots - <short lab title>” for a Standard (Classic) harness lab or “Copilot shots - <short lab title>” for a Microsoft Copilot harness lab (a lab that covers both harnesses gets one of each)",
   "That agent's instructions and description, using the text from your lab",
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
@@ -557,6 +557,12 @@ const SC_HARNESS_SOURCE_TEXT = Object.freeze({
   default: "Nothing was chosen when the lab was built, so the Standard (Classic) harness is used.",
   saved: "This harness is saved with the lab.",
 });
+// A lab built for both harnesses, one after another, has no single harness: each picture is taken in the harness of the part it sits in.
+const SC_HARNESS_BOTH_SOURCE_TEXT = Object.freeze({
+  chosen: "Both harnesses were chosen when the lab was built.",
+  saved: "Both harnesses are saved with the lab.",
+});
+const SC_HARNESS_SHARED_PARTS = Object.freeze(["shared", "shared-late"]);
 const SC_HARNESS_FLAG_SHORT = Object.freeze({
   HARNESS_MISMATCH: "Taken in the other harness",
   HARNESS_MIXED: "The same picture is used for two harnesses",
@@ -604,9 +610,11 @@ function scHarnessSuffix(row) {
 
 /**
  * What a screenshot says about its harness, or null when it needs none (a product with no harnesses).
+ * `need` is the harness the picture is TAKEN in: the lab's, or for a lab built for both harnesses the harness of the part the screenshot sits in.
+ * A shared topic of such a lab works in either harness; its picture is taken in the first one, and says so (`shared`, `sharedNote`).
  * @param {object} shot a shot from `GET .../screenshots`
  * @param {string|null} [labHarness] the lab's harness (decides whether Customer Conversation is offered)
- * @returns {{need: string, label: string, state: string, pictureLabel: string, message: string, gap: boolean, gapNote: string, choices: Array<{id: string, short: string, text: string}>}|null}
+ * @returns {{need: string, label: string, state: string, pictureLabel: string, message: string, gap: boolean, gapNote: string, shared: boolean, sharedNote: string, choices: Array<{id: string, short: string, text: string}>}|null}
  */
 function scHarnessModel(shot, labHarness = null) {
   const need = scHarnessId(shot?.harness);
@@ -623,35 +631,77 @@ function scHarnessModel(shot, labHarness = null) {
   }
   const gap = Boolean(shot.harnessGap);
   const gapNote = gap ? scText(shot.harnessGapNote, 300) || "This screenshot belongs to a module that is not written for the harness this lab is built for, so it is never captured in another harness." : "";
-  return { need, label, state, pictureLabel, message, gap, gapNote, choices: state === "not-recorded" ? scHarnessTagChoices(need, labHarness) : [] };
+  const shared = shot.harnessScope === "shared" || SC_HARNESS_SHARED_PARTS.includes(shot.harnessPart);
+  const either = scText(shot.harnessNote, 80).replace(/\.$/, "") || SC_HARNESS_LABELS.either;
+  const sharedNote = shared ? `Shared topic: ${either.charAt(0).toLowerCase()}${either.slice(1)}. This picture is taken in the ${label}.` : "";
+  return { need, label, state, pictureLabel, message, gap, gapNote, shared, sharedNote, choices: state === "not-recorded" ? scHarnessTagChoices(need, labHarness) : [] };
+}
+
+/** What follows the harness label in a combined lab's part line: "part: 4 of 6 pictures taken in it, 1 taken in a different harness". */
+function scHarnessPartText(part) {
+  const bits = [`${part.taken} of ${scPlural(part.shots, "picture")} taken in it`];
+  if (part.wrong) bits.push(`${part.wrong} taken in a different harness`);
+  if (part.notRecorded) bits.push(`${part.notRecorded} with no harness recorded`);
+  return `part: ${bits.join(", ")}`;
 }
 
 /**
  * What a lab's status says about its harness, or null for a lab with no Copilot Studio part: the statement, whether pictures from two
  * harnesses are mixed, how many pictures are from the wrong harness, how many slots are a gap, and the pictures with no harness recorded.
+ * A lab built for both harnesses, one after another, has no single harness (`harness` is null): it is `combined`, it is never "mixed", and
+ * `parts` counts the pictures of each part.
  */
 function scHarnessLabModel(state) {
   const info = state?.harnessInfo && typeof state.harnessInfo === "object" ? state.harnessInfo : null;
   const summary = state?.harnessSummary && typeof state.harnessSummary === "object" ? state.harnessSummary : null;
-  const id = scHarnessId(info?.id ?? summary?.labHarness ?? state?.harness);
-  if (!id || id === "either") return null;
-  const label = scHarnessLabelOf(id, info?.label || state?.harnessLabel);
   const shots = Array.isArray(state?.shots) ? state.shots : [];
   const files = (list) => (Array.isArray(list) ? list : []).filter((name) => SC_SAFE_FILENAME.test(String(name))).map(String);
   const fromShots = (key) => shots.filter((shot) => shot?.harnessState === key).map((shot) => shot.filename);
   const wrongFiles = summary ? files(summary.wrongFiles) : fromShots("wrong-harness");
   const gapFiles = summary ? files(summary.gapFiles) : shots.filter((shot) => shot?.harnessGap).map((shot) => shot.filename);
+  const common = {
+    wrong: Math.max(scCount(summary?.wrong), wrongFiles.length),
+    wrongFiles,
+    gaps: Math.max(scCount(summary?.gaps), gapFiles.length),
+    notRecordedFiles: fromShots("not-recorded"),
+  };
+  const order = (Array.isArray(info?.order) ? info.order : Array.isArray(summary?.order) ? summary.order : []).map(scHarnessId).filter((id) => id && id !== "either");
+  if (info?.mode === "both" || summary?.combined === true) {
+    const read = Array.isArray(summary?.parts) ? summary.parts : null;
+    const parts = order.map((id) => {
+      const own = read?.find((part) => scHarnessId(part?.harness) === id);
+      const mine = shots.filter((shot) => scHarnessId(shot?.harness) === id);
+      const count = (key, state) => (own ? scCount(own[key]) : mine.filter((shot) => shot.harnessState === state).length);
+      return { id, label: scHarnessLabelOf(id, own?.label), shots: own ? scCount(own.shots) : mine.length, taken: count("taken", "ok"), wrong: count("wrong", "wrong-harness"), notRecorded: count("notRecorded", "not-recorded") };
+    });
+    return {
+      combined: true,
+      id: null,
+      order,
+      parts,
+      label: scText(info?.label || state?.harnessLabel, 160) || `Both harnesses: ${order.map((id) => SC_HARNESS_LABELS[id]).join(", then ")}`,
+      statement: scText(info?.statement || summary?.statement, 500) || "This lab covers both harnesses, one after another. Each picture is taken in the harness of the part it sits in.",
+      source: SC_HARNESS_BOTH_SOURCE_TEXT[info?.source] || "",
+      // Both harnesses are expected here, each in its own part: pictures are checked against the part they sit in, never against "the lab's harness".
+      mixed: false,
+      mixedMessage: "",
+      ...common,
+    };
+  }
+  const id = scHarnessId(info?.id ?? summary?.labHarness ?? state?.harness);
+  if (!id || id === "either") return null;
+  const label = scHarnessLabelOf(id, info?.label || state?.harnessLabel);
   return {
+    combined: false,
     id,
+    order: [],
+    parts: [],
     label,
     statement: scText(info?.statement || summary?.statement, 300) || `This lab: ${label}.`,
     source: SC_HARNESS_SOURCE_TEXT[info?.source] || "",
     mixed: Boolean(summary?.mixed),
     mixedMessage: scText(summary?.mixedMessage, 400) || "This lab has pictures from more than one harness. A lab must only show pictures from its own harness.",
-    wrong: Math.max(scCount(summary?.wrong), wrongFiles.length),
-    wrongFiles,
-    gaps: Math.max(scCount(summary?.gaps), gapFiles.length),
-    notRecordedFiles: fromShots("not-recorded"),
+    ...common,
   };
 }
 

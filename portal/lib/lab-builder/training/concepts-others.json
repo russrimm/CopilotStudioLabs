@@ -1465,40 +1465,428 @@
         "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
       ]
     },
-    "ppai-check-region-and-prerequisites": {
-      "definition": "Before you build, check which AI Builder models your region offers and that your environment has what it needs.",
+    "ppai-flow-add-ai-builder-actions": {
+      "definition": "An AI Builder action in a cloud flow takes input from the flow, runs a model, and returns named values that later actions can use.",
       "blocks": [
-        { "label": "Region", "plain": "Models run in the region that hosts your environment." },
-        { "label": "Release status", "plain": "Each model is generally available or in preview in a region." },
-        { "label": "Environment", "plain": "A Power Platform environment with a Dataverse database." },
-        { "label": "License", "plain": "An AI Builder license, trial or paid, for features that need one." }
+        {
+          "label": "Input",
+          "plain": "The text the flow passes to the action, usually from the trigger."
+        },
+        {
+          "label": "Action",
+          "plain": "A flow step that runs an AI Builder model, such as sentiment analysis or language detection."
+        },
+        {
+          "label": "Outputs",
+          "plain": "Named values the action returns, such as a sentiment or a language code."
+        },
+        {
+          "label": "Dynamic content",
+          "plain": "The list of earlier outputs that any later action can pick from."
+        }
       ],
       "flow": [
-        { "label": "Find region", "plain": "A maker notes the region of their environment." },
-        { "label": "Look up", "plain": "They look up each model they want in that region's table." },
-        { "label": "Read marks", "plain": "A dash means the model is not available there." },
-        { "label": "Check status", "plain": "They note whether it is generally available or in preview." },
-        { "label": "Confirm", "plain": "They confirm the environment has a database and the right license." }
+        {
+          "label": "Start",
+          "plain": "A flow starts and receives some text."
+        },
+        {
+          "label": "Send",
+          "plain": "The flow sends the text to an AI Builder action."
+        },
+        {
+          "label": "Return",
+          "plain": "The model returns named values, and some come with a score."
+        },
+        {
+          "label": "Reuse",
+          "plain": "Later actions use those values as dynamic content."
+        },
+        {
+          "label": "Check",
+          "plain": "The run history shows what each action received and returned."
+        }
       ],
       "example": {
-        "input": "Fabrikam wants to use a model, but its environment is in a region that may not offer it.",
-        "output": "The table shows if the model is offered there, and if it is generally available or in preview."
+        "input": "Contoso staff pass a customer comment into a flow.",
+        "output": "The flow returns the sentiment, the language, and the key phrases, and a later step combines them into one result."
       },
       "whenToUse": [
-        "You are planning a project around one model.",
-        "A model you expected is missing from the list."
+        "You want to add AI to a flow without training a model.",
+        "You want to see exactly what an AI step returned before you build on it."
       ],
       "whenNot": [
-        "Prompt availability is listed on a separate page.",
-        "Preview features are not meant for production use."
+        "Text has a size limit, so very long input needs care.",
+        "Your own categories need a custom model, not a prebuilt one."
       ],
       "learn": [
-        { "title": "Feature availability by region", "url": "https://learn.microsoft.com/ai-builder/availability-region" }
+        {
+          "title": "Use the sentiment analysis prebuilt model in Power Automate",
+          "url": "https://learn.microsoft.com/ai-builder/flow-sentiment-analysis"
+        },
+        {
+          "title": "AI Builder in Power Automate overview",
+          "url": "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+        }
       ],
       "verifiedAgainst": [
-        "https://learn.microsoft.com/ai-builder/availability-region",
-        "https://learn.microsoft.com/ai-builder/overview",
-        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps"
+        "https://learn.microsoft.com/ai-builder/flow-sentiment-analysis",
+        "https://learn.microsoft.com/ai-builder/flow-language-detection",
+        "https://learn.microsoft.com/ai-builder/flow-key-phrase-extraction",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+      ]
+    },
+    "ppai-flow-classify-extract-route-text": {
+      "definition": "A flow can read the category and confidence score of incoming text and use them to decide where each message goes.",
+      "blocks": [
+        {
+          "label": "Trigger",
+          "plain": "An event, such as a new email, that starts the flow."
+        },
+        {
+          "label": "Classification",
+          "plain": "The category the prebuilt model gives the text."
+        },
+        {
+          "label": "Confidence score",
+          "plain": "A number from 0 to 1 that shows how sure the model is."
+        },
+        {
+          "label": "Condition",
+          "plain": "A rule in the flow that sends each result down a different path."
+        }
+      ],
+      "flow": [
+        {
+          "label": "Arrive",
+          "plain": "A new message arrives and starts the flow."
+        },
+        {
+          "label": "Prepare",
+          "plain": "The flow turns the message body into plain text."
+        },
+        {
+          "label": "Classify",
+          "plain": "The model returns a category and a confidence score."
+        },
+        {
+          "label": "Decide",
+          "plain": "A condition checks the score and the category."
+        },
+        {
+          "label": "Route",
+          "plain": "Clear cases go to the right place, and unsure cases go to a person."
+        }
+      ],
+      "example": {
+        "input": "Fabrikam receives customer feedback by email.",
+        "output": "Messages about issues go to the support team, and low-confidence messages go to a reviewer."
+      },
+      "whenToUse": [
+        "Incoming text needs sorting before a person reads it.",
+        "You want unsure results to reach a person instead of being guessed."
+      ],
+      "whenNot": [
+        "This model has fixed categories. Your own categories need a custom model.",
+        "Learn gives no standard score threshold, so you choose one and test it."
+      ],
+      "learn": [
+        {
+          "title": "Use the category classification prebuilt model in Power Automate",
+          "url": "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate"
+        },
+        {
+          "title": "Category classification prebuilt model",
+          "url": "https://learn.microsoft.com/ai-builder/prebuilt-category-classification"
+        }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification",
+        "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction-pwr-automate",
+        "https://learn.microsoft.com/connectors/office365/"
+      ]
+    },
+    "ppai-flow-process-documents-on-arrival": {
+      "definition": "A flow can start when a file arrives, read it with an AI Builder model, and save the result or send it for review.",
+      "blocks": [
+        {
+          "label": "Trigger",
+          "plain": "A file added to a library starts the flow with no manual step."
+        },
+        {
+          "label": "File content",
+          "plain": "The flow fetches the content of the file before the model can read it."
+        },
+        {
+          "label": "Model",
+          "plain": "A document model that returns fields and a confidence score for each."
+        },
+        {
+          "label": "Review path",
+          "plain": "A route for low-confidence results, such as an approval."
+        }
+      ],
+      "flow": [
+        {
+          "label": "Arrive",
+          "plain": "A file lands in a document library."
+        },
+        {
+          "label": "Fetch",
+          "plain": "The flow gets the content of the file."
+        },
+        {
+          "label": "Extract",
+          "plain": "The model reads the document and returns fields with confidence scores."
+        },
+        {
+          "label": "Decide",
+          "plain": "A condition compares a score with a limit."
+        },
+        {
+          "label": "Save or review",
+          "plain": "Confident results are saved, and unsure ones go to a person."
+        }
+      ],
+      "example": {
+        "input": "Fabrikam suppliers drop invoices into a shared library.",
+        "output": "Clear invoices are saved as new rows automatically, and unclear ones wait for a reviewer to approve."
+      },
+      "whenToUse": [
+        "Documents arrive on their own and people retype the details.",
+        "You want people to check only the unclear cases."
+      ],
+      "whenNot": [
+        "Poor scans lower confidence, so some files will always need review.",
+        "Each model has file type, size, and call limits that the flow must respect."
+      ],
+      "learn": [
+        {
+          "title": "Use the invoice processing prebuilt model in Power Automate",
+          "url": "https://learn.microsoft.com/ai-builder/flow-invoice-processing"
+        },
+        {
+          "title": "Invoice processing prebuilt AI model",
+          "url": "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing"
+        }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/ai-builder/flow-invoice-processing",
+        "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
+        "https://learn.microsoft.com/connectors/sharepointonline/"
+      ]
+    },
+    "ppai-flow-reliable-ai-actions": {
+      "definition": "A reliable AI flow expects failures and limits, so one bad input or busy moment does not stop the whole run.",
+      "blocks": [
+        {
+          "label": "Error path",
+          "plain": "A group of steps that runs only when an earlier group fails."
+        },
+        {
+          "label": "Retry policy",
+          "plain": "A rule that repeats a failed call after a wait."
+        },
+        {
+          "label": "Concurrency",
+          "plain": "A limit on how many items the flow handles at the same time."
+        },
+        {
+          "label": "Call limits",
+          "plain": "Each model allows only so many calls in a minute."
+        }
+      ],
+      "flow": [
+        {
+          "label": "Try",
+          "plain": "The flow runs the AI action inside a try group."
+        },
+        {
+          "label": "Fail",
+          "plain": "A bad input or a busy model makes the action fail."
+        },
+        {
+          "label": "Retry",
+          "plain": "The retry rule repeats the call after a wait."
+        },
+        {
+          "label": "Catch",
+          "plain": "If it still fails, the error path records what happened."
+        },
+        {
+          "label": "Continue",
+          "plain": "The remaining items keep going."
+        }
+      ],
+      "example": {
+        "input": "Contoso runs a daily batch of customer comments, and one comment is empty.",
+        "output": "The flow records the failed comment and finishes the rest of the batch."
+      },
+      "whenToUse": [
+        "A flow handles many items in one run.",
+        "Failures must be recorded instead of stopping the flow."
+      ],
+      "whenNot": [
+        "Retries help with short-lived problems, not with a bad input.",
+        "More parallel work can reach the call limits sooner."
+      ],
+      "learn": [
+        {
+          "title": "Employ robust error handling",
+          "url": "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling"
+        },
+        {
+          "title": "Too many requests error in Power Automate",
+          "url": "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate"
+        }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling",
+        "https://learn.microsoft.com/power-automate/limits-and-config",
+        "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate"
+      ]
+    },
+    "ppai-agent-tools-prompt-and-flow": {
+      "definition": "A Copilot Studio agent can call a saved prompt or an agent flow as a tool, so it can use AI Builder to answer a request.",
+      "blocks": [
+        {
+          "label": "Tool",
+          "plain": "A capability the agent can call when a request needs it."
+        },
+        {
+          "label": "Prompt tool",
+          "plain": "A saved prompt that the agent runs with the inputs it fills in."
+        },
+        {
+          "label": "Agent flow",
+          "plain": "A flow built for an agent, which can contain AI steps."
+        },
+        {
+          "label": "Sign-in",
+          "plain": "Some tools run only when the agent knows who the user is."
+        }
+      ],
+      "flow": [
+        {
+          "label": "Ask",
+          "plain": "A user asks the agent for help."
+        },
+        {
+          "label": "Choose",
+          "plain": "The agent picks a tool from its description."
+        },
+        {
+          "label": "Fill",
+          "plain": "It fills the tool inputs from the conversation."
+        },
+        {
+          "label": "Run",
+          "plain": "The prompt or flow runs and returns its output."
+        },
+        {
+          "label": "Answer",
+          "plain": "The agent uses the output in its reply."
+        }
+      ],
+      "example": {
+        "input": "A Contoso user pastes a support ticket and asks for a summary and an urgency rating.",
+        "output": "The agent calls a prompt for the summary and a flow for the rating, then replies with both."
+      },
+      "whenToUse": [
+        "An agent needs a repeatable AI step, such as a summary or a rating.",
+        "You want the same prompt to serve several agents."
+      ],
+      "whenNot": [
+        "Prompts and flows in agents use Copilot Credits, so cost needs a plan.",
+        "A flow used as a tool must answer quickly, or the agent stops waiting."
+      ],
+      "learn": [
+        {
+          "title": "Add tools to custom agents",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent"
+        },
+        {
+          "title": "Create an agent flow as a tool",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create"
+        }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create",
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node"
+      ]
+    },
+    "ppai-flow-monitor-troubleshoot-runs": {
+      "definition": "Run history shows what each action received and returned, which helps you find why an AI Builder step failed.",
+      "blocks": [
+        {
+          "label": "Run history",
+          "plain": "The list of recent runs of a flow."
+        },
+        {
+          "label": "Failed step",
+          "plain": "The action that stopped the run, marked with an error icon."
+        },
+        {
+          "label": "Inputs and outputs",
+          "plain": "What the step received and what it returned."
+        },
+        {
+          "label": "Resubmit",
+          "plain": "A way to run a failed run again."
+        }
+      ],
+      "flow": [
+        {
+          "label": "Notice",
+          "plain": "A run fails or returns odd results."
+        },
+        {
+          "label": "Find",
+          "plain": "The maker finds the failed run in the run history."
+        },
+        {
+          "label": "Read",
+          "plain": "They read the failing step's inputs, outputs, and error."
+        },
+        {
+          "label": "Match",
+          "plain": "They match the error with a known cause, such as a file limit or too many calls."
+        },
+        {
+          "label": "Fix",
+          "plain": "They fix the flow and run the failed run again."
+        }
+      ],
+      "example": {
+        "input": "A Contoso receipt flow fails on one run.",
+        "output": "The run history shows the input that was sent, the error from the model, and a way to run it again after the fix."
+      },
+      "whenToUse": [
+        "A flow with an AI step fails or gives odd results.",
+        "You need to tell an input problem from a capacity problem."
+      ],
+      "whenNot": [
+        "Run history covers only the last 28 days, so older failures are gone.",
+        "Running a failed run again can repeat side effects, such as a second email."
+      ],
+      "learn": [
+        {
+          "title": "Troubleshoot a cloud flow",
+          "url": "https://learn.microsoft.com/power-automate/fix-flow-failures"
+        },
+        {
+          "title": "Licensing and AI Builder credits",
+          "url": "https://learn.microsoft.com/ai-builder/credit-management"
+        }
+      ],
+      "verifiedAgainst": [
+        "https://learn.microsoft.com/power-automate/fix-flow-failures",
+        "https://learn.microsoft.com/ai-builder/credit-management",
+        "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate"
       ]
     },
     "ppai-migrate-from-text-generation": {

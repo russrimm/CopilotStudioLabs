@@ -22,7 +22,9 @@ import { PLACEHOLDER_PATH, derivedSlotsForTopic, describeSlot, slotNeedFor, slot
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 import { reusePictureVerdict } from "./picture-guard.js";
-import { harnessGapMessage, harnessLabel, labHarnessStatement } from "../../../tools/screenshot-capture/harness.mjs";
+import { combinedHarnessStatement, harnessGapMessage, harnessLabel, labHarnessStatement } from "../../../tools/screenshot-capture/harness.mjs";
+import { featureLabHarness } from "./lab-harness.js";
+import { moduleHarnessRecord } from "./harness-parts.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -90,7 +92,7 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
       const caption = String(ref.caption || feature.name).replace(/\.$/, "");
       // The hand-written labs were written in the Classic (Standard) experience, so their pictures are never reused in a lab for another
       // harness: the slot stays pending and is taken in the lab's own harness.
-      const reuseNeed = slotNeedFor(feature, { filename: ref.file }, { labHarness: plan.harness });
+      const reuseNeed = slotNeedFor(feature, { filename: ref.file }, { labHarness: featureLabHarness(plan, feature) });
       if (reuseNeed.id && reuseNeed.id !== "standard") {
         demoted.push({ filename: ref.file, caption, instructions: [`Capture ${caption}.`] });
         continue;
@@ -121,8 +123,9 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
       const described = describeSlot(feature, shot);
       figure += 1;
-      // The lab's harness decides which picture this slot needs: a Standard (Classic) lab only ever shows Standard (Classic) pictures.
-      const need = slotNeedFor(feature, shot, { labHarness: plan.harness });
+      // The lab's harness decides which picture this slot needs: a Standard (Classic) lab only ever shows Standard (Classic) pictures. In a lab
+      // that covers both harnesses it is the harness of the part the slot sits in (a shared topic is taken in the first harness).
+      const need = slotNeedFor(feature, shot, { labHarness: featureLabHarness(plan, feature) });
       // A real screenshot captured for this slot is used as is, unless the capture platform says it looks like the wrong screen;
       // every other slot keeps the placeholder. A picture of a slot that needs a harness is read under that harness's name only, so a
       // picture of the other harness (or one from before harnesses were recorded) is never copied in.
@@ -146,9 +149,14 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
         kind: described.kind,
         figure: `${sectionNum}.${figure}`,
         status: captured ? "captured" : "pending",
+        // A lab that covers two harnesses: the harness of the section this picture sits in (see harness-parts.js).
+        ...(plan.harnessParts ? moduleHarnessRecord(plan.harnessParts, feature) : {}),
       };
       if (need.id) {
-        entry.harness = need.id;
+        // A shared slot of a combined lab keeps `harness: null` (the section's own harness, see harness-parts.js); the harness its picture is taken
+        // in is `captureHarness`. Every other slot's `harness` is the harness it is taken in.
+        if (entry.harnessScope === "shared") entry.captureHarness = need.id;
+        else entry.harness = need.id;
         entry.harnessLabel = harnessLabel(need.id);
         if (need.gap) entry.harnessGapNote = harnessGapMessage(need.gap);
       }
@@ -224,8 +232,10 @@ export function buildShotsManifest(plan, shots) {
     lab: plan.slug,
     assetsDir: "assets",
     startUrl: "https://copilotstudio.microsoft.com/",
-    // The harness every Copilot Studio picture of this lab is taken in (null for a lab with no Copilot Studio part).
+    // The harness every Copilot Studio picture of this lab is taken in (null for a lab with no Copilot Studio part). A lab that covers both
+    // harnesses has none: each picture carries the harness of its part.
     ...(plan.harness ? { harness: plan.harness, harnessLabel: harnessLabel(plan.harness), harnessSource: plan.harnessSource || null } : {}),
+    ...(plan.harnessParts ? { harnessMode: "both", harnesses: [...plan.harnessParts.order] } : {}),
     shots,
   };
 }
@@ -241,7 +251,7 @@ export function buildShotList(plan, allShots) {
   const lines = [
     `# Shot list: ${plan.title}`,
     "",
-    ...(plan.harness ? [`**${labHarnessStatement(plan.harness)}**`, ""] : []),
+    ...(plan.harness ? [`**${labHarnessStatement(plan.harness)}**`, ""] : plan.harnessParts ? [`**${combinedHarnessStatement(plan.harnessParts.order)}**`, ""] : []),
     `${shots.length} screenshot${shots.length === 1 ? "" : "s"} still to capture${done ? ` (${done} already captured and copied in from the feature tour)` : ""}. Each one is already in the lab as a "Screenshot pending" placeholder with its alt text and caption written, so capturing it never requires editing \`index.md\`.`,
     "",
     "Run the capture tool against this lab's manifest, then confirm nothing is left pending:",

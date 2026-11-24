@@ -16,7 +16,7 @@ import { Writable } from "node:stream";
 import vm from "node:vm";
 
 import { exportGeneratedLab } from "../lib/exporter.js";
-import { TRAINING_ZIP_FOLDER } from "../lib/lab-builder/training-plan.js";
+import { TRAINING_SCHEMA_VERSION, TRAINING_ZIP_FOLDER } from "../lib/lab-builder/training-plan.js";
 import { checkPptxPackage, readZipStrict } from "../../tools/lab-builder/lib/ooxml-strict.mjs";
 import { buildSampleLabs } from "./fixtures/training-labs.js";
 
@@ -117,7 +117,7 @@ test("the list route gives titles, minutes, and flags for every deck, under both
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.labId, idOf("level200"));
-  assert.equal(data.schemaVersion, 1);
+  assert.equal(data.schemaVersion, TRAINING_SCHEMA_VERSION);
   assert.deepEqual(data.decks.map((d) => d.key), ["complete", "foundations-copilot-studio", "1", "2", "3", "4"]);
   const [complete, foundations, ...topics] = data.decks;
   assert.equal(complete.minutes, data.totalMinutes);

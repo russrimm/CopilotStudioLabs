@@ -13,7 +13,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getConceptForFeature } from "./concepts.js";
+import { getConceptForFeature, getConcepts } from "./concepts.js";
+import { harnessTitle } from "./harness-parts.js";
 import { productHasHarnesses, productOf } from "./products.js";
 import { dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 
@@ -30,6 +31,11 @@ const AVAILABILITY_LABELS = {
   "not-supported": "Not supported",
   unknown: "Not confirmed in Microsoft Learn",
 };
+
+/** The wording of an availability code ("Supported", "Preview", ...), as the difference notes in a lab use it. */
+export function availabilityLabel(code) {
+  return AVAILABILITY_LABELS[code] || AVAILABILITY_LABELS.unknown;
+}
 
 /** The harness each harness is compared with by default. Customer Conversation compares with both. */
 const COUNTERPARTS = {
@@ -188,6 +194,67 @@ export function renderDifferenceBlock({ record, concept, labHarness, otherHarnes
   }
   lines.push("</details>");
   return lines;
+}
+
+/**
+ * The "What is different here" paragraph that opens the second harness's version of an idea in a lab that covers two
+ * harnesses. The first version explains the idea; this one points back to it and says only what changes. Returns
+ * markdown lines (no heading). Nothing here is fetched: the text comes from the curated difference record.
+ */
+export function renderHarnessPointer({ record, concept, thisHarness, earlierHarness, earlier, clean }) {
+  const here = record?.harnesses?.[thisHarness];
+  const earlierName = harnessTitle(earlierHarness);
+  const thisName = harnessTitle(thisHarness);
+  const back = `${clean(earlier.stepLabel || "an earlier step")} (${clean(earlier.name)}) in the ${earlierName} part`;
+  if (!here) {
+    return [
+      `**What is different here.** This is the ${thisName} version of the idea in ${back}. The goal is the same; the steps below follow the ${thisName}. Microsoft Learn does not describe how this idea differs between the two harnesses, so check the Learn pages listed at the end of this module.`,
+    ];
+  }
+  const where = here.where ? ` Where: ${clean(here.where)}` : "";
+  const lines = [
+    `**What is different here.** Same idea as ${back}, so it is not explained again. On the ${thisName} it is called "${clean(here.term)}": ${clean(here.summary)}${where}`,
+    "",
+    `**Availability on the ${thisName}.** ${AVAILABILITY_LABELS[here.availability]}.`,
+  ];
+  if (here.limits?.length) lines.push("", `**Limits and gaps on the ${thisName}.**`, "", ...here.limits.map((l) => `- ${clean(l)}`));
+  if (record.confidence !== "documented" && record.uncertainNote) {
+    lines.push("", `**Not confirmed in Microsoft Learn.** ${clean(record.uncertainNote)}`);
+  }
+  const sources = dedupeLearnSources(record.sources || [], { scrub: clean });
+  if (sources.length) {
+    lines.push("", `**Sources (checked ${record.lastVerified}).** ${sources.map((s) => `[${formatCitationLabel(s, clean)}](${s.url})`).join("; ")}`);
+  }
+  void concept;
+  return lines;
+}
+
+/**
+ * Pointer paragraphs for a combined-harness plan, keyed by the module that carries them: the first module, on the
+ * second harness's side, of each concept that has its own topic on both harnesses.
+ *
+ * @returns {{ byFeature: Map<string, string[]>, concepts: string[], uncertain: string[] }}
+ */
+export function buildHarnessPairPointers(plan, { harnesses, clean = (t) => String(t) } = {}) {
+  const byFeature = new Map();
+  const shown = [];
+  const uncertain = [];
+  const parts = plan.harnessParts;
+  if (!parts?.differs?.length) return { byFeature, concepts: shown, uncertain };
+  const [firstHarness, secondHarness] = parts.order;
+  const byId = new Map(plan.features.map((f) => [f.id, f]));
+  const orderOf = (id) => byId.get(id)?.order ?? Number.MAX_SAFE_INTEGER;
+  for (const pair of parts.differs) {
+    const earlier = (pair.modules[firstHarness] || []).map((id) => byId.get(id)).filter(Boolean).sort((a, b) => a.order - b.order)[0];
+    const later = [...(pair.modules[secondHarness] || [])].sort((a, b) => orderOf(a) - orderOf(b))[0];
+    if (!earlier || !later) continue;
+    const record = getDifference(pair.concept);
+    const concept = (getConcepts() || []).find((c) => c.id === pair.concept) || { id: pair.concept };
+    byFeature.set(later, renderHarnessPointer({ record, concept, thisHarness: secondHarness, earlierHarness: firstHarness, earlier, clean }));
+    shown.push(pair.concept);
+    if (!record || record.confidence !== "documented") uncertain.push(pair.concept);
+  }
+  return { byFeature, concepts: shown, uncertain };
 }
 
 /**

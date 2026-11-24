@@ -167,6 +167,8 @@ export function selectionsFromManifest(manifest) {
     moduleOrder: textList(request.moduleOrder),
     excludedSubtopics: textList(request.excludedSubtopics),
     harness: shortText(request.harness) || shortText(manifest.harness),
+    // A lab that covers two harnesses re-opens with that choice and its order.
+    ...(request.harnessMode === "both" && textList(request.harnesses).length === 2 ? { harnessMode: "both", harnesses: textList(request.harnesses) } : {}),
     level: [100, 200, 300].includes(level) ? level : null,
     differencesFor: Array.isArray(request.differencesFor) ? textList(request.differencesFor) : null,
     targetMinutes: Number.isInteger(request.targetMinutes) && request.targetMinutes > 0 ? request.targetMinutes : null,
@@ -226,6 +228,8 @@ function summarizeManifest(rootDir, labId, manifest) {
     products: selections?.products ?? textList(manifest.products),
     product: shortText(manifest.product) || selections?.products?.[0] || "copilot-studio",
     harness: selections?.harness ?? null,
+    // A lab that covers two harnesses: both, in the order they are taught (absent for every other lab).
+    ...(selections?.harnessMode === "both" ? { harnesses: selections.harnesses } : {}),
     requiresSharepointSite,
     sharepointSite: spSite.configured
       ? { name: spSite.name, url: spSite.url, label: spSite.label }

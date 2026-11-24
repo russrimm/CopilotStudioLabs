@@ -821,7 +821,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   }
   for (const [profile, items] of groups) {
     // Unattended shots go first, the ones that need the person last. Inside the unattended ones, the shots that create the agent come before the first shot that needs it.
-    // Standard (Classic) shots come after every Microsoft Copilot shot: the switch to the classic experience lasts for the browser session, so the default experience is used first.
+    // Standard (Classic) and Microsoft Copilot shots are taken one harness at a time, in the order the plan gives them: the experience changes once between them.
     const unattended = items.filter((i) => i.effective !== "guided");
     const ordered = orderByHarness(agentSource === "created" ? orderCreationFirst(unattended, (i) => i.shot) : unattended, (i) => i.shot);
     groups.set(profile, [...ordered, ...orderByHarness(items.filter((i) => i.effective === "guided"), (i) => i.shot)]);

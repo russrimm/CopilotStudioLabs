@@ -65,7 +65,7 @@ test("the scratch consent level needs no address, takes an optional environment,
 
   const shown = describeConsent({ ...plain.consent, consentedAt: "2026-01-01T00:00:00.000Z" });
   assert.equal(shown.scratch, true);
-  assert.ok(shown.rules.creates.length >= 5 && shown.rules.creates.some((line) => /Lab screenshots - /.test(line)), "the card lists exactly what is created");
+  assert.ok(shown.rules.creates.length >= 5 && shown.rules.creates.some((line) => /Classic shots - /.test(line) && /Copilot shots - /.test(line)), "the card lists exactly what is created, with the practice agent's name for each harness");
   assert.ok(shown.rules.never.some((line) => /Publish to a channel/i.test(line)) && shown.rules.never.some((line) => /Touch any agent that is not its own/i.test(line)));
   assert.ok(!JSON.stringify(shown).includes(ENV_ID));
 });

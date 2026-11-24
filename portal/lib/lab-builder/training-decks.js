@@ -25,6 +25,8 @@ import { resolveExportBudget, trainingDeckFileName } from "../export-names.js";
 import { TRAINING_DECK_PREFIX, TRAINING_FOLDER, TRAINING_SCHEMA_VERSION, TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
 import { renderTrainingDeck } from "./training-pptx.js";
 import { buildCompleteDeck, buildFoundationsDeck, buildTopicDeck } from "./training-slides.js";
+import { dropDuplicateSlides, findDuplicateSlides } from "./training-duplicates.js";
+import { SHARED_PART, harnessTitle, partLabel } from "./harness-parts.js";
 
 export const TRAINING_STATE_FILE = "training.json";
 export const TRAINING_DECK_FORMATS = Object.freeze(["pptx", "outline"]);
@@ -99,11 +101,27 @@ function labInputs(labDir, options = {}) {
   return { resolved, labId, markdown, manifest };
 }
 
+/**
+ * The duplicate guard for decks of a lab that covers two harnesses: no two slides in one deck may share a title or a
+ * near-identical body. Under `node --test` a duplicate fails the build; otherwise the later slide is dropped with a warning.
+ */
+export function guardDeckSpec(spec, label) {
+  const duplicates = findDuplicateSlides(spec.slides);
+  if (!duplicates.length) return spec;
+  if (process.env.NODE_TEST_CONTEXT) {
+    throw new Error(`Training ${label} repeats a slide: ${duplicates.map((d) => `"${d.title}" repeats slide ${d.of + 1} (${d.reason})`).join("; ")}`);
+  }
+  const { slides } = dropDuplicateSlides(spec.slides, { warn: (message) => console.warn(message), label });
+  return { ...spec, slides };
+}
+
 /** Descriptors for every deck of a plan, with slide counts and flags, and the slide specs that draw them. */
 export function planDecks(plan, library = loadTrainingLibrary()) {
   const decks = [];
-  const push = (spec, extra) => {
+  const combined = Boolean(plan.combined);
+  const push = (rawSpec, extra) => {
     const fileName = `${extra.fileBaseName}.pptx`;
+    const spec = combined ? guardDeckSpec(rawSpec, extra.title) : rawSpec;
     decks.push({
       descriptor: {
         key: extra.key,
@@ -118,6 +136,8 @@ export function planDecks(plan, library = loadTrainingLibrary()) {
         unreviewed: Boolean(spec.unreviewed),
         fileName,
         path: `${TRAINING_FOLDER}/${fileName}`,
+        // A lab that covers two harnesses: where the deck sits (a part and a harness), or the sections of the complete deck.
+        ...(combined ? { partId: extra.partId ?? null, harness: extra.harness ?? null, ...(spec.sections ? { sections: spec.sections } : {}) } : {}),
       },
       spec,
     });
@@ -125,11 +145,15 @@ export function planDecks(plan, library = loadTrainingLibrary()) {
   push(buildCompleteDeck(plan, { library }), { key: "complete", kind: "complete", title: `Complete training deck: ${plan.labTitle}`, fileBaseName: plan.completeFileBase });
   for (const foundation of plan.foundations) {
     const spec = buildFoundationsDeck(plan, foundation, { library });
-    push(spec, { key: `foundations-${foundation.productId}`, kind: "foundations", productId: foundation.productId, title: spec.title, fileBaseName: foundation.fileBaseName });
+    push(spec, { key: `foundations-${foundation.productId}`, kind: "foundations", productId: foundation.productId, title: spec.title, fileBaseName: foundation.fileBaseName, partId: combined ? SHARED_PART : null });
   }
+  // In a lab that covers two harnesses the topic decks are built in lab order, so an idea an earlier deck taught is
+  // pointed back to (or compared, when the other harness has its own version) instead of being taught again.
+  const introduced = new Map();
+  const compared = new Set();
   for (const topic of plan.topics) {
-    const spec = buildTopicDeck(plan, topic, { library });
-    push(spec, { key: String(topic.order), kind: "topic", order: topic.order, stepLabel: topic.stepLabel, productId: topic.productId, title: topic.title, fileBaseName: topic.fileBaseName });
+    const spec = combined ? buildTopicDeck(plan, topic, { library, introduced, complete: true, combined: true, pointer: "deck", compared }) : buildTopicDeck(plan, topic, { library });
+    push(spec, { key: String(topic.order), kind: "topic", order: topic.order, stepLabel: topic.stepLabel, productId: topic.productId, title: topic.title, fileBaseName: topic.fileBaseName, partId: topic.harnessPart ?? null, harness: topic.harness ?? null });
   }
   return decks;
 }
@@ -144,6 +168,8 @@ export function summarizePlan(plan, descriptors) {
     handsOnMinutes: plan.handsOnMinutes,
     foundationsCount: plan.foundations.length,
     topicCount: plan.topics.length,
+    // A lab that covers two harnesses lists its parts, in order, so a reader never has to guess which harness a deck is for.
+    ...(plan.combined ? { combined: { order: plan.combined.order, parts: plan.combined.parts.map((p) => ({ id: p.id, n: p.n, label: p.label, harness: p.harness, topicOrders: p.topicOrders, minutes: p.minutes })) } } : {}),
     decks: descriptors,
   };
 }
@@ -319,6 +345,14 @@ export function describeTrainingDecks(labDir, summary, plan) {
   return { ...summary, decks };
 }
 
+/** The harness label a deck carries in the ZIP index (only for a lab that covers two harnesses). */
+function deckHarnessLabel(deck, summary) {
+  if (!summary.combined) return {};
+  if (deck.kind === "complete") return { harnessLabel: `Both harnesses: ${summary.combined.order.map((id) => harnessTitle(id)).join(", then ")}` };
+  if (deck.partId) return { harnessLabel: partLabel(deck.partId) };
+  return {};
+}
+
 /** The name a deck has inside a ZIP: "Training NN <short title>.pptx", "Training 00 Foundations <product>.pptx", "Training - complete.pptx". */
 export function trainingExportFileName(plan, deck, { titleChars = resolveExportBudget().moduleTitleChars } = {}) {
   const foundation = deck.kind === "foundations" ? (plan?.foundations || []).find((f) => f.productId === deck.productId) : null;
@@ -356,8 +390,8 @@ export function trainingZipEntries(labDir, { labId, markdown, manifest, branding
     }
     // The ZIP names the deck from its short title (see export-names.js); the cached file on disk keeps its own name.
     const name = `${TRAINING_ZIP_FOLDER}/${exportNameOf(deck)}`;
-    entries.push({ name, data, kind: deck.kind, title: deck.title, minutes: deck.minutes, order: deck.order ?? null, stepLabel: deck.stepLabel ?? null });
-    files.push({ key: deck.key, kind: deck.kind, title: deck.title, minutes: deck.minutes, unreviewed: deck.unreviewed, file: name });
+    entries.push({ name, data, kind: deck.kind, title: deck.title, minutes: deck.minutes, order: deck.order ?? null, stepLabel: deck.stepLabel ?? null, ...deckHarnessLabel(deck, summary) });
+    files.push({ key: deck.key, kind: deck.kind, title: deck.title, minutes: deck.minutes, unreviewed: deck.unreviewed, file: name, ...(deck.partId || summary.combined ? { part: deck.partId ?? null, harness: deck.harness ?? null, ...deckHarnessLabel(deck, summary) } : {}) });
   }
   entries.push({ name: `${TRAINING_ZIP_FOLDER}/README.md`, data: renderTrainingFolderReadme(plan, summary, exportNameOf), kind: "Training notes", title: "Training decks: deliver these first" });
   return { entries, files, summary, plan };

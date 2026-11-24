@@ -67,14 +67,28 @@ export function buildDryPlan(plan) {
     .filter((r) => r.count);
   if (gaps.length) reasons.push({ reason: "harness-gap", label: "The module is not written for the lab's harness", count: gaps.length });
   const unverified = automatic.filter((s) => s.family && !s.verified).length;
-  const lab = plan?.labHarness && plan.labHarness.id ? { id: plan.labHarness.id, label: text(plan.labHarness.label, 80), source: plan.labHarness.source || null, statement: text(plan.labHarness.statement, 200) } : null;
+  const info = plan?.labHarness || null;
+  const combinedOrder = info?.mode === "both" && Array.isArray(info.order) && info.order.length === 2 ? info.order : [];
+  const lab = combinedOrder.length
+    ? { id: null, mode: "both", order: [...combinedOrder], label: text(info.label, 160), source: info.source || null, statement: text(info.statement, 500) }
+    : info && info.id
+      ? { id: info.id, label: text(info.label, 80), source: info.source || null, statement: text(info.statement, 200) }
+      : null;
+  // A lab that covers both harnesses needs one practice agent per harness, and the order runs one harness at a time: how many times the
+  // computer changes experience (the classic switch, and back to the default experience) is the number of times the harness changes.
+  // what the computer does by itself, in plan order: how many times the harness changes is how many times it changes experience.
+  const sequence = automatic.filter((s) => s.harness).map((s) => s.harness);
+  const experienceChanges = sequence.reduce((n, id, i) => (i > 0 && id !== sequence[i - 1] ? n + 1 : n), 0);
+  const practiceAgents = combinedOrder.length ? combinedOrder.map((id) => ({ harness: id, label: HARNESS_LABELS[id] || id, note: practiceAgentNote(id) })) : lab ? [{ harness: lab.id, label: lab.label, note: practiceAgentNote(lab.id) }] : [];
   return {
     labId: plan?.labId || null,
     title: text(plan?.title, 160),
-    // The lab's harness is the authority: every Copilot Studio picture of the lab is taken in it.
+    // The lab's harness is the authority: every Copilot Studio picture of the lab is taken in it (a lab that covers both harnesses: in the harness of its part).
     labHarness: lab,
-    // Which kind of practice agent the lab gets: one agent, in the lab's harness, created in the experience that harness lives in.
-    practiceAgentHarness: lab ? practiceAgentNote(lab.id) : "",
+    // Which kind of practice agent the lab gets: one agent per harness the lab covers, each created in the experience that harness lives in.
+    practiceAgentHarness: practiceAgents.map((a) => a.note).join(" "),
+    practiceAgents,
+    experienceChanges: lab ? experienceChanges : 0,
     totals: { total: automatic.length + manual.length, automatic: automatic.length, needYou: manual.length, unverified, harnessGaps: gaps.length },
     // What the computer builds first for a from-scratch capture: the practice agent, then the objects below for the shots that need them.
     practiceAgent: [...SCRATCH_CREATES_LIST],
@@ -93,8 +107,9 @@ export function formatDryPlan(dry) {
   lines.push(`Dry plan${dry.title ? `: ${dry.title}` : ""}`);
   if (dry.labHarness) lines.push(dry.labHarness.statement || `This lab: ${dry.labHarness.label}.`);
   lines.push(`${dry.totals.automatic} of ${dry.totals.total} screenshots run automatically (${dry.totals.unverified} with a recipe that was not seen on a real tenant yet). ${dry.summary}`);
+  if (dry.labHarness?.mode === "both") lines.push(`The computer takes one harness at a time and changes experience ${dry.experienceChanges} time${dry.experienceChanges === 1 ? "" : "s"}.`);
   lines.push("", "The computer builds first (from scratch, in the practice environment):");
-  if (dry.practiceAgentHarness) lines.push(`  - ${dry.practiceAgentHarness}`);
+  for (const agent of dry.practiceAgents || []) lines.push(`  - ${agent.note}`);
   for (const line of dry.practiceAgent) lines.push(`  - ${line}`);
   lines.push("", "Runs automatically, in this order:");
   for (const s of dry.automatic) {

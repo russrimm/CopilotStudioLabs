@@ -146,10 +146,12 @@ test("the plain sentences name both harnesses once, and a shot of a product with
   assert.equal(wantedHarness({ harness: "microsoft-copilot", capture: { product: "copilot-studio" } }), "microsoft-copilot");
 });
 
-test("Microsoft Copilot pictures are taken before Standard ones, in their own order, because the switch lasts for the browser session", () => {
+test("shots are taken one harness at a time, in the order each harness first appears, so the experience changes once; a plan already in that order is kept", () => {
   const list = ["s1", "c1", "n1", "s2", "c2"].map((id) => ({ id, harness: id[0] === "s" ? "standard" : id[0] === "c" ? "microsoft-copilot" : null }));
-  assert.deepEqual(orderByHarness(list).map((s) => s.id), ["c1", "n1", "c2", "s1", "s2"]);
-  assert.deepEqual(orderByHarness(list.map((shot) => ({ shot })), (item) => item.shot).map((i) => i.shot.id), ["c1", "n1", "c2", "s1", "s2"]);
+  assert.deepEqual(orderByHarness(list).map((s) => s.id), ["s1", "s2", "c1", "n1", "c2"]);
+  assert.deepEqual(orderByHarness(list.map((shot) => ({ shot })), (item) => item.shot).map((i) => i.shot.id), ["s1", "s2", "c1", "n1", "c2"]);
+  const inOrder = ["s1", "s2", "c1", "c2"].map((id) => ({ id, harness: id[0] === "s" ? "standard" : "microsoft-copilot" }));
+  assert.deepEqual(orderByHarness(inOrder).map((s) => s.id), ["s1", "s2", "c1", "c2"], "one harness at a time is left as it is");
 });
 
 // ── Shots ────────────────────────────────────────────────────────────────────
@@ -222,7 +224,7 @@ test("a Standard shot switches first, proves the classic landmarks, stamps what 
   const log = [];
   const first = await run(t, app, planShot("standard"), { session, log });
   assert.equal(first.status, "captured", first.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the ellipsis, then Open classic experience; no feedback prompt was shown, so Skip feedback was not clicked");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu"], "the ellipsis, then Open classic experience (no feedback prompt was shown, so Skip feedback was not clicked), then the menu once more to see the command is gone");
   assert.equal(app.log.goto[0], `${base}/home`, "the switch starts on the home page, before the agent");
   assert.equal(first.harness.id, "standard");
   assert.equal(first.harness.switched, true);
@@ -235,13 +237,13 @@ test("a Standard shot switches first, proves the classic landmarks, stamps what 
 
   const again = await run(t, app, planShot("standard"), { session });
   assert.equal(again.status, "captured", again.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the switch is not repeated inside the session, but the landmark was read again");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu"], "the switch is not repeated inside the session, but the landmark was read again");
   assert.equal(again.harness.id, "standard");
 
   const other = appWith(SIDE);
   const fresh = await run(t, other, planShot("standard"), { session });
   assert.equal(fresh.status, "captured", fresh.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu", "switch-item"], "a new page is a new browser session: the switch is made again");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu", "switch-menu", "switch-item", "switch-menu"], "a new page is a new browser session: the switch is made again");
 });
 
 test("a page in the wrong harness is never saved as a picture of the other: the shot is needs-you with the plain reason, in every automatic mode", async (t) => {
@@ -492,7 +494,7 @@ test("the dry run prints, for every shot, its harness, the step that gets the pa
   assert.match(text, /a\.classic\.png.*\[Standard \(Classic\) harness\]/);
   assert.match(text, /Harness: Standard \(Classic\) harness\r?\n\s+Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\./);
   assert.match(text, /Proof before the picture: Side navigation with Overview/);
-  assert.match(text, /Harness: Microsoft Copilot harness\r?\n\s+No switch: open https:\/\/copilotstudio\.microsoft\.com\//);
+  assert.match(text, /Harness: Microsoft Copilot harness\r?\n\s+No switch: open copilotstudio\.microsoft\.com/);
   assert.match(text, /Proof before the picture: The Build, Preview, Evaluate, and Monitor tabs/);
   assert.match(text, /d\.png\r?\n\s+Not taken: This module is written for the Microsoft Copilot harness/);
   assert.equal(harnessPlan("standard").switchStep, "Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback.");
@@ -518,7 +520,7 @@ test("capture.js --harness accepts the five shot-level values, names the harness
   assert.match(dry.stdout, /\.classic\.png/, "the picture is saved under the name that carries its harness");
   assert.match(dry.stdout, /Proof before the picture:/);
   const copilot = capture("--product=copilot-studio", "--dry-run", "--harness=microsoft-copilot");
-  assert.match(copilot.stdout, /No switch: open https:\/\/copilotstudio\.microsoft\.com\//);
+  assert.match(copilot.stdout, /No switch: open copilotstudio\.microsoft\.com/);
   assert.match(copilot.stdout, /\.copilot\.png/);
   // A shot kept once per harness is captured only when a variant is named.
   const both = capture("--product=copilot-studio", "--dry-run", "--harness=both");

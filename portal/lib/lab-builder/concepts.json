@@ -241,7 +241,7 @@
       "order": 190,
       "summary": "See how the agent performs in use.",
       "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub", "ai-foundry", "power-platform-ai-hub"],
-      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption", "spai-agent-insights-reports", "fdy-trace-agent", "fdy-monitor-agent-dashboard", "ppai-monitor-ai-activity"],
+      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption", "spai-agent-insights-reports", "fdy-trace-agent", "fdy-monitor-agent-dashboard", "ppai-monitor-ai-activity", "ppai-flow-monitor-troubleshoot-runs"],
       "notApplicable": {}
     },
     {
@@ -314,7 +314,7 @@
       "order": 12,
       "summary": "Pick the model type or prompt that fits the task before you build.",
       "products": ["power-platform-ai-hub"],
-      "features": ["ppai-explore-ai-hub-models", "ppai-check-region-and-prerequisites", "ppai-migrate-from-text-generation"],
+      "features": ["ppai-explore-ai-hub-models", "ppai-migrate-from-text-generation"],
       "notApplicable": {}
     },
     {
@@ -350,16 +350,16 @@
       "order": 85,
       "summary": "Extract structured information from documents and files.",
       "products": ["sharepoint-ai", "power-platform-ai-hub"],
-      "features": ["spai-autofill-columns", "spai-prebuilt-document-processing", "ppai-document-processing-model"],
+      "features": ["spai-autofill-columns", "spai-prebuilt-document-processing", "ppai-document-processing-model", "ppai-flow-process-documents-on-arrival"],
       "notApplicable": {}
     },
     {
       "id": "ai-consumption",
       "name": "Use AI in apps and flows",
       "order": 165,
-      "summary": "Call a prompt or model from the apps and flows people already build.",
+      "summary": "Call a prompt or model from the apps and flows people already build, and make those flows reliable.",
       "products": ["power-platform-ai-hub"],
-      "features": ["ppai-use-prompt-in-flow-and-app", "ppai-powerfx-ai-models-in-canvas-app", "ppai-predict-action-dynamic-model"],
+      "features": ["ppai-flow-add-ai-builder-actions", "ppai-use-prompt-in-flow-and-app", "ppai-flow-classify-extract-route-text", "ppai-powerfx-ai-models-in-canvas-app", "ppai-predict-action-dynamic-model", "ppai-flow-reliable-ai-actions", "ppai-agent-tools-prompt-and-flow"],
       "notApplicable": {}
     },
     {

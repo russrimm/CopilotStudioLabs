@@ -248,6 +248,7 @@ export function renderAdministratorSetupGuideDocxBuffer(model, { branding } = {}
         what.push(para(run(`${i + 1}.`, { bold: true, color: accent, size: 20 }) + "<w:r><w:tab/></w:r>" + run(step, { size: 20 }), { keepLines: true, before: 0, after: 30, ind: 'w:left="360" w:hanging="300"' }));
       });
       if (parts.text) what.push(para(label(`${parts.whatLabel}:`) + inline(parts.text, { size: 20 }), { keepLines: true, before: 30, after: 40 }));
+      if (parts.check) what.push(para(label("How to check:") + inline(parts.check, { size: 19 }), { keepLines: true, before: 0, after: 40 }));
       if (parts.detail) what.push(para(label("Details:") + run(parts.detail, { size: 19, color: MUTED }), { keepLines: true, before: 0, after: 40 }));
       if (parts.endpoints) what.push(para(run(parts.endpoints, { size: 19 }), { keepLines: true, before: 0, after: 40 }));
       if (parts.why) what.push(para(label("Why:") + run(parts.why, { size: 19 }), { keepLines: true, before: 0, after: 40 }));

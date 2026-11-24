@@ -358,11 +358,11 @@ test("unchecking a required prerequisite explains which selected topic depends o
   assert.doesNotMatch(warningsEl.innerHTML, /lb-prereq-notice/);
 });
 
-test("repo docs and portal UI stay accurate on 195 capabilities across 6 products, lab numbers, print rules, and registry hygiene", () => {
+test("repo docs and portal UI stay accurate on 200 capabilities across 6 products, lab numbers, print rules, and registry hygiene", () => {
   const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
   const features = getFeatures();
   const products = getProducts();
-  assert.equal(features.length, 195, "catalog feature count changed — update README.md capability count");
+  assert.equal(features.length, 200, "catalog feature count changed — update README.md capability count");
   assert.equal(products.length, 6, "product count changed — update README.md product count");
   assert.match(readme, new RegExp(`The catalog\\s+covers ${features.length} capabilities across ${products.length} products`));
   assert.doesNotMatch(readme, /128 capabilities/i);

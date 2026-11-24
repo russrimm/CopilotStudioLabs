@@ -44,6 +44,7 @@ export function buildLabChecklist({ generatedRoot, labId, values = {}, capturedD
       // The harness the picture must be taken in (null for a product with no harnesses), and a gap when the module is not written for the lab's harness.
       harness: shot.harness || null,
       harnessLabel: shot.harnessLabel || null,
+      ...(shot.harnessPart ? { harnessPart: shot.harnessPart, harnessScope: shot.harnessScope || null, ...(shot.harnessNote ? { harnessNote: shot.harnessNote } : {}) } : {}),
       harnessGapNote: shot.harnessGapNote || null,
       who: shot.harnessGap ? "you" : mode === "auto" ? "computer" : "you",
       mode,

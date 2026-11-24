@@ -96,57 +96,6 @@
     },
     {
       "id": 3,
-      "feature": "ppai-check-region-and-prerequisites",
-      "featureName": "Check regional availability and environment prerequisites",
-      "product": "power-platform-ai-hub",
-      "filename": "ppai-region-availability-table.png",
-      "section": "learn",
-      "caption": "Prebuilt model availability by region",
-      "alt": "The Prebuilt models table on the Feature availability by region page with the column for your region showing GA, Preview, or a dash for each model.",
-      "navHint": "Open the Microsoft Learn article named in the steps in the capture browser.",
-      "prerequisites": [],
-      "setup": [
-        "Note the region of the environment you will use.",
-        "Open Feature availability by region and find your region in the Custom models and Prebuilt models tables.",
-        "Record the release status (GA, Preview, or a dash) of each model type you plan to use.",
-        "For prompts, follow the Prompts section link to Model availability by region and check your region there.",
-        "If you use a US Government environment, review the US Government feature limitations list.",
-        "Confirm the environment has a Dataverse database and that AI Builder is enabled for it, as described in Build a model in AI Builder.",
-        "When you create a new environment for the lab, enable Deploy sample apps and data if you want Microsoft's sample data."
-      ],
-      "instructions": [
-        "Open Feature availability by region.",
-        "Show the Prebuilt models table with your region's column and its GA or Preview entries."
-      ],
-      "callouts": [
-        {
-          "n": 1,
-          "label": "Custom models",
-          "text": "Custom models",
-          "note": "Open Feature availability by region and find your region in the Custom models and Prebuilt models tables."
-        },
-        {
-          "n": 2,
-          "label": "Prebuilt models",
-          "text": "Prebuilt models",
-          "note": "Open Feature availability by region and find your region in the Custom models and Prebuilt models tables."
-        },
-        {
-          "n": 3,
-          "label": "Prompts",
-          "text": "Prompts",
-          "note": "For prompts, follow the Prompts section link to Model availability by region and check your region there."
-        },
-        {
-          "n": 4,
-          "label": "US Government feature limitations",
-          "text": "US Government feature limitations",
-          "note": "If you use a US Government environment, review the US Government feature limitations list."
-        }
-      ]
-    },
-    {
-      "id": 4,
       "feature": "ppai-migrate-from-text-generation",
       "featureName": "Move from the retired text generation model to prompts",
       "product": "power-platform-ai-hub",
@@ -181,7 +130,7 @@
       ]
     },
     {
-      "id": 5,
+      "id": 4,
       "feature": "ppai-build-custom-prompt",
       "featureName": "Build and test a custom prompt in prompt builder",
       "product": "power-platform-ai-hub",
@@ -237,7 +186,7 @@
       ]
     },
     {
-      "id": 6,
+      "id": 5,
       "feature": "ppai-build-custom-prompt",
       "featureName": "Build and test a custom prompt in prompt builder",
       "product": "power-platform-ai-hub",
@@ -275,7 +224,7 @@
       ]
     },
     {
-      "id": 7,
+      "id": 6,
       "feature": "ppai-prompt-inputs-and-model-settings",
       "featureName": "Add inputs and tune the model settings of a prompt",
       "product": "power-platform-ai-hub",
@@ -332,7 +281,7 @@
       ]
     },
     {
-      "id": 8,
+      "id": 7,
       "feature": "ppai-prompt-inputs-and-model-settings",
       "featureName": "Add inputs and tune the model settings of a prompt",
       "product": "power-platform-ai-hub",
@@ -371,7 +320,7 @@
       ]
     },
     {
-      "id": 9,
+      "id": 8,
       "feature": "ppai-prompt-inputs-and-model-settings",
       "featureName": "Add inputs and tune the model settings of a prompt",
       "product": "power-platform-ai-hub",
@@ -416,7 +365,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 9,
       "feature": "ppai-human-review-prompt-output",
       "featureName": "Add human review to a prompt in a flow",
       "product": "power-platform-ai-hub",
@@ -471,7 +420,7 @@
       ]
     },
     {
-      "id": 11,
+      "id": 10,
       "feature": "ppai-human-review-prompt-output",
       "featureName": "Add human review to a prompt in a flow",
       "product": "power-platform-ai-hub",
@@ -514,7 +463,7 @@
       ]
     },
     {
-      "id": 12,
+      "id": 11,
       "feature": "ppai-code-interpreter-prompts",
       "featureName": "Turn on code interpreter in a prompt",
       "product": "power-platform-ai-hub",
@@ -557,7 +506,7 @@
       ]
     },
     {
-      "id": 13,
+      "id": 12,
       "feature": "ppai-code-interpreter-prompts",
       "featureName": "Turn on code interpreter in a prompt",
       "product": "power-platform-ai-hub",
@@ -594,7 +543,7 @@
       ]
     },
     {
-      "id": 14,
+      "id": 13,
       "feature": "ppai-prebuilt-sentiment-analysis",
       "featureName": "Try the sentiment analysis prebuilt model",
       "product": "power-platform-ai-hub",
@@ -631,7 +580,7 @@
       ]
     },
     {
-      "id": 15,
+      "id": 14,
       "feature": "ppai-prebuilt-receipt-processing-flow",
       "featureName": "Extract receipt data in a flow with the receipt processing model",
       "product": "power-platform-ai-hub",
@@ -674,7 +623,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 15,
       "feature": "ppai-prebuilt-receipt-processing-flow",
       "featureName": "Extract receipt data in a flow with the receipt processing model",
       "product": "power-platform-ai-hub",
@@ -729,7 +678,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 16,
       "feature": "ppai-document-processing-model",
       "featureName": "Create, train, and use a document processing model",
       "product": "power-platform-ai-hub",
@@ -774,7 +723,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 17,
       "feature": "ppai-document-processing-model",
       "featureName": "Create, train, and use a document processing model",
       "product": "power-platform-ai-hub",
@@ -813,7 +762,7 @@
       ]
     },
     {
-      "id": 19,
+      "id": 18,
       "feature": "ppai-document-processing-model",
       "featureName": "Create, train, and use a document processing model",
       "product": "power-platform-ai-hub",
@@ -852,7 +801,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 19,
       "feature": "ppai-document-processing-model",
       "featureName": "Create, train, and use a document processing model",
       "product": "power-platform-ai-hub",
@@ -896,7 +845,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 20,
       "feature": "ppai-category-classification-model",
       "featureName": "Build a category classification custom model",
       "product": "power-platform-ai-hub",
@@ -947,7 +896,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 21,
       "feature": "ppai-category-classification-model",
       "featureName": "Build a category classification custom model",
       "product": "power-platform-ai-hub",
@@ -986,7 +935,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 22,
       "feature": "ppai-category-classification-model",
       "featureName": "Build a category classification custom model",
       "product": "power-platform-ai-hub",
@@ -1024,7 +973,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 23,
       "feature": "ppai-prediction-model",
       "featureName": "Build a prediction model from historical Dataverse data",
       "product": "power-platform-ai-hub",
@@ -1074,7 +1023,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 24,
       "feature": "ppai-prediction-model",
       "featureName": "Build a prediction model from historical Dataverse data",
       "product": "power-platform-ai-hub",
@@ -1130,7 +1079,7 @@
       ]
     },
     {
-      "id": 26,
+      "id": 25,
       "feature": "ppai-prediction-model",
       "featureName": "Build a prediction model from historical Dataverse data",
       "product": "power-platform-ai-hub",
@@ -1168,7 +1117,7 @@
       ]
     },
     {
-      "id": 27,
+      "id": 26,
       "feature": "ppai-evaluate-version-retrain-models",
       "featureName": "Evaluate, version, retrain, and publish a custom model",
       "product": "power-platform-ai-hub",
@@ -1224,7 +1173,7 @@
       ]
     },
     {
-      "id": 28,
+      "id": 27,
       "feature": "ppai-evaluate-version-retrain-models",
       "featureName": "Evaluate, version, retrain, and publish a custom model",
       "product": "power-platform-ai-hub",
@@ -1262,7 +1211,163 @@
       ]
     },
     {
+      "id": 28,
+      "feature": "ppai-flow-add-ai-builder-actions",
+      "featureName": "Add an AI Builder action to a cloud flow and use its outputs",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-aiactions-flow-designer.png",
+      "section": "power-automate",
+      "caption": "Manual trigger with a Text input feeding three AI Builder actions",
+      "alt": "The cloud flow designer shows the Manually trigger a flow card with a My Text input followed by sentiment analysis, language detection, and key phrase extraction actions that each use My Text.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Try the sentiment analysis prebuilt model"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows in the left pane, and then select New flow > Instant cloud flow.",
+        "Name your cloud flow, select Manually trigger a flow under Choose how to trigger this flow, and then select Create.",
+        "Expand Manually trigger a flow, select +Add an input > Text, and replace Input with My Text. This input is where the text for every action comes from.",
+        "Select + New step > AI Builder, select Analyze positive or negative sentiment, select or enter your language in Language, and select My Text from the Dynamic content list in Text. In the new designer, select the plus sign (+) and search Add an action instead.",
+        "Select + New step > AI Builder, select Detect the language being used in text, and select My Text from the Dynamic content list in Text. This action has no Language input.",
+        "Select + New step > AI Builder, select the key phrase action (Generate the key phrases from a text in the overview table, Extract the key phrases from text in the how-to article), select or enter your language in Language, and select My Text in Text.",
+        "On each of the three AI Builder actions, leave the default Asynchronous Pattern setting set to On.",
+        "Select + New step, search for compose, select Compose under Data Operation, and in Inputs combine your own text with Overall text sentiment and Probability overall text is negative from the Dynamic content list.",
+        "Add a second Compose and select Key phrase from the Dynamic content list. The designer adds an Apply to each loop around it because there can be several key phrases.",
+        "Select Save, then select Test > Manually > Test, enter a sample such as The Contoso checkout page was slow and confusing. The support team was friendly and fixed my billing problem quickly. for My Text, select Run flow, and then select Done.",
+        "When the run finishes, select My flows, select your flow, open the run under 28-day run history, and select each AI Builder action and each Compose to read its Inputs and Outputs."
+      ],
+      "instructions": [
+        "Open the cloud flow designer after adding the third AI Builder action.",
+        "Show Manually trigger a flow with the My Text input and the three AI Builder actions with My Text selected in each Text input."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Manually trigger a flow",
+          "text": "Manually trigger a flow",
+          "note": "Show Manually trigger a flow with the My Text input and the three AI Builder actions with My Text selected in each Text input."
+        },
+        {
+          "n": 2,
+          "label": "My Text",
+          "text": "My Text",
+          "note": "Show Manually trigger a flow with the My Text input and the three AI Builder actions with My Text selected in each Text input."
+        },
+        {
+          "n": 3,
+          "label": "Text",
+          "text": "Text",
+          "note": "Show Manually trigger a flow with the My Text input and the three AI Builder actions with My Text selected in each Text input."
+        }
+      ]
+    },
+    {
       "id": 29,
+      "feature": "ppai-flow-add-ai-builder-actions",
+      "featureName": "Add an AI Builder action to a cloud flow and use its outputs",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-aiactions-compose-tokens.png",
+      "section": "power-automate",
+      "caption": "Compose inputs built from AI Builder dynamic content",
+      "alt": "The Compose action card shows an Inputs field that combines typed text with the Overall text sentiment and Probability overall text is negative dynamic content tokens.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Try the sentiment analysis prebuilt model"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows in the left pane, and then select New flow > Instant cloud flow.",
+        "Name your cloud flow, select Manually trigger a flow under Choose how to trigger this flow, and then select Create.",
+        "Expand Manually trigger a flow, select +Add an input > Text, and replace Input with My Text. This input is where the text for every action comes from.",
+        "Select + New step > AI Builder, select Analyze positive or negative sentiment, select or enter your language in Language, and select My Text from the Dynamic content list in Text. In the new designer, select the plus sign (+) and search Add an action instead.",
+        "Select + New step > AI Builder, select Detect the language being used in text, and select My Text from the Dynamic content list in Text. This action has no Language input.",
+        "Select + New step > AI Builder, select the key phrase action (Generate the key phrases from a text in the overview table, Extract the key phrases from text in the how-to article), select or enter your language in Language, and select My Text in Text.",
+        "On each of the three AI Builder actions, leave the default Asynchronous Pattern setting set to On.",
+        "Select + New step, search for compose, select Compose under Data Operation, and in Inputs combine your own text with Overall text sentiment and Probability overall text is negative from the Dynamic content list.",
+        "Add a second Compose and select Key phrase from the Dynamic content list. The designer adds an Apply to each loop around it because there can be several key phrases.",
+        "Select Save, then select Test > Manually > Test, enter a sample such as The Contoso checkout page was slow and confusing. The support team was friendly and fixed my billing problem quickly. for My Text, select Run flow, and then select Done.",
+        "When the run finishes, select My flows, select your flow, open the run under 28-day run history, and select each AI Builder action and each Compose to read its Inputs and Outputs."
+      ],
+      "instructions": [
+        "Open the first Compose action in the designer.",
+        "Show the Inputs field with Overall text sentiment and Probability overall text is negative inserted from the Dynamic content list."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Compose",
+          "text": "Compose",
+          "note": "Open the first Compose action in the designer."
+        },
+        {
+          "n": 2,
+          "label": "Inputs",
+          "text": "Inputs",
+          "note": "Show the Inputs field with Overall text sentiment and Probability overall text is negative inserted from the Dynamic content list."
+        },
+        {
+          "n": 3,
+          "label": "Overall text sentiment",
+          "text": "Overall text sentiment",
+          "note": "Show the Inputs field with Overall text sentiment and Probability overall text is negative inserted from the Dynamic content list."
+        },
+        {
+          "n": 4,
+          "label": "Probability overall text is negative",
+          "text": "Probability overall text is negative",
+          "note": "Show the Inputs field with Overall text sentiment and Probability overall text is negative inserted from the Dynamic content list."
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "feature": "ppai-flow-add-ai-builder-actions",
+      "featureName": "Add an AI Builder action to a cloud flow and use its outputs",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-aiactions-run-outputs.png",
+      "section": "power-automate",
+      "caption": "Successful run with the sentiment action outputs expanded",
+      "alt": "The run details page shows a success check mark on each action and the expanded Outputs of the sentiment analysis action with overall sentiment and probability values between 0 and 1.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Try the sentiment analysis prebuilt model"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows in the left pane, and then select New flow > Instant cloud flow.",
+        "Name your cloud flow, select Manually trigger a flow under Choose how to trigger this flow, and then select Create.",
+        "Expand Manually trigger a flow, select +Add an input > Text, and replace Input with My Text. This input is where the text for every action comes from.",
+        "Select + New step > AI Builder, select Analyze positive or negative sentiment, select or enter your language in Language, and select My Text from the Dynamic content list in Text. In the new designer, select the plus sign (+) and search Add an action instead.",
+        "Select + New step > AI Builder, select Detect the language being used in text, and select My Text from the Dynamic content list in Text. This action has no Language input.",
+        "Select + New step > AI Builder, select the key phrase action (Generate the key phrases from a text in the overview table, Extract the key phrases from text in the how-to article), select or enter your language in Language, and select My Text in Text.",
+        "On each of the three AI Builder actions, leave the default Asynchronous Pattern setting set to On.",
+        "Select + New step, search for compose, select Compose under Data Operation, and in Inputs combine your own text with Overall text sentiment and Probability overall text is negative from the Dynamic content list.",
+        "Add a second Compose and select Key phrase from the Dynamic content list. The designer adds an Apply to each loop around it because there can be several key phrases.",
+        "Select Save, then select Test > Manually > Test, enter a sample such as The Contoso checkout page was slow and confusing. The support team was friendly and fixed my billing problem quickly. for My Text, select Run flow, and then select Done.",
+        "When the run finishes, select My flows, select your flow, open the run under 28-day run history, and select each AI Builder action and each Compose to read its Inputs and Outputs."
+      ],
+      "instructions": [
+        "Open the successful run from 28-day run history.",
+        "Show the expanded Outputs of the sentiment analysis action and the green check marks on the other actions, using synthetic sample text only."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "28-day run history",
+          "text": "28-day run history",
+          "note": "Open the successful run from 28-day run history."
+        },
+        {
+          "n": 2,
+          "label": "Outputs",
+          "text": "Outputs",
+          "note": "Show the expanded Outputs of the sentiment analysis action and the green check marks on the other actions, using synthetic sample text only."
+        }
+      ]
+    },
+    {
+      "id": 31,
       "feature": "ppai-use-prompt-in-flow-and-app",
       "featureName": "Use a prompt in Power Automate and Power Apps",
       "product": "power-platform-ai-hub",
@@ -1299,7 +1404,7 @@
       ]
     },
     {
-      "id": 30,
+      "id": 32,
       "feature": "ppai-use-prompt-in-flow-and-app",
       "featureName": "Use a prompt in Power Automate and Power Apps",
       "product": "power-platform-ai-hub",
@@ -1343,7 +1448,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 33,
       "feature": "ppai-use-prompt-in-flow-and-app",
       "featureName": "Use a prompt in Power Automate and Power Apps",
       "product": "power-platform-ai-hub",
@@ -1399,7 +1504,403 @@
       ]
     },
     {
-      "id": 32,
+      "id": 34,
+      "feature": "ppai-flow-classify-extract-route-text",
+      "featureName": "Classify incoming email text in a flow and route the result",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-route-trigger-classify.png",
+      "section": "power-automate",
+      "caption": "Email trigger, Html to text, and the classification action",
+      "alt": "The cloud flow designer shows the new email trigger with a subject filter, the Html to text action, and the standard model classification action that takes the plain text content as its Text input.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows, select New flow > Automated cloud flow, name the flow, select When a new email arrives V3 (Office 365 Outlook) under Choose your flow's trigger, and then select Create.",
+        "In the trigger, set Folder to the mailbox folder to watch and set Subject Filter to a test string such as Contoso feedback, so only your test emails start the flow.",
+        "Select + New step, enter html to text in Search connectors and actions, select Html to text (preview), and select Body from the Dynamic content list for Content to convert the email body to plain text.",
+        "Select + New step > AI Builder, select Classify text into categories with the standard model, select or enter your language in Language, select The plain text content from the Dynamic content list in Text, and leave Asynchronous Pattern set to On.",
+        "Select + New step > Condition, select Confidence score from the Dynamic content list in the left box, choose is greater than or equal to, and enter a threshold of your choice between 0 and 1, such as 0.7. If the designer wraps the condition in an Apply to each loop, leave the loop in place.",
+        "In the If no branch, which holds the low-confidence results, select Add an action and select Send an email (V2). Enter your own address in To, add The plain text content, Classification, and Confidence score in Body, and use a Subject that does not contain your Subject Filter text so the email cannot start the flow again.",
+        "In the If yes branch (True in the new designer), select Add an action, add a second Condition, select Classification in the left box, choose is equal to, and enter Issues.",
+        "In the second condition's If yes branch, add Post message in a chat or channel, set Post as to Flow bot and Post in to Chat with flow bot, enter your own address in Recipient, and build Message from Subject, Classification, and Confidence score.",
+        "In the second condition's If no branch, add Compose under Data Operation with Inputs that record Classification and Confidence score for a confident message that is not an issue.",
+        "Optional: below the outer Condition, select + New step > AI Builder > Extract entities from text with the standard model, set Language, and select The plain text content in Text so the run also shows Entity type, Entity value, Confidence score, Starting location, and Character count.",
+        "Select Save, then select Test > Manually > Test, and follow the instructions by sending an email whose subject contains your Subject Filter text and whose body is feedback such as The Contoso mobile app crashes every time I try to pay, and support has not replied in three days.",
+        "When the test finishes, open the run under 28-day run history, select Classify text into categories with the standard model, read Classification and Confidence score in Outputs, and check which branch ran. Then send a second email with different text and compare."
+      ],
+      "instructions": [
+        "Open the cloud flow designer after adding the classification action.",
+        "Show When a new email arrives V3 (Office 365 Outlook) with Subject Filter set, Html to text (preview), and Classify text into categories with the standard model with The plain text content in Text."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "When a new email arrives V3 (Office 365 Outlook)",
+          "text": "When a new email arrives V3 (Office 365 Outlook)",
+          "note": "Show When a new email arrives V3 (Office 365 Outlook) with Subject Filter set, Html to text (preview), and Classify text into categories with the standard mode…"
+        },
+        {
+          "n": 2,
+          "label": "Subject Filter",
+          "text": "Subject Filter",
+          "note": "Show When a new email arrives V3 (Office 365 Outlook) with Subject Filter set, Html to text (preview), and Classify text into categories with the standard mode…"
+        },
+        {
+          "n": 3,
+          "label": "Html to text (preview)",
+          "text": "Html to text (preview)",
+          "note": "Show When a new email arrives V3 (Office 365 Outlook) with Subject Filter set, Html to text (preview), and Classify text into categories with the standard mode…"
+        },
+        {
+          "n": 4,
+          "label": "Classify text into categories with the standard model",
+          "text": "Classify text into categories with the standard model",
+          "note": "Show When a new email arrives V3 (Office 365 Outlook) with Subject Filter set, Html to text (preview), and Classify text into categories with the standard mode…"
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "feature": "ppai-flow-classify-extract-route-text",
+      "featureName": "Classify incoming email text in a flow and route the result",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-route-condition-branches.png",
+      "section": "power-automate",
+      "caption": "Nested conditions that route on confidence and category",
+      "alt": "The cloud flow designer shows an outer condition on Confidence score with an email action in the If no branch and a nested condition on Classification with a Teams message action and a Compose action in its branches.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows, select New flow > Automated cloud flow, name the flow, select When a new email arrives V3 (Office 365 Outlook) under Choose your flow's trigger, and then select Create.",
+        "In the trigger, set Folder to the mailbox folder to watch and set Subject Filter to a test string such as Contoso feedback, so only your test emails start the flow.",
+        "Select + New step, enter html to text in Search connectors and actions, select Html to text (preview), and select Body from the Dynamic content list for Content to convert the email body to plain text.",
+        "Select + New step > AI Builder, select Classify text into categories with the standard model, select or enter your language in Language, select The plain text content from the Dynamic content list in Text, and leave Asynchronous Pattern set to On.",
+        "Select + New step > Condition, select Confidence score from the Dynamic content list in the left box, choose is greater than or equal to, and enter a threshold of your choice between 0 and 1, such as 0.7. If the designer wraps the condition in an Apply to each loop, leave the loop in place.",
+        "In the If no branch, which holds the low-confidence results, select Add an action and select Send an email (V2). Enter your own address in To, add The plain text content, Classification, and Confidence score in Body, and use a Subject that does not contain your Subject Filter text so the email cannot start the flow again.",
+        "In the If yes branch (True in the new designer), select Add an action, add a second Condition, select Classification in the left box, choose is equal to, and enter Issues.",
+        "In the second condition's If yes branch, add Post message in a chat or channel, set Post as to Flow bot and Post in to Chat with flow bot, enter your own address in Recipient, and build Message from Subject, Classification, and Confidence score.",
+        "In the second condition's If no branch, add Compose under Data Operation with Inputs that record Classification and Confidence score for a confident message that is not an issue.",
+        "Optional: below the outer Condition, select + New step > AI Builder > Extract entities from text with the standard model, set Language, and select The plain text content in Text so the run also shows Entity type, Entity value, Confidence score, Starting location, and Character count.",
+        "Select Save, then select Test > Manually > Test, and follow the instructions by sending an email whose subject contains your Subject Filter text and whose body is feedback such as The Contoso mobile app crashes every time I try to pay, and support has not replied in three days.",
+        "When the test finishes, open the run under 28-day run history, select Classify text into categories with the standard model, read Classification and Confidence score in Outputs, and check which branch ran. Then send a second email with different text and compare."
+      ],
+      "instructions": [
+        "Open the designer with the routing built.",
+        "Show the outer Condition on Confidence score with Send an email (V2) in If no, and the nested Condition on Classification with the Teams message and Compose in its branches, with any real email addresses masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Condition",
+          "text": "Condition",
+          "note": "Show the outer Condition on Confidence score with Send an email (V2) in If no, and the nested Condition on Classification with the Teams message and Compose in…"
+        },
+        {
+          "n": 2,
+          "label": "Confidence score",
+          "text": "Confidence score",
+          "note": "Show the outer Condition on Confidence score with Send an email (V2) in If no, and the nested Condition on Classification with the Teams message and Compose in…"
+        },
+        {
+          "n": 3,
+          "label": "Send an email (V2)",
+          "text": "Send an email (V2)",
+          "note": "Show the outer Condition on Confidence score with Send an email (V2) in If no, and the nested Condition on Classification with the Teams message and Compose in…"
+        },
+        {
+          "n": 4,
+          "label": "If no",
+          "text": "If no",
+          "note": "Show the outer Condition on Confidence score with Send an email (V2) in If no, and the nested Condition on Classification with the Teams message and Compose in…"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "feature": "ppai-flow-classify-extract-route-text",
+      "featureName": "Classify incoming email text in a flow and route the result",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-route-run-outputs.png",
+      "section": "power-automate",
+      "caption": "Run outputs showing the classification and the branch taken",
+      "alt": "The run details page shows the outputs of the classification action with a Classification value and a Confidence score between 0 and 1, and the condition branch that ran.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "Sign in to Power Automate, select My flows, select New flow > Automated cloud flow, name the flow, select When a new email arrives V3 (Office 365 Outlook) under Choose your flow's trigger, and then select Create.",
+        "In the trigger, set Folder to the mailbox folder to watch and set Subject Filter to a test string such as Contoso feedback, so only your test emails start the flow.",
+        "Select + New step, enter html to text in Search connectors and actions, select Html to text (preview), and select Body from the Dynamic content list for Content to convert the email body to plain text.",
+        "Select + New step > AI Builder, select Classify text into categories with the standard model, select or enter your language in Language, select The plain text content from the Dynamic content list in Text, and leave Asynchronous Pattern set to On.",
+        "Select + New step > Condition, select Confidence score from the Dynamic content list in the left box, choose is greater than or equal to, and enter a threshold of your choice between 0 and 1, such as 0.7. If the designer wraps the condition in an Apply to each loop, leave the loop in place.",
+        "In the If no branch, which holds the low-confidence results, select Add an action and select Send an email (V2). Enter your own address in To, add The plain text content, Classification, and Confidence score in Body, and use a Subject that does not contain your Subject Filter text so the email cannot start the flow again.",
+        "In the If yes branch (True in the new designer), select Add an action, add a second Condition, select Classification in the left box, choose is equal to, and enter Issues.",
+        "In the second condition's If yes branch, add Post message in a chat or channel, set Post as to Flow bot and Post in to Chat with flow bot, enter your own address in Recipient, and build Message from Subject, Classification, and Confidence score.",
+        "In the second condition's If no branch, add Compose under Data Operation with Inputs that record Classification and Confidence score for a confident message that is not an issue.",
+        "Optional: below the outer Condition, select + New step > AI Builder > Extract entities from text with the standard model, set Language, and select The plain text content in Text so the run also shows Entity type, Entity value, Confidence score, Starting location, and Character count.",
+        "Select Save, then select Test > Manually > Test, and follow the instructions by sending an email whose subject contains your Subject Filter text and whose body is feedback such as The Contoso mobile app crashes every time I try to pay, and support has not replied in three days.",
+        "When the test finishes, open the run under 28-day run history, select Classify text into categories with the standard model, read Classification and Confidence score in Outputs, and check which branch ran. Then send a second email with different text and compare."
+      ],
+      "instructions": [
+        "Open the successful run from 28-day run history.",
+        "Show the Outputs of the classification action with Classification and Confidence score, and the branch that ran, with any real names or email addresses masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "28-day run history",
+          "text": "28-day run history",
+          "note": "Open the successful run from 28-day run history."
+        },
+        {
+          "n": 2,
+          "label": "Outputs",
+          "text": "Outputs",
+          "note": "Show the Outputs of the classification action with Classification and Confidence score, and the branch that ran, with any real names or email addresses masked."
+        },
+        {
+          "n": 3,
+          "label": "Classification",
+          "text": "Classification",
+          "note": "Show the Outputs of the classification action with Classification and Confidence score, and the branch that ran, with any real names or email addresses masked."
+        },
+        {
+          "n": 4,
+          "label": "Confidence score",
+          "text": "Confidence score",
+          "note": "Show the Outputs of the classification action with Classification and Confidence score, and the branch that ran, with any real names or email addresses masked."
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "feature": "ppai-flow-process-documents-on-arrival",
+      "featureName": "Process documents automatically when a file arrives in SharePoint",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-docflow-trigger-and-file.png",
+      "section": "power-automate",
+      "caption": "Trigger, Get file content, and Extract information from invoices",
+      "alt": "The cloud flow designer shows the SharePoint trigger When a file is created (properties only), the Get file content action, and Extract information from invoices with its Invoice file input set to File Content.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Apps, select Tables > New table > Set advanced properties, enter Invoice intake in Display name, and select Create.",
+        "Open the table, select Columns, select the primary column, set Display name to Invoice ID, and select Done; then use Add column to add Vendor name (Data type Text), Invoice total (Decimal Number), Total confidence (Decimal Number), and Review status (Text), selecting Done after each, and select Save table.",
+        "In Power Automate, select My flows > New flow > Automated cloud flow, enter a flow name, enter file is created under Choose your flow's trigger, select When a file is created (properties only) from SharePoint, and select Create.",
+        "On the trigger, select the Site Address and the Library Name of a document library you can add files to, and leave Folder blank to watch the whole library.",
+        "Select +, search for get file content, select the SharePoint action Get file content, select the same Site Address, and set File Identifier to File identifier from the dynamic content.",
+        "Select +, search for invoices, select Extract information from invoices from AI Builder, and set Invoice file to File Content from Get file content.",
+        "Select +, search for condition, and under Control select Condition; on the Parameters tab set the first Choose a value to Confidence of invoice total with the lightning bolt icon, the operator to is greater than or equal to, and the second value to 0.65.",
+        "In the True branch, select +, search for new row, under Microsoft Dataverse select Add a new row, select your Invoice intake table in Table name (Learn's example lists tables by plural name, such as Accounts), and set Invoice ID to Invoice ID, Vendor name to Vendor name, Invoice total to Invoice total (number), Total confidence to Confidence of invoice total, and Review status to Saved automatically.",
+        "In the False branch, select +, search for approval, under Standard approvals select Start and wait for an approval, set Approval type to Approve/Reject - First to respond, enter a Title, enter a reviewer in Assigned to, and build Details from Invoice ID, Vendor name, Invoice total (text), and Confidence of invoice total.",
+        "After the approval, add a Condition where Responses Approver response is equal to Approve, and in its True branch add Add a new row for the Invoice intake table with the same mappings and Review status set to Approved by reviewer.",
+        "Select Save, upload a clear sample invoice PDF issued by a fictional vendor such as Fabrikam to the library, then open the flow and select the run date in the 28-day run history to confirm the True branch ran.",
+        "Upload a poor-quality invoice scan (if its Confidence of invoice total is still 0.65 or higher, raise the Condition value above the score shown in the first run, select Save, and upload again), then respond Approve from the approval email or the approvals center and check the new row."
+      ],
+      "instructions": [
+        "Open the cloud flow designer for the automated flow.",
+        "Show the SharePoint trigger When a file is created (properties only), Get file content, and Extract information from invoices with Invoice file set to File Content."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "When a file is created (properties only)",
+          "text": "When a file is created (properties only)",
+          "note": "Show the SharePoint trigger When a file is created (properties only), Get file content, and Extract information from invoices with Invoice file set to File Con…"
+        },
+        {
+          "n": 2,
+          "label": "Get file content",
+          "text": "Get file content",
+          "note": "Show the SharePoint trigger When a file is created (properties only), Get file content, and Extract information from invoices with Invoice file set to File Con…"
+        },
+        {
+          "n": 3,
+          "label": "Extract information from invoices",
+          "text": "Extract information from invoices",
+          "note": "Show the SharePoint trigger When a file is created (properties only), Get file content, and Extract information from invoices with Invoice file set to File Con…"
+        },
+        {
+          "n": 4,
+          "label": "Invoice file",
+          "text": "Invoice file",
+          "note": "Show the SharePoint trigger When a file is created (properties only), Get file content, and Extract information from invoices with Invoice file set to File Con…"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "feature": "ppai-flow-process-documents-on-arrival",
+      "featureName": "Process documents automatically when a file arrives in SharePoint",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-docflow-confidence-condition.png",
+      "section": "power-automate",
+      "caption": "Confidence condition with save and review branches",
+      "alt": "The Condition card compares Confidence of invoice total with 0.65, with a Dataverse Add a new row action in the True branch and Start and wait for an approval in the False branch.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Apps, select Tables > New table > Set advanced properties, enter Invoice intake in Display name, and select Create.",
+        "Open the table, select Columns, select the primary column, set Display name to Invoice ID, and select Done; then use Add column to add Vendor name (Data type Text), Invoice total (Decimal Number), Total confidence (Decimal Number), and Review status (Text), selecting Done after each, and select Save table.",
+        "In Power Automate, select My flows > New flow > Automated cloud flow, enter a flow name, enter file is created under Choose your flow's trigger, select When a file is created (properties only) from SharePoint, and select Create.",
+        "On the trigger, select the Site Address and the Library Name of a document library you can add files to, and leave Folder blank to watch the whole library.",
+        "Select +, search for get file content, select the SharePoint action Get file content, select the same Site Address, and set File Identifier to File identifier from the dynamic content.",
+        "Select +, search for invoices, select Extract information from invoices from AI Builder, and set Invoice file to File Content from Get file content.",
+        "Select +, search for condition, and under Control select Condition; on the Parameters tab set the first Choose a value to Confidence of invoice total with the lightning bolt icon, the operator to is greater than or equal to, and the second value to 0.65.",
+        "In the True branch, select +, search for new row, under Microsoft Dataverse select Add a new row, select your Invoice intake table in Table name (Learn's example lists tables by plural name, such as Accounts), and set Invoice ID to Invoice ID, Vendor name to Vendor name, Invoice total to Invoice total (number), Total confidence to Confidence of invoice total, and Review status to Saved automatically.",
+        "In the False branch, select +, search for approval, under Standard approvals select Start and wait for an approval, set Approval type to Approve/Reject - First to respond, enter a Title, enter a reviewer in Assigned to, and build Details from Invoice ID, Vendor name, Invoice total (text), and Confidence of invoice total.",
+        "After the approval, add a Condition where Responses Approver response is equal to Approve, and in its True branch add Add a new row for the Invoice intake table with the same mappings and Review status set to Approved by reviewer.",
+        "Select Save, upload a clear sample invoice PDF issued by a fictional vendor such as Fabrikam to the library, then open the flow and select the run date in the 28-day run history to confirm the True branch ran.",
+        "Upload a poor-quality invoice scan (if its Confidence of invoice total is still 0.65 or higher, raise the Condition value above the score shown in the first run, select Save, and upload again), then respond Approve from the approval email or the approvals center and check the new row."
+      ],
+      "instructions": [
+        "Scroll the designer to the Condition card.",
+        "Show Confidence of invoice total compared with 0.65, the Dataverse Add a new row in the True branch, and Start and wait for an approval in the False branch."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Condition",
+          "text": "Condition",
+          "note": "Scroll the designer to the Condition card."
+        },
+        {
+          "n": 2,
+          "label": "Confidence of invoice total",
+          "text": "Confidence of invoice total",
+          "note": "Show Confidence of invoice total compared with 0.65, the Dataverse Add a new row in the True branch, and Start and wait for an approval in the False branch."
+        },
+        {
+          "n": 3,
+          "label": "Add a new row",
+          "text": "Add a new row",
+          "note": "Show Confidence of invoice total compared with 0.65, the Dataverse Add a new row in the True branch, and Start and wait for an approval in the False branch."
+        },
+        {
+          "n": 4,
+          "label": "True",
+          "text": "True",
+          "note": "Show Confidence of invoice total compared with 0.65, the Dataverse Add a new row in the True branch, and Start and wait for an approval in the False branch."
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "feature": "ppai-flow-process-documents-on-arrival",
+      "featureName": "Process documents automatically when a file arrives in SharePoint",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-docflow-invoice-run.png",
+      "section": "power-automate",
+      "caption": "Extracted invoice values and confidence outputs in a run",
+      "alt": "A successful run of the flow shows the expanded Extract information from invoices step with extracted invoice values and Confidence of outputs, with real names masked.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Apps, select Tables > New table > Set advanced properties, enter Invoice intake in Display name, and select Create.",
+        "Open the table, select Columns, select the primary column, set Display name to Invoice ID, and select Done; then use Add column to add Vendor name (Data type Text), Invoice total (Decimal Number), Total confidence (Decimal Number), and Review status (Text), selecting Done after each, and select Save table.",
+        "In Power Automate, select My flows > New flow > Automated cloud flow, enter a flow name, enter file is created under Choose your flow's trigger, select When a file is created (properties only) from SharePoint, and select Create.",
+        "On the trigger, select the Site Address and the Library Name of a document library you can add files to, and leave Folder blank to watch the whole library.",
+        "Select +, search for get file content, select the SharePoint action Get file content, select the same Site Address, and set File Identifier to File identifier from the dynamic content.",
+        "Select +, search for invoices, select Extract information from invoices from AI Builder, and set Invoice file to File Content from Get file content.",
+        "Select +, search for condition, and under Control select Condition; on the Parameters tab set the first Choose a value to Confidence of invoice total with the lightning bolt icon, the operator to is greater than or equal to, and the second value to 0.65.",
+        "In the True branch, select +, search for new row, under Microsoft Dataverse select Add a new row, select your Invoice intake table in Table name (Learn's example lists tables by plural name, such as Accounts), and set Invoice ID to Invoice ID, Vendor name to Vendor name, Invoice total to Invoice total (number), Total confidence to Confidence of invoice total, and Review status to Saved automatically.",
+        "In the False branch, select +, search for approval, under Standard approvals select Start and wait for an approval, set Approval type to Approve/Reject - First to respond, enter a Title, enter a reviewer in Assigned to, and build Details from Invoice ID, Vendor name, Invoice total (text), and Confidence of invoice total.",
+        "After the approval, add a Condition where Responses Approver response is equal to Approve, and in its True branch add Add a new row for the Invoice intake table with the same mappings and Review status set to Approved by reviewer.",
+        "Select Save, upload a clear sample invoice PDF issued by a fictional vendor such as Fabrikam to the library, then open the flow and select the run date in the 28-day run history to confirm the True branch ran.",
+        "Upload a poor-quality invoice scan (if its Confidence of invoice total is still 0.65 or higher, raise the Condition value above the score shown in the first run, select Save, and upload again), then respond Approve from the approval email or the approvals center and check the new row."
+      ],
+      "instructions": [
+        "Open a successful run from the 28-day run history.",
+        "Expand Extract information from invoices and show the extracted values and Confidence of ... outputs, with any real names masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "28-day run history",
+          "text": "28-day run history",
+          "note": "Open a successful run from the 28-day run history."
+        },
+        {
+          "n": 2,
+          "label": "Extract information from invoices",
+          "text": "Extract information from invoices",
+          "note": "Expand Extract information from invoices and show the extracted values and Confidence of ... outputs, with any real names masked."
+        },
+        {
+          "n": 3,
+          "label": "Confidence of ...",
+          "text": "Confidence of ...",
+          "note": "Expand Extract information from invoices and show the extracted values and Confidence of ... outputs, with any real names masked."
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "feature": "ppai-flow-process-documents-on-arrival",
+      "featureName": "Process documents automatically when a file arrives in SharePoint",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-docflow-invoice-table.png",
+      "section": "power-apps",
+      "caption": "Invoice intake rows saved automatically and after review",
+      "alt": "The Invoice intake table in Power Apps lists one row with Review status Saved automatically and one row with Review status Approved by reviewer.",
+      "navHint": "Open Power Apps in your environment, then follow the setup steps in Power Apps Studio.",
+      "url": "https://make.powerapps.com",
+      "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Apps, select Tables > New table > Set advanced properties, enter Invoice intake in Display name, and select Create.",
+        "Open the table, select Columns, select the primary column, set Display name to Invoice ID, and select Done; then use Add column to add Vendor name (Data type Text), Invoice total (Decimal Number), Total confidence (Decimal Number), and Review status (Text), selecting Done after each, and select Save table.",
+        "In Power Automate, select My flows > New flow > Automated cloud flow, enter a flow name, enter file is created under Choose your flow's trigger, select When a file is created (properties only) from SharePoint, and select Create.",
+        "On the trigger, select the Site Address and the Library Name of a document library you can add files to, and leave Folder blank to watch the whole library.",
+        "Select +, search for get file content, select the SharePoint action Get file content, select the same Site Address, and set File Identifier to File identifier from the dynamic content.",
+        "Select +, search for invoices, select Extract information from invoices from AI Builder, and set Invoice file to File Content from Get file content.",
+        "Select +, search for condition, and under Control select Condition; on the Parameters tab set the first Choose a value to Confidence of invoice total with the lightning bolt icon, the operator to is greater than or equal to, and the second value to 0.65.",
+        "In the True branch, select +, search for new row, under Microsoft Dataverse select Add a new row, select your Invoice intake table in Table name (Learn's example lists tables by plural name, such as Accounts), and set Invoice ID to Invoice ID, Vendor name to Vendor name, Invoice total to Invoice total (number), Total confidence to Confidence of invoice total, and Review status to Saved automatically.",
+        "In the False branch, select +, search for approval, under Standard approvals select Start and wait for an approval, set Approval type to Approve/Reject - First to respond, enter a Title, enter a reviewer in Assigned to, and build Details from Invoice ID, Vendor name, Invoice total (text), and Confidence of invoice total.",
+        "After the approval, add a Condition where Responses Approver response is equal to Approve, and in its True branch add Add a new row for the Invoice intake table with the same mappings and Review status set to Approved by reviewer.",
+        "Select Save, upload a clear sample invoice PDF issued by a fictional vendor such as Fabrikam to the library, then open the flow and select the run date in the 28-day run history to confirm the True branch ran.",
+        "Upload a poor-quality invoice scan (if its Confidence of invoice total is still 0.65 or higher, raise the Condition value above the score shown in the first run, select Save, and upload again), then respond Approve from the approval email or the approvals center and check the new row."
+      ],
+      "instructions": [
+        "Open the Invoice intake table in Power Apps and show its rows.",
+        "Show one row with Review status Saved automatically and one with Approved by reviewer."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Invoice intake",
+          "text": "Invoice intake",
+          "note": "Open the Invoice intake table in Power Apps and show its rows."
+        },
+        {
+          "n": 2,
+          "label": "Review status",
+          "text": "Review status",
+          "note": "Show one row with Review status Saved automatically and one with Approved by reviewer."
+        }
+      ]
+    },
+    {
+      "id": 41,
       "feature": "ppai-powerfx-ai-models-in-canvas-app",
       "featureName": "Use AI Builder models in a canvas app with Power Fx",
       "product": "power-platform-ai-hub",
@@ -1449,7 +1950,7 @@
       ]
     },
     {
-      "id": 33,
+      "id": 42,
       "feature": "ppai-powerfx-ai-models-in-canvas-app",
       "featureName": "Use AI Builder models in a canvas app with Power Fx",
       "product": "power-platform-ai-hub",
@@ -1505,7 +2006,7 @@
       ]
     },
     {
-      "id": 34,
+      "id": 43,
       "feature": "ppai-predict-action-dynamic-model",
       "featureName": "Choose the model at run time with the Predict action",
       "product": "power-platform-ai-hub",
@@ -1554,7 +2055,7 @@
       ]
     },
     {
-      "id": 35,
+      "id": 44,
       "feature": "ppai-predict-action-dynamic-model",
       "featureName": "Choose the model at run time with the Predict action",
       "product": "power-platform-ai-hub",
@@ -1591,7 +2092,585 @@
       ]
     },
     {
-      "id": 36,
+      "id": 45,
+      "feature": "ppai-flow-reliable-ai-actions",
+      "featureName": "Make AI flows reliable with error handling, retries, and concurrency",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-flow-catch-run-after.png",
+      "section": "power-automate",
+      "caption": "Catch scope run after settings",
+      "alt": "The run after settings of the Catch scope with has failed, is skipped, and has timed out selected and is successful cleared.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "In Power Automate, select My flows > New flow > Instant cloud flow, name it Contoso comment sentiment, select Manually trigger a flow, and select Create.",
+        "Select + below the trigger, search for initialize variable, and select Initialize variable, which must sit at the top level and not inside a scope or loop. Enter Comments as Name, select Array as Type, and enter [\"Contoso support answered within an hour.\",\"\",\"The Fabrikam invoice total was wrong.\"] as Value; the empty second item is the deliberate failure.",
+        "Select + below Initialize variable, search for apply to each, and select Apply to each. In Select an output from previous steps, select the Comments variable.",
+        "Inside Apply to each, select +, search for scope, and under Control select Scope. Rename the scope Try.",
+        "Inside Try, select + and add the AI Builder action Analyze positive or negative sentiment. Select or enter your language in Language, and enter the expression items('Apply_to_each') in Text.",
+        "Below Try, still inside Apply to each, add a second Scope and rename it Catch. Open its Settings, and in Run After select has failed, is skipped, and has timed out, and clear is successful. In the classic designer, select ... > Configure run after, set the same boxes, and select Done.",
+        "Inside Catch, add Filter array. In the From box enter result('Try'), and set the condition to item()['status'] is equal to Failed.",
+        "Select the Analyze positive or negative sentiment action, open Settings, and under Networking set Retry Policy to Exponential Interval. Set the retry count to 3 and the initial interval to 20 seconds in ISO 8601 format, PT20S.",
+        "Select the Apply to each action, open Settings, turn on Concurrency control, and set the degree of parallelism to 2.",
+        "Select Save, then select Test, select Manually, and select Test > Run flow > Done.",
+        "Open the run and expand each Apply to each iteration; for the empty comment, Try shows Failed, Catch runs, and Filter array outputs the failed action. If the empty comment succeeds, replace it in Comments with text longer than 5,120 characters, the documented sentiment limit, and run again.",
+        "In Power Automate, select Automation Center, then in the Monitor section select AI Builder activity. Find your sentiment rows and read Used in and Consumption for the run."
+      ],
+      "instructions": [
+        "Open the flow designer with the Catch scope selected.",
+        "Show the Run After settings with has failed, is skipped, and has timed out selected."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Catch",
+          "text": "Catch",
+          "note": "Open the flow designer with the Catch scope selected."
+        },
+        {
+          "n": 2,
+          "label": "Run After",
+          "text": "Run After",
+          "note": "Show the Run After settings with has failed, is skipped, and has timed out selected."
+        },
+        {
+          "n": 3,
+          "label": "has failed",
+          "text": "has failed",
+          "note": "Show the Run After settings with has failed, is skipped, and has timed out selected."
+        },
+        {
+          "n": 4,
+          "label": "is skipped",
+          "text": "is skipped",
+          "note": "Show the Run After settings with has failed, is skipped, and has timed out selected."
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "feature": "ppai-flow-reliable-ai-actions",
+      "featureName": "Make AI flows reliable with error handling, retries, and concurrency",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-flow-action-settings.png",
+      "section": "power-automate",
+      "caption": "Retry policy on the sentiment action",
+      "alt": "The Settings tab of the Analyze positive or negative sentiment action with Retry Policy set to Exponential Interval and a retry count and interval entered.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "In Power Automate, select My flows > New flow > Instant cloud flow, name it Contoso comment sentiment, select Manually trigger a flow, and select Create.",
+        "Select + below the trigger, search for initialize variable, and select Initialize variable, which must sit at the top level and not inside a scope or loop. Enter Comments as Name, select Array as Type, and enter [\"Contoso support answered within an hour.\",\"\",\"The Fabrikam invoice total was wrong.\"] as Value; the empty second item is the deliberate failure.",
+        "Select + below Initialize variable, search for apply to each, and select Apply to each. In Select an output from previous steps, select the Comments variable.",
+        "Inside Apply to each, select +, search for scope, and under Control select Scope. Rename the scope Try.",
+        "Inside Try, select + and add the AI Builder action Analyze positive or negative sentiment. Select or enter your language in Language, and enter the expression items('Apply_to_each') in Text.",
+        "Below Try, still inside Apply to each, add a second Scope and rename it Catch. Open its Settings, and in Run After select has failed, is skipped, and has timed out, and clear is successful. In the classic designer, select ... > Configure run after, set the same boxes, and select Done.",
+        "Inside Catch, add Filter array. In the From box enter result('Try'), and set the condition to item()['status'] is equal to Failed.",
+        "Select the Analyze positive or negative sentiment action, open Settings, and under Networking set Retry Policy to Exponential Interval. Set the retry count to 3 and the initial interval to 20 seconds in ISO 8601 format, PT20S.",
+        "Select the Apply to each action, open Settings, turn on Concurrency control, and set the degree of parallelism to 2.",
+        "Select Save, then select Test, select Manually, and select Test > Run flow > Done.",
+        "Open the run and expand each Apply to each iteration; for the empty comment, Try shows Failed, Catch runs, and Filter array outputs the failed action. If the empty comment succeeds, replace it in Comments with text longer than 5,120 characters, the documented sentiment limit, and run again.",
+        "In Power Automate, select Automation Center, then in the Monitor section select AI Builder activity. Find your sentiment rows and read Used in and Consumption for the run."
+      ],
+      "instructions": [
+        "Open the Settings tab of the Analyze positive or negative sentiment action.",
+        "Show Retry Policy set to Exponential Interval with the retry count and interval filled."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Settings",
+          "text": "Settings",
+          "note": "Open the Settings tab of the Analyze positive or negative sentiment action."
+        },
+        {
+          "n": 2,
+          "label": "Analyze positive or negative sentiment",
+          "text": "Analyze positive or negative sentiment",
+          "note": "Open the Settings tab of the Analyze positive or negative sentiment action."
+        },
+        {
+          "n": 3,
+          "label": "Retry Policy",
+          "text": "Retry Policy",
+          "note": "Show Retry Policy set to Exponential Interval with the retry count and interval filled."
+        },
+        {
+          "n": 4,
+          "label": "Exponential Interval",
+          "text": "Exponential Interval",
+          "note": "Show Retry Policy set to Exponential Interval with the retry count and interval filled."
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "feature": "ppai-flow-reliable-ai-actions",
+      "featureName": "Make AI flows reliable with error handling, retries, and concurrency",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-flow-concurrency-control.png",
+      "section": "power-automate",
+      "caption": "Concurrency control on Apply to each",
+      "alt": "The Settings of the Apply to each action with Concurrency control turned on and the degree of parallelism set to 2.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "In Power Automate, select My flows > New flow > Instant cloud flow, name it Contoso comment sentiment, select Manually trigger a flow, and select Create.",
+        "Select + below the trigger, search for initialize variable, and select Initialize variable, which must sit at the top level and not inside a scope or loop. Enter Comments as Name, select Array as Type, and enter [\"Contoso support answered within an hour.\",\"\",\"The Fabrikam invoice total was wrong.\"] as Value; the empty second item is the deliberate failure.",
+        "Select + below Initialize variable, search for apply to each, and select Apply to each. In Select an output from previous steps, select the Comments variable.",
+        "Inside Apply to each, select +, search for scope, and under Control select Scope. Rename the scope Try.",
+        "Inside Try, select + and add the AI Builder action Analyze positive or negative sentiment. Select or enter your language in Language, and enter the expression items('Apply_to_each') in Text.",
+        "Below Try, still inside Apply to each, add a second Scope and rename it Catch. Open its Settings, and in Run After select has failed, is skipped, and has timed out, and clear is successful. In the classic designer, select ... > Configure run after, set the same boxes, and select Done.",
+        "Inside Catch, add Filter array. In the From box enter result('Try'), and set the condition to item()['status'] is equal to Failed.",
+        "Select the Analyze positive or negative sentiment action, open Settings, and under Networking set Retry Policy to Exponential Interval. Set the retry count to 3 and the initial interval to 20 seconds in ISO 8601 format, PT20S.",
+        "Select the Apply to each action, open Settings, turn on Concurrency control, and set the degree of parallelism to 2.",
+        "Select Save, then select Test, select Manually, and select Test > Run flow > Done.",
+        "Open the run and expand each Apply to each iteration; for the empty comment, Try shows Failed, Catch runs, and Filter array outputs the failed action. If the empty comment succeeds, replace it in Comments with text longer than 5,120 characters, the documented sentiment limit, and run again.",
+        "In Power Automate, select Automation Center, then in the Monitor section select AI Builder activity. Find your sentiment rows and read Used in and Consumption for the run."
+      ],
+      "instructions": [
+        "Open the Settings of the Apply to each action.",
+        "Show Concurrency control turned on with the degree of parallelism set to 2."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Settings",
+          "text": "Settings",
+          "note": "Open the Settings of the Apply to each action."
+        },
+        {
+          "n": 2,
+          "label": "Apply to each",
+          "text": "Apply to each",
+          "note": "Open the Settings of the Apply to each action."
+        },
+        {
+          "n": 3,
+          "label": "Concurrency control",
+          "text": "Concurrency control",
+          "note": "Show Concurrency control turned on with the degree of parallelism set to 2."
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "feature": "ppai-flow-reliable-ai-actions",
+      "featureName": "Make AI flows reliable with error handling, retries, and concurrency",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-flow-run-catch-output.png",
+      "section": "power-automate",
+      "caption": "Failed Try scope and Catch output",
+      "alt": "A flow run iteration where the Try scope shows Failed, the Catch scope ran, and the Filter array output lists the failed action.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Add an AI Builder action to a cloud flow and use its outputs"
+      ],
+      "setup": [
+        "In Power Automate, select My flows > New flow > Instant cloud flow, name it Contoso comment sentiment, select Manually trigger a flow, and select Create.",
+        "Select + below the trigger, search for initialize variable, and select Initialize variable, which must sit at the top level and not inside a scope or loop. Enter Comments as Name, select Array as Type, and enter [\"Contoso support answered within an hour.\",\"\",\"The Fabrikam invoice total was wrong.\"] as Value; the empty second item is the deliberate failure.",
+        "Select + below Initialize variable, search for apply to each, and select Apply to each. In Select an output from previous steps, select the Comments variable.",
+        "Inside Apply to each, select +, search for scope, and under Control select Scope. Rename the scope Try.",
+        "Inside Try, select + and add the AI Builder action Analyze positive or negative sentiment. Select or enter your language in Language, and enter the expression items('Apply_to_each') in Text.",
+        "Below Try, still inside Apply to each, add a second Scope and rename it Catch. Open its Settings, and in Run After select has failed, is skipped, and has timed out, and clear is successful. In the classic designer, select ... > Configure run after, set the same boxes, and select Done.",
+        "Inside Catch, add Filter array. In the From box enter result('Try'), and set the condition to item()['status'] is equal to Failed.",
+        "Select the Analyze positive or negative sentiment action, open Settings, and under Networking set Retry Policy to Exponential Interval. Set the retry count to 3 and the initial interval to 20 seconds in ISO 8601 format, PT20S.",
+        "Select the Apply to each action, open Settings, turn on Concurrency control, and set the degree of parallelism to 2.",
+        "Select Save, then select Test, select Manually, and select Test > Run flow > Done.",
+        "Open the run and expand each Apply to each iteration; for the empty comment, Try shows Failed, Catch runs, and Filter array outputs the failed action. If the empty comment succeeds, replace it in Comments with text longer than 5,120 characters, the documented sentiment limit, and run again.",
+        "In Power Automate, select Automation Center, then in the Monitor section select AI Builder activity. Find your sentiment rows and read Used in and Consumption for the run."
+      ],
+      "instructions": [
+        "Open the test run and expand the iteration with the empty comment.",
+        "Show Try as failed, Catch as run, and the Filter array output, with any real names masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Try",
+          "text": "Try",
+          "note": "Show Try as failed, Catch as run, and the Filter array output, with any real names masked."
+        },
+        {
+          "n": 2,
+          "label": "Catch",
+          "text": "Catch",
+          "note": "Show Try as failed, Catch as run, and the Filter array output, with any real names masked."
+        },
+        {
+          "n": 3,
+          "label": "Filter array",
+          "text": "Filter array",
+          "note": "Show Try as failed, Catch as run, and the Filter array output, with any real names masked."
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "feature": "ppai-flow-monitor-troubleshoot-runs",
+      "featureName": "Monitor and troubleshoot failed runs of an AI Builder flow",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-runs-failed-ai-step.png",
+      "section": "power-automate",
+      "caption": "Failed run with the AI Builder step flagged",
+      "alt": "A flow run page shows an error icon on the Extract information from receipts step with its error message and the details pane open.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Automate, select My flows, select the receipt flow from the receipt processing lab, select Edit, then select Test, select Manually, select Test, upload a clear sample receipt, and select Run flow to create a successful baseline run.",
+        "Back in the designer, open Extract information from receipts, remove My receipt from Receipt file, type not-a-file instead, and select Save.",
+        "Select Test, select Manually, select Test, upload the same sample receipt, and select Run flow to create a failed run. If the run succeeds, Learn does not say what this input produces, so instead upload a file in a format the model does not list (it accepts JPEG, PNG, or PDF) and run again.",
+        "Select My flows, select the flow, and in the 28-day run history section select the date of the failed run.",
+        "On the run page, find the step with the red exclamation icon, open it, and read the error message and the details on the right pane.",
+        "In the failed step, expand Inputs to confirm that not-a-file was sent, expand Outputs to read the status code and message, and select Show raw outputs to see the full response.",
+        "Compare the status code and message with the causes in the concepts, and check your sample file against the model limits (JPEG, PNG, or PDF; 20 MB; 50 x 50 to 10,000 x 10,000 pixels) to rule out an input problem.",
+        "Select Edit, set Receipt file back to My receipt from the dynamic content list, and select Save.",
+        "Return to the failed run in the run history, select Resubmit, open the new run, and expand Inputs on Extract information from receipts to see whether it ran with not-a-file (the original version) or with the file (the updated version).",
+        "On the flow's details page, select Analytics and review the number of runs, the success and failure rates, and the error details; the data refreshes about every 24 hours, so your test runs might not appear yet."
+      ],
+      "instructions": [
+        "Open the failed run from the 28-day run history.",
+        "Show the red exclamation icon on Extract information from receipts with its error message and the details pane open, with any real names masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "28-day run history",
+          "text": "28-day run history",
+          "note": "Open the failed run from the 28-day run history."
+        },
+        {
+          "n": 2,
+          "label": "Extract information from receipts",
+          "text": "Extract information from receipts",
+          "note": "Show the red exclamation icon on Extract information from receipts with its error message and the details pane open, with any real names masked."
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "feature": "ppai-flow-monitor-troubleshoot-runs",
+      "featureName": "Monitor and troubleshoot failed runs of an AI Builder flow",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-runs-inputs-outputs.png",
+      "section": "power-automate",
+      "caption": "Inputs and outputs of the failed AI Builder step",
+      "alt": "The failed Extract information from receipts step is expanded to show the typed Receipt file value in Inputs and the status code and message in Outputs.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Automate, select My flows, select the receipt flow from the receipt processing lab, select Edit, then select Test, select Manually, select Test, upload a clear sample receipt, and select Run flow to create a successful baseline run.",
+        "Back in the designer, open Extract information from receipts, remove My receipt from Receipt file, type not-a-file instead, and select Save.",
+        "Select Test, select Manually, select Test, upload the same sample receipt, and select Run flow to create a failed run. If the run succeeds, Learn does not say what this input produces, so instead upload a file in a format the model does not list (it accepts JPEG, PNG, or PDF) and run again.",
+        "Select My flows, select the flow, and in the 28-day run history section select the date of the failed run.",
+        "On the run page, find the step with the red exclamation icon, open it, and read the error message and the details on the right pane.",
+        "In the failed step, expand Inputs to confirm that not-a-file was sent, expand Outputs to read the status code and message, and select Show raw outputs to see the full response.",
+        "Compare the status code and message with the causes in the concepts, and check your sample file against the model limits (JPEG, PNG, or PDF; 20 MB; 50 x 50 to 10,000 x 10,000 pixels) to rule out an input problem.",
+        "Select Edit, set Receipt file back to My receipt from the dynamic content list, and select Save.",
+        "Return to the failed run in the run history, select Resubmit, open the new run, and expand Inputs on Extract information from receipts to see whether it ran with not-a-file (the original version) or with the file (the updated version).",
+        "On the flow's details page, select Analytics and review the number of runs, the success and failure rates, and the error details; the data refreshes about every 24 hours, so your test runs might not appear yet."
+      ],
+      "instructions": [
+        "Open the failed Extract information from receipts step.",
+        "Show Inputs with the not-a-file value and Outputs with the status code and message, with any sensitive values masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Extract information from receipts",
+          "text": "Extract information from receipts",
+          "note": "Open the failed Extract information from receipts step."
+        },
+        {
+          "n": 2,
+          "label": "Inputs",
+          "text": "Inputs",
+          "note": "Show Inputs with the not-a-file value and Outputs with the status code and message, with any sensitive values masked."
+        },
+        {
+          "n": 3,
+          "label": "Outputs",
+          "text": "Outputs",
+          "note": "Show Inputs with the not-a-file value and Outputs with the status code and message, with any sensitive values masked."
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "feature": "ppai-flow-monitor-troubleshoot-runs",
+      "featureName": "Monitor and troubleshoot failed runs of an AI Builder flow",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-runs-resubmit.png",
+      "section": "power-automate",
+      "caption": "Resubmit command on a failed run",
+      "alt": "A failed flow run instance shows the Resubmit and Cancel actions.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Extract receipt data in a flow with the receipt processing model"
+      ],
+      "setup": [
+        "In Power Automate, select My flows, select the receipt flow from the receipt processing lab, select Edit, then select Test, select Manually, select Test, upload a clear sample receipt, and select Run flow to create a successful baseline run.",
+        "Back in the designer, open Extract information from receipts, remove My receipt from Receipt file, type not-a-file instead, and select Save.",
+        "Select Test, select Manually, select Test, upload the same sample receipt, and select Run flow to create a failed run. If the run succeeds, Learn does not say what this input produces, so instead upload a file in a format the model does not list (it accepts JPEG, PNG, or PDF) and run again.",
+        "Select My flows, select the flow, and in the 28-day run history section select the date of the failed run.",
+        "On the run page, find the step with the red exclamation icon, open it, and read the error message and the details on the right pane.",
+        "In the failed step, expand Inputs to confirm that not-a-file was sent, expand Outputs to read the status code and message, and select Show raw outputs to see the full response.",
+        "Compare the status code and message with the causes in the concepts, and check your sample file against the model limits (JPEG, PNG, or PDF; 20 MB; 50 x 50 to 10,000 x 10,000 pixels) to rule out an input problem.",
+        "Select Edit, set Receipt file back to My receipt from the dynamic content list, and select Save.",
+        "Return to the failed run in the run history, select Resubmit, open the new run, and expand Inputs on Extract information from receipts to see whether it ran with not-a-file (the original version) or with the file (the updated version).",
+        "On the flow's details page, select Analytics and review the number of runs, the success and failure rates, and the error details; the data refreshes about every 24 hours, so your test runs might not appear yet."
+      ],
+      "instructions": [
+        "Open the failed run instance in the run history.",
+        "Show the Resubmit and Cancel actions on the run instance."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Resubmit",
+          "text": "Resubmit",
+          "note": "Show the Resubmit and Cancel actions on the run instance."
+        },
+        {
+          "n": 2,
+          "label": "Cancel",
+          "text": "Cancel",
+          "note": "Show the Resubmit and Cancel actions on the run instance."
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "feature": "ppai-agent-tools-prompt-and-flow",
+      "featureName": "Call a prompt or a flow with AI Builder from a Copilot Studio agent as a tool",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-agent-add-prompt-tool.png",
+      "section": "prompt-builder",
+      "caption": "New prompt tool in an agent",
+      "alt": "The prompt editor opened from the agent Tools page with a prompt name, instructions, a Text input, and a sample value entered.",
+      "navHint": "Open Power Apps in your environment, then open AI hub > Prompts.",
+      "url": "https://make.powerapps.com",
+      "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL",
+      "prerequisites": [
+        "Build and test a custom prompt in prompt builder",
+        "Use a prompt in Power Automate and Power Apps"
+      ],
+      "setup": [
+        "In Copilot Studio, select Agents > New agent > Skip to configure, enter a name such as Contoso Support Helper and a description, and select Create.",
+        "Select Settings > Security > Authentication, choose Authenticate with Microsoft instead of No authentication, select Save, and publish the agent.",
+        "On the agent's Tools page, select Add a tool > Prompt. Name the prompt Summarize ticket, write instructions that summarize a support ticket in two sentences, add the ticket as a Text input by typing / or selecting Add content, enter a sample ticket, select Test, and then select Save.",
+        "Select Add and configure. On the tool's page, enter a Name and a Description that say when to use it, keep Fill using on Dynamically fill with AI under Inputs, set After running under Completion to Send specific response (specify below) with *Output.predictionOutput.text* in Message to display, and select Save.",
+        "On the Tools page, select Add tool > Agent flow under Create new. The designer opens with When an agent calls the flow and Respond to the agent; add an input parameter for the ticket text to the trigger.",
+        "Below the trigger, select Insert a new action, and under AI capabilities select Run a prompt > New custom prompt. Create a prompt named Rate ticket urgency that answers only Low, Medium, or High, add a Text input, test it, and select Save.",
+        "In the Run a prompt card, set the prompt's Text input to the ticket parameter from the trigger.",
+        "On Respond to the agent, add an output parameter for the urgency and set its value to the Text output of Run a prompt. Open its Settings tab and confirm Asynchronous response is Off.",
+        "Select Flow checker to fix any errors, then select Publish.",
+        "Back on the agent's Tools page, select Add a tool > Flow, select your flow, and select Add and configure. Enter a Name and Description, choose how the agent fills the ticket input under Inputs, choose After running under Completion, and select Save.",
+        "Select Test to open Test your agent, select the three dots (...), and turn on Show activity map when testing. Enter a summary request and an urgency request with sample Contoso tickets, then select each tool node on the activity map to read its input and output.",
+        "In Power Automate, select Automation Center, then AI Builder activity, and read Used in and Consumption for your prompt rows."
+      ],
+      "instructions": [
+        "Open the agent's Tools page and start a new Prompt tool.",
+        "Show the prompt name, the instructions, the Text input, and the sample value."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Tools",
+          "text": "Tools",
+          "note": "Open the agent's Tools page and start a new Prompt tool."
+        },
+        {
+          "n": 2,
+          "label": "Prompt",
+          "text": "Prompt",
+          "note": "Open the agent's Tools page and start a new Prompt tool."
+        },
+        {
+          "n": 3,
+          "label": "Text",
+          "text": "Text",
+          "note": "Show the prompt name, the instructions, the Text input, and the sample value."
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "feature": "ppai-agent-tools-prompt-and-flow",
+      "featureName": "Call a prompt or a flow with AI Builder from a Copilot Studio agent as a tool",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-agent-tool-config.png",
+      "section": "prompt-builder",
+      "caption": "Prompt tool configuration page",
+      "alt": "The prompt tool configuration page showing the Details, Inputs with Fill using, and Completion with After running set.",
+      "navHint": "Open Power Apps in your environment, then open AI hub > Prompts.",
+      "url": "https://make.powerapps.com",
+      "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL",
+      "prerequisites": [
+        "Build and test a custom prompt in prompt builder",
+        "Use a prompt in Power Automate and Power Apps"
+      ],
+      "setup": [
+        "In Copilot Studio, select Agents > New agent > Skip to configure, enter a name such as Contoso Support Helper and a description, and select Create.",
+        "Select Settings > Security > Authentication, choose Authenticate with Microsoft instead of No authentication, select Save, and publish the agent.",
+        "On the agent's Tools page, select Add a tool > Prompt. Name the prompt Summarize ticket, write instructions that summarize a support ticket in two sentences, add the ticket as a Text input by typing / or selecting Add content, enter a sample ticket, select Test, and then select Save.",
+        "Select Add and configure. On the tool's page, enter a Name and a Description that say when to use it, keep Fill using on Dynamically fill with AI under Inputs, set After running under Completion to Send specific response (specify below) with *Output.predictionOutput.text* in Message to display, and select Save.",
+        "On the Tools page, select Add tool > Agent flow under Create new. The designer opens with When an agent calls the flow and Respond to the agent; add an input parameter for the ticket text to the trigger.",
+        "Below the trigger, select Insert a new action, and under AI capabilities select Run a prompt > New custom prompt. Create a prompt named Rate ticket urgency that answers only Low, Medium, or High, add a Text input, test it, and select Save.",
+        "In the Run a prompt card, set the prompt's Text input to the ticket parameter from the trigger.",
+        "On Respond to the agent, add an output parameter for the urgency and set its value to the Text output of Run a prompt. Open its Settings tab and confirm Asynchronous response is Off.",
+        "Select Flow checker to fix any errors, then select Publish.",
+        "Back on the agent's Tools page, select Add a tool > Flow, select your flow, and select Add and configure. Enter a Name and Description, choose how the agent fills the ticket input under Inputs, choose After running under Completion, and select Save.",
+        "Select Test to open Test your agent, select the three dots (...), and turn on Show activity map when testing. Enter a summary request and an urgency request with sample Contoso tickets, then select each tool node on the activity map to read its input and output.",
+        "In Power Automate, select Automation Center, then AI Builder activity, and read Used in and Consumption for your prompt rows."
+      ],
+      "instructions": [
+        "Open the configuration page of the prompt tool.",
+        "Show Details, Inputs with Fill using, and Completion with After running set."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Details",
+          "text": "Details",
+          "note": "Show Details, Inputs with Fill using, and Completion with After running set."
+        },
+        {
+          "n": 2,
+          "label": "Inputs",
+          "text": "Inputs",
+          "note": "Show Details, Inputs with Fill using, and Completion with After running set."
+        },
+        {
+          "n": 3,
+          "label": "Fill using",
+          "text": "Fill using",
+          "note": "Show Details, Inputs with Fill using, and Completion with After running set."
+        },
+        {
+          "n": 4,
+          "label": "Completion",
+          "text": "Completion",
+          "note": "Show Details, Inputs with Fill using, and Completion with After running set."
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "feature": "ppai-agent-tools-prompt-and-flow",
+      "featureName": "Call a prompt or a flow with AI Builder from a Copilot Studio agent as a tool",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-agent-flow-run-a-prompt.png",
+      "section": "power-automate",
+      "caption": "Agent flow with Run a prompt",
+      "alt": "The agent flow designer with the When an agent calls the flow trigger, a Run a prompt action, and Respond to the agent with input and output parameters set.",
+      "navHint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer.",
+      "url": "https://make.powerautomate.com",
+      "prerequisites": [
+        "Build and test a custom prompt in prompt builder",
+        "Use a prompt in Power Automate and Power Apps"
+      ],
+      "setup": [
+        "In Copilot Studio, select Agents > New agent > Skip to configure, enter a name such as Contoso Support Helper and a description, and select Create.",
+        "Select Settings > Security > Authentication, choose Authenticate with Microsoft instead of No authentication, select Save, and publish the agent.",
+        "On the agent's Tools page, select Add a tool > Prompt. Name the prompt Summarize ticket, write instructions that summarize a support ticket in two sentences, add the ticket as a Text input by typing / or selecting Add content, enter a sample ticket, select Test, and then select Save.",
+        "Select Add and configure. On the tool's page, enter a Name and a Description that say when to use it, keep Fill using on Dynamically fill with AI under Inputs, set After running under Completion to Send specific response (specify below) with *Output.predictionOutput.text* in Message to display, and select Save.",
+        "On the Tools page, select Add tool > Agent flow under Create new. The designer opens with When an agent calls the flow and Respond to the agent; add an input parameter for the ticket text to the trigger.",
+        "Below the trigger, select Insert a new action, and under AI capabilities select Run a prompt > New custom prompt. Create a prompt named Rate ticket urgency that answers only Low, Medium, or High, add a Text input, test it, and select Save.",
+        "In the Run a prompt card, set the prompt's Text input to the ticket parameter from the trigger.",
+        "On Respond to the agent, add an output parameter for the urgency and set its value to the Text output of Run a prompt. Open its Settings tab and confirm Asynchronous response is Off.",
+        "Select Flow checker to fix any errors, then select Publish.",
+        "Back on the agent's Tools page, select Add a tool > Flow, select your flow, and select Add and configure. Enter a Name and Description, choose how the agent fills the ticket input under Inputs, choose After running under Completion, and select Save.",
+        "Select Test to open Test your agent, select the three dots (...), and turn on Show activity map when testing. Enter a summary request and an urgency request with sample Contoso tickets, then select each tool node on the activity map to read its input and output.",
+        "In Power Automate, select Automation Center, then AI Builder activity, and read Used in and Consumption for your prompt rows."
+      ],
+      "instructions": [
+        "Open the agent flow in the designer.",
+        "Show When an agent calls the flow, Run a prompt, and Respond to the agent with the input and output parameters set."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "When an agent calls the flow",
+          "text": "When an agent calls the flow",
+          "note": "Show When an agent calls the flow, Run a prompt, and Respond to the agent with the input and output parameters set."
+        },
+        {
+          "n": 2,
+          "label": "Run a prompt",
+          "text": "Run a prompt",
+          "note": "Show When an agent calls the flow, Run a prompt, and Respond to the agent with the input and output parameters set."
+        },
+        {
+          "n": 3,
+          "label": "Respond to the agent",
+          "text": "Respond to the agent",
+          "note": "Show When an agent calls the flow, Run a prompt, and Respond to the agent with the input and output parameters set."
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "feature": "ppai-agent-tools-prompt-and-flow",
+      "featureName": "Call a prompt or a flow with AI Builder from a Copilot Studio agent as a tool",
+      "product": "power-platform-ai-hub",
+      "filename": "ppai-agent-test-activity-map.png",
+      "section": "prompt-builder",
+      "caption": "Tool call on the activity map",
+      "alt": "The Test your agent panel next to the activity map with a flow tool node selected and its input and output visible.",
+      "navHint": "Open Power Apps in your environment, then open AI hub > Prompts.",
+      "url": "https://make.powerapps.com",
+      "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL",
+      "prerequisites": [
+        "Build and test a custom prompt in prompt builder",
+        "Use a prompt in Power Automate and Power Apps"
+      ],
+      "setup": [
+        "In Copilot Studio, select Agents > New agent > Skip to configure, enter a name such as Contoso Support Helper and a description, and select Create.",
+        "Select Settings > Security > Authentication, choose Authenticate with Microsoft instead of No authentication, select Save, and publish the agent.",
+        "On the agent's Tools page, select Add a tool > Prompt. Name the prompt Summarize ticket, write instructions that summarize a support ticket in two sentences, add the ticket as a Text input by typing / or selecting Add content, enter a sample ticket, select Test, and then select Save.",
+        "Select Add and configure. On the tool's page, enter a Name and a Description that say when to use it, keep Fill using on Dynamically fill with AI under Inputs, set After running under Completion to Send specific response (specify below) with *Output.predictionOutput.text* in Message to display, and select Save.",
+        "On the Tools page, select Add tool > Agent flow under Create new. The designer opens with When an agent calls the flow and Respond to the agent; add an input parameter for the ticket text to the trigger.",
+        "Below the trigger, select Insert a new action, and under AI capabilities select Run a prompt > New custom prompt. Create a prompt named Rate ticket urgency that answers only Low, Medium, or High, add a Text input, test it, and select Save.",
+        "In the Run a prompt card, set the prompt's Text input to the ticket parameter from the trigger.",
+        "On Respond to the agent, add an output parameter for the urgency and set its value to the Text output of Run a prompt. Open its Settings tab and confirm Asynchronous response is Off.",
+        "Select Flow checker to fix any errors, then select Publish.",
+        "Back on the agent's Tools page, select Add a tool > Flow, select your flow, and select Add and configure. Enter a Name and Description, choose how the agent fills the ticket input under Inputs, choose After running under Completion, and select Save.",
+        "Select Test to open Test your agent, select the three dots (...), and turn on Show activity map when testing. Enter a summary request and an urgency request with sample Contoso tickets, then select each tool node on the activity map to read its input and output.",
+        "In Power Automate, select Automation Center, then AI Builder activity, and read Used in and Consumption for your prompt rows."
+      ],
+      "instructions": [
+        "Open Test your agent after an urgency request that calls the flow tool.",
+        "Show the activity map with the selected tool node and its input and output, with any real names masked."
+      ],
+      "callouts": [
+        {
+          "n": 1,
+          "label": "Test your agent",
+          "text": "Test your agent",
+          "note": "Open Test your agent after an urgency request that calls the flow tool."
+        }
+      ]
+    },
+    {
+      "id": 56,
       "feature": "ppai-admin-governance-security",
       "featureName": "Govern AI Builder: feature toggles, DLP, and roles",
       "product": "power-platform-ai-hub",
@@ -1645,7 +2724,7 @@
       ]
     },
     {
-      "id": 37,
+      "id": 57,
       "feature": "ppai-admin-governance-security",
       "featureName": "Govern AI Builder: feature toggles, DLP, and roles",
       "product": "power-platform-ai-hub",
@@ -1687,7 +2766,7 @@
       ]
     },
     {
-      "id": 38,
+      "id": 58,
       "feature": "ppai-admin-governance-security",
       "featureName": "Govern AI Builder: feature toggles, DLP, and roles",
       "product": "power-platform-ai-hub",
@@ -1724,7 +2803,7 @@
       ]
     },
     {
-      "id": 39,
+      "id": 59,
       "feature": "ppai-monitor-ai-activity",
       "featureName": "Monitor AI Builder activity and manage activity data",
       "product": "power-platform-ai-hub",
@@ -1767,7 +2846,7 @@
       ]
     },
     {
-      "id": 40,
+      "id": 60,
       "feature": "ppai-monitor-ai-activity",
       "featureName": "Monitor AI Builder activity and manage activity data",
       "product": "power-platform-ai-hub",
@@ -1810,7 +2889,7 @@
       ]
     },
     {
-      "id": 41,
+      "id": 61,
       "feature": "ppai-alm-distribute-models",
       "featureName": "Move AI models between environments with solutions",
       "product": "power-platform-ai-hub",
@@ -1859,7 +2938,7 @@
       ]
     },
     {
-      "id": 42,
+      "id": 62,
       "feature": "ppai-alm-distribute-models",
       "featureName": "Move AI models between environments with solutions",
       "product": "power-platform-ai-hub",
@@ -1896,7 +2975,7 @@
       ]
     },
     {
-      "id": 43,
+      "id": 63,
       "feature": "ppai-credits-licensing-transition",
       "featureName": "Manage AI Builder credits and Copilot Credits, and fix capacity errors",
       "product": "power-platform-ai-hub",
@@ -1944,7 +3023,7 @@
       ]
     },
     {
-      "id": 44,
+      "id": 64,
       "feature": "ppai-credits-licensing-transition",
       "featureName": "Manage AI Builder credits and Copilot Credits, and fix capacity errors",
       "product": "power-platform-ai-hub",

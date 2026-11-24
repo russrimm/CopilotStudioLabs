@@ -275,9 +275,11 @@ function harnessFindings(summary) {
   const out = [];
   const add = (code, severity, count, message, fix) => out.push({ code, severity, module: null, moduleTitle: null, count, message, fix });
   if (summary.wrong) {
-    add("wrong-harness-picture", "gap", summary.wrong, `${summary.wrong} picture${summary.wrong === 1 ? " was" : "s were"} taken in a different harness than the lab's (${listFiles(summary.wrongFiles)}). ${summary.statement}`, "Retake them in the lab's harness, in the Screenshot Center.");
+    const scope = summary.combined ? "the part they sit in" : "the lab's";
+    add("wrong-harness-picture", "gap", summary.wrong, `${summary.wrong} picture${summary.wrong === 1 ? " was" : "s were"} taken in a different harness than ${summary.wrong === 1 && summary.combined ? "the part it sits in" : scope} (${listFiles(summary.wrongFiles)}). ${summary.statement}`, summary.combined ? "Retake them in the harness of their part, in the Screenshot Center." : "Retake them in the lab's harness, in the Screenshot Center.");
   }
-  if (summary.harnessesSeen.length > 1) {
+  // A lab that covers both harnesses shows both on purpose; each of its parts is checked against its own harness above.
+  if (!summary.combined && summary.harnessesSeen.length > 1) {
     add("mixed-harness-pictures", "gap", 1, summary.mixedMessage, "Retake the pictures from the other harness, so the lab shows one harness only.");
   }
   if (summary.gaps) {
