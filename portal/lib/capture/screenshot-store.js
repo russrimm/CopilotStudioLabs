@@ -1167,6 +1167,8 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     reach: item.reach,
     writable: item.writable,
     sha256: item.sha256,
+    width: item.fingerprint?.w || null,
+    height: item.fingerprint?.h || null,
   });
 
   const LEVEL_ORDER = { definite: 0, probable: 1 };

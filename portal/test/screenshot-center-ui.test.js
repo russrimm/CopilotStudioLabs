@@ -12,7 +12,7 @@ import vm from "node:vm";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 
 const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
-const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center-keep.js", "screenshot-center-wrong.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
+const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center-keep.js", "screenshot-center-wrong.js", "screenshot-center-pictures.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
 const GENERATED_LABS_SOURCE = publicFile("generated-labs.js");
 const INDEX_HTML = publicFile("index.html");
 const APP_SOURCE = publicFile("app.js");
@@ -2940,6 +2940,318 @@ test("Pictures that look wrong: a calm notice at the top, a panel in Advanced wi
   assert.deepEqual(h.callsTo("POST", /suspect-pictures\/quarantine$/).at(-1).body, { dryRun: false, confirm: true, labId: LAB });
   assert.equal(h.host.querySelector("[data-sc-wrong-none]").textContent, "No pictures look wrong.");
   assert.ok(!h.host.querySelector("[data-sc-wrong-notice]"), "no notice when nothing looks wrong");
+});
+
+// ── Pictures a person has to look at: thumbnails big enough to judge, and the full-size viewer ──
+
+const flaggedPicture = (filename, extra = {}) => ({
+  scope: "library",
+  labId: null,
+  labTitle: null,
+  filename,
+  label: "The AI models page",
+  level: "definite",
+  reason: `This shows the product's start page, but its lab describes a screen inside the product (${extra.label || "The AI models page"}). The computer never opened that screen.`,
+  short: "shows a start page, not the screen it should show",
+  flags: [],
+  reach: "landing",
+  writable: true,
+  sha256: "a".repeat(64),
+  width: null,
+  height: null,
+  ...extra,
+});
+const threeFlagged = () => [
+  flaggedPicture("ppai-ai-hub-menu.png", { label: "The AI hub in the left pane", width: 1280, height: 800 }),
+  flaggedPicture("ppai-ai-models-page.png", { label: "The AI models page" }),
+  flaggedPicture("agent-home.png", { scope: "lab", labId: LAB, level: "probable", label: "Agents page", sha256: "b".repeat(64), reason: "This looks the same as \u201cSettings\u201d. They may show the same screen; check that each one shows what its lab describes." }),
+];
+const suspectReply = (list) => ({
+  status: 200,
+  body: {
+    scannedAt: "2026-06-01T12:00:00.000Z",
+    counts: { total: list.length, definite: list.filter((p) => p.level === "definite").length, probable: list.filter((p) => p.level === "probable").length },
+    notice: list.length ? `${list.length} ${list.length === 1 ? "picture looks" : "pictures look"} like the wrong screen. Review ${list.length === 1 ? "it" : "them"}.` : "",
+    retentionDays: 90,
+    pictures: list,
+  },
+});
+async function wrongPanelHarness(list) {
+  const h = makeHarness();
+  h.route("GET", /\/api\/capture\/suspect-pictures/, suspectReply(list));
+  await h.setStatus({ ...statusPayload({ devices: [device()] }) });
+  await h.render(stateFor([ownShot("agent-home.png")]));
+  await h.flush();
+  await h.click(h.action("wrong-review"));
+  return h;
+}
+const viewerOf = (h) => h.host.querySelector("dialog.sc-lightbox");
+const viewerButton = (h, key) => viewerOf(h).querySelector(`[data-sc-focus="${key}"]`);
+const viewerSays = (h) => (h.host.querySelector("[data-sc-pic-live]")?.textContent || "").replace(/\u00a0/g, "").trim();
+const viewerPosition = (h) => viewerOf(h).querySelector("[data-sc-pic-position]")?.textContent ?? null;
+const viewerTitle = (h) => viewerOf(h).querySelector("#sc-lb-title").textContent;
+const press = (h, key, target = viewerOf(h)) => target.dispatchEvent(h.event("keydown", { key }));
+const cssRule = (selector) => new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(INDEX_HTML)?.[1] || "";
+
+test("Pictures that look wrong: every picture is a button big enough to judge, and pressing it shows the picture full size with its title, reason, and the same two buttons", async () => {
+  const h = await wrongPanelHarness(threeFlagged());
+  const panel = h.host.querySelector("[data-sc-wrong-host]");
+  const thumbs = panel.querySelectorAll("[data-sc-pic-open]");
+  assert.deepEqual(thumbs.map((t) => t.tagName), ["BUTTON", "BUTTON", "BUTTON"], "a real button, so Enter and Space work");
+  assert.deepEqual(
+    thumbs.map((t) => t.getAttribute("aria-label")),
+    ["Show the picture for The AI hub in the left pane full size", "Show the picture for The AI models page full size", "Show the picture for Agents page full size"],
+  );
+  assert.ok(thumbs.every((t) => t.getAttribute("type") === "button" && t.classList.contains("sc-pic-thumb")));
+  const img = thumbs[0].querySelector("img");
+  assert.deepEqual([img.getAttribute("loading"), img.getAttribute("decoding"), img.getAttribute("alt"), img.getAttribute("width"), img.getAttribute("height")], ["lazy", "async", "", "1280", "800"]);
+  assert.equal(img.getAttribute("src"), "/api/capture/library/screenshots/ppai-ai-hub-menu.png/image");
+  assert.equal(thumbs[0].style.aspectRatio, "1280 / 800", "the space is reserved, so nothing jumps when it loads");
+  assert.match(thumbs[0].style.maxWidth, /1280px/, "never larger than the picture itself");
+  assert.equal(thumbs[2].querySelector("img").getAttribute("src"), `/api/lab-builder/generated/${LAB}/assets/agent-home.png?v=${"b".repeat(12)}`);
+  assert.equal(thumbs[0].querySelector(".sc-pic-hint").textContent, "Click to enlarge");
+  assert.equal(thumbs[1].querySelector(".sc-pic-state").textContent, "Loading the picture");
+  assert.deepEqual(panel.querySelectorAll(".sc-wrong-chip").map((c) => c.textContent), ["Clearly the wrong screen.", "Clearly the wrong screen.", "Worth a look."]);
+  assert.ok(panel.querySelectorAll(".sc-wrong-chip")[2].classList.contains("sc-wrong-chip-probable"));
+
+  // The size and the look come from the stylesheet: a useful size, no colored side stripe.
+  assert.match(cssRule(".sc-pic-thumb"), /var\(--sc-pic-w, 360px\)/);
+  assert.match(cssRule(".sc-pic-thumb"), /aspect-ratio: 16 \/ 10/);
+  assert.match(cssRule(".sc-pic-thumb"), /cursor: pointer/);
+  for (const selector of [".sc-pic-row", ".sc-wrong-definite", ".sc-wrong-probable"]) assert.doesNotMatch(cssRule(selector), /border-left/, `${selector} has no side stripe`);
+  assert.match(cssRule(".sc-pic-row"), /border: 1px solid/);
+
+  // Opening: the same dialog the gallery uses, modal, with the picture's own details and the same buttons as the list.
+  await h.click(thumbs[0]);
+  const dialog = viewerOf(h);
+  assert.equal(dialog.open, true);
+  assert.equal(dialog.modal, true, "a modal dialog keeps focus inside while it is open");
+  assert.ok(dialog.classList.contains("sc-lightbox-picture"));
+  assert.equal(viewerTitle(h), "The AI hub in the left pane");
+  const big = dialog.querySelector("[data-sc-lb-figure] img");
+  assert.equal(big.getAttribute("src"), img.getAttribute("src"), "the same file at its full size: no smaller copy is served");
+  assert.equal(big.getAttribute("alt"), "The picture for The AI hub in the left pane");
+  assert.equal(viewerPosition(h), "Picture 1 of 3");
+  assert.equal(dialog.querySelector(".sc-wrong-chip").textContent, "Clearly the wrong screen.");
+  assert.equal(dialog.querySelector(".sc-pic-where").textContent, "Shared library: ppai-ai-hub-menu.png.");
+  assert.match(dialog.querySelector(".sc-wrong-reason").textContent, /^This shows the product's start page, but its lab describes a screen inside the product \(The AI hub in the left pane\)\./);
+  const actions = dialog.querySelectorAll("[data-sc-pic-actions] button");
+  assert.deepEqual(actions.map((b) => b.textContent), ["Keep this one", "Move to kept pictures"]);
+  assert.deepEqual(actions.map((b) => b.dataset.scAction), ["wrong-keep", "wrong-move"]);
+  assert.deepEqual(actions.map((b) => [b.dataset.scope, b.dataset.labId, b.dataset.filename]), actions.map(() => ["library", "", "ppai-ai-hub-menu.png"]));
+  const newTab = dialog.querySelector("[data-sc-pic-new-tab]");
+  assert.deepEqual([newTab.textContent, newTab.getAttribute("href"), newTab.getAttribute("target"), newTab.getAttribute("rel")], ["Open in a new tab", img.getAttribute("src"), "_blank", "noopener noreferrer"]);
+  assert.deepEqual([viewerButton(h, "lb-fit").textContent, viewerButton(h, "lb-fit").getAttribute("aria-pressed"), viewerButton(h, "lb-actual").textContent, viewerButton(h, "lb-actual").getAttribute("aria-pressed")], ["Fit to screen", "true", "Actual size", "false"]);
+  assert.equal(dialog.querySelector('[data-sc-action="lightbox-close"]').getAttribute("aria-label"), "Close the preview");
+  assert.equal(h.document.activeElement.dataset.scFocus, "lb-close");
+  assert.deepEqual(
+    [dialog.querySelector('[data-sc-action="lightbox-prev"]').disabled, dialog.querySelector('[data-sc-action="lightbox-next"]').disabled],
+    [true, false],
+    "Previous is off at the first picture",
+  );
+  assert.equal(viewerSays(h), "Picture 1 of 3: The AI hub in the left pane");
+  assert.deepEqual(json(h.run("scPicView.prefetch.map((i) => i.getAttribute('src'))")), ["/api/capture/library/screenshots/ppai-ai-models-page.png/image"], "only after the viewer opened, and only the neighbor");
+
+  // Fit to screen and Actual size change how the picture sits, not which picture it is; arrow keys scroll it at Actual size.
+  await h.click(viewerButton(h, "lb-actual"));
+  assert.deepEqual([viewerButton(h, "lb-fit").getAttribute("aria-pressed"), viewerButton(h, "lb-actual").getAttribute("aria-pressed")], ["false", "true"]);
+  assert.ok(dialog.querySelector("[data-sc-pic-stage]").classList.contains("sc-pic-actual"));
+  const scroll = dialog.querySelector("[data-sc-pic-scroll]");
+  assert.equal(scroll.getAttribute("tabindex"), "0", "a scrolling picture can be reached with the keyboard");
+  press(h, "ArrowRight", scroll);
+  assert.equal(viewerPosition(h), "Picture 1 of 3", "arrow keys scroll the picture while it has focus");
+  await h.click(viewerButton(h, "lb-fit"));
+  assert.ok(dialog.querySelector("[data-sc-pic-stage]").classList.contains("sc-pic-fit"));
+  assert.equal(dialog.querySelector("[data-sc-pic-scroll]").getAttribute("tabindex"), null);
+
+  // Previous, Next, and the arrow keys, in list order, with the position announced; no wrapping at the ends.
+  press(h, "ArrowRight");
+  assert.deepEqual([viewerTitle(h), viewerPosition(h), viewerSays(h)], ["The AI models page", "Picture 2 of 3", "Picture 2 of 3: The AI models page"]);
+  assert.equal(dialog.querySelector("[data-sc-lb-figure] img").getAttribute("src"), "/api/capture/library/screenshots/ppai-ai-models-page.png/image");
+  assert.deepEqual(json(h.run("scPicView.prefetch.map((i) => i.getAttribute('src'))")).length, 2, "both neighbors");
+  await h.click(dialog.querySelector('[data-sc-action="lightbox-next"]'));
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["Agents page", "Picture 3 of 3"]);
+  assert.equal(dialog.querySelector(".sc-wrong-chip").textContent, "Worth a look.");
+  assert.equal(dialog.querySelector(".sc-pic-where").textContent, "This lab: agent-home.png.");
+  assert.equal(dialog.querySelector('[data-sc-action="lightbox-next"]').disabled, true, "Next is off at the last picture");
+  press(h, "ArrowRight");
+  assert.equal(viewerPosition(h), "Picture 3 of 3", "it does not wrap around");
+  press(h, "Home");
+  assert.equal(viewerPosition(h), "Picture 1 of 3");
+  press(h, "End");
+  assert.equal(viewerPosition(h), "Picture 3 of 3");
+  press(h, "ArrowLeft");
+  assert.equal(viewerPosition(h), "Picture 2 of 3");
+  assert.equal(h.run("scPicView.fit"), true);
+
+  // Escape closes it and focus goes back to the thumbnail of the picture that was showing.
+  press(h, "Escape");
+  assert.equal(viewerOf(h).open, false);
+  assert.ok(h.document.activeElement === thumbs[1], "focus is back on the thumbnail of the picture that was showing");
+  await h.click(thumbs[2]);
+  assert.equal(viewerTitle(h), "Agents page");
+  await h.click(viewerOf(h).querySelector('[data-sc-action="lightbox-close"]'));
+  assert.equal(viewerOf(h).open, false);
+  assert.ok(h.document.activeElement === thumbs[2], "the Close button returns to the thumbnail too");
+
+  // The screenshot gallery still opens in the same dialog, as before.
+  await h.click(h.host.querySelector('.sc-card [data-sc-action="preview"]'));
+  assert.equal(viewerOf(h).open, true);
+  assert.ok(!viewerOf(h).classList.contains("sc-lightbox-picture"));
+  assert.equal(viewerOf(h).querySelector('[data-sc-action="lightbox-prev"]').getAttribute("aria-label"), "Previous screenshot");
+  assert.equal(viewerOf(h).querySelector('[data-sc-action="lightbox-prev"]').disabled, false);
+  press(h, "Escape");
+});
+
+test("Keep and Move inside the viewer call the same API as the list buttons, say what happened, move on to the next picture, and close when none are left", async () => {
+  const list = threeFlagged();
+  const h = await wrongPanelHarness(list);
+  const hub = 'library::ppai-ai-hub-menu.png';
+  await h.click(h.host.querySelector(`[data-sc-wrong-picture="${hub}"] [data-sc-pic-open]`));
+  viewerButton(h, "lb-keep").focus();
+
+  // A failed Keep leaves the picture in front of the person, with the reason.
+  h.route("POST", /\/api\/capture\/library\/screenshots\/ppai-ai-hub-menu\.png\/confirm$/, { status: 500, body: { error: "Nothing was saved." } });
+  await h.click(viewerButton(h, "lb-keep"));
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["The AI hub in the left pane", "Picture 1 of 3"]);
+  assert.equal(viewerOf(h).querySelector("[data-sc-pic-notice]").textContent, "Could not keep it. Nothing was saved.");
+
+  // Keep this one: the same request as the list's button, then the next picture, and the focus stays on the button.
+  h.route("POST", /\/api\/capture\/library\/screenshots\/ppai-ai-hub-menu\.png\/confirm$/, { status: 200, body: { outcome: "confirmed" } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, suspectReply(list.slice(1)));
+  await h.click(viewerButton(h, "lb-keep"));
+  assert.deepEqual(h.callsTo("POST", /ppai-ai-hub-menu\.png\/confirm$/).map((c) => c.body), [{}, {}]);
+  assert.equal(viewerOf(h).open, true);
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["The AI models page", "Picture 1 of 2"]);
+  assert.equal(viewerOf(h).querySelector("[data-sc-pic-notice]").textContent, "Kept. This picture is not flagged again.");
+  h.advance(100);
+  assert.equal(viewerSays(h), "Kept. This picture is not flagged again. Picture 1 of 2: The AI models page", "said again once the redrawn dialog is in place");
+  assert.equal(h.host.querySelectorAll("[data-sc-wrong-picture]").length, 2, "the list behind it is up to date");
+  assert.equal(h.document.activeElement.dataset.scFocus, "lb-keep");
+  assert.ok(viewerOf(h).contains(h.document.activeElement));
+
+  // Move to kept pictures: the same request as the list's button.
+  h.route("POST", /\/api\/capture\/suspect-pictures\/quarantine$/, { status: 200, body: { dryRun: false, moved: [{ filename: "ppai-ai-models-page.png", scope: "library" }], failed: [] } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, suspectReply(list.slice(2)));
+  await h.click(viewerButton(h, "lb-move"));
+  assert.deepEqual(h.callsTo("POST", /suspect-pictures\/quarantine$/)[0].body, { dryRun: false, confirm: true, items: [{ scope: "library", filename: "ppai-ai-models-page.png" }] });
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["Agents page", "Picture 1 of 1"]);
+  assert.equal(viewerOf(h).querySelector("[data-sc-pic-notice]").textContent, "1 picture moved to the kept pictures list. Its screenshot is pending again.");
+  assert.deepEqual([viewerOf(h).querySelector('[data-sc-action="lightbox-prev"]').disabled, viewerOf(h).querySelector('[data-sc-action="lightbox-next"]').disabled], [true, true]);
+
+  // The last one: keeping it closes the viewer and focus goes to the panel's heading, since its thumbnail is gone.
+  h.route("POST", new RegExp(`/api/lab-builder/generated/${LAB}/screenshots/agent-home\\.png/confirm$`), { status: 200, body: { outcome: "confirmed" } });
+  h.route("GET", /\/api\/capture\/suspect-pictures/, suspectReply([]));
+  await h.click(viewerButton(h, "lb-keep"));
+  assert.equal(viewerOf(h).open, false);
+  assert.equal(h.run("scPicView.open"), false);
+  assert.ok(h.document.activeElement === h.host.querySelector("[data-sc-wrong-heading]"), "focus goes to the panel's heading");
+  assert.equal(h.host.querySelector("[data-sc-wrong-none]").textContent, "No pictures look wrong.");
+});
+
+test("Kept pictures: each one is a thumbnail button, and the same viewer offers Restore, Download, and a Delete forever that still asks first", async () => {
+  const entry = {
+    id: "contoso-labs-20260301000000-ab12",
+    labId: "contoso-labs",
+    labTitle: "Contoso Labs",
+    reason: "deleted",
+    keptAt: "2026-03-01T12:00:00.000Z",
+    daysLeft: 62,
+    pictures: [
+      { filename: "mc-memory-toggle.png", base: "mc-memory-toggle.png", why: "lab-only", message: "", earlierVersion: false, restore: [{ type: "library" }] },
+      { filename: "notes.png", base: "notes.png", why: "lab-only", message: "", earlierVersion: false, restore: [] },
+    ],
+  };
+  const keptReply = (pictures) => ({ status: 200, body: { retentionDays: 90, entries: pictures.length ? [{ ...entry, pictures }] : [] } });
+  const h = makeHarness();
+  await h.setStatus({ ...statusPayload({ devices: [device()] }) });
+  await h.render(stateFor([ownShot("a.png")]));
+  h.route("GET", /\/api\/capture\/kept$/, keptReply(entry.pictures));
+  await h.click(h.action("keep-load"));
+  const kept = h.host.querySelector("[data-sc-kept-host]");
+  const thumbs = kept.querySelectorAll("[data-sc-pic-open]");
+  assert.deepEqual(thumbs.map((t) => t.getAttribute("aria-label")), ["Show the picture for mc-memory-toggle.png full size", "Show the picture for notes.png full size"]);
+  assert.equal(thumbs[0].querySelector("img").getAttribute("src"), `/api/capture/kept/${entry.id}/mc-memory-toggle.png`);
+  assert.equal(kept.querySelectorAll(".sc-keep-row").length, 2);
+
+  await h.click(thumbs[0]);
+  const dialog = viewerOf(h);
+  assert.equal(dialog.open, true);
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["mc-memory-toggle.png", "Picture 1 of 2"]);
+  assert.equal(dialog.querySelector(".sc-pic-where").textContent, "From \u201cContoso Labs\u201d (deleted Mar 1, 2026). 62 days left.");
+  assert.equal(dialog.querySelector(".sc-wrong-reason").textContent, "Specific to that lab.");
+  assert.ok(!dialog.querySelector(".sc-wrong-chip"), "a kept picture has no verdict");
+  assert.deepEqual(dialog.querySelectorAll("[data-sc-pic-actions] button").map((b) => b.textContent), ["Restore to the shared library", "Delete forever"]);
+  assert.equal(dialog.querySelector("[data-sc-pic-actions] a").getAttribute("href"), `/api/capture/kept/${entry.id}/mc-memory-toggle.png?download=1`);
+  assert.equal(dialog.querySelector("[data-sc-pic-new-tab]").getAttribute("href"), `/api/capture/kept/${entry.id}/mc-memory-toggle.png`);
+  press(h, "ArrowRight");
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["notes.png", "Picture 2 of 2"]);
+  assert.match(dialog.querySelector("[data-sc-pic-actions]").textContent, /Nowhere to put it back right now, so download it instead\./);
+  press(h, "ArrowLeft");
+
+  // Restoring to the shared library asks first, inside the viewer, and Cancel changes nothing.
+  viewerButton(h, "lb-restore").focus();
+  await h.click(viewerButton(h, "lb-restore"));
+  assert.equal(h.callsTo("POST", /\/restore$/).length, 0);
+  assert.equal(dialog.querySelector('[data-sc-ask="keep-restore"] .sc-ask-title').textContent, "Use this picture for every lab?");
+  assert.match(viewerSays(h), /^Use this picture for every lab\? Every lab that has no picture of its own will show it\./);
+  await h.click(dialog.querySelector('[data-sc-action="keep-ask-cancel"]'));
+  assert.ok(!dialog.querySelector("[data-sc-ask]"));
+  assert.equal(h.document.activeElement.dataset.scFocus, "lb-restore", "Cancel returns to the button that asked");
+
+  // Delete forever asks first in words that say it cannot be undone; Yes deletes, and the viewer moves on.
+  viewerButton(h, "lb-delete").focus();
+  await h.click(viewerButton(h, "lb-delete"));
+  assert.equal(h.callsTo("DELETE", /kept/).length, 0, "nothing is deleted before the answer");
+  assert.equal(dialog.querySelector('[data-sc-ask="keep-delete"] .sc-ask-text').textContent, "It is removed from the kept pictures and cannot be restored.");
+  h.route("DELETE", /\/api\/capture\/kept\/[^/]+\/mc-memory-toggle\.png\?confirm=true$/, { status: 200, body: { outcome: "removed" } });
+  h.route("GET", /\/api\/capture\/kept$/, keptReply([entry.pictures[1]]));
+  await h.click(dialog.querySelector('[data-sc-action="keep-ask-yes"]'));
+  assert.equal(h.callsTo("DELETE", /kept/).length, 1);
+  assert.equal(viewerOf(h).open, true);
+  assert.deepEqual([viewerTitle(h), viewerPosition(h)], ["notes.png", "Picture 1 of 1"]);
+  assert.equal(viewerOf(h).querySelector("[data-sc-pic-notice]").textContent, "Deleted forever.");
+
+  // The last kept picture: deleting it closes the viewer and focus goes to the Kept pictures heading.
+  await h.click(viewerButton(h, "lb-delete"));
+  h.route("DELETE", /\/api\/capture\/kept\/[^/]+\/notes\.png\?confirm=true$/, { status: 200, body: { outcome: "removed" } });
+  h.route("GET", /\/api\/capture\/kept$/, keptReply([]));
+  await h.click(viewerOf(h).querySelector('[data-sc-action="keep-ask-yes"]'));
+  assert.equal(viewerOf(h).open, false);
+  assert.ok(h.document.activeElement === h.host.querySelector("[data-sc-kept-heading]"), "focus goes to the Kept pictures heading");
+  assert.equal(h.host.querySelector("[data-sc-kept-none]").textContent, "No pictures are being kept right now.");
+});
+
+test("a picture that cannot be loaded says so in plain words, in the list and in the viewer, and the viewer offers another try", async () => {
+  const h = await wrongPanelHarness(threeFlagged());
+  const thumbs = h.host.querySelectorAll("[data-sc-wrong-host] [data-sc-pic-open]");
+
+  // The list: loading, then loaded (the box takes the picture's own shape when the size was not known), or failed.
+  const loaded = thumbs[1].querySelector("img");
+  loaded.naturalWidth = 1000;
+  loaded.naturalHeight = 500;
+  loaded.dispatchEvent(h.event("load", { bubbles: false }));
+  assert.ok(thumbs[1].classList.contains("sc-pic-loaded"));
+  assert.equal(thumbs[1].querySelector(".sc-pic-state").textContent, "");
+  assert.deepEqual([thumbs[1].style.aspectRatio, thumbs[1].style.maxWidth.includes("1000px")], ["1000 / 500", true]);
+  thumbs[0].querySelector("img").dispatchEvent(h.event("error", { bubbles: false }));
+  const state = thumbs[0].querySelector(".sc-pic-state");
+  assert.ok(thumbs[0].classList.contains("sc-pic-failed"));
+  assert.equal(state.textContent, "Could not load this picture.");
+  assert.equal(state.getAttribute("aria-hidden"), null, "a screen reader hears it");
+  assert.equal(thumbs[0].getAttribute("aria-describedby"), state.id);
+  assert.equal(thumbs[0].getAttribute("aria-label"), "Show the picture for The AI hub in the left pane full size", "the button keeps its name");
+
+  // The viewer: the same words, a way to try again, and the link to the file stays.
+  await h.click(thumbs[0]);
+  viewerOf(h).querySelector("[data-sc-lb-figure] img").dispatchEvent(h.event("error", { bubbles: false }));
+  const note = viewerOf(h).querySelector("[data-sc-pic-note]");
+  assert.ok(note.textContent.startsWith("Could not load this picture."));
+  assert.equal(viewerSays(h), "Could not load this picture.");
+  assert.ok(viewerOf(h).querySelector("[data-sc-pic-new-tab]"));
+  await h.click(note.querySelector('[data-sc-action="pic-retry"]'));
+  assert.equal(viewerOf(h).querySelector("[data-sc-pic-note]").textContent, "Loading the picture", "a fresh attempt");
+  assert.ok(!viewerOf(h).querySelector("[data-sc-pic-stage]").classList.contains("sc-pic-failed"));
 });
 
 test("export is one link, and import sends the ZIP, with Replace as a choice, and reports what was imported, skipped, and rejected", async () => {

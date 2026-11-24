@@ -63,7 +63,7 @@ function scWrongNotice(labId) {
 
 function scWrongThumb(item, labId) {
   if (item.scope === "library") return `/api/capture/library/screenshots/${encodeURIComponent(item.filename)}/image`;
-  return item.labId && item.labId === labId && typeof scAssetUrl === "function" ? scAssetUrl(labId, item.filename, String(item.sha256 || "").slice(0, 12)) : "";
+  return item.labId && typeof scAssetUrl === "function" ? scAssetUrl(item.labId, item.filename, String(item.sha256 || "").slice(0, 12)) : "";
 }
 
 function scWrongWhere(item) {
@@ -93,11 +93,11 @@ function scBuildWrongAsk(labId) {
 function scWrongContents(labId) {
   scWrong.currentLab = labId || "";
   const state = scWrongState(labId);
-  const out = [scEl("h6", { text: "Pictures that look wrong", attrs: { tabindex: "-1" }, data: { scWrongHeading: "1" } })];
+  const out = [scEl("h6", { text: "Pictures that look wrong", attrs: { tabindex: "-1" }, data: { scWrongHeading: "1", scFocus: "wrong-heading" } })];
   out.push(
     scEl("p", {
       class: "hint",
-      text: "Some pictures may show the wrong screen: a start page instead of the screen the lab describes, the same picture under several screenshots, or a page that was not signed in. Move one to the kept pictures list (it is kept for 90 days and can be restored) and its screenshot goes back to pending, so it can be captured again. Choose Keep this one when a picture is right.",
+      text: "Some pictures may show the wrong screen: a start page instead of the screen the lab describes, the same picture under several screenshots, or a page that was not signed in. Move one to the kept pictures list (it is kept for 90 days and can be restored) and its screenshot goes back to pending, so it can be captured again. Choose Keep this one when a picture is right. Select a picture to see it full size.",
     }),
   );
   if (!state?.loaded) {
@@ -109,20 +109,24 @@ function scWrongContents(labId) {
     out.push(scEl("p", { class: "sc-library-line", text: state.notice, data: { scWrongCount: "1" } }));
     const list = scEl("ul", { class: "sc-library-list sc-wrong-list", attrs: { "aria-label": "Pictures that look wrong" } });
     for (const item of state.pictures) {
-      const key = `${item.scope}:${item.labId || ""}:${item.filename}`;
-      const li = scEl("li", { class: `sc-library-row sc-wrong-row sc-wrong-${item.level === "definite" ? "definite" : "probable"}`, data: { scWrongPicture: key } });
-      const thumb = scWrongThumb(item, labId);
-      if (thumb) li.appendChild(scEl("img", { class: "sc-wrong-thumb", attrs: { src: thumb, alt: "", loading: "lazy", decoding: "async" } }));
+      const picture = scPicSuspectItem(item, labId);
+      const key = picture.key;
+      const li = scEl("li", { class: `sc-library-row sc-wrong-row sc-pic-row sc-wrong-${picture.level}`, data: { scWrongPicture: key } });
+      const thumb = scPicThumb(picture);
+      if (thumb) li.appendChild(thumb);
+      const body = scEl("div", { class: "sc-pic-body" });
       const text = scEl("div", { class: "sc-wrong-text" });
-      text.appendChild(scEl("span", { class: "sc-library-name", text: scText(item.label || item.filename, 120) }));
-      text.appendChild(scEl("span", { class: "sc-library-meta", text: `${scWrongWhere(item)}: ${scText(item.filename, 90)}. ${SC_WRONG_LEVEL_TEXT[item.level] || ""}` }));
-      text.appendChild(scEl("p", { class: "sc-wrong-reason", text: scText(item.reason, 400) }));
-      li.appendChild(text);
+      text.appendChild(scEl("span", { class: "sc-library-name", text: picture.title }));
+      const chip = picture.levelText ? scChip(picture.levelText, picture.level === "definite" ? "warn" : "info", `sc-wrong-chip sc-wrong-chip-${picture.level}`) : null;
+      text.appendChild(scEl("span", { class: "sc-library-meta" }, [`${picture.where} `, chip]));
+      text.appendChild(scEl("p", { class: "sc-wrong-reason", text: picture.reason }));
+      body.appendChild(text);
       const data = { scope: item.scope, labId: item.labId || "", filename: item.filename };
       const actions = scEl("div", { class: "sc-card-actions" });
       actions.appendChild(scButton("Keep this one", { action: "wrong-keep", data, focus: `wrong:${key}:keep`, aria: { "aria-label": `Keep this one: ${item.filename}` }, disabled: Boolean(scWrong.busy) }));
       actions.appendChild(scButton("Move to kept pictures", { action: "wrong-move", data, focus: `wrong:${key}:move`, aria: { "aria-label": `Move ${item.filename} to kept pictures` }, disabled: Boolean(scWrong.busy) }));
-      li.appendChild(actions);
+      body.appendChild(actions);
+      li.appendChild(body);
       list.appendChild(li);
     }
     out.push(list);
@@ -151,12 +155,14 @@ function scRenderWrongHosts() {
     host.replaceChildren(...scWrongContents(labId));
     if (focusKey && typeof scFocusByKey === "function") scFocusByKey(host, focusKey);
   }
+  if (typeof scPicViewRefresh === "function") scPicViewRefresh("suspect");
 }
 
 /** After a move or a keep: everything that counts pictures changed. */
 async function scWrongAfterChange(labId) {
   scWrong.byKey = {};
   await scWrongLoad(labId, true);
+  if (typeof scPicViewActionDone === "function") scPicViewActionDone("suspect");
   if (labId && typeof scRefreshLabState === "function") await scRefreshLabState(labId);
   if (typeof scRefreshLibraryNumbers === "function") scRefreshLibraryNumbers();
   scRenderWrongHosts();
@@ -206,6 +212,7 @@ async function scWrongKeep(labId, scope, pictureLab, filename) {
 /** Actions from the "Pictures that look wrong" panel and its notice (called from the Screenshot Center's action switch). */
 async function scWrongAction(labId, action, control) {
   const data = control?.dataset || {};
+  if (scWrong.busy && (action === "wrong-keep" || action === "wrong-move")) return true;
   switch (action) {
     case "wrong-review": {
       const lab = scLab(labId);
@@ -248,6 +255,6 @@ async function scWrongAction(labId, action, control) {
       scRenderWrongHosts();
       return true;
     default:
-      return false;
+      return typeof scPicAction === "function" ? scPicAction(labId, action, control) : false;
   }
 }
