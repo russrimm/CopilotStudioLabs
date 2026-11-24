@@ -1835,7 +1835,9 @@ export function buildArchitectureModel(plan = {}) {
         id: harnessId,
         label: HARNESS_LABELS[harnessId] || harnessId,
       }
-    : null;
+    : plan.harnessParts
+      ? { id: "both", label: plan.harnessParts.order.map((id) => HARNESS_LABELS[id] || id).join(" and ") }
+      : null;
 
   const levelNum = Number(plan.level) || 200;
   const levelLabelName = cleanText(plan.difficulty || plan.levelName, LEVEL_NAMES[levelNum] || "Intermediate");

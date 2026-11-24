@@ -63,6 +63,8 @@ function lbDraftContent() {
       roles: [...labBuilder.selectedRoles],
       level: labBuilder.level,
       harness: lbHasHarnessProduct() ? labBuilder.harness : null,
+      harnessMode: lbHasHarnessProduct() ? labBuilder.harnessMode : "single",
+      harnesses: [...labBuilder.harnessOrder],
       differencesFor: labBuilder.differencesFor ? [...labBuilder.differencesFor] : null,
       features,
       excluded: [...labBuilder.excluded],

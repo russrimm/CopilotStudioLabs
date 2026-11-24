@@ -2059,6 +2059,15 @@
     .lb-radio-option input { grid-row: 1 / span 2; margin: 3px 0 0; accent-color: var(--accent); }
     .lb-radio-name { font-size: 14px; font-weight: 600; }
     .lb-radio-desc { font-size: 13px; line-height: 1.45; color: var(--text-muted); }
+    /* ── Both harnesses, one after another: the order line and its Swap button ── */
+    .lb-harness-order { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .lb-harness-order[hidden] { display: none; }
+    .lb-harness-order .lb-tailor-hint { margin: 0; flex: 1 1 220px; color: var(--text); font-weight: 600; }
+    .lb-harness-swap { flex: 0 0 auto; }
+    .lb-outline-part-row th { text-align: left; font-weight: 600; font-size: 13px; padding: 8px 12px; background: var(--surface-hover); color: var(--text); }
+    @media (max-width: 560px) {
+      .lb-harness-swap { width: 100%; min-height: 44px; }
+    }
     .lb-check-list { display: flex; flex-direction: column; gap: 6px; }
     .lb-check-option { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
     .lb-check-option input { margin: 0; accent-color: var(--accent); }
@@ -6174,6 +6183,10 @@
                     <a href="https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" target="_blank" rel="noopener noreferrer">Compare them on Microsoft Learn (opens in a new tab)</a>.
                   </p>
                   <div id="lb-harness-options" class="lb-radio-list"></div>
+                  <div class="lb-harness-order" id="lb-harness-order" hidden>
+                    <p id="lb-harness-order-text" class="lb-tailor-hint" role="status" aria-live="polite"></p>
+                    <button class="btn lb-harness-swap" type="button" id="lb-harness-swap">Swap order</button>
+                  </div>
                   <p id="lb-harness-hint" class="lb-tailor-hint"></p>
                   <details class="lb-tailor-more">
                     <summary>Add "How this differs" notes</summary>

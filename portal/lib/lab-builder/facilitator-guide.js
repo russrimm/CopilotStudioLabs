@@ -41,6 +41,8 @@ import {
 import { createLabImageResolver } from "./topic-documents.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
 import { TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
+import { buildCompleteDeck } from "./training-slides.js";
+import { SHARED_PART, harnessTitle, isCombinedHarnessMode, labHarnesses, partLabel } from "./harness-parts.js";
 import {
   ensureReadableColor,
   getBrandFont,
@@ -441,11 +443,30 @@ function formatClockRange(startMin, endMin) {
  */
 function buildPreLabSession({ markdown, manifest, labId, outputDir, handsOnMinutes }) {
   const plan = buildTrainingPlan({ markdown, manifest, labId, outputDir });
+  const partOf = (topic) => (plan.combined ? plan.combined.parts.find((p) => p.topicOrders.includes(topic.order))?.label || "" : "");
   const rows = [
-    ...plan.foundations.map((f) => ({ kind: "foundations", stepLabel: "Foundations", title: f.short, trainingMinutes: f.minutes, handsOnMinutes: null, reviewFirst: f.thin })),
-    ...plan.topics.map((t) => ({ kind: t.isRecap ? "recap" : "topic", stepLabel: t.stepLabel, title: t.title, trainingMinutes: t.minutes, handsOnMinutes: t.handsOnMinutes, reviewFirst: t.unreviewed })),
+    ...plan.foundations.map((f) => ({ kind: "foundations", stepLabel: "Foundations", title: f.short, trainingMinutes: f.minutes, handsOnMinutes: null, reviewFirst: f.thin, partLabel: plan.combined ? partLabel(SHARED_PART) : "" })),
+    ...plan.topics.map((t) => ({ kind: t.isRecap ? "recap" : "topic", stepLabel: t.stepLabel, title: t.title, trainingMinutes: t.minutes, handsOnMinutes: t.handsOnMinutes, reviewFirst: t.unreviewed, partLabel: partOf(t) })),
   ];
-  return { totalMinutes: plan.totalMinutes, handsOnMinutes, rows, deckFolder: TRAINING_ZIP_FOLDER, completeDeck: `${plan.completeFileBase}.pptx` };
+  // A lab that covers two harnesses: the sections of the complete deck, with the same minutes its Agenda slide shows.
+  const sections = plan.combined ? buildCompleteDeck(plan).sections.map((s) => ({ n: s.n, label: s.name, minutes: s.minutes })) : null;
+  return { totalMinutes: plan.totalMinutes, handsOnMinutes, rows, sections, deckFolder: TRAINING_ZIP_FOLDER, completeDeck: `${plan.completeFileBase}.pptx` };
+}
+
+/** The Note cell of a pre-lab row: the harness part of a combined lab, and the review warning when there is one. */
+function preLabNote(row) {
+  return [row.partLabel, row.reviewFirst ? "Review before you present: this deck comes only from Microsoft Learn." : ""].filter(Boolean).join(". ");
+}
+
+/** The agenda a combined lab's complete deck shows, as Markdown bullets (empty for any other lab). */
+function preLabAgendaLines(preLab) {
+  if (!preLab.sections?.length) return [];
+  return [
+    "",
+    "The complete deck has one agenda, and these are its sections. The one-topic decks below cover each idea once, so the minutes are never counted twice:",
+    "",
+    ...preLab.sections.map((s) => `- **Part ${s.n}: ${escapeMarkdownTableCell(s.label)}**: ${s.minutes} minutes`),
+  ];
 }
 
 function buildPacingSchedule(moduleEntries, preFlightBufferMinutes = 15) {
@@ -827,13 +848,19 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     (manifest.product ? [manifest.product] : [DEFAULT_PRODUCT]);
   const productsLabel = productsPhrase(rawProducts);
 
-  const harnessId =
-    manifest?.request?.harness ||
-    manifest?.differences?.labHarness ||
-    manifest?.options?.harness ||
-    null;
+  const combinedOrder = isCombinedHarnessMode(manifest) ? labHarnesses(manifest) : [];
+  const harnessId = combinedOrder.length
+    ? null
+    : manifest?.request?.harness ||
+      manifest?.differences?.labHarness ||
+      manifest?.options?.harness ||
+      null;
   const harnessObj = harnessId ? getHarnesses().find((h) => h.id === harnessId) : null;
-  const harnessLabel = harnessObj ? harnessObj.name : harnessId || "Standard";
+  const harnessLabel = combinedOrder.length
+    ? `Both, one after another: ${combinedOrder.map((id) => harnessTitle(id)).join(", then ")}`
+    : harnessObj
+      ? harnessObj.name
+      : harnessId || "Standard";
 
   const agentName = cleanText(
     manifest?.options?.agentName ||
@@ -880,6 +907,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     markdown,
     products: rawProducts,
     harness: harnessId,
+    ...(combinedOrder.length ? { harnesses: combinedOrder } : {}),
   });
   // The settings themselves are in the Administrator setup guide. The host only needs to know who must finish what.
   const adminGuide = buildAdministratorSetupGuide({ manifest: { ...manifest, title: labTitle }, markdown });
@@ -897,6 +925,9 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
       {};
     const featureId = mod.id || matchedMeta.id || null;
     const feature = featureId ? getFeature(featureId) : null;
+    // A lab that covers two harnesses reads each module against its own harness (a shared module reads against the first).
+    const moduleHarnessId = combinedOrder.length ? matchedMeta.harness || combinedOrder[0] : harnessId;
+    const moduleHarnessName = (moduleHarnessId && getHarnesses().find((h) => h.id === moduleHarnessId)?.name) || null;
     const parsedTopic = parseTopicMarkdownStructure(mod.markdown, {
       labTitle,
       stepLabel: mod.stepLabel,
@@ -906,7 +937,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     });
     const digest = resolveTopicTrainingDigest(parsedTopic, {
       featureId,
-      harness: harnessId,
+      harness: moduleHarnessId,
       agentName,
       manifest,
       module: matchedMeta,
@@ -922,7 +953,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
       manifest,
       labTitle,
       agentName,
-      harnessName: harnessObj?.name || null,
+      harnessName: moduleHarnessName,
       spSite,
       replacementEntries,
       learnerKnowledgeCheckEnabled,
@@ -1046,12 +1077,13 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
     "### Pre-Lab Training Session (Deliver First)",
     "",
     `Deliver the training before anyone opens the lab guide. It takes about ${model.preLab.totalMinutes} minutes, it is for people who are new to this, and it has no lab steps. Use \`${model.preLab.completeDeck}\` to deliver it in one sitting, or the one-topic decks one at a time (all are in the \`${model.preLab.deckFolder}\` folder of the lab package). The hands-on times below come after it.`,
+    ...preLabAgendaLines(model.preLab),
     "",
     "| Order | Part | Training Min | Hands-On Min (Later) | Note |",
     "| --- | --- | --- | --- | --- |",
     ...model.preLab.rows.map(
       (row, i) =>
-        `| ${i + 1} | **${escapeMarkdownTableCell(row.stepLabel)}**: ${escapeMarkdownTableCell(row.title)} | ${row.trainingMinutes} min | ${row.handsOnMinutes ? `${row.handsOnMinutes} min` : "—"} | ${row.reviewFirst ? "Review before you present: this deck comes only from Microsoft Learn." : ""} |`,
+        `| ${i + 1} | **${escapeMarkdownTableCell(row.stepLabel)}**: ${escapeMarkdownTableCell(row.title)} | ${row.trainingMinutes} min | ${row.handsOnMinutes ? `${row.handsOnMinutes} min` : "—"} | ${escapeMarkdownTableCell(preLabNote(row))} |`,
     ),
     `| | **Total** | **${model.preLab.totalMinutes} min** | **${model.preLab.handsOnMinutes} min** | |`,
     "",
@@ -1269,10 +1301,14 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
         <td><strong>${escapeHtml(row.stepLabel)}</strong>: ${escapeHtml(row.title)}</td>
         <td>${row.trainingMinutes} min</td>
         <td>${row.handsOnMinutes ? `${row.handsOnMinutes} min` : "&mdash;"}</td>
-        <td>${row.reviewFirst ? "Review before you present: this deck comes only from Microsoft Learn." : ""}</td>
+        <td>${escapeHtml(preLabNote(row))}</td>
       </tr>`,
     )
     .join("\n");
+  const preLabAgendaHtml = model.preLab.sections?.length
+    ? `<p>The complete deck has one agenda, and these are its sections. The one-topic decks below cover each idea once, so the minutes are never counted twice:</p>
+    <ul>${model.preLab.sections.map((s) => `<li><strong>Part ${s.n}: ${escapeHtml(s.label)}</strong>: ${s.minutes} minutes</li>`).join("")}</ul>`
+    : "";
 
   const pacingRowsHtml = model.pacing.rows
     .map(
@@ -1552,6 +1588,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     <h2>1. Workshop Overview &amp; Run-of-Show Pacing</h2>
     <h3>Pre-Lab Training Session (Deliver First)</h3>
     <p>Deliver the training before anyone opens the lab guide. It takes about ${model.preLab.totalMinutes} minutes, it is for people who are new to this, and it has no lab steps. Use <code>${escapeHtml(model.preLab.completeDeck)}</code> to deliver it in one sitting, or the one-topic decks one at a time (all are in the <code>${escapeHtml(model.preLab.deckFolder)}</code> folder of the lab package). The hands-on times below come after it.</p>
+        ${preLabAgendaHtml}
     <table>
       <thead>
         <tr><th>Order</th><th>Part</th><th>Training</th><th>Hands-On (Later)</th><th>Note</th></tr>

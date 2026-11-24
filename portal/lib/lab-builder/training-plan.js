@@ -17,6 +17,15 @@ import { fileURLToPath } from "node:url";
 import { getFeature, getHarnesses } from "./catalog.js";
 import { getConceptForFeature, getConcepts } from "./concepts.js";
 import { getDifference } from "./differences.js";
+import {
+  SHARED_LATE_PART,
+  SHARED_PART,
+  combinedHarnessOrder,
+  harnessShortName,
+  harnessTitle,
+  isCombinedHarnessMode,
+  partLabel,
+} from "./harness-parts.js";
 import { isAdminAudienceTopic } from "./learner-guide.js";
 import { DEFAULT_PRODUCT, getProduct, productName, productOf } from "./products.js";
 import { capFilesystemSegment, formatModuleBaseName, sanitizeFilesystemTitle, splitGeneratedLabModules } from "./module-samples.js";
@@ -35,8 +44,16 @@ const SCENARIOS = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-prof
  */
 export const TRAINING_SCHEMA_VERSION = 2;
 
+/**
+ * Version of the combined-harness deck layout. It is part of the fingerprint of a lab that covers two harnesses only,
+ * so changing how those decks are built rebuilds them and leaves every single-harness lab's saved decks as they are.
+ * 1: first release (parts, sections, one deck set that teaches each idea once).
+ */
+export const TRAINING_COMBINED_VERSION = 1;
+
 /** Minutes of training: a full topic deck, a prerequisite refresher, a short deck for a topic only Learn describes, and foundations. */
-export const TRAINING_MINUTES = Object.freeze({ topic: 25, refresher: 20, short: 12, foundations: 12, foundationsShort: 8 });
+export const TRAINING_MINUTES = Object.freeze({ topic: 25, refresher: 20, short: 12, foundations: 12, foundationsShort: 8, covered: 12 });
+
 
 export const TRAINING_FOLDER = "training";
 export const TRAINING_ZIP_FOLDER = "1 - Training decks (deliver first)";
@@ -130,13 +147,15 @@ export function helpLine(name, note) {
   return clean;
 }
 
-/** Short topic name for slide titles: whole words, at most `max` characters. */
-export function shortName(name, max = 38) {
+/** Short topic name for slide titles: whole words, at most `max` characters. `tidy` (combined labs only) also backs up past a joining word. */
+export function shortName(name, max = 38, { tidy = false } = {}) {
   const clean = String(name || "").replace(/\s+/g, " ").trim();
   if (clean.length <= max) return clean;
   const cut = clean.slice(0, max);
   const space = cut.lastIndexOf(" ");
-  return cut.slice(0, space > 16 ? space : max).replace(/[,:;&-]+$/, "").trim();
+  const trimmed = cut.slice(0, space > 16 ? space : max);
+  // A name cut off after "or" or "and" reads as a broken sentence. Single-harness labs keep their existing titles.
+  return (tidy ? trimmed.replace(/\s+(?:or|and|of|to|the|a|an|for|in|on|with)$/i, "") : trimmed).replace(/[,:;&-]+$/, "").trim();
 }
 
 /** Resolve the concept id a module teaches: the catalog's own mapping first, then the saved digest, then the category. */
@@ -279,18 +298,36 @@ export function formatTrainingDuration(minutes) {
 }
 
 /**
+ * In a lab that covers two harnesses every idea is taught once. A topic whose concept an earlier topic already taught
+ * needs only a short deck (it points back to the earlier one and says what is different). `items` are in lab order;
+ * the result gives, for each, the index of the earlier topic it builds on (or null) and its training minutes.
+ */
+export function coverConceptMinutes(items) {
+  const first = new Map();
+  return items.map((item, index) => {
+    const prior = item.conceptId && first.has(item.conceptId) ? first.get(item.conceptId) : null;
+    if (item.hasBrief && item.conceptId && prior === null && !first.has(item.conceptId)) first.set(item.conceptId, index);
+    return { prior, minutes: prior === null ? item.minutes : Math.min(item.minutes, TRAINING_MINUTES.covered) };
+  });
+}
+
+/**
  * Training minutes for a planned lab (the composer calls this before any deck exists): every module and refresher
- * plus one foundations deck per product.
+ * plus one foundations deck per product. A lab that covers two harnesses counts each idea once, so the number equals
+ * the combined deck's total (its title, agenda, and closing slides take no time of their own).
  */
 export function estimateLabTrainingMinutes(plan) {
   const library = loadTrainingLibrary();
   const features = Array.isArray(plan?.features) ? plan.features : [];
-  const modules = features.reduce((sum, f) => {
+  const items = features.map((f) => {
     const productId = productOf(f) || DEFAULT_PRODUCT;
-    const brief = briefFor({ id: f.id, conceptId: resolveConceptId(f, {}), productId }, library);
+    const conceptId = resolveConceptId(f, {});
+    const brief = briefFor({ id: f.id, conceptId, productId }, library);
     const unreviewed = Boolean(f.learnTopic) || !f.lastVerified;
-    return sum + trainingMinutesFor({ isRecap: Boolean(f.prerequisite), unreviewed: unreviewed || !brief });
-  }, 0);
+    return { conceptId, hasBrief: Boolean(brief), minutes: trainingMinutesFor({ isRecap: Boolean(f.prerequisite), unreviewed: unreviewed || !brief }) };
+  });
+  const combined = Boolean(plan?.harnessParts);
+  const modules = (combined ? coverConceptMinutes(items).map((c) => c.minutes) : items.map((i) => i.minutes)).reduce((sum, m) => sum + m, 0);
   const ids = Array.isArray(plan?.products) && plan.products.length ? plan.products : [DEFAULT_PRODUCT];
   const productIds = ids.filter((id) => features.some((f) => (productOf(f) || DEFAULT_PRODUCT) === id) || ids.length === 1);
   const foundations = productIds.reduce((sum, id) => sum + foundationsMinutes(id, library), 0);
@@ -299,7 +336,9 @@ export function estimateLabTrainingMinutes(plan) {
 
 function gatherTopic(mod, meta, ctx) {
   const id = meta.id || mod.id || null;
-  const feature = (id && (getFeature(id, { harness: ctx.harness }) || getFeature(id))) || null;
+  // A lab that covers two harnesses reads each topic against its own harness; a shared topic reads against the first.
+  const harness = ctx.combined ? meta.harness || ctx.order[0] : ctx.harness;
+  const feature = (id && (getFeature(id, { harness }) || getFeature(id))) || null;
   const digest = meta.trainingDigest || null;
   const stored = meta.training || null;
   const facts = parseModuleFacts(mod.markdown);
@@ -322,7 +361,7 @@ function gatherTopic(mod, meta, ctx) {
   const cautions = (stored?.cautions || []).map(plainText).filter(Boolean);
   const docUrls = [...new Set([meta.steps?.url, ...(feature?.docUrls || []), ...learnTakeaways.map((t) => t.url), meta.catalog?.verifiedAgainst].filter((u) => typeof u === "string" && /^https:\/\/learn\.microsoft\.com\//i.test(u)))];
 
-  const availability = availabilityFacts(feature || digest || {}, conceptId, ctx.harness);
+  const availability = availabilityFacts(feature || digest || {}, conceptId, harness);
   const limits = limitSentences(feature || {}, cautions).slice(0, 2);
 
   const notes = [];
@@ -341,7 +380,7 @@ function gatherTopic(mod, meta, ctx) {
     isRecap,
     id,
     title: mod.title,
-    short: shortName(mod.title),
+    short: shortName(mod.title, 38, { tidy: ctx.combined }),
     level: meta.level ?? feature?.level ?? null,
     productId,
     handsOnMinutes: Number(meta.minutes) || Number(feature?.minutes) || null,
@@ -367,6 +406,10 @@ function gatherTopic(mod, meta, ctx) {
     featureLabel: mod.stepLabel,
     fileBaseName: `${TRAINING_DECK_PREFIX} - ${formatModuleBaseName(mod.order, mod.isRecap ? `Recap - ${mod.title}` : mod.title)}`,
     feature,
+    // A lab that covers two harnesses: which part this topic sits in and which harness it is written for (null when shared).
+    ...(ctx.combined
+      ? { harnessPart: meta.harnessPart || null, harness: meta.harness ?? null, harnessScope: meta.harnessScope || null, hasBrief: Boolean(brief), baseMinutes: minutes }
+      : {}),
   };
 }
 
@@ -376,15 +419,49 @@ function foundationsFileBase(productId) {
 }
 
 /**
+ * The parts of a lab that covers two harnesses, as the training sees them. Every topic is marked with the earlier topic
+ * that already taught its idea (`coveredEarlier`), and its minutes drop to a short deck when one did, so each idea is
+ * taught once and the minutes equal the slides of the combined deck. Mutates `topics`.
+ */
+function planCombinedParts(topics, order) {
+  const covered = coverConceptMinutes(topics.map((t) => ({ conceptId: t.conceptId, hasBrief: t.hasBrief, minutes: t.baseMinutes })));
+  topics.forEach((topic, index) => {
+    const prior = covered[index].prior === null ? null : topics[covered[index].prior];
+    topic.minutes = covered[index].minutes;
+    topic.coveredEarlier = prior
+      ? { order: prior.order, title: prior.title, short: prior.short, harness: prior.harness, part: prior.harnessPart, stepLabel: prior.stepLabel, conceptId: topic.conceptId }
+      : null;
+  });
+  const parts = [];
+  for (const topic of topics) {
+    const id = topic.harnessPart || (topic.harness ? topic.harness : SHARED_PART);
+    let part = parts.find((p) => p.id === id);
+    if (!part) {
+      part = { id, label: partLabel(id), harness: id === SHARED_PART || id === SHARED_LATE_PART ? null : id, topicOrders: [], minutes: 0, handsOnMinutes: 0 };
+      parts.push(part);
+    }
+    part.topicOrders.push(topic.order);
+    part.minutes += topic.minutes;
+    part.handsOnMinutes += topic.handsOnMinutes || 0;
+  }
+  parts.forEach((part, i) => {
+    part.n = i + 1;
+  });
+  return { order: [...order], parts };
+}
+
+/**
  * Plan every training deck for a lab.
  * @param {{markdown: string, manifest?: object, labId?: string, outputDir?: string, library?: object}} input
  */
 export function buildTrainingPlan({ markdown, manifest = {}, labId = "", outputDir = "", library = loadTrainingLibrary() } = {}) {
   const split = splitGeneratedLabModules(markdown, manifest, { labId, outputDir });
-  const harness = manifest?.request?.harness || manifest?.differences?.labHarness || null;
+  const combinedOrder = isCombinedHarnessMode(manifest) ? combinedHarnessOrder(manifest) : [];
+  const isCombined = combinedOrder.length === 2;
+  const harness = isCombined ? null : manifest?.request?.harness || manifest?.differences?.labHarness || null;
   const manifestModules = Array.isArray(manifest?.modules) ? manifest.modules : [];
   const declared = Array.isArray(manifest?.products) && manifest.products.length ? manifest.products : [manifest?.product || DEFAULT_PRODUCT];
-  const ctx = { harness, library, productIds: declared };
+  const ctx = { harness, library, productIds: declared, combined: isCombined, order: combinedOrder };
 
   const topics = split.modules.map((mod, idx) => {
     const meta = manifestModules.find((m) => Number(m.order) === Number(mod.order)) || manifestModules[idx] || {};
@@ -394,6 +471,7 @@ export function buildTrainingPlan({ markdown, manifest = {}, labId = "", outputD
     topic.prereqNames = buildsOn(topic.feature, topics, topic);
     topic.prereqConceptIds = prerequisiteConcepts(topic.feature, topic, topics, library);
   }
+  const combined = isCombined ? planCombinedParts(topics, combinedOrder) : null;
 
   // Foundations for every product that has a topic, in the lab's product order; one product still gets its deck.
   const used = [...new Set(topics.map((t) => t.productId))];
@@ -421,6 +499,8 @@ export function buildTrainingPlan({ markdown, manifest = {}, labId = "", outputD
     labTitle,
     harness,
     harnessName: getHarnesses().find((h) => h.id === harness)?.name || null,
+    // A lab that covers two harnesses: their order, and the parts the topics sit in (null for every other lab).
+    combined,
     scenario: resolveScenario(manifest),
     productIds,
     foundations,
@@ -451,6 +531,10 @@ export function planFingerprint(plan, manifestModules = []) {
     topics: plan.topics.map((t) => [t.order, t.id, t.title, t.stepLabel, t.level, t.handsOnMinutes, t.conceptId, t.summary, t.whyItMatters, t.concepts, t.validation, t.facts, t.limits, t.cautions, t.learnTakeaways, t.docUrls, t.unreviewed, t.availability.text, t.prereqNames, t.prereqConceptIds, learnRecord(t)]),
     foundations: plan.foundations.map((f) => [f.productId, f.minutes, f.thin]),
   };
+  // A lab that covers two harnesses adds its own record, so only those decks rebuild when the combined layout changes.
+  if (plan.combined) {
+    body.combined = [TRAINING_COMBINED_VERSION, plan.combined.order, plan.topics.map((t) => [t.order, t.harnessPart, t.harness, t.coveredEarlier?.order ?? null, t.minutes])];
+  }
   return crypto.createHash("sha1").update(JSON.stringify(body)).digest("hex").slice(0, 16);
 }
 

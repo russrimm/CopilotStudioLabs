@@ -15,16 +15,18 @@
  */
 
 import { findTermsInText, loadTrainingLibrary } from "./training-library.js";
-import { isConceptSentence } from "./training-guard.js";
-import { TRAINING_MINUTES, briefFor, describeFeature, helpLine, toYouWill } from "./training-plan.js";
+import { findLabStepLeaks, isConceptSentence } from "./training-guard.js";
+import { TRAINING_MINUTES, briefFor, describeFeature, helpLine, shortName, toYouWill } from "./training-plan.js";
 import { getConcepts } from "./concepts.js";
+import { availabilityLabel, getDifference } from "./differences.js";
+import { SHARED_LATE_PART, SHARED_NOTE, SHARED_PART, harnessShortName, harnessTitle, partLabel } from "./harness-parts.js";
 import { getProduct } from "./products.js";
 import { endWithPeriod, firstSentence, fleschKincaid, lowerFirst, plainText, splitSentences, wholeSentences } from "./training-text.js";
 
 /** Relative weight of each slide kind when a deck's minutes are shared out among its slides. */
 const WEIGHTS = {
   title: 1, scenario: 3, definition: 3, needToKnow: 3, blocks: 3, flow: 4, example: 3, fit: 2, know: 2, terms: 2, quiz: 3, labPreview: 1, learn: 1,
-  what: 2, fitHub: 3, vocab: 3, where: 2, day: 2, adds: 3, divider: 0, agenda: 1, closing: 1,
+  what: 2, fitHub: 3, vocab: 3, where: 2, day: 2, adds: 3, divider: 0, agenda: 1, closing: 1, compare: 3,
 };
 
 /** Share `total` minutes across slides by weight (largest remainder), at least one minute for any slide with weight. */
@@ -179,6 +181,49 @@ function tag(prefix, name) {
 }
 
 /**
+ * "Same idea, different place": one side-by-side slide for a concept that both harnesses of a combined lab teach in
+ * their own way. The words come from the curated harness-differences record (checked against Microsoft Learn, with its
+ * sources and date), never from anywhere else, and a field that reads like a lab step is left off. Returns null when the
+ * topic has no earlier counterpart in the other harness or the record does not describe both sides.
+ */
+export function buildCompareSlide(plan, topic) {
+  const earlier = topic.coveredEarlier;
+  if (!plan.combined || !earlier?.harness || !topic.harness || earlier.harness === topic.harness || !topic.conceptId) return null;
+  const record = getDifference(topic.conceptId);
+  const order = [earlier.harness, topic.harness];
+  const sides = order.map((h) => record?.harnesses?.[h]);
+  if (!record || sides.some((s) => !s)) return null;
+  const clean = (text) => {
+    const sentence = endWithPeriod(plainText(text));
+    return sentence && findLabStepLeaks(sentence).length === 0 ? sentence : "";
+  };
+  const columns = order.map((h, i) => ({
+    harness: h,
+    name: harnessShortName(h),
+    term: plainText(sides[i].term),
+    summary: clean(wholeSentences(sides[i].summary, 200, 2) || firstSentence(sides[i].summary, 200)),
+    where: clean(firstSentence(sides[i].where || "", 100)),
+    availability: availabilityLabel(sides[i].availability),
+    limits: (sides[i].limits || []).map((l) => clean(wholeSentences(l, 170, 1) || firstSentence(l, 170))).filter(Boolean).slice(0, 1),
+  }));
+  const concept = getConcepts().find((c) => c.id === topic.conceptId);
+  const conceptName = concept?.name || topic.conceptName || topic.short;
+  const texts = columns.flatMap((c) => [c.name, c.term, c.summary, c.where, c.availability, ...c.limits]).filter(Boolean);
+  return {
+    kind: "compare",
+    id: "compare",
+    title: `Same idea, different place: ${shortName(conceptName, 28, { tidy: true })}`,
+    eyebrow: "TWO HARNESSES",
+    body: { intro: "The goal is the same. The name, the place, and the limits can differ.", concept: conceptName, columns },
+    alt: `Two columns compare ${conceptName}: ${columns.map((c) => `${c.name} calls it ${c.term}`).join("; ")}.`,
+    texts,
+    sources: (record.sources || []).slice(0, 3).map((s) => ({ title: plainText(s.title), url: s.url })),
+    checkedOn: record.lastVerified,
+    uncertainNote: record.confidence !== "documented" ? plainText(record.uncertainNote || "") : "",
+  };
+}
+
+/**
  * Build the slides of one topic deck.
  *
  * @param {object} plan   from buildTrainingPlan
@@ -187,7 +232,7 @@ function tag(prefix, name) {
  *   `defined` and `introduced` are shared across a combined deck so nothing is explained twice. A standalone deck
  *   starts with both empty.
  */
-export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), defined = new Set(), introduced = new Map(), complete = false } = {}) {
+export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), defined = new Set(), introduced = new Map(), complete = false, combined = false, pointer = "section", shownNeeds = null, compared = null } = {}) {
   const glossary = new Glossary(library, defined);
   const brief = briefFor(topic, library);
   const scenario = plan.scenario;
@@ -199,6 +244,10 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
   const slides = [];
   const total = topic.thin ? TRAINING_MINUTES.short : topic.minutes;
   const priorConcept = topic.conceptId && introduced.has(topic.conceptId) ? introduced.get(topic.conceptId) : null;
+  // A lab that covers two harnesses: an idea an earlier topic taught is not explained again, and the side-by-side
+  // comparison of an idea is shown once, on the first topic of the second harness that has it.
+  const compareSlide = combined && priorConcept && !compared?.has(topic.conceptId) ? buildCompareSlide(plan, topic) : null;
+  if (compareSlide) compared?.add(topic.conceptId);
 
   const add = (slide) => {
     slides.push({ ...slide, texts: slide.texts || [] });
@@ -208,6 +257,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
   const featureLine = describeFeature(name, topic.summary);
   const levelText = topic.level ? `Level ${topic.level}` : "";
   const kindLabel = topic.isRecap ? "Refresher" : "Topic";
+  const harnessTag = combined && plan.combined ? (topic.harness ? harnessShortName(topic.harness) : SHARED_NOTE) : "";
 
   // ── Title with the three outcomes ────────────────────────────────────────
   const blockLabels = (brief?.blocks || []).slice(0, 4).map((b) => b.label.toLowerCase());
@@ -223,7 +273,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
     id: "title",
     title: name,
     eyebrow: `${topic.isRecap ? "REFRESHER" : "TRAINING"} · ${(getProduct(topic.productId)?.shortName || "").toUpperCase()}`.replace(/ · $/, ""),
-    body: { subtitle: plan.labTitle, tags: [kindLabel, levelText, `about ${total} minutes`].filter(Boolean), outcomesHeading: "In this session you will learn", outcomes },
+    body: { subtitle: plan.labTitle, tags: [kindLabel, levelText, harnessTag, `about ${total} minutes`].filter(Boolean), outcomesHeading: "In this session you will learn", outcomes },
     texts: [name, plan.labTitle, ...outcomes],
   });
 
@@ -256,7 +306,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
     helpsItems,
     context: contextLine,
   };
-  if (!topic.thin) {
+  if (!topic.thin && !(combined && priorConcept)) {
     add({ kind: "scenario", id: "why", title: tag("Why it matters", short), eyebrow: "WHY IT MATTERS", body: whyBody, texts: [situation, whyBody.helps, whyBody.context] });
   }
 
@@ -272,7 +322,10 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
     pictureAlt: `Simple picture of three boxes joined by arrows: a request comes in, ${short} does its work, and a result goes out.`,
     learnOnly: topic.thin,
   };
-  if (priorConcept && complete) {
+  if (priorConcept && complete && compareSlide) {
+    // Both harnesses have their own version of this idea: one side-by-side slide says what is different.
+    add(compareSlide);
+  } else if (priorConcept && complete) {
     // The idea behind this topic was explained earlier in the combined deck: point back, do not say it again.
     const addsItems = [!topic.thin && brief?.whenToUse?.[0] ? helpLine(name, brief.whenToUse[0]) : featureLine, ...slideSentences(topic.concepts.join(" "), { limit: 3, maxWords: 24 })].filter(Boolean).slice(0, 4);
     add({
@@ -281,7 +334,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
       title: tag("What this adds", short),
       eyebrow: "BUILDING ON",
       body: {
-        recall: `This builds on the idea from ${priorConcept}. If you need a reminder, go back to that section.`,
+        recall: `This builds on the idea from ${priorConcept}. If you need a reminder, go back to that ${pointer}.`,
         heading: `What ${short} adds`,
         items: addsItems,
       },
@@ -303,6 +356,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
   let needItems = [];
   for (const conceptId of topic.prereqConceptIds || []) {
     if (introduced.has(conceptId) && complete) continue;
+    if (shownNeeds?.has(conceptId)) continue;
     const b = library.concepts[conceptId];
     if (!b?.needToKnow) continue;
     const label = getConcepts().find((c) => c.id === conceptId)?.name || conceptId;
@@ -321,6 +375,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
   }
   if (needItems.length && !topic.thin) {
     for (const item of needItems) for (const termId of library.concepts[item.conceptId]?.terms || []) listed.add(termId);
+    for (const item of needItems) shownNeeds?.add(item.conceptId);
     add({
       kind: "needToKnow",
       id: "need",
@@ -421,6 +476,8 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
       title: tag("Check your understanding", short),
       eyebrow: "CHECK YOUR UNDERSTANDING",
       body: { questions: questions.map((q) => ({ q: q.q, options: q.options })) },
+      // A combined deck pools every topic's questions, with their answers, into one check, so those slides keep them.
+      ...(combined ? { quiz: questions } : {}),
       texts: questions.flatMap((q) => [q.q, ...q.options]),
     });
   }
@@ -510,6 +567,16 @@ function notesFor(slide, c, index, count) {
   const say = (text) => lines.push(`SAY: ${text}`);
   const ask = (text) => lines.push(`ASK THE ROOM: ${text}`);
   switch (slide.kind) {
+    case "compare": {
+      const [first, second] = slide.body.columns;
+      say(`${slide.body.intro} We covered ${slide.body.concept} in the ${first.name} part. Now look at the ${second.name} side by side.`);
+      for (const col of slide.body.columns) say(`${col.name}: it is called "${col.term}". ${col.summary}${col.where ? ` Where to find it: ${col.where}` : ""} Availability: ${col.availability}.`);
+      for (const source of slide.sources || []) lines.push(`SOURCE: ${source.title}, ${source.url}`);
+      if (slide.checkedOn) lines.push(`SOURCE CHECKED: ${slide.checkedOn}, against Microsoft Learn.`);
+      if (slide.uncertainNote) lines.push(`PRESENTER CHECK: ${slide.uncertainNote} If someone asks, say Microsoft Learn does not confirm it, and do not guess.`);
+      ask(`What stays the same between the two? What would you have to relearn?`);
+      break;
+    }
     case "title":
       say(`Welcome, everyone. In this short session we look at ${name}. You do not need any background. We start at the beginning and use everyday words.`);
       say(`By the end you will be able to do three things. ${c.outcomes.map((o, i) => `${["First", "Second", "Third"][i]}, ${lowerFirst(o)}.`).join(" ")}`);
@@ -688,7 +755,12 @@ export function buildFoundationsDeck(plan, foundation, { library = loadTrainingL
     }
   }
 
-  const harnessLine = plan.harnessName && foundation.productId === "copilot-studio" ? `In this lab you build on the ${plan.harnessName}.` : "";
+  const harnessLine =
+    plan.combined && foundation.productId === "copilot-studio"
+      ? `In this lab you cover both harnesses, one after another: ${plan.combined.order.map((id) => harnessShortName(id)).join(", then ")}. Ideas that are the same in both come first and are taught once.`
+      : plan.harnessName && foundation.productId === "copilot-studio"
+        ? `In this lab you build on the ${plan.harnessName}.`
+        : "";
   const where = brief?.whereYouWork ? endWithPeriod(brief.whereYouWork) : "";
   if (where || harnessLine) {
     slides.push({
@@ -702,7 +774,7 @@ export function buildFoundationsDeck(plan, foundation, { library = loadTrainingL
   }
 
   if (!complete) {
-    const rows = topics.map((t) => ({ label: `${t.stepLabel}: ${t.title}`, training: t.minutes, handsOn: t.handsOnMinutes }));
+    const rows = topics.map((t) => ({ label: plan.combined ? `${t.stepLabel}: ${t.short}` : `${t.stepLabel}: ${t.title}`, training: t.minutes, handsOn: t.handsOnMinutes }));
     slides.push({
       kind: "day",
       id: "day",
@@ -812,6 +884,7 @@ function foundationNotes(slide, c, index, count) {
  * Terms and ideas are explained once: later sections point back instead of repeating.
  */
 export function buildCompleteDeck(plan, { library = loadTrainingLibrary() } = {}) {
+  if (plan.combined) return buildCombinedCompleteDeck(plan, { library });
   const defined = new Set();
   const introduced = new Map();
   const sections = [];
@@ -919,6 +992,347 @@ export function buildCompleteDeck(plan, { library = loadTrainingLibrary() } = {}
     slides,
     termsDefined: [...defined],
   };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// The complete deck of a lab that covers two harnesses
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Slides every topic deck carries that a combined deck says once, at the end, for all of them. */
+const POOLED_KINDS = new Set(["quiz", "terms", "labPreview", "learn", "vocab"]);
+const POOLED_QUESTIONS = 8;
+const POOLED_TERM_SLIDES = 4;
+const POOLED_LINKS = 12;
+const WRAP_UP_NAME = "Check, key terms, and next steps";
+const FRAME_KINDS = new Set(["title", "agenda", "divider", "closing"]);
+
+/** Take items from each list in turn, so every list is represented before any gets a second item. */
+function roundRobin(lists, limit) {
+  const out = [];
+  for (let i = 0; out.length < limit && lists.some((l) => i < l.length); i += 1) {
+    for (const list of lists) if (i < list.length && out.length < limit) out.push(list[i]);
+  }
+  return out;
+}
+
+/** Slides a combined deck says once for every topic; their minutes are fixed, and the rest of the time goes to the topic slides. */
+const POOLED_SLIDE_KINDS = new Set(["quiz", "terms", "learn"]);
+
+/**
+ * Make the minutes of `slides` add up to `target` exactly. The topic slides take the difference one minute at a time:
+ * extra time goes to the slide that has the least time for its weight, and removed time comes from the one with the most.
+ */
+function fitMinutes(slides, target) {
+  let diff = target - slides.reduce((sum, s) => sum + (s.minutes || 0), 0);
+  const adjustable = slides.filter((s) => !FRAME_KINDS.has(s.kind) && !POOLED_SLIDE_KINDS.has(s.kind) && (WEIGHTS[s.kind] ?? 1) > 0);
+  const weightOf = (s) => WEIGHTS[s.kind] ?? 1;
+  for (let guard = 0; diff !== 0 && adjustable.length && guard < 5000; guard += 1) {
+    if (diff > 0) {
+      const next = adjustable.reduce((best, s) => ((s.minutes + 1) / weightOf(s) < (best.minutes + 1) / weightOf(best) ? s : best), adjustable[0]);
+      next.minutes += 1;
+      diff -= 1;
+    } else {
+      const candidates = adjustable.filter((s) => s.minutes > 1);
+      if (!candidates.length) break;
+      const next = candidates.reduce((best, s) => (s.minutes / weightOf(s) > best.minutes / weightOf(best) ? s : best), candidates[0]);
+      next.minutes -= 1;
+      diff += 1;
+    }
+  }
+}
+
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+const seriesTitle = (base, index, count) => (count > 1 ? `${base} (${index + 1} of ${count})` : base);
+
+/**
+ * One deck for a lab that covers two harnesses. Sections, in order: the shared foundations (the product foundations and
+ * every topic that is the same in both harnesses), the first harness, the second harness, and, only when a shared topic
+ * builds on a harness-specific one, a shared wrap-up. Each idea is taught once: where both harnesses have their own
+ * version, the second one opens with a "Same idea, different place" slide and says only what differs. The knowledge
+ * check, the key terms, the Learn links, and the preview of the lab are each one set at the end, built from every topic.
+ * The minutes equal the plan's training minutes and the sum of the slides; the opening, agenda, dividers, and closing
+ * slides take no time of their own.
+ */
+export function buildCombinedCompleteDeck(plan, { library = loadTrainingLibrary() } = {}) {
+  const defined = new Set();
+  const introduced = new Map();
+  const pooled = { questions: [], links: [] };
+  const seenQuestions = new Set();
+
+  // Take a topic or foundations deck apart: its own slides stay, the slides every deck repeats go into the pool.
+  const absorb = (deck) => {
+    const kept = [];
+    for (const slide of deck.slides) {
+      if (!POOLED_KINDS.has(slide.kind)) {
+        kept.push({ ...slide });
+        continue;
+      }
+      if (slide.kind === "quiz") {
+        const fresh = (slide.quiz || []).filter((q) => !seenQuestions.has(normalizeKey(q.q)));
+        fresh.forEach((q) => seenQuestions.add(normalizeKey(q.q)));
+        if (fresh.length) pooled.questions.push(fresh);
+      }
+      if (slide.kind === "learn") pooled.links.push(slide.body.links || []);
+    }
+    return kept;
+  };
+
+  const foundationSlides = [];
+  const vocabIds = [];
+  let foundationsThin = false;
+  for (const foundation of plan.foundations) {
+    const deck = buildFoundationsDeck(plan, foundation, { library, defined, complete: true });
+    foundationSlides.push(...absorb(deck));
+    if (deck.thin) foundationsThin = true;
+    // The shared vocabulary moves into the one key-terms set at the end. A word with no strip yet gets its strip where a
+    // topic first uses it, so nobody meets an unexplained word.
+    const stripped = new Set(deck.slides.flatMap((s) => s.words || []));
+    for (const slide of deck.slides) {
+      if (slide.kind !== "vocab") continue;
+      for (const id of slide.vocabIds || []) {
+        vocabIds.push(id);
+        if (!stripped.has(id)) defined.delete(id);
+      }
+    }
+  }
+
+  const shownNeeds = new Set();
+  const compared = new Set();
+  const topicByOrder = new Map(plan.topics.map((t) => [t.order, t]));
+  const sections = [];
+  const hasSharedPart = plan.combined.parts.some((p) => p.id === SHARED_PART);
+  if (!hasSharedPart && foundationSlides.length) {
+    sections.push({ type: "shared", partId: SHARED_PART, name: partLabel(SHARED_PART), harness: null, topicOrders: [], slides: foundationSlides, thin: foundationsThin, unreviewed: false });
+  }
+  for (const part of plan.combined.parts) {
+    const slides = part.id === SHARED_PART ? [...foundationSlides] : [];
+    let unreviewed = false;
+    let thin = part.id === SHARED_PART && foundationsThin;
+    for (const order of part.topicOrders) {
+      const topic = topicByOrder.get(order);
+      const deck = buildTopicDeck(plan, topic, { library, defined, introduced, complete: true, combined: true, shownNeeds, compared });
+      slides.push(...absorb(deck));
+      if (deck.thin) thin = true;
+      if (deck.unreviewed) unreviewed = true;
+    }
+    const type = part.id === SHARED_PART ? "shared" : part.id === SHARED_LATE_PART ? "wrap" : "harness";
+    sections.push({ type, partId: part.id, name: part.label, harness: part.harness, topicOrders: part.topicOrders, slides, thin, unreviewed });
+  }
+
+  // The licensing line is about the product, not the topic: it is said once, on the first "before you start" slide.
+  let licensingShown = false;
+  for (const section of sections) {
+    for (const slide of section.slides) {
+      if (slide.kind !== "know") continue;
+      const items = slide.body.items.filter((item) => {
+        if (item.label !== "Licensing") return true;
+        if (licensingShown) return false;
+        licensingShown = true;
+        return true;
+      });
+      slide.body = { ...slide.body, items };
+      slide.texts = items.flatMap((k) => [k.label, k.text]);
+    }
+  }
+
+  // Topics that share every fact on their "before you start" slide (for example, topics that only Microsoft Learn describes)
+  // share one slide: the first keeps it and its notes name the others.
+  const knowSeen = new Map();
+  for (const section of sections) {
+    section.slides = section.slides.filter((slide) => {
+      if (slide.kind !== "know") return true;
+      const key = normalizeKey(slide.body.items.map((item) => `${item.label}|${item.text}`).join("||"));
+      const first = knowSeen.get(key);
+      if (!first) {
+        knowSeen.set(key, slide);
+        return true;
+      }
+      first.notes = [...first.notes, `THE SAME FACTS APPLY TO: ${slide.title.split(": ").slice(1).join(": ")}.`];
+      return false;
+    });
+  }
+
+  // ── One knowledge check, one set of key terms, one set of Learn links, all from every topic ──
+  const picked = roundRobin(pooled.questions, POOLED_QUESTIONS);
+  const quizChunks = chunk(picked, 4);
+  const quizSlides = quizChunks.map((questions, i) => ({
+    kind: "quiz",
+    id: `quiz${i + 1}`,
+    title: seriesTitle("Check your understanding", i, quizChunks.length),
+    eyebrow: "CHECK YOUR UNDERSTANDING",
+    body: { questions: questions.map((q) => ({ q: q.q, options: q.options })) },
+    quiz: questions,
+    words: [],
+    texts: questions.flatMap((q) => [q.q, ...q.options]),
+    notes: [
+      "SAY: These questions are for the room, and they cover both harnesses. Read each one aloud, give people a moment, and then share the answer below. There are no grades.",
+      ...questions.map((q, n) => `ANSWER ${n + 1}: ${["A", "B", "C", "D"][q.answer]}, ${endWithPeriod(plainText(q.options[q.answer]).replace(/[.]+$/, ""))} ${plainText(q.why)}`),
+      "ASK THE ROOM: Which question was the hardest? Was it about one harness, or about the difference between them?",
+    ],
+  }));
+
+  const termIds = [...new Set([...vocabIds, ...defined])].filter((id) => library.terms[id]);
+  const termChunks = chunk(termIds, 6).slice(0, POOLED_TERM_SLIDES);
+  const termSlides = termChunks.map((ids, i) => ({
+    kind: "terms",
+    id: `terms${i + 1}`,
+    title: seriesTitle("Key terms", i, termChunks.length),
+    eyebrow: "KEY TERMS",
+    body: { items: ids.map((id) => ({ term: library.terms[id].term, plain: library.terms[id].plain })) },
+    words: [],
+    texts: [],
+    notes: [
+      "SAY: Here are the words from the whole session in one place. Read each one aloud and ask whether it makes sense.",
+      ...ids.map((id) => `SAY: ${library.terms[id].term}: ${library.terms[id].plain}.`),
+      "ASK THE ROOM: Which word was new to you today?",
+    ],
+  }));
+
+  const linkList = [];
+  for (const link of roundRobin(pooled.links, 400)) if (!linkList.some((l) => l.url === link.url)) linkList.push(link);
+  const linkChunks = chunk(linkList.slice(0, POOLED_LINKS), 4);
+  const learnSlides = linkChunks.map((links, i) => ({
+    kind: "learn",
+    id: `learn${i + 1}`,
+    title: seriesTitle("Learn more", i, linkChunks.length),
+    eyebrow: "LEARN MORE",
+    body: { links, intro: "These Microsoft Learn pages are the source for this session." },
+    words: [],
+    texts: [],
+    notes: [
+      "SAY: These pages are the official source. If something changes, Microsoft Learn is right and this deck is not.",
+      ...links.map((l) => `SOURCE: ${l.title}, ${l.url}`),
+    ],
+  }));
+
+  // Each pooled slide takes a fixed, short time (3 minutes for questions, 2 for terms, 1 for links); the time every deck
+  // would have spent on them goes back to the topic slides when the minutes are fitted below.
+  const pooledSlides = [...quizSlides, ...termSlides, ...learnSlides];
+  pooledSlides.forEach((slide) => {
+    slide.minutes = slide.kind === "quiz" ? 3 : slide.kind === "terms" ? 2 : 1;
+  });
+  if (pooledSlides.length) {
+    sections.push({ type: "wrap", partId: "wrap-up", name: WRAP_UP_NAME, harness: null, topicOrders: [], slides: pooledSlides, thin: false, unreviewed: false });
+  }
+
+  const content = sections.flatMap((s) => s.slides);
+  fitMinutes(content, plan.totalMinutes);
+  for (const section of sections) section.minutes = section.slides.reduce((sum, s) => sum + (s.minutes || 0), 0);
+  const totalMinutes = sections.reduce((sum, s) => sum + s.minutes, 0);
+  const hands = plan.handsOnMinutes;
+
+  // ── The frame: title, agenda, a divider for each section, and the closing slide ──
+  const harnessNames = plan.combined.order.map((id) => harnessShortName(id));
+  const noTime = ["TIME: under 1 minute."];
+  const titleSlide = {
+    kind: "title",
+    id: "title",
+    title: `Training deck: ${plan.labTitle}`,
+    eyebrow: "TRAINING · DELIVER FIRST",
+    body: {
+      subtitle: `${harnessNames.join(" and ")} in one session. No lab steps.`,
+      tags: [`${sections.length} parts`, `about ${totalMinutes} minutes`],
+      outcomesHeading: "Today",
+      outcomes: ["Learn the ideas and the words you will use", "See what is the same in both harnesses, and what is different", "Then do the hands-on lab with confidence"],
+    },
+    texts: ["Learn the ideas and the words you will use", "See what is the same in both harnesses, and what is different", "Then do the hands-on lab with confidence"],
+    minutes: 0,
+    notes: [
+      ...noTime,
+      `SAY: Welcome. This is the training session that comes before the hands-on lab for ${plan.labTitle}. Nobody needs any background. It covers two harnesses, ${harnessNames.join(" and ")}, one after the other. What is the same in both is taught once, up front. Then each harness has its own part, and only what differs is covered there.`,
+      `TOTAL: about ${minutesWord(totalMinutes)} for the whole session, with ${plan.topics.length} topic${plan.topics.length === 1 ? "" : "s"} in ${sections.length} parts. The hands-on lab is about ${minutesWord(hands)} after that.`,
+      "ASK THE ROOM: What do you hope to be able to do after the lab? Write two or three answers on a board.",
+    ],
+    words: [],
+  };
+
+  const agendaRows = sections.map((s, i) => ({ n: i + 1, label: s.name, minutes: s.minutes, flag: s.unreviewed ? "unreviewed" : "" }));
+  const agendaSlide = {
+    kind: "agenda",
+    id: "agenda1",
+    title: "Agenda: both harnesses",
+    eyebrow: "AGENDA",
+    body: { rows: agendaRows, totalMinutes, handsOnMinutes: hands, showTotal: true },
+    minutes: 0,
+    notes: [
+      ...noTime,
+      `SAY: Here is the plan. ${sections.length} parts, about ${minutesWord(totalMinutes)} in total. ${agendaRows.map((r) => `${r.label}: ${minutesWord(r.minutes)}`).join(". ")}.`,
+      "ASK THE ROOM: Is there a topic you most want to hear about? We will make sure to cover it.",
+      "TIP: Take a short break between the two harness parts if the total is longer than an hour.",
+    ],
+    words: [],
+    texts: [],
+  };
+
+  const dividerNotes = (section, i) => {
+    const titles = section.topicOrders.map((o) => topicByOrder.get(o)?.title).filter(Boolean);
+    const what =
+      section.type === "shared"
+        ? "These topics work the same in either harness, so we teach them once, here."
+        : section.type === "wrap"
+          ? "These topics are the same in either harness, but they build on something from a harness part above, so they come after both."
+          : section.type === "harness"
+            ? `This part covers only what applies to the ${harnessTitle(section.harness)}. Ideas that are the same in both harnesses are already covered, so you will not hear them again. Where both have their own version, a Same idea, different place slide shows them side by side.`
+            : "Now we check what we learned, collect the words, and look at where to read more.";
+    return [
+      "TIME: under 1 minute.",
+      `SAY: We are at part ${i + 1} of ${sections.length}: ${section.name}. This part takes about ${minutesWord(section.minutes)}. ${what}`,
+      ...(titles.length ? [`IN THIS PART: ${titles.join("; ")}.`] : []),
+      ...(section.thin ? ["REVIEW FIRST: Some of this part is short because Microsoft Learn does not give much to teach from. Read the Learn page before you present it."] : []),
+    ];
+  };
+
+  const slides = [titleSlide, agendaSlide];
+  sections.forEach((section, i) => {
+    slides.push({
+      kind: "divider",
+      id: `divider${i + 1}`,
+      title: `Part ${i + 1} of ${sections.length}: ${section.name}`,
+      eyebrow: "WHERE WE ARE",
+      body: { rows: agendaRows, current: i, minutes: section.minutes, totalMinutes },
+      minutes: 0,
+      notes: dividerNotes(section, i),
+      words: [],
+      texts: [],
+    });
+    for (const slide of section.slides) slides.push({ ...slide, section: i + 1 });
+  });
+
+  const labParts = plan.combined.parts.map((part) => ({ label: `${part.label}: ${part.topicOrders.length} topic${part.topicOrders.length === 1 ? "" : "s"}`, handsOn: part.handsOnMinutes }));
+  slides.push({
+    kind: "closing",
+    id: "closing",
+    title: "Next: the hands-on lab",
+    eyebrow: "WHAT HAPPENS NEXT",
+    body: { intro: `Now you do the lab. It takes about ${minutesWord(hands)}.`, rows: labParts, more: "" },
+    minutes: 0,
+    notes: [
+      ...noTime,
+      `SAY: That is the end of the training. Next you do the hands-on lab, which takes about ${minutesWord(hands)}. It follows the same parts, in the same order: ${labParts.map((r) => r.label).join("; ")}. You build one practice agent in each harness. The lab guide has every step, so use it.`,
+      "ASK THE ROOM: Any questions before we start? Write down anything you want to come back to.",
+    ],
+    words: [],
+    texts: [],
+  });
+
+  return {
+    kind: "complete",
+    combined: true,
+    title: `Training deck: ${plan.labTitle}`,
+    minutes: totalMinutes,
+    sections: sections.map((s, i) => ({ n: i + 1, name: s.name, minutes: s.minutes, type: s.type, part: s.partId, harness: s.harness, thin: Boolean(s.thin), unreviewed: Boolean(s.unreviewed), topicOrders: s.topicOrders })),
+    slides,
+    termsDefined: [...defined],
+  };
+}
+
+function normalizeKey(text) {
+  return String(text || "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 /** Every piece of text a presenter would read or show in a deck: titles, body texts, strips, and notes. */

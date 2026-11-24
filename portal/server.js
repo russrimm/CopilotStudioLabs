@@ -686,6 +686,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
         role: f.prerequisite ? "prerequisite" : "level",
         minutes: f.minutes,
         summary: f.summary,
+        ...(f.harnessPart ? { harnessPart: f.harnessPart } : {}),
         docUrls: f.docUrls || [],
         learnLinks: f.learnLinks || [],
         ...(f.learnTopic?.subtopicChoices?.length ? { subtopics: f.learnTopic.subtopicChoices } : {}),
@@ -694,6 +695,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
       products: plan.products,
       productNames: plan.productNames,
       harness: plan.harness,
+      ...(plan.harnessParts ? { harnessMode: plan.harnessMode, harnesses: plan.harnesses, harnessParts: plan.harnessParts } : {}),
       includeKnowledgeCheck: Boolean(plan.includeKnowledgeCheck),
       requiresSharepointSite: Boolean(plan.requiresSharepointSite),
       sharepointSite: plan.sharepointSite

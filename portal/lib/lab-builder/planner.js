@@ -16,6 +16,13 @@ import { expandPrereqs, getFeature, getFeatures, getHarnesses, orderFeatures, ge
 import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
+import {
+  COMBINED_HARNESS_MODE,
+  DEFAULT_COMBINED_ORDER,
+  describeHarnessParts,
+  harnessShortName,
+  partitionIntoHarnessParts,
+} from "./harness-parts.js";
 import { titleHeadline } from "./module-names.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics, getSubtopicIndex } from "./topic-store.js";
@@ -194,6 +201,26 @@ export function normalizeLabRequest(request = {}) {
     harness = harnesses[0];
   }
 
+  // "both" covers two harnesses one after another in one lab. It is a choice of its own, so a plain list of two harnesses
+  // (an older API or CLI call) keeps the meaning it always had.
+  let harnessMode;
+  if (request.harnessMode !== undefined && request.harnessMode !== null && request.harnessMode !== "") {
+    if (request.harnessMode !== COMBINED_HARNESS_MODE && request.harnessMode !== "single") {
+      throw new Error(`harnessMode must be "single" or "${COMBINED_HARNESS_MODE}".`);
+    }
+    harnessMode = request.harnessMode;
+  }
+  if (harnessMode === COMBINED_HARNESS_MODE) {
+    const pair = harnesses === undefined ? [...DEFAULT_COMBINED_ORDER] : harnesses;
+    if (pair.length !== 2) throw new Error("A lab that covers both harnesses needs exactly two harnesses, in the order to present them.");
+    const owners = new Set(pair.map((id) => getHarnesses().find((h) => h.id === id)?.product));
+    if (owners.size !== 1) throw new Error("A lab that covers two harnesses needs two harnesses of the same product.");
+    harnesses = pair;
+    harness = undefined;
+  } else {
+    harnessMode = undefined;
+  }
+
   // The products the lab covers. Omitted means the products of the selected topics, so older callers keep working.
   const knownProducts = getProducts();
   const topicProducts = [...new Set([...features, ...excluded].map((id) => productOf(getFeature(id))))];
@@ -215,11 +242,18 @@ export function normalizeLabRequest(request = {}) {
   if ((harness || harnesses?.length) && !products.some((id) => productHasHarnesses(id))) {
     harness = undefined;
     harnesses = undefined;
+    harnessMode = undefined;
     harnessDropped = true;
   }
   const harnessOwner = harness ? getHarnesses().find((h) => h.id === harness)?.product : null;
   if (harness && harnessOwner && !products.includes(harnessOwner)) {
     throw new Error(`The harness "${harness}" belongs to ${productName(harnessOwner)}, which is not selected.`);
+  }
+  if (harnessMode === COMBINED_HARNESS_MODE) {
+    const combinedOwner = getHarnesses().find((h) => h.id === harnesses[0])?.product;
+    if (combinedOwner && !products.includes(combinedOwner)) {
+      throw new Error(`The harnesses "${harnesses.join('" and "')}" belong to ${productName(combinedOwner)}, which is not selected.`);
+    }
   }
 
   const levels = levelList(request.levels, "levels");
@@ -241,6 +275,8 @@ export function normalizeLabRequest(request = {}) {
   } else if (harnesses && harnesses.length > 1) {
     differencesFor = harnesses.slice(1);
   }
+  // A lab that covers both harnesses teaches the other one itself, so it carries no "How this differs" notes.
+  if (harnessMode === COMBINED_HARNESS_MODE) differencesFor = [];
 
   const rawDepartments = stringList(request.departments, "departments", 50);
   const normalizedDepartments = rawDepartments.map((id) => DEPARTMENT_ALIASES[id] || id);
@@ -268,6 +304,7 @@ export function normalizeLabRequest(request = {}) {
     moduleOrder: moduleOrder.length ? moduleOrder : undefined,
     harness,
     harnesses,
+    harnessMode,
     harnessDropped,
     level,
     levels,
@@ -524,7 +561,8 @@ export function buildEstimate(features, targetMinutes) {
 function coreSeedIds(requested, harness, products) {
   const harnessesOf = (feature) => (feature?.harness?.length ? feature.harness : ["standard"]);
   const targets = new Set();
-  if (harness) targets.add(harness);
+  if (Array.isArray(harness)) harness.forEach((id) => targets.add(id));
+  else if (harness) targets.add(harness);
   else {
     for (const id of requested) {
       const tags = harnessesOf(getFeature(id));
@@ -552,6 +590,7 @@ function coreSeedIds(requested, harness, products) {
 export function planLab(request = {}) {
   request = normalizeLabRequest(request);
   const warnings = [];
+  const combined = request.harnessMode === COMBINED_HARNESS_MODE;
 
   const industries = getIndustries();
   const roleCatalog = getRoles();
@@ -612,7 +651,7 @@ export function planLab(request = {}) {
       ? requested
       : [
           ...new Set([
-            ...coreSeedIds(requested, request.harness, request.products).filter(
+            ...coreSeedIds(requested, combined ? request.harnesses : request.harness, request.products).filter(
               (id) => !allowedLevels || allowedLevels.some((lvl) => atLevel(getFeature(id), lvl)),
             ),
             ...requested,
@@ -722,12 +761,27 @@ export function planLab(request = {}) {
   const defaultOrdered = minRequestedLevel
     ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))]
     : topological;
-  const ordered = request.moduleOrder?.length
+  const orderedBase = request.moduleOrder?.length
     ? applyModuleOrder(defaultOrdered, request.moduleOrder)
     : defaultOrdered;
-  if (request.moduleOrder?.length) {
-    warnings.push(...collectModuleOrderPrereqWarnings(ordered, { harness: request.harness }));
+  // A lab that covers two harnesses puts each module in one part (shared, first harness, second harness) and never repeats one.
+  const harnessPartition = combined ? partitionIntoHarnessParts(orderedBase, request.harnesses) : null;
+  if (harnessPartition?.dropped.length) {
+    const outside = harnessPartition.dropped.filter((id) => requested.includes(id)).map((id) => getFeature(id).name);
+    if (outside.length) {
+      warnings.push(
+        `${outside.length} selected topic(s) apply to neither ${request.harnesses.map((id) => harnessShortName(id)).join(" nor ")} and were not built: ${outside.join(", ")}.`,
+      );
+    }
+    if (!harnessPartition.ids.length) {
+      throw new Error("None of the selected topics apply to the two harnesses chosen. Choose at least one topic for either harness.");
+    }
   }
+  const ordered = harnessPartition ? harnessPartition.ids : orderedBase;
+  if (request.moduleOrder?.length || combined) {
+    warnings.push(...collectModuleOrderPrereqWarnings(ordered, { harness: combined ? request.harnesses[0] : request.harness }));
+  }
+  const partOfModule = new Map((harnessPartition?.parts || []).flatMap((part) => part.ids.map((id) => [id, part.id])));
 
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
@@ -735,7 +789,7 @@ export function planLab(request = {}) {
   if (request.harnessDropped) {
     warnings.push("A harness was ignored because none of the selected products has harnesses.");
   }
-  if (harnessesUsed.size > 1 && !request.harness) {
+  if (harnessesUsed.size > 1 && !request.harness && !combined) {
     const names = [...harnessesUsed].map((id) => getHarnesses().find((h) => h.id === id)?.name || id);
     warnings.push(
       `This lab mixes ${names.join(" and ")} modules. Their steps follow different authoring surfaces, so consider building one lab per harness.`,
@@ -747,10 +801,12 @@ export function planLab(request = {}) {
     ordered.map((id) => {
       const feature = getFeature(id, { excludedSubtopics: request.excludedSubtopics });
       const learnLinks = extractFeatureLearnLinks(feature);
-      if (!isRecap(id)) return { ...feature, learnLinks };
+      const placed = partOfModule.has(id) ? { harnessPart: partOfModule.get(id) } : {};
+      if (!isRecap(id)) return { ...feature, learnLinks, ...placed };
       return {
         ...feature,
         learnLinks,
+        ...placed,
         prerequisite: true,
         fullMinutes: feature.minutes,
         minutes: Math.min(feature.minutes, PREREQ_RECAP_MINUTES),
@@ -775,8 +831,10 @@ export function planLab(request = {}) {
   const harnessVotes = new Map();
   for (const f of features) if (f.harness?.length === 1) harnessVotes.set(f.harness[0], (harnessVotes.get(f.harness[0]) || 0) + 1);
   const hasHarnessProduct = planProducts.some((id) => productHasHarnesses(id));
-  const labHarness = hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
+  // A combined lab has no single harness: each module says which one it belongs to.
+  const labHarness = combined ? null : hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
   const differencesFor = labHarness ? (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness) : [];
+  const harnessParts = harnessPartition ? describeHarnessParts(harnessPartition.parts, features, request.harnesses) : null;
   const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
   const deliverableMode = resolveDeliverableMode(planProducts, features);
   const profile = composeScenarioProfile(
@@ -831,6 +889,7 @@ export function planLab(request = {}) {
       ...(request.excludedSubtopics.length ? { excludedSubtopics: request.excludedSubtopics } : {}),
       moduleOrder: request.moduleOrder ? request.moduleOrder.filter((id) => ordered.includes(id)) : [],
       harness: request.harness || null,
+      ...(combined ? { harnessMode: COMBINED_HARNESS_MODE, harnesses: [...request.harnesses] } : {}),
       level: request.level || null,
       droppedOutOfLevel,
       differencesFor: request.differencesFor ?? null,
@@ -865,6 +924,7 @@ export function planLab(request = {}) {
     assumedPrereqs,
     prerequisites: features.filter((f) => f.prerequisite).map((f) => f.id),
     harness: labHarness,
+    ...(combined ? { harnessMode: COMBINED_HARNESS_MODE, harnesses: [...request.harnesses], harnessParts } : {}),
     products: planProducts,
     productNames: planProducts.map((id) => productName(id)),
     differencesFor,
@@ -951,6 +1011,13 @@ export function dropModules(plan, ids, reason = "removed") {
     features: plan.features,
   });
   plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];
+  if (plan.harnessParts) {
+    const keptIds = new Set(plan.features.map((feature) => feature.id));
+    const remaining = plan.harnessParts.parts
+      .map((part) => ({ id: part.id, harness: part.harness, label: part.label, ids: part.moduleIds.filter((id) => keptIds.has(id)) }))
+      .filter((part) => part.ids.length);
+    plan.harnessParts = describeHarnessParts(remaining, plan.features, plan.harnessParts.order);
+  }
   plan.tags = [
     ...new Set([
       ...plan.categories,

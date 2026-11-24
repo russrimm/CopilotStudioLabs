@@ -26,6 +26,7 @@ import { learnerGuideMarkdown } from "./learner-guide.js";
 import { PRODUCT_NAME } from "../product-name.js";
 import { normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 import { fitHeading, fitSingleLine, linesHeightEmu, paragraphsHeightEmu } from "./pptx-text-fit.js";
+import { moduleReadingHarness } from "./harness-parts.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -4271,10 +4272,7 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
         estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
         products: productsText,
         agentName: options.manifest?.agentName || options.manifest?.options?.agentName || "",
-        harness:
-          options.manifest?.request?.harness ||
-          options.manifest?.differences?.labHarness ||
-          null,
+        harness: moduleReadingHarness(options.manifest, mMeta),
         trainingDigest: mMeta.trainingDigest || null,
         manifest: options.manifest || null,
       };

@@ -25,7 +25,7 @@ export const LOCAL_OWNER = "local";
 const CLAIM_FILE = ".claimed.json";
 
 /** The version written into every file. Bump it, and add a step to MIGRATIONS, when the saved shape changes. */
-export const DRAFT_SCHEMA_VERSION = 2;
+export const DRAFT_SCHEMA_VERSION = 3;
 export const MAX_DRAFTS = 50;
 export const MAX_DRAFT_BYTES = 256 * 1024;
 export const MAX_NAME_LENGTH = 80;
@@ -76,8 +76,22 @@ function migrateV1ToV2(record) {
   return { ...record, content: { ...record.content, wizard: next } };
 }
 
+/** The two harnesses a draft covers when it says "both" and names none: Standard first, then Microsoft Copilot. */
+const DEFAULT_HARNESS_ORDER = Object.freeze(["standard", "microsoft-copilot"]);
+
+/**
+ * Version 3 adds "Both, one after another": `selections.harnessMode` ("single" or "both") and `selections.harnesses`
+ * (the two harnesses, in the order they are taught). A version 2 draft was always a single-harness draft, so it gets
+ * the defaults, and its other choices are untouched.
+ */
+function migrateV2ToV3(record) {
+  const selections = record?.content?.selections;
+  if (!selections || typeof selections !== "object" || Array.isArray(selections)) return record;
+  return { ...record, content: { ...record.content, selections: { harnessMode: "single", harnesses: [...DEFAULT_HARNESS_ORDER], ...selections } } };
+}
+
 /** Steps that upgrade a file saved by an older version, keyed by the version they upgrade from. */
-const MIGRATIONS = Object.freeze({ 1: migrateV1ToV2 });
+const MIGRATIONS = Object.freeze({ 1: migrateV1ToV2, 2: migrateV2ToV3 });
 
 export function isDraftId(value) {
   return typeof value === "string" && DRAFT_ID.test(value);
@@ -155,6 +169,15 @@ function flag(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+/** "Both, one after another": the mode, and the two harnesses in teaching order. A draft that says nothing is a single-harness draft. */
+function harnessChoice(sel) {
+  const mode = sel.harnessMode === undefined || sel.harnessMode === null ? "single" : sel.harnessMode;
+  if (mode !== "single" && mode !== "both") throw new DraftError("The harness choice in this draft is not valid, so it was not saved.");
+  const order = sel.harnesses === undefined || sel.harnesses === null ? [...DEFAULT_HARNESS_ORDER] : idList(sel.harnesses, "harnesses");
+  if (order.length !== 2) throw new DraftError("The two harnesses in this draft are not a pair, so it was not saved.");
+  return { harnessMode: mode, harnesses: order };
+}
+
 /**
  * Check and clean what the wizard sent. Unknown fields are left out; a field that is the wrong kind of value is
  * refused with a plain message instead of being repaired, so a bug in the page can never quietly change a draft.
@@ -183,6 +206,7 @@ export function normalizeDraftContent(raw) {
     roles: idList(sel.roles, "departments"),
     level: sel.level ?? null,
     harness: optionalId(sel.harness, "harness"),
+    ...harnessChoice(sel),
     differencesFor: sel.differencesFor === undefined || sel.differencesFor === null ? null : idList(sel.differencesFor, "harness comparisons"),
     features: idList(sel.features, "topics"),
     excluded: idList(sel.excluded, "left-out topics"),
@@ -251,6 +275,7 @@ function summarize(record) {
     industry: sel.industry || null,
     level: sel.level ?? null,
     harness: sel.harness || null,
+    ...(sel.harnessMode === "both" ? { harnessMode: "both", harnesses: sel.harnesses } : {}),
     step: record.content?.wizard?.step || 1,
     topicCount: (sel.features || []).length,
   };

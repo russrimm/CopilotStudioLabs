@@ -18,6 +18,7 @@
 
 import { getFeature, getHarnesses } from "./catalog.js";
 import { resolveConnector } from "./connector-names.js";
+import { combinedHarnessOrder, harnessShortName, harnessTitle, isCombinedHarnessMode } from "./harness-parts.js";
 import { DEFAULT_PRODUCT, productOf, productsPhrase } from "./products.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
@@ -82,11 +83,14 @@ function normalizeModules(input = {}) {
 }
 
 function stepLabel(mod) {
-  if (mod.stepLabel) return `${mod.stepLabel} - ${mod.name}`;
+  // A lab that covers two harnesses says which harness a module belongs to, so "Required by" never leaves it unclear.
+  // (A plan's feature carries its catalog tags in `harness`, so the part is what says where it sits.)
+  const where = mod.harnessPart ? ` · ${["shared", "shared-late"].includes(mod.harnessPart) ? "Either harness" : harnessShortName(mod.harnessPart)}` : "";
+  if (mod.stepLabel) return `${mod.stepLabel} - ${mod.name}${where}`;
   if (mod.prerequisite || mod.role === "prerequisite") {
-    return `Recap ${mod.recapOrder ?? mod.order} - ${mod.name}`;
+    return `Recap ${mod.recapOrder ?? mod.order} - ${mod.name}${where}`;
   }
-  return `Step ${mod.stepOrder ?? mod.order} - ${mod.name}`;
+  return `Step ${mod.stepOrder ?? mod.order} - ${mod.name}${where}`;
 }
 
 function uniqueLabels(mods) {
@@ -125,12 +129,19 @@ export function buildAdminPrerequisites(input = {}) {
     [...new Set(modules.map((m) => m.product).filter(Boolean))];
   const products = rawProducts.length ? rawProducts : [DEFAULT_PRODUCT];
 
-  const harness =
-    input.harness ||
-    input.request?.harness ||
-    input.manifest?.request?.harness ||
-    input.manifest?.differences?.labHarness ||
-    (products.includes("copilot-studio") ? "standard" : null);
+  // A lab that covers two harnesses has no single harness: its checks apply when either one is used.
+  const combinedSource = [input, input.manifest, input.request, input.manifest?.request].find((s) => isCombinedHarnessMode(s));
+  const combinedOrder =
+    Array.isArray(input.harnesses) && input.harnesses.length === 2 ? input.harnesses : combinedSource ? combinedHarnessOrder(combinedSource) : [];
+  const harness = combinedOrder.length
+    ? null
+    : input.harness ||
+      input.request?.harness ||
+      input.manifest?.request?.harness ||
+      input.manifest?.differences?.labHarness ||
+      (products.includes("copilot-studio") ? "standard" : null);
+  const harnessList = combinedOrder.length ? combinedOrder : harness ? [harness] : [];
+  const usesHarness = (id) => harnessList.includes(id);
 
   const harnessInfo = harness ? getHarnesses().find((h) => h.id === harness) : null;
 
@@ -265,7 +276,7 @@ export function buildAdminPrerequisites(input = {}) {
         "ppai-use-prompt-in-flow-and-app",
         "ppai-human-review-prompt-output",
       ]) ||
-      harness === "microsoft-copilot" ||
+      usesHarness("microsoft-copilot") ||
       /\bteams|outlook|email\b/i.test(m.name),
   );
   addConnector(
@@ -982,7 +993,7 @@ export function buildAdminPrerequisites(input = {}) {
   const voiceMods = matchModules(
     modules,
     (m) =>
-      harness === "customer-conversation" ||
+      usesHarness("customer-conversation") ||
       hasId(null, m, [
         "voice-agents",
         "cc-voice-dtmf-bargein",
@@ -1068,7 +1079,7 @@ export function buildAdminPrerequisites(input = {}) {
   const m365CopilotMods = matchModules(
     modules,
     (m) =>
-      harness === "microsoft-copilot" ||
+      usesHarness("microsoft-copilot") ||
       m.product === "m365-copilot-agent-builder" ||
       m.product === "m365-copilot-hub" ||
       hasId(null, m, [
@@ -1173,7 +1184,11 @@ export function buildAdminPrerequisites(input = {}) {
   );
 
   const productListText = productsPhrase(products);
-  const harnessText = harnessInfo?.name ? ` (${harnessInfo.name})` : "";
+  const harnessText = combinedOrder.length
+    ? ` (${combinedOrder.map((id) => harnessTitle(id)).join(" and ")}, with one practice agent in each)`
+    : harnessInfo?.name
+      ? ` (${harnessInfo.name})`
+      : "";
   const summary =
     `Complete this pre-flight checklist in a non-production environment before running the lab across ${productListText}${harnessText}: ` +
     `${connectors.length} connector/endpoint rule${connectors.length === 1 ? "" : "s"}, ` +
@@ -1186,6 +1201,8 @@ export function buildAdminPrerequisites(input = {}) {
     products,
     harness: harness || null,
     harnessName: harnessInfo?.name || null,
+    // A lab that covers two harnesses lists them in order; one checklist covers both, so no prerequisite appears twice.
+    ...(combinedOrder.length ? { harnesses: combinedOrder, harnessNames: combinedOrder.map((id) => harnessTitle(id)) } : {}),
     sharepointSite:
       (sharePointMods.length || hasSharePointProduct) && sharepointSite.configured
         ? {
