@@ -19,6 +19,7 @@ function itemCell(item) {
   lines.push(`*${cell(parts.stage)}${parts.condition ? ` \u00b7 ${cell(parts.condition)}` : ""}*`);
   parts.steps.forEach((step, i) => lines.push(`${i + 1}. ${cell(step)}`));
   if (parts.text) lines.push(`**${parts.whatLabel}:** ${cell(parts.text)}`);
+  if (parts.check) lines.push(`**How to check:** ${cell(parts.check)}`);
   if (parts.detail) lines.push(`**Details:** ${cell(parts.detail)}`);
   if (parts.endpoints) lines.push(cell(parts.endpoints));
   if (parts.why) lines.push(`**Why:** ${cell(parts.why)}`);

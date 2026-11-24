@@ -152,6 +152,17 @@ const LEARN = {
   vnet: { label: "Virtual Network support for Power Platform", url: "https://learn.microsoft.com/power-platform/admin/vnet-support-overview" },
   codeApps: { label: "Power Apps code apps overview", url: "https://learn.microsoft.com/power-apps/developer/code-apps/overview" },
   credits: { label: "Copilot Studio billing and licensing", url: "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing" },
+  aiBuilderRegion: { label: "Feature availability by region", url: "https://learn.microsoft.com/ai-builder/availability-region" },
+  promptRegion: { label: "Prompt model availability by region and updates", url: "https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-availability" },
+  aiBuilderAdmin: { label: "Administer AI Builder", url: "https://learn.microsoft.com/ai-builder/administer" },
+  aiBuilderBuild: { label: "Build a model in AI Builder", url: "https://learn.microsoft.com/ai-builder/build-model" },
+  createEnvironment: { label: "Create and manage environments in the Power Platform admin center", url: "https://learn.microsoft.com/power-platform/admin/create-environment" },
+  environmentRegion: { label: "Choose the region when setting up an environment", url: "https://learn.microsoft.com/power-platform/admin/regions-overview" },
+  aiBuilderSamples: { label: "Start using AI Builder with sample data", url: "https://learn.microsoft.com/ai-builder/samples" },
+  aiBuilderLicensing: { label: "Overview of AI Builder licensing", url: "https://learn.microsoft.com/ai-builder/administer-licensing" },
+  aiBuilderCredits: { label: "Licensing and AI Builder credits", url: "https://learn.microsoft.com/ai-builder/credit-management" },
+  agentFlowTool: { label: "Create an agent flow as a tool", url: "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create" },
+  teamsEnvironment: { label: "About the Microsoft Dataverse for Teams environment", url: "https://learn.microsoft.com/power-platform/admin/about-teams-environment" },
 };
 
 // ── What each administrator prerequisite means to a customer ────────────────
@@ -178,6 +189,11 @@ const ADMIN_COPY = {
     section: "connectors", role: "power-platform-admin", order: 13, title: "Standard approvals",
     text: "Make sure the Standard approvals connector is available in the environment and sits in the same data policy group as Dataverse and Teams.",
     why: "Approval steps in agents and flows use it.",
+  },
+  "content-conversion": {
+    section: "connectors", role: "power-platform-admin", order: 13.5, title: "Content Conversion (Preview)",
+    text: "Allow the Content Conversion connector, which turns an email body into plain text before an AI Builder action reads it, and keep it in the same data policy group as Office 365 Outlook and Dataverse. Learn says it is no longer available in US Government (GCC and GCC High) regions for creating new implementations.",
+    why: "The email routing flow converts the message body to plain text with it.",
   },
   "power-automate-agent-flows": {
     section: "connectors", role: "power-platform-admin", order: 14, title: "Power Automate cloud flows and agent flows",
@@ -297,6 +313,55 @@ const ADMIN_COPY = {
     why: "Without capacity, prompts, custom models, and autonomous runs are throttled.",
     learn: LEARN.credits,
   },
+  "ai-builder-agent-tools-environment": {
+    section: "environment", role: "power-platform-admin", order: 10.7, title: "Copilot Studio access and a Dataverse environment for agent tools",
+    text: "Give the people who build the agent access to Copilot Studio with a license that includes the use of flows in Copilot Studio, in a Dataverse environment that is not a Dataverse for Teams environment.",
+    check: `Ask your Power Platform admin to confirm the workshop environment is a Dataverse environment and not a Dataverse for Teams environment, which Learn says does not support agent flows or agent flow tools (${learnLink(LEARN.agentFlowTool)}). Learn explains how to upgrade one in ${learnLink(LEARN.teamsEnvironment)}. Confirm each builder's Copilot Studio license with your Microsoft 365 admin.`,
+    why: "Agent flows and agent flow tools need Copilot Studio access with a license that includes flows, and a Dataverse environment.",
+    learn: LEARN.agentFlowTool,
+  },
+  "ai-builder-flow-license": {
+    section: "licenses", role: "tenant-admin", order: 6, title: "Power Automate license for flows that use AI Builder actions",
+    text: "Confirm which Power Automate license the people who build and run the workshop's flows need. Not confirmed in Microsoft Learn: whether a flow that uses an AI Builder action is a premium flow, because two Learn pages disagree.",
+    check: `Read the AI Builder Capability Rate table in ${learnLink(LEARN.aiBuilderLicensing)}, which says a flow that uses any AI Builder action is a premium flow, and ${learnLink(LEARN.aiBuilderCredits)}, which says adding an AI Builder action does not transform a flow into a premium flow. Ask your Microsoft representative which applies to your licenses, then check each builder's licenses on the Active users page of the Microsoft 365 admin center.`,
+    why: "Attendees cannot build or run the workshop's flows without a Power Automate license that covers every action in them.",
+    learn: LEARN.aiBuilderLicensing,
+  },
+  "ai-builder-model-region-availability": {
+    section: "environment", role: "power-platform-admin", order: 7, title: "AI Builder models are available in the environment's region",
+    text: "Find the region of the workshop environment and confirm that each AI Builder model the workshop uses is available there. Write down whether each one is generally available (GA) or in preview.",
+    check: `Sign in to the Power Platform admin center, select Manage, then Environments, and read the Region column for the workshop environment (${learnLink(LEARN.environmentRegion)}). Open ${learnLink(LEARN.aiBuilderRegion)} and find that region in the Custom models and Prebuilt models tables. GA means generally available, Preview means preview, and a dash means the feature is not available. Use the US Government tables for a government cloud environment.`,
+    why: "AI Builder models run in the region that hosts the environment. Availability and release status differ by region, so a model can be missing, or preview only, where attendees build.",
+    learn: LEARN.aiBuilderRegion,
+  },
+  "ai-builder-prompt-model-availability": {
+    section: "environment", role: "power-platform-admin", order: 8, title: "Prompt models are available in the environment's region",
+    text: "If the workshop uses prompts, confirm the prompt models are available in the environment's region, and note which are generally available (GA) and which are experimental.",
+    check: `Open ${learnLink(LEARN.promptRegion)}, find the Public availability table, and read the column for the environment's region. A model marked cross-geo might process data outside of your region. For a US Government environment, read the US Government availability table instead.`,
+    why: "Prompts run on generative AI models. Which models are offered, and at what release stage, depends on the region.",
+    learn: LEARN.promptRegion,
+  },
+  "ai-builder-us-government-limits": {
+    section: "environment", role: "power-platform-admin", order: 9, title: "US Government limits for AI Builder",
+    text: "If the workshop environment is in a US Government cloud (GCC, GCC High, or DoD), check the US Government tables and plan around the features that are not available there.",
+    check: `On ${learnLink(LEARN.aiBuilderRegion)}, open the US Government section. The Custom models and Prebuilt models tables list GCC, GCC High, and DoD, and DoD shows a dash for every listed feature. The US Government feature limitations list names what is missing: 30-day user trials, copying AI models across cloud boundaries, Document Automation (GCC and GCC High), and adding an image or document input to a prompt (GCC and GCC High).`,
+    why: "Some AI Builder features in the commercial cloud are not available to US Government customers, and workshop steps that use them cannot be completed there.",
+    learn: LEARN.aiBuilderRegion,
+  },
+  "ai-builder-enabled-for-environment": {
+    section: "environment", role: "power-platform-admin", order: 10.5, title: "AI Builder is turned on for the workshop environment",
+    text: "Confirm the workshop environment has a Dataverse database and that AI Builder is enabled for it. If the workshop uses prompts, check that the AI prompts setting is on. If it uses preview models, check that Preview and experimental AI models is on. Credits and capacity are a separate item: see Copilot Credits or AI Builder capacity for the environment. Not confirmed in Microsoft Learn: a separate switch that turns AI Builder itself on for an environment, beyond these settings.",
+    check: `The environment needs a Dataverse database (see the item about a Dataverse database with free storage). In the Power Platform admin center, open the environment, then Settings > Product > Features and check the AI prompts toggle under AI Builder. For preview models, open Manage > Environments, select the environment, then Settings > Features and check Let people use AI models that are experimental or in preview under Preview and experimental AI models. That setting does not appear when the environment has no Dataverse or is not in a supported region. See ${learnLink(LEARN.aiBuilderAdmin)} and ${learnLink(LEARN.aiBuilderBuild)}.`,
+    why: "AI Builder needs Dataverse and must be enabled for the environment, or attendees do not get its features. Prompts stop working when AI prompts is off, and preview models stop working when Preview and experimental AI models is off.",
+    learn: LEARN.aiBuilderBuild,
+  },
+  "ai-builder-sample-data": {
+    section: "environment", role: "power-platform-admin", order: 10.6, title: "Deploy sample apps and data when you create the environment",
+    text: "When you create a new environment for the workshop, you can set Deploy sample apps and data to Yes to add Microsoft's sample apps and data for exploring AI Builder.",
+    check: `In the Power Platform admin center, select Manage, then Environments, then New. Set Add a Dataverse data store to Yes, select Next, and set Deploy sample apps and data to Yes. The setting appears only when Enable Dynamics 365 apps is No (${learnLink(LEARN.createEnvironment)}). For an environment that already exists, download the sample data and upload it instead (${learnLink(LEARN.aiBuilderSamples)}).`,
+    why: "Sample data gives attendees something to experiment with, so the first steps work before they have data of their own.",
+    learn: LEARN.aiBuilderBuild,
+  },
   "entra-app-registration-sso": {
     section: "tenant", role: "identity-admin", order: 10, title: "Permission to register apps in Microsoft Entra ID",
     text: "Give the people running the workshop the Application Developer (or Cloud Application Administrator) role, or register the apps with them. They need to register apps, set redirect addresses, expose scopes, and grant admin consent.",
@@ -352,10 +417,17 @@ export function technicalNameSentence(refs) {
   return `Technical names: ${refs.map((ref) => `${ref.displayName} is ${ref.apiName}`).join("; ")}.`;
 }
 
+/** A Microsoft Learn page as an inline Markdown link, for text that sits in a sentence. */
+function learnLink(ref) {
+  return `[${ref.label}](${ref.url})`;
+}
+
 /** What a "Required if" status means to someone who is not reading the lab. */
 function conditionFor(status) {
   const text = String(status || "");
   if (/enforced in tenant/i.test(text)) return "Only if your tenant enforces this.";
+  if (/^required if us government/i.test(text)) return "Only if your environment is in a US Government cloud (GCC, GCC High, or DoD).";
+  if (/^optional/i.test(text)) return "Only if you want it (optional).";
   if (/custom ui|pcf/i.test(text) && /^required if/i.test(text)) return "Only if you use custom screens or components.";
   if (/^verify/i.test(text)) return "Check only if you embed the agent in a custom app.";
   if (/^required if/i.test(text)) return `Only if ${text.replace(/^required if\s+/i, "").toLowerCase()}.`;
@@ -682,6 +754,7 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
       role: item.role,
       title: item.title || "",
       text: item.text || "",
+      check: item.check || "",
       why: item.why || "",
       neededFor: item.neededFor || [],
       learn: item.learn || null,
@@ -946,6 +1019,7 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
       item.roleLabel = CHECKLIST_ROLES[item.role]?.label || "Workshop host";
       if (!item.why) item.why = def.why;
       item.text = cleanChecklistText(item.text);
+      item.check = cleanChecklistText(item.check);
       delete item.order;
     }
     sectionList.push({ id: section.id, title: section.title, intro: section.intro, items: section.items });
@@ -1063,6 +1137,7 @@ export function checklistItemParts(item) {
     title: item.title,
     text: item.text,
     where: item.where ? `Where: ${item.where}` : "",
+    check: item.check || "",
     condition: item.condition,
     why,
     learn: item.learn,
@@ -1133,6 +1208,7 @@ export function renderPrerequisitesChecklistMarkdown(model) {
       lines.push(`- [ ] ${lead}`);
       const meta = [`*Who:* ${mdEscape(item.roleLabel)}`];
       if (parts.where) meta.push(`*${mdEscape(parts.where)}*`);
+      if (parts.check) meta.push(`*How to check:* ${parts.check}`);
       if (parts.condition) meta.push(`*${mdEscape(parts.condition)}*`);
       if (parts.why) meta.push(`*Why:* ${mdEscape(parts.why)}`);
       if (parts.learn) meta.push(`[${mdEscape(parts.learn.label)}](${parts.learn.url})`);

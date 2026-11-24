@@ -229,6 +229,7 @@ export function renderPrerequisitesChecklistDocxBuffer(model, { branding } = {})
       if (!parts.title && !parts.text) what.push(para(run(`${item.n}.`, { bold: true, color: MUTED, size: 20 }), { before: 10, after: 30 }));
       if (parts.condition) what.push(para(run(parts.condition, { italic: true, ...small }), { before: 0, after: 30 }));
       if (parts.where) what.push(para(run(parts.where, small), { before: 0, after: 20 }));
+      if (parts.check) what.push(para(run("How to check: ", { bold: true, size: 18 }) + inline(parts.check, { size: 18 }), { keepLines: true, before: 10, after: 30 }));
       const why = [];
       if (parts.why) why.push(para(run(parts.why, { size: 18 }), { keepLines: true, before: 10, after: 40 }));
       if (parts.learn) why.push(para(inline(`[${parts.learn.label}](${parts.learn.url})`, { size: 18 }), { keepLines: true, before: 0, after: 40 }));

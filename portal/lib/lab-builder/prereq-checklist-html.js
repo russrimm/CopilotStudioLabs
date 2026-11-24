@@ -52,6 +52,7 @@ function itemRowHtml(item) {
     : "";
   const lead = titleHtml || textHtml ? "" : `<p class="item-title"><span class="num">${item.n}.</span></p>`;
   const whereHtml = parts.where ? `<p class="where">${esc(parts.where)}</p>` : "";
+  const checkHtml = parts.check ? `<p class="check"><strong>How to check:</strong> ${inlineHtml(parts.check)}</p>` : "";
   const condHtml = parts.condition ? `<p class="cond">${esc(parts.condition)}</p>` : "";
   const whyHtml = parts.why ? `<p>${esc(parts.why)}</p>` : "";
   const learnHtml = parts.learn
@@ -60,7 +61,7 @@ function itemRowHtml(item) {
   const confirmHtml = parts.confirm ? `<p class="confirm-note">${esc(parts.confirm)}</p>` : "";
   return `<tr data-role="${esc(item.role)}">
     <td class="check"><input type="checkbox" aria-label="Done: ${esc(label)}"></td>
-    <td class="what">${titleHtml}${textHtml}${lead}${condHtml}${whereHtml}</td>
+    <td class="what">${titleHtml}${textHtml}${lead}${condHtml}${whereHtml}${checkHtml}</td>
     <td class="who">${esc(item.roleLabel)}</td>
     <td class="why">${whyHtml}${learnHtml}${confirmHtml}</td>
     <td class="done"><span class="fill" aria-hidden="true"></span></td>

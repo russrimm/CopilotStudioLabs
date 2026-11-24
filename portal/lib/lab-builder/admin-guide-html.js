@@ -51,6 +51,7 @@ function itemHtml(item) {
     <p class="stage">${esc(parts.stage)}${parts.condition ? ` <span class="cond">\u00b7 ${esc(parts.condition)}</span>` : ""}</p>
     ${stepsHtml}
     ${parts.text ? `<p><strong>${esc(parts.whatLabel)}:</strong> ${inlineHtml(parts.text)}</p>` : ""}
+    ${parts.check ? `<p class="check"><strong>How to check:</strong> ${inlineHtml(parts.check)}</p>` : ""}
     ${parts.detail ? `<p class="detail"><strong>Details:</strong> ${esc(parts.detail)}</p>` : ""}
     ${parts.endpoints ? `<p class="endpoints">${esc(parts.endpoints)}</p>` : ""}
     ${parts.why ? `<p class="why"><strong>Why:</strong> ${esc(parts.why)}</p>` : ""}

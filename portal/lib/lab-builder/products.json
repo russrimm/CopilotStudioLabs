@@ -125,7 +125,7 @@
       "labPrerequisites": [
         "A Power Platform environment with a Microsoft Dataverse database, and AI Builder enabled for that environment.",
         "A Power Apps or Power Automate license that lets you create an environment, plus Copilot Credits or AI Builder credits to run models and prompts. Building and testing custom models and prompts does not require credits.",
-        "Sign-in to https://make.powerapps.com or https://make.powerautomate.com with the Environment Maker role (or System Administrator or System Customizer). The regions where prompts are available: Not confirmed in Microsoft Learn."
+        "Sign-in to https://make.powerapps.com or https://make.powerautomate.com with the Environment Maker role (or System Administrator or System Customizer)."
       ],
       "licenseNote": "AI Builder is licensed on a capacity basis; AI Builder credits are progressively ending and features are moving to Copilot Credits, with dates stated on Microsoft Learn."
     }
