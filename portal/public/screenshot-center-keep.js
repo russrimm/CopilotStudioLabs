@@ -84,20 +84,31 @@ function scBuildKeepAsk() {
   return box;
 }
 
-function scBuildKeptEntry(entry) {
-  const box = scEl("div", { class: "sc-keep-entry", data: { scKeptEntry: entry.id } });
+/** "From “Lab” (deleted Mar 1, 2026). 62 days left." for a kept entry. */
+function scKeepEntryHead(entry) {
   const how = entry.reason === "replaced" ? "replaced" : entry.reason === "failed-build" ? "removed after a failed build" : entry.reason === "looks-wrong" ? "moved because they looked wrong" : "deleted";
   const left = scCount(entry.daysLeft);
-  box.appendChild(scEl("p", { class: "sc-keep-entry-head", text: `From \u201c${scText(entry.labTitle || entry.labId, 80)}\u201d (${how} ${scKeepDate(entry.keptAt)}). ${scPlural(left, "day")} left.` }));
+  return `From \u201c${scText(entry.labTitle || entry.labId, 80)}\u201d (${how} ${scKeepDate(entry.keptAt)}). ${scPlural(left, "day")} left.`;
+}
+
+function scBuildKeptEntry(entry) {
+  const box = scEl("div", { class: "sc-keep-entry", data: { scKeptEntry: entry.id } });
+  box.appendChild(scEl("p", { class: "sc-keep-entry-head", text: scKeepEntryHead(entry) }));
   const list = scEl("ul", { class: "sc-library-list", attrs: { "aria-label": `Kept pictures from ${scText(entry.labTitle || entry.labId, 80)}` } });
   for (const picture of entry.pictures || []) {
-    const li = scEl("li", { class: "sc-library-row sc-keep-row", data: { scKeptPicture: picture.filename } });
-    li.appendChild(scEl("span", { class: "sc-library-name", text: picture.earlierVersion ? `${picture.base} (earlier version)` : picture.filename }));
-    li.appendChild(scEl("span", { class: "sc-library-meta", text: scKeepWhy(picture) }));
+    const li = scEl("li", { class: "sc-library-row sc-keep-row sc-pic-row", data: { scKeptPicture: picture.filename } });
+    const thumb = typeof scPicThumb === "function" ? scPicThumb(scPicKeptItem(entry, picture)) : null;
+    if (thumb) li.appendChild(thumb);
+    const body = scEl("div", { class: "sc-pic-body" });
+    const text = scEl("div", { class: "sc-wrong-text" });
+    text.appendChild(scEl("span", { class: "sc-library-name", text: picture.earlierVersion ? `${picture.base} (earlier version)` : picture.filename }));
+    text.appendChild(scEl("span", { class: "sc-library-meta", text: scKeepWhy(picture) }));
+    body.appendChild(text);
+    const actions = scEl("div", { class: "sc-card-actions" });
     const data = { entry: entry.id, filename: picture.filename };
     const option = Array.isArray(picture.restore) ? picture.restore[0] : null;
     if (option) {
-      li.appendChild(
+      actions.appendChild(
         scButton(scKeepRestoreLabel(option), {
           action: "keep-restore",
           data: { ...data, to: option.type, labId: option.labId || "" },
@@ -106,16 +117,18 @@ function scBuildKeptEntry(entry) {
         }),
       );
     } else {
-      li.appendChild(scEl("span", { class: "sc-library-meta", text: "Nowhere to put it back right now, so download it instead." }));
+      actions.appendChild(scEl("span", { class: "sc-library-meta", text: "Nowhere to put it back right now, so download it instead." }));
     }
-    li.appendChild(
+    actions.appendChild(
       scEl("a", {
         class: "btn btn-sm",
         text: "Download",
         attrs: { href: `/api/capture/kept/${encodeURIComponent(entry.id)}/${encodeURIComponent(picture.filename)}?download=1`, "aria-label": `Download ${picture.filename}` },
       }),
     );
-    li.appendChild(scButton("Delete forever", { action: "keep-delete", data, focus: `keep:${entry.id}:${picture.filename}:delete`, aria: { "aria-label": `Delete ${picture.filename} forever` } }));
+    actions.appendChild(scButton("Delete forever", { action: "keep-delete", data, focus: `keep:${entry.id}:${picture.filename}:delete`, aria: { "aria-label": `Delete ${picture.filename} forever` } }));
+    body.appendChild(actions);
+    li.appendChild(body);
     list.appendChild(li);
   }
   box.appendChild(list);
@@ -126,11 +139,11 @@ function scBuildKeptEntry(entry) {
 function scKeepContents() {
   const out = [];
   const kept = scEl("div", { class: "sc-keep sc-adv-block", data: { scKeptHost: "1" } });
-  kept.appendChild(scEl("h6", { text: "Kept pictures" }));
+  kept.appendChild(scEl("h6", { text: "Kept pictures", attrs: { tabindex: "-1" }, data: { scKeptHeading: "1", scFocus: "kept-heading" } }));
   kept.appendChild(
     scEl("p", {
       class: "hint",
-      text: `When you delete or replace a lab, pictures that exist only in that lab are kept for ${scKeep.retentionDays} days, so you can restore them. Pictures in the shared library are never removed with a lab.`,
+      text: `When you delete or replace a lab, pictures that exist only in that lab are kept for ${scKeep.retentionDays} days, so you can restore them. Pictures in the shared library are never removed with a lab. Select a picture to see it full size.`,
     }),
   );
   const summary = scState.status?.sharedLibrary?.kept;
@@ -213,6 +226,7 @@ async function scKeepRestore(entry, filename, to, labId) {
     : { variant: "warn", text: String(data.error || `Could not restore it (${status}).`) };
   scAnnounce(scKeep.message.text);
   await scLoadKept(true);
+  if (typeof scPicViewActionDone === "function") scPicViewActionDone("kept");
   if (ok) scRefreshLibraryNumbers();
   else scRenderLibraryHost();
 }
@@ -223,6 +237,7 @@ async function scKeepDelete(entry, filename) {
   scKeep.message = ok ? { variant: "ok", text: "Deleted forever." } : { variant: "warn", text: String(data.error || `Could not delete it (${status}).`) };
   scAnnounce(scKeep.message.text);
   await scLoadKept(true);
+  if (typeof scPicViewActionDone === "function") scPicViewActionDone("kept");
   scRenderLibraryHost();
 }
 

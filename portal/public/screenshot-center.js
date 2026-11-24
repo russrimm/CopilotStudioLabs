@@ -378,6 +378,7 @@ function scRenderInto(host, labId) {
   scRefreshPairingUi();
   scUpdateProgress(labId);
   if (lab.lightbox) scOpenLightbox(labId, lab.lightbox, { restore: true });
+  else if (typeof scPicViewRestore === "function") scPicViewRestore(labId);
   scFocusByKey(host, focusKey);
 }
 
@@ -1514,6 +1515,7 @@ function scRenderLibraryHost() {
   host.replaceChildren(...scLibraryContents());
   scUpdateProgress("library");
   scFocusByKey(host, focusKey);
+  if (typeof scPicViewRefresh === "function") scPicViewRefresh("kept");
 }
 
 // Gallery --------------------------------------------------------------------
@@ -2564,8 +2566,10 @@ function scBuildLightbox(labId) {
   main.appendChild(scButton("\u203a", { action: "lightbox-next", focus: "lb-next", aria: { "aria-label": "Next screenshot" }, small: false }));
   dialog.appendChild(main);
   dialog.appendChild(scEl("div", { class: "sc-lb-info", data: { scLbInfo: "1" } }));
+  dialog.appendChild(scEl("div", { class: "sr-only", attrs: { role: "status", "aria-live": "polite", "aria-atomic": "true" }, data: { scPicLive: "1" } }));
 
   dialog.addEventListener("keydown", (event) => {
+    if (typeof scPicViewLetBrowserHandle === "function" && scPicViewLetBrowserHandle(labId, event)) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       scStepLightbox(labId, -1);
@@ -2610,12 +2614,20 @@ function scOpenLightbox(labId, filename, { restore = false } = {}) {
 }
 
 function scCloseLightbox(labId) {
+  if (typeof scPicViewActive === "function" && scPicViewActive(labId)) {
+    scPicViewClose(labId);
+    return;
+  }
   const dialog = scLightboxDialog(labId);
   if (dialog?.open && typeof dialog.close === "function") dialog.close();
   else scOnLightboxClosed(labId);
 }
 
 function scOnLightboxClosed(labId) {
+  if (typeof scPicViewActive === "function" && scPicViewActive(labId)) {
+    scPicViewClosed(labId);
+    return;
+  }
   const lab = scLab(labId);
   const opener = lab.lightboxOpener || lab.lightbox;
   lab.lightbox = null;
@@ -2625,6 +2637,10 @@ function scOnLightboxClosed(labId) {
 }
 
 function scStepLightbox(labId, direction) {
+  if (typeof scPicViewActive === "function" && scPicViewActive(labId)) {
+    scPicViewStep(labId, direction);
+    return;
+  }
   const lab = scLab(labId);
   const order = (lab.state?.shots || []).map((s) => s.filename).filter((n) => SC_SAFE_FILENAME.test(String(n)));
   if (!order.length) return;
@@ -2687,6 +2703,7 @@ function scFillLightbox(labId, filename) {
   const shots = lab.state?.shots || [];
   const shot = shots.find((s) => s.filename === filename);
   if (!dialog || !shot) return;
+  if (typeof scPicViewLeave === "function") scPicViewLeave(dialog);
   const status = scStatusFor(labId, shot, null);
   const label = scShotLabel(shot);
   const title = dialog.querySelector("#sc-lb-title");

@@ -1535,7 +1535,7 @@ function handleGeneratedLabAsset(req, res) {
   const filename = req.params.filename ?? req.params.file;
   const asset = resolveGeneratedAsset(GENERATED_LABS_DIR, req.params.labId, filename);
   if (asset.status !== 200) return res.status(asset.status).json({ error: asset.error });
-  res.set({ "Content-Type": asset.type, "Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff" });
+  res.set({ "Content-Type": asset.type, "Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff" });
   return res.sendFile(asset.path);
 }
 app.get("/api/lab-builder/generated/:labId/assets/:filename", handleGeneratedLabAsset);
