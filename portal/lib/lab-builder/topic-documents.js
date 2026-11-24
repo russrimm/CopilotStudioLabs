@@ -26,7 +26,9 @@ export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 // 5: Learner documents no longer carry administrator settings: the Admin Prerequisites, DLP & Guardrails slides
 //    are gone and the overview has no admin section.
 // 6: lettered sub-steps render as their own lines (a real nested list in Word, indented lines on slides).
-export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 6;
+// 7: slide headers are measured (pptx-text-fit.js): a long title steps down, then is shortened with the full text kept in
+//    the notes, and the kicker, badge, title, divider, and title-slide text no longer overlap.
+export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 7;
 /** Saved topic documents are rebuilt once from plain text for a lab whose saved text still holds an emoji. */
 export const TOPIC_DOCUMENTS_PLAIN_TEXT_VERSION = 1;
 
