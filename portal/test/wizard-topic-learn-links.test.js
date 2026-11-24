@@ -312,15 +312,15 @@ function createWizardHarness({ extraTopics = [], now = "2026-04-16T12:00:00Z" } 
   return { context, element, recommendCalls, previewCalls };
 }
 
-test("all 195 catalog features across all 6 products resolve canonical Microsoft Learn links in catalog, recommend(), and planLab()", () => {
+test("all 200 catalog features across all 6 products resolve canonical Microsoft Learn links in catalog, recommend(), and planLab()", () => {
   const products = getProducts();
   assert.equal(products.length, 6);
 
   const rawFeatures = getFeatures();
-  assert.equal(rawFeatures.length, 195);
+  assert.equal(rawFeatures.length, 200);
 
   const byCategoryFeatures = getFeaturesByCategory().flatMap((c) => c.features);
-  assert.equal(byCategoryFeatures.length, 195);
+  assert.equal(byCategoryFeatures.length, 200);
 
   for (const catFeature of byCategoryFeatures) {
     assert.ok(Array.isArray(catFeature.learnLinks), `Expected learnLinks array on ${catFeature.id}`);
@@ -362,7 +362,7 @@ test("all 195 catalog features across all 6 products resolve canonical Microsoft
       }
     }
   }
-  assert.equal(seenInRecommend.size, 195, "Every catalog feature must appear in recommend() with learnLinks");
+  assert.equal(seenInRecommend.size, 200, "Every catalog feature must appear in recommend() with learnLinks");
 
   for (const feature of rawFeatures) {
     const pid = productOf(feature);

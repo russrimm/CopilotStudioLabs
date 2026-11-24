@@ -142,7 +142,7 @@ Everything else — module structure, prerequisites, concepts, and the "check yo
 work" tests — comes from that curated catalog
 (`portal/lib/lab-builder/features.json` for Copilot Studio, and one
 `portal/lib/lab-builder/catalog/<product>.json` file for every other product), not from a live page. The catalog
-covers 195 capabilities across 6 products: 97 for Microsoft Copilot Studio, 20 for Agent Builder and declarative agents, 18 for SharePoint AI, 20 for Microsoft Foundry, 20 for the Microsoft 365 Copilot hub, and 20 for the Power Platform AI hub (AI Builder). The 97 Copilot Studio capabilities are in 11 categories, tagged by harness (standard, Microsoft
+covers 200 capabilities across 6 products: 97 for Microsoft Copilot Studio, 20 for Agent Builder and declarative agents, 18 for SharePoint AI, 20 for Microsoft Foundry, 20 for the Microsoft 365 Copilot hub, and 25 for the Power Platform AI hub (AI Builder). The 97 Copilot Studio capabilities are in 11 categories, tagged by harness (standard, Microsoft
 Copilot, or Customer Conversation); every capability is tagged by level (100 Beginner, 200 Intermediate, 300 Advanced), including enterprise integrations
 (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
 data gateways, and VNet private connectivity) and governance topics such as agent
@@ -161,7 +161,7 @@ quietly (or accepts an explicit CLI resolution such as
 `--decide learn-mcp-unavailable=proceed-curated` for unattended runs).
 
 ```bash
-# See all 6 products, levels, harnesses, and 195 capabilities
+# See all 6 products, levels, harnesses, and 200 capabilities
 node tools/lab-builder/build.mjs --list
 
 # Build a lab (only requested features + required prerequisites; add --core to include Level 100 foundations)
@@ -207,7 +207,7 @@ default path.
 
 ### Feature tour site
 
-A static GitHub Pages site shows a screenshot and an explanation for every capability across all 6 products in the lab builder catalog (`195` capabilities and `325` configured feature-tour shots total, including all three Copilot Studio harnesses: Standard, Microsoft Copilot, and Customer Conversation). It is generated from `features.json` and `portal/lib/lab-builder/catalog/<product>.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
+A static GitHub Pages site shows a screenshot and an explanation for every capability across all 6 products in the lab builder catalog (`200` capabilities and `345` configured feature-tour shots total, including all three Copilot Studio harnesses: Standard, Microsoft Copilot, and Customer Conversation). It is generated from `features.json` and `portal/lib/lab-builder/catalog/<product>.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
 
 ---
 
@@ -215,7 +215,7 @@ A static GitHub Pages site shows a screenshot and an explanation for every capab
 
 The repository includes a full **Agentic Microsoft Training and Lab Generator portal** ([`portal/README.md`](./portal/README.md), default port `3005`) for building, delivering, and operating labs:
 
-- 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (`195` capabilities), grounded on Microsoft Learn, with exports to `.md`, standalone paged `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx` files, and multi-format `.zip` bundles
+- 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (`200` capabilities), grounded on Microsoft Learn, with exports to `.md`, standalone paged `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx` files, and multi-format `.zip` bundles
 - 👁️ **Interactive paged lab viewer** with chapter navigation, Mermaid flow diagrams, TOC, image lightbox, `localStorage` checkable task lists, opt-in multiple-choice Knowledge Check mini-quizzes, print/PDF support, and pre-built walkthrough PDFs ([`tools/lab-pdf`](./tools/lab-pdf/README.md))
 - 🛡️ **Dynamic admin prerequisites** generating `Required By` connector, DLP/ACP, environment, and tenant role checklists tailored to the exact modules in a lab
 - 🧪 **Validation** running instant structural smoke tests plus live step-level Microsoft Learn accuracy checks ([`docs/step-validation.md`](./docs/step-validation.md))
@@ -342,7 +342,7 @@ cd portal
 LAB_BUILDER_LINK_CHECK=off npm test
 cd ..
 
-# 3. Validate all 325 feature-tour shot definitions across the 6 products & run site tests
+# 3. Validate all 345 feature-tour shot definitions across the 6 products & run site tests
 npm run feature-tour:check
 npm run feature-tour:test
 

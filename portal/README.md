@@ -4,7 +4,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 
 ## Features
 
-- **Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites. Microsoft Learn topics list their merged sub-topics as individually selectable options, and **Export All Topics** writes every topic and sub-topic for your products as CSV (opens in Excel), Markdown, or JSON. **Save and finish later** keeps a partly configured lab as a named draft you can **Resume** from **Saved drafts**, with a quiet autosave as a safety net (see [`docs/lab-builder.md`](../docs/lab-builder.md))
+- **Lab Builder** — 8-step wizard across 6 Microsoft AI products and 200 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites. Microsoft Learn topics list their merged sub-topics as individually selectable options, and **Export All Topics** writes every topic and sub-topic for your products as CSV (opens in Excel), Markdown, or JSON. **Save and finish later** keeps a partly configured lab as a named draft you can **Resume** from **Saved drafts**, with a quiet autosave as a safety net (see [`docs/lab-builder.md`](../docs/lab-builder.md))
 - **Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 2, Tailor it)
 - **Generated Lab Management & Multi-Format Exports** — Open, preview as interactive paged HTML (with `localStorage` checkable task lists and Knowledge Check mini-quizzes), export as `.zip` (`formats=all|docx|pptx|pdf|html`, with the pre-lab training decks in a top-level `1 - Training decks (deliver first)/` folder), `.html`, `.docx`, `.pdf`, `.pptx`, `.md`, per-topic `.docx`/`.pptx` files (`<Lab Name> - Step NN - <Topic Name>`, the hands-on deck for the lab day), the **training decks to deliver first** (a complete deck, a foundations deck per product, and one concepts-only deck per topic, for people who are new to this), or the prerequisites checklist by itself (`.docx`, `.pdf`, `.html`, `.md`) to send to the customer hosting the workshop, print/save as PDF, run structural validation, rename, delete, or re-open saved selections
 - **Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
@@ -339,7 +339,7 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/lab-builder/features` | Products (`6`), industries, roles, harnesses, levels, and the `195`-capability catalog |
+| `GET` | `/api/lab-builder/features` | Products (`6`), industries, roles, harnesses, levels, and the `200`-capability catalog |
 | `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisite recaps, and dependency reasons (accepts `excludedSubtopics`) |
 | `GET` | `/api/lab-builder/topics` | Read discovered Microsoft Learn topics (with complete sub-topic objects) and snapshot freshness (optional `?product=<id>`) |
 | `POST` | `/api/lab-builder/topics/export` | Export every topic and sub-topic for the chosen products at every level (`format=csv\|markdown\|json\|dataset`; see [Export All Topics](../docs/lab-builder.md#export-all-topics)) |
@@ -401,7 +401,7 @@ portal/
 │   ├── validate-id.js     Input validation for az CLI arguments
 │   ├── approvals.js       Environment approval workflow engine
 │   ├── agent-chat.js      Copilot Studio agent chat config
-│   └── lab-builder/       6-product catalog (195 capabilities), planner, Learn MCP grounding, canonical URL dedup,
+│   └── lab-builder/       6-product catalog (200 capabilities), planner, Learn MCP grounding, canonical URL dedup,
 │                          admin-prereqs, interactive paged HTML, pure-Node DOCX/PDF/PPTX & per-topic document builders
 ├── test/                  Node test suites (npm test); test/concurrency/ is the many-people harness (npm run test:concurrency, see docs/lab-builder.md "Many people at once")
 ├── public/

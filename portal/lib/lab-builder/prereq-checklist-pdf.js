@@ -20,6 +20,7 @@ function itemCell(item) {
   if (!parts.title && !parts.text) lines.push(`**${item.n}.**`);
   if (parts.condition) lines.push(`*${cell(parts.condition)}*`);
   if (parts.where) lines.push(`*${cell(parts.where)}*`);
+  if (parts.check) lines.push(`**How to check:** ${cell(parts.check)}`);
   return lines.join("<br>");
 }
 

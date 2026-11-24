@@ -196,6 +196,7 @@ export function buildAdministratorSetupGuide(input = {}) {
       stageTitle: stage.title,
       title,
       text,
+      check: item.check || "",
       where,
       steps,
       detail,
@@ -299,6 +300,7 @@ export function adminGuideItemParts(item) {
     steps: item.steps,
     whatLabel: item.steps.length ? "What to set up" : "What to have ready",
     text: item.text,
+    check: item.check || "",
     detail: item.detail,
     endpoints: item.endpoints.length
       ? `Allow these addresses (HTTPS, port 443): ${item.endpoints.join("; ")}.${item.ownSystem ? " Also allow the addresses of your own systems; your workshop contact will confirm them." : ""}`
@@ -356,6 +358,7 @@ export function renderAdministratorSetupGuideMarkdown(model) {
       parts.steps.forEach((step, i) => lines.push(`  ${i + 1}. ${step}`));
       if (parts.steps.length) lines.push("");
       if (parts.text) lines.push(`  **${parts.whatLabel}:** ${parts.text}`, "");
+      if (parts.check) lines.push(`  **How to check:** ${parts.check}`, "");
       if (parts.detail) lines.push(`  **Details:** ${parts.detail}`, "");
       if (parts.endpoints) lines.push(`  ${parts.endpoints}`, "");
       if (parts.why) lines.push(`  **Why:** ${mdEscape(parts.why)}`, "");

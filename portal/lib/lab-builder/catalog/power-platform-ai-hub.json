@@ -1,11 +1,11 @@
 {
-  "$comment": "Catalog for AI Builder and the AI hub in Power Platform, grounded on Microsoft Learn (/ai-builder/ and the prompt pages that Learn hosts under /microsoft-copilot-studio/). Features verified 2026-11-13. Availability is set only where Learn states it; where Learn pages disagree the feature says so and sets no availability.",
+  "$comment": "Catalog for AI Builder and the AI hub in Power Platform, grounded on Microsoft Learn (/ai-builder/ and the prompt pages that Learn hosts under /microsoft-copilot-studio/). Features verified 2026-11-13 and 2026-11-24 (the six Power Automate and AI Builder integration topics). Availability is set only where Learn states it; where Learn pages disagree the feature says so and sets no availability. Regional availability and environment prerequisites are not a lab: they live in the administrator setup guide and the prerequisites checklist (admin-prereqs.js).",
   "product": "power-platform-ai-hub",
   "categories": [
     {
       "id": "ai-builder",
       "name": "AI Builder and the AI hub",
-      "description": "Find your way around the AI hub, check regional availability, and pick the right AI capability."
+      "description": "Find your way around the AI hub, pick the right AI capability, and move off the retired text generation model."
     },
     {
       "id": "prompts",
@@ -25,7 +25,7 @@
     {
       "id": "apps-flows",
       "name": "Use AI in apps and flows",
-      "description": "Call prompts and models from Power Apps and Power Automate."
+      "description": "Build cloud flows that call AI Builder models and prompts, route and review their results, make them reliable, and call them from apps and agents."
     },
     {
       "id": "administration",
@@ -88,57 +88,6 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/ai-builder/model-types",
-      "prereqs": [],
-      "relatedLabs": []
-    },
-    {
-      "id": "ppai-check-region-and-prerequisites",
-      "name": "Check regional availability and environment prerequisites",
-      "category": "ai-builder",
-      "level": 100,
-      "minutes": 20,
-      "summary": "Find out which AI Builder models are available, and at what release status, in your environment's region, and confirm the environment prerequisites.",
-      "whyItMatters": "Availability differs by region and by feature, and some capabilities are preview only. Checking first avoids building a lab on a model your environment cannot use.",
-      "concepts": [
-        "AI Builder models are deployed in the region that hosts your Power Platform environment, so the region of the environment sets the availability and release status you get.",
-        "Learn lists custom models, prebuilt models, and US Government environments in separate tables. A dash means the feature isn't available, and each feature shows GA or Preview.",
-        "AI Builder requires Microsoft Dataverse and AI Builder must be enabled for the environment. Enabling the **Deploy sample apps and data** setting when you create an environment adds sample data to explore AI Builder.",
-        "Some features aren't available in US Government environments, for example adding an image or document input to a prompt isn't available in GCC and GCC High, and the 30-day user trials are listed as unavailable."
-      ],
-      "steps": [
-        "Note the region of the environment you will use.",
-        "Open Feature availability by region and find your region in the **Custom models** and **Prebuilt models** tables.",
-        "Record the release status (GA, Preview, or a dash) of each model type you plan to use.",
-        "For prompts, follow the **Prompts** section link to Model availability by region and check your region there.",
-        "If you use a US Government environment, review the **US Government feature limitations** list.",
-        "Confirm the environment has a Dataverse database and that AI Builder is enabled for it, as described in Build a model in AI Builder.",
-        "When you create a new environment for the lab, enable **Deploy sample apps and data** if you want Microsoft's sample data."
-      ],
-      "validation": [
-        "You can name your environment's region and the release status of each model type you plan to use.",
-        "You can state the two environment prerequisites for AI Builder: a Dataverse database and AI Builder enabled for the environment."
-      ],
-      "screenshots": [
-        {
-          "filename": "ppai-region-availability-table.png",
-          "section": "learn",
-          "instructions": [
-            "Open Feature availability by region.",
-            "Show the Prebuilt models table with your region's column and its GA or Preview entries."
-          ]
-        }
-      ],
-      "learnQueries": [
-        "AI Builder feature availability by region",
-        "AI Builder build a model prerequisites Dataverse"
-      ],
-      "docUrls": [
-        "https://learn.microsoft.com/ai-builder/availability-region",
-        "https://learn.microsoft.com/ai-builder/build-model",
-        "https://learn.microsoft.com/ai-builder/overview"
-      ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/availability-region",
       "prereqs": [],
       "relatedLabs": []
     },
@@ -332,6 +281,84 @@
       "relatedLabs": []
     },
     {
+      "id": "ppai-flow-add-ai-builder-actions",
+      "name": "Add an AI Builder action to a cloud flow and use its outputs",
+      "category": "apps-flows",
+      "level": 100,
+      "minutes": 30,
+      "summary": "Build an instant cloud flow that sends typed text to the sentiment analysis, language detection, and key phrase extraction actions, then uses their outputs as dynamic content.",
+      "whyItMatters": "Every AI Builder action in a flow follows the same pattern: send an input, read named outputs, and reuse them as dynamic content. Learning the pattern once with simple text actions lets you add AI to any flow and check exactly what each action returned.",
+      "concepts": [
+        "The data comes from the trigger: add a **Text** input to **Manually trigger a flow**, rename it **My Text**, and select it from **Dynamic content** in each action's **Text** input. Sentiment analysis and key phrase extraction also require a **Language** input (a list item or a language code such as en); language detection takes only **Text**.",
+        "Sentiment analysis returns **Overall text sentiment** (string: Positive, neutral or negative), **Probability overall text is positive**, **Probability overall text is negative**, and **Probability overall text is neutral** (float, 0 to 1, values close to 1 mean greater confidence), and a **sentences** list with **Sentence sentiment** and per-sentence probabilities. Language detection returns a **results** list with **Language** (string code such as en, fr, zh_chs, ru) and **Confidence score** (float, 0 to 1). Key phrase extraction returns **Key phrase** (string); because there can be several, selecting it creates an **Apply to each** loop.",
+        "Learn lists a document limit of 5,120 characters for all three models, and 400 calls per 60 seconds per environment shared across language detection, sentiment analysis, and key phrase extraction. Sentiment analysis and key phrase extraction each list their own supported languages, and the language detection page links to a separate language support page instead of listing them.",
+        "For any AI Builder action in a cloud flow, leave the default **Asynchronous Pattern** setting set to **On** so results from the AI models are returned properly. If it is off, the action output can be JSON that starts with statusCode: 202 and the next action can fail. Where the setting appears in the designer: Not confirmed in Microsoft Learn.",
+        "Learn pages disagree on some names and values. The overview table lists **Analyze positive or negative sentiment in text**, **Detect the language being used in the text**, and **Generate the key phrases from a text**, but the how-to articles say **Analyze positive or negative sentiment**, **Detect the language being used in text**, and **Extract the key phrases from text**. The flow article lists overall sentiment as Positive, neutral or negative, while the model overview also allows Mixed at the document level. Which names and values the designer shows today: Not confirmed in Microsoft Learn.",
+        "In Power Automate, AI Builder actions consume AI Builder credits first and then Copilot Credits, while building and testing models doesn't consume credits. Learn's rate table groups sentiment analysis, language detection, and key phrase extraction as simple text analysis, priced per 1,000 characters. Whether a flow that uses an AI Builder action is a premium flow: Not confirmed in Microsoft Learn, because the licensing overview says it is and the AI Builder credits article says adding an AI Builder action doesn't transform it into a premium flow."
+      ],
+      "steps": [
+        "Sign in to Power Automate, select **My flows** in the left pane, and then select **New flow** > **Instant cloud flow**.",
+        "Name your cloud flow, select **Manually trigger a flow** under **Choose how to trigger this flow**, and then select **Create**.",
+        "Expand **Manually trigger a flow**, select **+Add an input** > **Text**, and replace **Input** with **My Text**. This input is where the text for every action comes from.",
+        "Select **+ New step** > **AI Builder**, select **Analyze positive or negative sentiment**, select or enter your language in **Language**, and select **My Text** from the **Dynamic content** list in **Text**. In the new designer, select the plus sign (**+**) and search **Add an action** instead.",
+        "Select **+ New step** > **AI Builder**, select **Detect the language being used in text**, and select **My Text** from the **Dynamic content** list in **Text**. This action has no **Language** input.",
+        "Select **+ New step** > **AI Builder**, select the key phrase action (**Generate the key phrases from a text** in the overview table, **Extract the key phrases from text** in the how-to article), select or enter your language in **Language**, and select **My Text** in **Text**.",
+        "On each of the three AI Builder actions, leave the default **Asynchronous Pattern** setting set to **On**.",
+        "Select **+ New step**, search for **compose**, select **Compose** under **Data Operation**, and in **Inputs** combine your own text with **Overall text sentiment** and **Probability overall text is negative** from the **Dynamic content** list.",
+        "Add a second **Compose** and select **Key phrase** from the **Dynamic content** list. The designer adds an **Apply to each** loop around it because there can be several key phrases.",
+        "Select **Save**, then select **Test** > **Manually** > **Test**, enter a sample such as `The Contoso checkout page was slow and confusing. The support team was friendly and fixed my billing problem quickly.` for **My Text**, select **Run flow**, and then select **Done**.",
+        "When the run finishes, select **My flows**, select your flow, open the run under **28-day run history**, and select each AI Builder action and each **Compose** to read its **Inputs** and **Outputs**."
+      ],
+      "validation": [
+        "The run shows the three AI Builder actions and both **Compose** actions with green check marks, and each AI Builder action's **Outputs** show real values instead of JSON that starts with statusCode: 202.",
+        "You can name the values the run returned: the sentiment probabilities between 0 and 1, the **Language** code with its **Confidence score**, and the **Key phrase** values used in the second **Compose**."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-aiactions-flow-designer.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer after adding the third AI Builder action.",
+            "Show **Manually trigger a flow** with the **My Text** input and the three AI Builder actions with **My Text** selected in each **Text** input."
+          ]
+        },
+        {
+          "filename": "ppai-aiactions-compose-tokens.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the first **Compose** action in the designer.",
+            "Show the **Inputs** field with **Overall text sentiment** and **Probability overall text is negative** inserted from the **Dynamic content** list."
+          ]
+        },
+        {
+          "filename": "ppai-aiactions-run-outputs.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the successful run from **28-day run history**.",
+            "Show the expanded **Outputs** of the sentiment analysis action and the green check marks on the other actions, using synthetic sample text only."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use the sentiment analysis prebuilt model in Power Automate",
+        "AI Builder in Power Automate overview Asynchronous Pattern"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/flow-sentiment-analysis",
+        "https://learn.microsoft.com/ai-builder/flow-language-detection",
+        "https://learn.microsoft.com/ai-builder/flow-key-phrase-extraction",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview",
+        "https://learn.microsoft.com/power-automate/get-started-with-cloud-flows",
+        "https://learn.microsoft.com/power-automate/get-started-logic-flow"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/flow-sentiment-analysis",
+      "prereqs": [
+        "ppai-prebuilt-sentiment-analysis"
+      ],
+      "relatedLabs": []
+    },
+    {
       "id": "ppai-use-prompt-in-flow-and-app",
       "name": "Use a prompt in Power Automate and Power Apps",
       "category": "apps-flows",
@@ -400,6 +427,172 @@
       "verifiedAgainst": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
       "prereqs": [
         "ppai-build-custom-prompt"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-flow-classify-extract-route-text",
+      "name": "Classify incoming email text in a flow and route the result",
+      "category": "apps-flows",
+      "level": 200,
+      "minutes": 40,
+      "summary": "Start a flow from a new email, send the body to the prebuilt category classification action, and use Classification and Confidence score in Conditions to route each message.",
+      "whyItMatters": "Routing on category and confidence sends clear cases to the right place automatically and low-confidence cases to a person. Knowing what the action returns, and where its limits are, keeps that routing safe.",
+      "concepts": [
+        "**Classify text into categories with the standard model** takes **Text** and **Language** (both required strings; **Language** is a list item or a language code such as en) and returns **Classification** (string; Learn lists Issues, compliment, customer service, documentation, price & billing, staff) and **Confidence score** (float, 0 to 1, values close to 1 mean greater confidence). Learn's example saves each inferred **Classification** and **Confidence score** into a SharePoint list.",
+        "The prebuilt model is built around customer feedback uses, and Learn lists only these categories: Issues, Compliment, Customer Service, Documentation, Price & Billing, Staff. It does not classify arbitrary categories. For your own categories Learn offers the action **Classify text into categories with one of your custom models**.",
+        "Learn says documents can't exceed 5,000 characters and lists English, Chinese-Simplified, French, German, Portuguese, Italian, and Spanish as supported languages, for both the prebuilt category classification and entity extraction models. What the actions return for longer text or an unsupported language: Not confirmed in Microsoft Learn.",
+        "**Confidence score** is the routing signal. Learn gives no recommended threshold, so you choose one: Not confirmed in Microsoft Learn. Learn says the greaterOrEquals expression supports integer, float, and string. The flow page writes the categories in lowercase (except Issues) while the model page uses title case, so compare against the exact value in a run's **Outputs**. Whether one text can return more than one classification: Not confirmed in Microsoft Learn.",
+        "Your AI Builder models run in the region that hosts your environment. For the prebuilt category classification model, the region availability page shows GA in most commercial regions, a dash (not available) for Korea, Norway, Singapore, and South Africa, Preview for US Government GCC and GCC High, and a dash for DoD. The model types page labels it **Prebuilt (preview)**, so which status applies to you: Not confirmed in Microsoft Learn.",
+        "The Office 365 Outlook trigger **When a new email arrives (V3)** returns message properties such as **Subject**, **Body**, and **Is HTML**, and Learn's entity extraction how-to converts **Body** to plain text with **Html to text (preview)** before the AI Builder action. The connector page says the trigger usually fires almost immediately but in rare cases can take up to one hour, and that it skips emails over the Exchange admin limit or 50 MB, whichever is less, and may skip protected emails."
+      ],
+      "steps": [
+        "Sign in to Power Automate, select **My flows**, select **New flow** > **Automated cloud flow**, name the flow, select **When a new email arrives V3 (Office 365 Outlook)** under **Choose your flow's trigger**, and then select **Create**.",
+        "In the trigger, set **Folder** to the mailbox folder to watch and set **Subject Filter** to a test string such as `Contoso feedback`, so only your test emails start the flow.",
+        "Select **+ New step**, enter **html to text** in **Search connectors and actions**, select **Html to text (preview)**, and select **Body** from the **Dynamic content** list for **Content** to convert the email body to plain text.",
+        "Select **+ New step** > **AI Builder**, select **Classify text into categories with the standard model**, select or enter your language in **Language**, select **The plain text content** from the **Dynamic content** list in **Text**, and leave **Asynchronous Pattern** set to **On**.",
+        "Select **+ New step** > **Condition**, select **Confidence score** from the **Dynamic content** list in the left box, choose **is greater than or equal to**, and enter a threshold of your choice between 0 and 1, such as `0.7`. If the designer wraps the condition in an **Apply to each** loop, leave the loop in place.",
+        "In the **If no** branch, which holds the low-confidence results, select **Add an action** and select **Send an email (V2)**. Enter your own address in **To**, add **The plain text content**, **Classification**, and **Confidence score** in **Body**, and use a **Subject** that does not contain your **Subject Filter** text so the email cannot start the flow again.",
+        "In the **If yes** branch (**True** in the new designer), select **Add an action**, add a second **Condition**, select **Classification** in the left box, choose **is equal to**, and enter `Issues`.",
+        "In the second condition's **If yes** branch, add **Post message in a chat or channel**, set **Post as** to **Flow bot** and **Post in** to **Chat with flow bot**, enter your own address in **Recipient**, and build **Message** from **Subject**, **Classification**, and **Confidence score**.",
+        "In the second condition's **If no** branch, add **Compose** under **Data Operation** with **Inputs** that record **Classification** and **Confidence score** for a confident message that is not an issue.",
+        "Optional: below the outer **Condition**, select **+ New step** > **AI Builder** > **Extract entities from text with the standard model**, set **Language**, and select **The plain text content** in **Text** so the run also shows **Entity type**, **Entity value**, **Confidence score**, **Starting location**, and **Character count**.",
+        "Select **Save**, then select **Test** > **Manually** > **Test**, and follow the instructions by sending an email whose subject contains your **Subject Filter** text and whose body is feedback such as `The Contoso mobile app crashes every time I try to pay, and support has not replied in three days.`",
+        "When the test finishes, open the run under **28-day run history**, select **Classify text into categories with the standard model**, read **Classification** and **Confidence score** in **Outputs**, and check which branch ran. Then send a second email with different text and compare."
+      ],
+      "validation": [
+        "The run shows **Classify text into categories with the standard model** succeeded and returned a **Classification** and a **Confidence score** between 0 and 1 for your test email.",
+        "The branch that ran matches your threshold: a **Confidence score** below it takes the **If no** branch and sends the review email, and a score at or above it with **Classification** equal to Issues posts the Teams message."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-route-trigger-classify.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer after adding the classification action.",
+            "Show **When a new email arrives V3 (Office 365 Outlook)** with **Subject Filter** set, **Html to text (preview)**, and **Classify text into categories with the standard model** with **The plain text content** in **Text**."
+          ]
+        },
+        {
+          "filename": "ppai-route-condition-branches.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the designer with the routing built.",
+            "Show the outer **Condition** on **Confidence score** with **Send an email (V2)** in **If no**, and the nested **Condition** on **Classification** with the Teams message and **Compose** in its branches, with any real email addresses masked."
+          ]
+        },
+        {
+          "filename": "ppai-route-run-outputs.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the successful run from **28-day run history**.",
+            "Show the **Outputs** of the classification action with **Classification** and **Confidence score**, and the branch that ran, with any real names or email addresses masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use the category classification prebuilt model in Power Automate",
+        "AI Builder category classification prebuilt model supported languages and categories"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification",
+        "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/availability-region",
+        "https://learn.microsoft.com/connectors/office365/",
+        "https://learn.microsoft.com/power-automate/add-condition"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate",
+      "prereqs": [
+        "ppai-flow-add-ai-builder-actions"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-flow-process-documents-on-arrival",
+      "name": "Process documents automatically when a file arrives in SharePoint",
+      "category": "apps-flows",
+      "level": 200,
+      "minutes": 45,
+      "summary": "Build a cloud flow that starts when a file lands in a SharePoint library, sends it to the Extract information from invoices action, and uses the confidence score to save the result to Dataverse or route it for approval.",
+      "whyItMatters": "An automatic trigger removes the manual upload step, so documents are processed as soon as they arrive. Confidence scores let the flow save clear extractions directly and send uncertain ones to a person.",
+      "concepts": [
+        "The prebuilt invoice model accepts JPEG, PNG, or PDF files up to 20 MB, images from 50 x 50 to 10,000 x 10,000 pixels, and PDFs of at most 17 x 17 inches; for PDFs only the first 2,000 pages are processed. Learn says to provide one clear photo or scan per invoice, and that calls are limited to 360 per 60 seconds per environment across document processing models, including receipt and invoice processing.",
+        "The SharePoint trigger **When a file is created (properties only)** returns only the properties stored in the library columns. Learn says to add **Get file content** and use the **File identifier** property; **Get file content** returns **File Content** (binary), which goes into **Invoice file** on **Extract information from invoices**, or into **Form** on **Process documents** (named **Extract information from documents** before May 2025) when you use your own trained document processing model.",
+        "The invoice action returns each field plus a float output named **Confidence of ...** from 0 (low) to 1 (high); amounts come as text and as number, such as **Invoice total (text)** and **Invoice total (number)**. **Process documents** returns **{field} value** as a string and **{field} confidence score** as a float from 0 to 1, so convert strings with float or int before saving them to a number column. Learn types **Invoice total (number)** as float but describes it with a date format, so check the value in your first run.",
+        "Learn's own invoice examples branch on a confidence score of 0.65: one calls a custom model when the **Invoice total** score is below 0.65, and one falls back to the prebuilt model when a custom model's collection score is below 0.65. This lab uses the same 0.65 value to send uncertain invoices to a reviewer; a recommended threshold for review routing: Not confirmed in Microsoft Learn.",
+        "Learn shows SharePoint-triggered invoice flows only as short examples with pictures that save to an Excel file, not as an end-to-end tutorial, so this lab assembles the trigger, **Get file content**, AI Builder action, **Condition**, Dataverse row, and approval from separately documented pages. For email, Learn's AI Builder page says Microsoft 365 Outlook signatures arrive as attachments, so check that **Attachments is Inline** is equal to false before the document action; this lab doesn't build the email trigger.",
+        "The SharePoint and Standard approvals connectors are Standard class, and the **Microsoft Dataverse** connector is Premium. Invoice and receipt analysis uses 32 AI Builder credits per page and custom document processing uses 100; whether a flow that uses an AI Builder action is a premium flow: Not confirmed in Microsoft Learn, because two Learn pages disagree."
+      ],
+      "steps": [
+        "In Power Apps, select **Tables** > **New table** > **Set advanced properties**, enter `Invoice intake` in **Display name**, and select **Create**.",
+        "Open the table, select **Columns**, select the primary column, set **Display name** to `Invoice ID`, and select **Done**; then use **Add column** to add `Vendor name` (**Data type** **Text**), `Invoice total` (**Decimal Number**), `Total confidence` (**Decimal Number**), and `Review status` (**Text**), selecting **Done** after each, and select **Save table**.",
+        "In Power Automate, select **My flows** > **New flow** > **Automated cloud flow**, enter a flow name, enter `file is created` under **Choose your flow's trigger**, select **When a file is created (properties only)** from SharePoint, and select **Create**.",
+        "On the trigger, select the **Site Address** and the **Library Name** of a document library you can add files to, and leave **Folder** blank to watch the whole library.",
+        "Select **+**, search for `get file content`, select the SharePoint action **Get file content**, select the same **Site Address**, and set **File Identifier** to **File identifier** from the dynamic content.",
+        "Select **+**, search for `invoices`, select **Extract information from invoices** from AI Builder, and set **Invoice file** to **File Content** from **Get file content**.",
+        "Select **+**, search for `condition`, and under **Control** select **Condition**; on the **Parameters** tab set the first **Choose a value** to **Confidence of invoice total** with the lightning bolt icon, the operator to **is greater than or equal to**, and the second value to `0.65`.",
+        "In the **True** branch, select **+**, search for `new row`, under **Microsoft Dataverse** select **Add a new row**, select your `Invoice intake` table in **Table name** (Learn's example lists tables by plural name, such as **Accounts**), and set **Invoice ID** to **Invoice ID**, **Vendor name** to **Vendor name**, **Invoice total** to **Invoice total (number)**, **Total confidence** to **Confidence of invoice total**, and **Review status** to `Saved automatically`.",
+        "In the **False** branch, select **+**, search for `approval`, under **Standard approvals** select **Start and wait for an approval**, set **Approval type** to **Approve/Reject - First to respond**, enter a **Title**, enter a reviewer in **Assigned to**, and build **Details** from **Invoice ID**, **Vendor name**, **Invoice total (text)**, and **Confidence of invoice total**.",
+        "After the approval, add a **Condition** where **Responses Approver response** is equal to `Approve`, and in its **True** branch add **Add a new row** for the `Invoice intake` table with the same mappings and **Review status** set to `Approved by reviewer`.",
+        "Select **Save**, upload a clear sample invoice PDF issued by a fictional vendor such as Fabrikam to the library, then open the flow and select the run date in the **28-day run history** to confirm the **True** branch ran.",
+        "Upload a poor-quality invoice scan (if its **Confidence of invoice total** is still 0.65 or higher, raise the **Condition** value above the score shown in the first run, select **Save**, and upload again), then respond **Approve** from the approval email or the approvals center and check the new row."
+      ],
+      "validation": [
+        "A clear invoice uploaded to the library starts the flow with no manual action, **Get file content** and **Extract information from invoices** succeed in the run history, and a new `Invoice intake` row shows **Review status** `Saved automatically` with a **Total confidence** of 0.65 or higher.",
+        "An invoice with a **Confidence of invoice total** below the condition value takes the **False** branch and sends an approval; the row with **Review status** `Approved by reviewer` appears only after the reviewer approves, and a rejection adds no row."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-docflow-trigger-and-file.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer for the automated flow.",
+            "Show the SharePoint trigger **When a file is created (properties only)**, **Get file content**, and **Extract information from invoices** with **Invoice file** set to **File Content**."
+          ]
+        },
+        {
+          "filename": "ppai-docflow-confidence-condition.png",
+          "section": "power-automate",
+          "instructions": [
+            "Scroll the designer to the **Condition** card.",
+            "Show **Confidence of invoice total** compared with 0.65, the Dataverse **Add a new row** in the **True** branch, and **Start and wait for an approval** in the **False** branch."
+          ]
+        },
+        {
+          "filename": "ppai-docflow-invoice-run.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open a successful run from the **28-day run history**.",
+            "Expand **Extract information from invoices** and show the extracted values and **Confidence of ...** outputs, with any real names masked."
+          ]
+        },
+        {
+          "filename": "ppai-docflow-invoice-table.png",
+          "section": "power-apps",
+          "instructions": [
+            "Open the **Invoice intake** table in Power Apps and show its rows.",
+            "Show one row with **Review status** `Saved automatically` and one with `Approved by reviewer`."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Extract information from invoices Power Automate SharePoint trigger",
+        "document processing confidence score route for review Power Automate"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/flow-invoice-processing",
+        "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
+        "https://learn.microsoft.com/connectors/sharepointonline/",
+        "https://learn.microsoft.com/power-automate/dataverse/create",
+        "https://learn.microsoft.com/power-automate/modern-approvals"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/flow-invoice-processing",
+      "prereqs": [
+        "ppai-prebuilt-receipt-processing-flow"
       ],
       "relatedLabs": []
     },
@@ -1186,6 +1379,261 @@
         "ppai-document-processing-model"
       ],
       "relatedLabs": []
+    },
+    {
+      "id": "ppai-flow-reliable-ai-actions",
+      "name": "Make AI flows reliable with error handling, retries, and concurrency",
+      "category": "apps-flows",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Build a flow that runs an AI Builder sentiment action in a loop, catches a deliberate failure with Try and Catch scopes, and sets a retry policy and concurrency control.",
+      "whyItMatters": "AI actions can fail on bad input, hit call limits, or run out of credits, and a flow with no error handling just stops. Planning for these failures keeps a batch moving and keeps your flow inside the model limits.",
+      "concepts": [
+        "Learn documents several ways an AI Builder action fails: a 429 TooManyRequests error (too many executions in a short time on a model), the credit codes EntitlementNotAvailable and QuotaExceeded with the message All AI Builder credits in this environment have been consumed in the **Error** panel of the run page, and a statusCode 202 or empty output that Learn says can happen when the **Asynchronous Pattern** setting is turned off. Keep **Asynchronous Pattern** set to **On** for every AI Builder action.",
+        "Calls are limited per environment for each 60 seconds: 400 shared by language detection, sentiment analysis, and key phrase extraction; 360 shared by document processing models, including receipt and invoice processing; and 480 for text recognition. Learn says prompts might be subject to usage limits or capacity throttling but gives no number: Not confirmed in Microsoft Learn.",
+        "A Try and Catch pattern uses two **Scope** actions. Set **Run After** on the **Catch** scope to run when **Try** has failed, is skipped, or has timed out. A failed scope reports a single **Failed** status, so a **Filter array** action filters the `result('Try')` output down to the failed action. Keep triggers and response actions outside scopes, and stay within eight nested levels.",
+        "**Retry Policy** is on an action's **Settings** tab under **Networking** with the types Default, None, Exponential Interval, and Fixed Interval, and Learn prefers exponential. The default is described two ways: the designer page says 2 retries for low profiles, 8 for medium or high without premium connectors, and 12 for medium or high with premium connectors, while the limits page says 2 (Low) and 12 (Medium, High). Which count applies to a medium or high flow without premium connectors: Not confirmed in Microsoft Learn. Retries can go up to 90, the minimum delay is 5 seconds, the maximum is 1 day, and retries count as actions. **Action Timeout** under **General** sets the maximum duration between retries and asynchronous responses.",
+        "**Apply to each** runs one item at a time by default, and its degree of parallelism can be 1 to 50; a high value might not be faster. Trigger **Concurrency control** is off by default, can't be undone without deleting and re-adding the trigger, and is where Learn's 429 fix reduces the degree of parallelism. Learn gives the default degree for trigger concurrency as 25 on the limits page and 1 on the triggers page: Not confirmed in Microsoft Learn.",
+        "In Power Automate, AI Builder actions use AI Builder credits first and then Copilot Credits, and they are blocked when both run out. Sentiment analysis costs 2 AI Builder credits per 1,000 characters, and a **Run a prompt** action returns `promptTokens` and `completionTokens` in its outputs. Whether a failed or retried call consumes credits, and whether an AI Builder action makes a flow premium (two Learn pages disagree): Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "In Power Automate, select **My flows** > **New flow** > **Instant cloud flow**, name it **Contoso comment sentiment**, select **Manually trigger a flow**, and select **Create**.",
+        "Select **+** below the trigger, search for **initialize variable**, and select **Initialize variable**, which must sit at the top level and not inside a scope or loop. Enter **Comments** as **Name**, select **Array** as **Type**, and enter `[\"Contoso support answered within an hour.\",\"\",\"The Fabrikam invoice total was wrong.\"]` as **Value**; the empty second item is the deliberate failure.",
+        "Select **+** below **Initialize variable**, search for **apply to each**, and select **Apply to each**. In **Select an output from previous steps**, select the **Comments** variable.",
+        "Inside **Apply to each**, select **+**, search for **scope**, and under **Control** select **Scope**. Rename the scope **Try**.",
+        "Inside **Try**, select **+** and add the AI Builder action **Analyze positive or negative sentiment**. Select or enter your language in **Language**, and enter the expression `items('Apply_to_each')` in **Text**.",
+        "Below **Try**, still inside **Apply to each**, add a second **Scope** and rename it **Catch**. Open its **Settings**, and in **Run After** select **has failed**, **is skipped**, and **has timed out**, and clear **is successful**. In the classic designer, select **...** > **Configure run after**, set the same boxes, and select **Done**.",
+        "Inside **Catch**, add **Filter array**. In the **From** box enter `result('Try')`, and set the condition to `item()['status']` **is equal to** `Failed`.",
+        "Select the **Analyze positive or negative sentiment** action, open **Settings**, and under **Networking** set **Retry Policy** to **Exponential Interval**. Set the retry count to 3 and the initial interval to 20 seconds in ISO 8601 format, `PT20S`.",
+        "Select the **Apply to each** action, open **Settings**, turn on **Concurrency control**, and set the degree of parallelism to 2.",
+        "Select **Save**, then select **Test**, select **Manually**, and select **Test** > **Run flow** > **Done**.",
+        "Open the run and expand each **Apply to each** iteration; for the empty comment, **Try** shows **Failed**, **Catch** runs, and **Filter array** outputs the failed action. If the empty comment succeeds, replace it in **Comments** with text longer than 5,120 characters, the documented sentiment limit, and run again.",
+        "In Power Automate, select **Automation Center**, then in the **Monitor** section select **AI Builder activity**. Find your sentiment rows and read **Used in** and **Consumption** for the run."
+      ],
+      "validation": [
+        "In the test run, the iterations with valid comments show **Try** succeeded and **Catch** skipped, and the iteration with the empty comment shows **Try** failed and **Catch** run with a **Filter array** output that names the failed action.",
+        "The sentiment action's **Settings** shows your **Exponential Interval** retry values, **Apply to each** shows **Concurrency control** on with your degree of parallelism, and the **AI Builder activity** page lists the sentiment run with a **Consumption** value."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-flow-catch-run-after.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the flow designer with the **Catch** scope selected.",
+            "Show the **Run After** settings with **has failed**, **is skipped**, and **has timed out** selected."
+          ]
+        },
+        {
+          "filename": "ppai-flow-action-settings.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the **Settings** tab of the **Analyze positive or negative sentiment** action.",
+            "Show **Retry Policy** set to **Exponential Interval** with the retry count and interval filled."
+          ]
+        },
+        {
+          "filename": "ppai-flow-concurrency-control.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the **Settings** of the **Apply to each** action.",
+            "Show **Concurrency control** turned on with the degree of parallelism set to 2."
+          ]
+        },
+        {
+          "filename": "ppai-flow-run-catch-output.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the test run and expand the iteration with the empty comment.",
+            "Show **Try** as failed, **Catch** as run, and the **Filter array** output, with any real names masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Power Automate error handling run after retry policy scope",
+        "Power Automate concurrency control degree of parallelism limits"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling",
+        "https://learn.microsoft.com/power-automate/flows-designer",
+        "https://learn.microsoft.com/power-automate/limits-and-config",
+        "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/implement-parallel-execution",
+        "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate",
+        "https://learn.microsoft.com/ai-builder/credit-management"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/error-handling",
+      "prereqs": [
+        "ppai-flow-add-ai-builder-actions"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-flow-monitor-troubleshoot-runs",
+      "name": "Monitor and troubleshoot failed runs of an AI Builder flow",
+      "category": "apps-flows",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Open the run history of a flow that uses an AI Builder action, find the failing step, read its inputs, outputs, and error, match it to documented causes, fix the flow, and resubmit the run.",
+      "whyItMatters": "AI Builder actions fail for reasons that differ from ordinary connector errors, such as file limits, throttling, and credit capacity. Knowing where to read the evidence and what Learn documents for each cause shortens the time to a fix.",
+      "concepts": [
+        "Learn's path to a failed step is **My flows**, the flow, then the date of the failed run in the **28-day run history**; a failed step shows a red exclamation icon, and the right pane shows its error details. In the failed action, **Inputs** shows exactly what was sent and **Outputs** shows the downstream service's message and status code; Learn ties 400 and 404 to action configuration, 401 and 403 to authentication (reconnect the connection), and 500 or 502 to transient failures (select **Resubmit**).",
+        "Learn documents three AI Builder causes beyond credits. A 429 TooManyRequests error means too many executions on a model in a short time, so lower the degree of parallelism under **Concurrency Control** in the trigger **Settings**. A 408 Dependency Timeout comes from many pages or a large file, so process only the pages you need, shrink the file, or retry, and edit and re-save flows built before April 2022 to get the 60-minute limit. An AI Builder output that starts with statusCode: 202 can mean the asynchronous pattern is disabled; where to turn it back on in the Power Automate designer: Not confirmed in Microsoft Learn.",
+        "When AI Builder credits run out and no Copilot Credits are available, AI Builder actions fail with the codes EntitlementNotAvailable or QuotaExceeded and the message All AI Builder credits in this environment have been consumed, shown in the flow editor remediation panel and in the **Error** panel on the run page. Learn says consumption can be computed late (about 7 days on the credits page, up to 5 days on the troubleshooting page), so actions can keep running past capacity before they are blocked. Per-run consumption is on the **AI Builder activity** page and totals are in the admin center, covered by the labs Monitor AI Builder activity and manage activity data (ppai-monitor-ai-activity) and Manage AI Builder credits and Copilot Credits, and fix capacity errors (ppai-credits-licensing-transition); a credit value per run in the flow run history: Not confirmed in Microsoft Learn.",
+        "Model pages list the limits behind these errors: the invoice and receipt models accept JPEG, PNG, or PDF up to 20 MB with images from 50 x 50 to 10,000 x 10,000 pixels, and document processing models share 360 calls per 60 seconds per environment. Sentiment analysis, language detection, and key phrase extraction share 400 calls per 60 seconds, text recognition has 480 calls per 60 seconds and a 20 MB maximum, and prompts might be subject to usage limits or capacity throttling. The exact error text for an unsupported or oversized file: Not confirmed in Microsoft Learn.",
+        "To rerun a run, select the run instance in the run history and select **Resubmit** (or **Cancel**); for bulk work select **All runs**, select up to 20 runs on the **Run history** page, and select **Resubmit flow run(s)**. Users can always resubmit their own instant-trigger runs, and resubmitting can duplicate records or emails, so check that the input data is still valid. Learn's pages disagree on which flow version a resubmitted run uses (edit, save, and resubmit with the updated configuration, or resubmit with the version in place at the original run): Not confirmed in Microsoft Learn.",
+        "A flow's details page has **Analytics**, which summarizes runs, success and failure rates, average execution time, error analysis, and a rolling 30-day run history, refreshed about every 24 hours; the run history list itself is labeled 28-day. Environment admins see environment-level analytics in the Power Platform admin center, and the Automation Center is the central hub for run data."
+      ],
+      "steps": [
+        "In Power Automate, select **My flows**, select the receipt flow from the receipt processing lab, select **Edit**, then select **Test**, select **Manually**, select **Test**, upload a clear sample receipt, and select **Run flow** to create a successful baseline run.",
+        "Back in the designer, open **Extract information from receipts**, remove **My receipt** from **Receipt file**, type `not-a-file` instead, and select **Save**.",
+        "Select **Test**, select **Manually**, select **Test**, upload the same sample receipt, and select **Run flow** to create a failed run. If the run succeeds, Learn does not say what this input produces, so instead upload a file in a format the model does not list (it accepts JPEG, PNG, or PDF) and run again.",
+        "Select **My flows**, select the flow, and in the **28-day run history** section select the date of the failed run.",
+        "On the run page, find the step with the red exclamation icon, open it, and read the error message and the details on the right pane.",
+        "In the failed step, expand **Inputs** to confirm that `not-a-file` was sent, expand **Outputs** to read the status code and message, and select **Show raw outputs** to see the full response.",
+        "Compare the status code and message with the causes in the concepts, and check your sample file against the model limits (JPEG, PNG, or PDF; 20 MB; 50 x 50 to 10,000 x 10,000 pixels) to rule out an input problem.",
+        "Select **Edit**, set **Receipt file** back to **My receipt** from the dynamic content list, and select **Save**.",
+        "Return to the failed run in the run history, select **Resubmit**, open the new run, and expand **Inputs** on **Extract information from receipts** to see whether it ran with `not-a-file` (the original version) or with the file (the updated version).",
+        "On the flow's details page, select **Analytics** and review the number of runs, the success and failure rates, and the error details; the data refreshes about every 24 hours, so your test runs might not appear yet."
+      ],
+      "validation": [
+        "The failed run shows a red exclamation icon on **Extract information from receipts**, its **Inputs** hold `not-a-file`, and you can state the status code and message from **Outputs**.",
+        "After the fix, a resubmitted run or a new test shows green check marks on every step, and from the **Inputs** of the AI step you can say which flow version the resubmitted run used."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-runs-failed-ai-step.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the failed run from the **28-day run history**.",
+            "Show the red exclamation icon on **Extract information from receipts** with its error message and the details pane open, with any real names masked."
+          ]
+        },
+        {
+          "filename": "ppai-runs-inputs-outputs.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the failed **Extract information from receipts** step.",
+            "Show **Inputs** with the `not-a-file` value and **Outputs** with the status code and message, with any sensitive values masked."
+          ]
+        },
+        {
+          "filename": "ppai-runs-resubmit.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the failed run instance in the run history.",
+            "Show the **Resubmit** and **Cancel** actions on the run instance."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "troubleshoot a cloud flow run history failed run",
+        "AI Builder troubleshooting Power Automate errors"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/power-automate/fix-flow-failures",
+        "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/test-cloud-flows",
+        "https://learn.microsoft.com/power-automate/guidance/coding-guidelines/monitoring-and-alerting",
+        "https://learn.microsoft.com/ai-builder/credit-management",
+        "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/too-many-requests-error-in-power-automate",
+        "https://learn.microsoft.com/troubleshoot/power-platform/ai-builder/power-automate/dependency-timeout-error-when-using-a-form-processing-model-in-power-automate"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/power-automate/fix-flow-failures",
+      "prereqs": [
+        "ppai-prebuilt-receipt-processing-flow"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-agent-tools-prompt-and-flow",
+      "name": "Call a prompt or a flow with AI Builder from a Copilot Studio agent as a tool",
+      "category": "apps-flows",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Add a saved prompt and an agent flow that contains Run a prompt to a Copilot Studio agent as tools, test both, and read how each one uses credits.",
+      "whyItMatters": "Prompts and flows are the two ways to bring AI Builder into an agent, and they differ in how inputs, outputs, sign-in, and credits work. Knowing those differences keeps the agent predictable and the credit use understood.",
+      "concepts": [
+        "You add a tool from the agent's **Tools** page with **Add a tool**, and the tool types include **Prompt** and **Agent flow**. A prompt created in **Tools** can be used in any agent or topic, and you can also add one inside a topic from **Add node** > **Add a tool** > **New prompt**. One Learn page words that topic path as **Add a topic** > **New prompt**: Not confirmed in Microsoft Learn which label your portal shows.",
+        "A flow can be a tool only if it is published, starts with **When an agent calls the flow**, ends with **Respond to the agent**, has **Asynchronous response** set to **Off** under **Networking** in the response action settings, and answers within the 100-second action limit; actions placed after the response action can run up to the 30-day run limit. A Power Automate cloud flow must be a solution flow in the agent's environment that you change to use that trigger and response action; you can also convert it to an agent flow, which is one-way.",
+        "Each tool input is filled with **Fill using** set to **Dynamically fill with AI** by default, which finds the value in the conversation or asks the user; **Custom value** takes a value, a variable, or a Power Fx formula. A prompt returns its text in the *Output.predictionOutput.text* variable, a flow returns the output parameters set on **Respond to the agent**, and **Completion** > **After running** decides what the agent does next, with **Don't respond** as the default.",
+        "A tool's **Authentication** setting is **End user** (the default) or **Maker-provided**, and tools such as prompts don't run unless authentication is turned on for the agent. A prompt with code interpreter needs the agent to use user authentication, and **No authentication** (for example with Direct Line) doesn't work. Tools that use user credentials show a connection card with **Connect**, and **Manage connections** in the test panel manages your test connections.",
+        "Prompts in agents and agent flows consume Copilot Credits by the model's text and generative AI tools tier (basic 0.1, standard 1.5, premium 10 per 1,000 tokens), even for a preview model, and prompts in topics or actions run from the agent test panel are free. Prompts and models in an agent flow always consume Copilot Credits, and agent flow actions cost 13 Copilot Credits per 100 actions. In a Power Automate classic flow they use AI Builder credits first, until the flow is converted to an agent flow.",
+        "Learn says testing an agent flow in the designer or the agent's test chat doesn't consume Copilot Studio capacity, yet also says prompts and models in agent flows always consume Copilot Credits even from the test panel or the designer. How a prompt inside a flow you test is metered: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "In Copilot Studio, select **Agents** > **New agent** > **Skip to configure**, enter a name such as **Contoso Support Helper** and a description, and select **Create**.",
+        "Select **Settings** > **Security** > **Authentication**, choose **Authenticate with Microsoft** instead of **No authentication**, select **Save**, and publish the agent.",
+        "On the agent's **Tools** page, select **Add a tool** > **Prompt**. Name the prompt **Summarize ticket**, write instructions that summarize a support ticket in two sentences, add the ticket as a **Text** input by typing **/** or selecting **Add content**, enter a sample ticket, select **Test**, and then select **Save**.",
+        "Select **Add and configure**. On the tool's page, enter a **Name** and a **Description** that say when to use it, keep **Fill using** on **Dynamically fill with AI** under **Inputs**, set **After running** under **Completion** to **Send specific response (specify below)** with *Output.predictionOutput.text* in **Message to display**, and select **Save**.",
+        "On the **Tools** page, select **Add tool** > **Agent flow** under **Create new**. The designer opens with **When an agent calls the flow** and **Respond to the agent**; add an input parameter for the ticket text to the trigger.",
+        "Below the trigger, select **Insert a new action**, and under **AI capabilities** select **Run a prompt** > **New custom prompt**. Create a prompt named **Rate ticket urgency** that answers only Low, Medium, or High, add a **Text** input, test it, and select **Save**.",
+        "In the **Run a prompt** card, set the prompt's **Text** input to the ticket parameter from the trigger.",
+        "On **Respond to the agent**, add an output parameter for the urgency and set its value to the **Text** output of **Run a prompt**. Open its **Settings** tab and confirm **Asynchronous response** is **Off**.",
+        "Select **Flow checker** to fix any errors, then select **Publish**.",
+        "Back on the agent's **Tools** page, select **Add a tool** > **Flow**, select your flow, and select **Add and configure**. Enter a **Name** and **Description**, choose how the agent fills the ticket input under **Inputs**, choose **After running** under **Completion**, and select **Save**.",
+        "Select **Test** to open **Test your agent**, select the three dots (**...**), and turn on **Show activity map when testing**. Enter a summary request and an urgency request with sample Contoso tickets, then select each tool node on the activity map to read its input and output.",
+        "In Power Automate, select **Automation Center**, then **AI Builder activity**, and read **Used in** and **Consumption** for your prompt rows."
+      ],
+      "validation": [
+        "In **Test your agent**, the agent calls **Summarize ticket** for the summary request and your flow tool for the urgency request, and the activity map shows each tool's input and output.",
+        "The **AI Builder activity** page lists your prompt rows with **Used in** and **Consumption**, and you can explain Learn's two credit rules: prompts run from the agent test panel in topics or actions are free, and prompts inside an agent flow always consume Copilot Credits."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-agent-add-prompt-tool.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open the agent's **Tools** page and start a new **Prompt** tool.",
+            "Show the prompt name, the instructions, the **Text** input, and the sample value."
+          ]
+        },
+        {
+          "filename": "ppai-agent-tool-config.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open the configuration page of the prompt tool.",
+            "Show **Details**, **Inputs** with **Fill using**, and **Completion** with **After running** set."
+          ]
+        },
+        {
+          "filename": "ppai-agent-flow-run-a-prompt.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the agent flow in the designer.",
+            "Show **When an agent calls the flow**, **Run a prompt**, and **Respond to the agent** with the input and output parameters set."
+          ]
+        },
+        {
+          "filename": "ppai-agent-test-activity-map.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open **Test your agent** after an urgency request that calls the flow tool.",
+            "Show the activity map with the selected tool node and its input and output, with any real names masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "add a prompt as a tool to a Copilot Studio agent",
+        "add an agent flow as a tool to an agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow",
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node",
+        "https://learn.microsoft.com/ai-builder/message-management"
+      ],
+      "lastVerified": "2026-11-24",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent",
+      "prereqs": [
+        "ppai-build-custom-prompt",
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "relatedLabs": [
+        "13-prompt-builder-agent-flows",
+        "14-agent-flows-prompt-nodes"
+      ]
     },
     {
       "id": "ppai-code-interpreter-prompts",

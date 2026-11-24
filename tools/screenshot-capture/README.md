@@ -494,7 +494,7 @@ The feature tour has one generated shot list per product, with one or more shots
 | `sharepoint-ai` | `feature-shots.sharepoint-ai.json` | 31 |
 | `ai-foundry` | `feature-shots.ai-foundry.json` | 38 |
 | `m365-copilot-hub` | `feature-shots.m365-copilot-hub.json` | 33 |
-| `power-platform-ai-hub` | `feature-shots.power-platform-ai-hub.json` | 44 |
+| `power-platform-ai-hub` | `feature-shots.power-platform-ai-hub.json` | 64 |
 
 **No real screenshots exist yet for any of them**: `docs/feature-tour/screenshots/` is empty, so every shot is pending. The tools never sign in for you and never fabricate images; you capture them against your own test tenants.
 
