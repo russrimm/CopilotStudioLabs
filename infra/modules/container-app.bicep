@@ -54,27 +54,55 @@ param blobContainerName string = 'portalstate'
 @description('AI writing mode (AI_GENERATION). Leave off unless the portal has real sign-in or per-user GitHub sign-in is set up; see docs/ai-writing.md. local-user is for a portal on your own PC and is not offered here.')
 param aiGeneration string = 'off'
 
-@description('Non-secret AI settings as an object of app settings, for example AI_PUBLIC_URL, AI_GITHUB_CLIENT_ID, AI_BYOK_BASE_URL, AI_BYOK_MODELS. Used only when aiGeneration is not off.')
-param aiSettings object = {}
+@description('Comma-separated model ids to offer (AI_ALLOWED_MODELS). Empty offers every model the SDK reports.')
+param aiAllowedModels string = ''
+
+@description('Address people use to reach the portal (AI_PUBLIC_URL), needed for per-user GitHub sign-in')
+param aiPublicUrl string = ''
+
+@description('GitHub App client id (AI_GITHUB_CLIENT_ID) for per-user sign-in')
+param aiGithubClientId string = ''
 
 @secure()
-@description('Secret AI settings as an object, for example AI_GITHUB_CLIENT_SECRET or AI_BYOK_API_KEY. Stored as Container Apps secrets. Used only when aiGeneration is not off.')
-param aiSecrets object = {}
+@description('GitHub App client secret (AI_GITHUB_CLIENT_SECRET) for per-user sign-in. Stored as a Container Apps secret.')
+param aiGithubClientSecret string = ''
+
+@allowed([
+  'openai'
+  'azure'
+  'anthropic'
+])
+@description('Model provider type for byok (AI_BYOK_TYPE)')
+param aiByokType string = 'openai'
+
+@description('https address of the model provider for byok (AI_BYOK_BASE_URL)')
+param aiByokBaseUrl string = ''
+
+@description('Models offered for byok (AI_BYOK_MODELS), as id or id=Display name, comma-separated')
+param aiByokModels string = ''
+
+@secure()
+@description('Model provider key for byok (AI_BYOK_API_KEY). Stored as a Container Apps secret.')
+param aiByokApiKey string = ''
 
 // The Copilot SDK runtime is about 200 MB and starts a process per generation, so AI needs more room than the 0.5 CPU / 1Gi the portal runs on without it.
 var aiOn = aiGeneration != 'off'
-var aiEnv = [for item in items(aiOn ? aiSettings : {}): {
-  name: item.key
-  value: string(item.value)
-}]
-var aiSecretList = [for item in items(aiOn ? aiSecrets : {}): {
-  name: toLower(replace(item.key, '_', '-'))
-  value: string(item.value)
-}]
-var aiSecretEnv = [for item in items(aiOn ? aiSecrets : {}): {
-  name: item.key
-  secretRef: toLower(replace(item.key, '_', '-'))
-}]
+var aiUseGithubSecret = aiOn && !empty(aiGithubClientSecret)
+var aiUseByokKey = aiOn && !empty(aiByokApiKey)
+var aiSecretList = concat(
+  aiUseGithubSecret ? [
+    {
+      name: 'ai-github-client-secret'
+      value: aiGithubClientSecret
+    }
+  ] : [],
+  aiUseByokKey ? [
+    {
+      name: 'ai-byok-api-key'
+      value: aiByokApiKey
+    }
+  ] : []
+)
 
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsWorkspaceName
@@ -135,7 +163,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json(aiOn ? '1.0' : '0.5')
             memory: aiOn ? '2Gi' : '1Gi'
           }
-          env: concat([
+          env: [
             {
               name: 'NODE_ENV'
               value: 'production'
@@ -200,7 +228,45 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AI_GENERATION'
               value: aiGeneration
             }
-          ], aiEnv, aiSecretEnv)
+            {
+              name: 'AI_ALLOWED_MODELS'
+              value: aiAllowedModels
+            }
+            {
+              name: 'AI_PUBLIC_URL'
+              value: aiPublicUrl
+            }
+            {
+              name: 'AI_GITHUB_CLIENT_ID'
+              value: aiGithubClientId
+            }
+            aiUseGithubSecret ? {
+              name: 'AI_GITHUB_CLIENT_SECRET'
+              secretRef: 'ai-github-client-secret'
+            } : {
+              name: 'AI_GITHUB_CLIENT_SECRET'
+              value: ''
+            }
+            {
+              name: 'AI_BYOK_TYPE'
+              value: aiByokType
+            }
+            {
+              name: 'AI_BYOK_BASE_URL'
+              value: aiByokBaseUrl
+            }
+            {
+              name: 'AI_BYOK_MODELS'
+              value: aiByokModels
+            }
+            aiUseByokKey ? {
+              name: 'AI_BYOK_API_KEY'
+              secretRef: 'ai-byok-api-key'
+            } : {
+              name: 'AI_BYOK_API_KEY'
+              value: ''
+            }
+          ]
         }
       ]
       // Single replica: generated labs, capture jobs, and paired devices live on local disk and are

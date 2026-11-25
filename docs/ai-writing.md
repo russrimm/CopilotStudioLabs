@@ -171,7 +171,17 @@ The command line uses this PC's own Copilot sign-in, like `local-user`. Nothing 
 
 ## Deploying
 
-The Azure Container Apps deployment sets `AI_GENERATION=off` (`infra/main.bicep`, `infra/main.parameters.json`) and does not enable AI. To turn a mode on, set `aiGeneration` to `per-user` or `byok` in `infra/main.parameters.json`, pass the non-secret settings in `aiSettings` and the secrets in `aiSecrets` (stored as Container Apps secrets and referenced, never written to the template output), then run `azd provision` or `azd up`. When AI is on the app gets 1 CPU and 2Gi instead of 0.5 CPU and 1Gi, because the SDK runtime is about 200 MB and starts a process per generation.
+The Azure Container Apps deployment sets `AI_GENERATION=off` (`infra/main.bicep`, `infra/main.parameters.json`) and does not enable AI. To turn a mode on, set `aiGeneration` to `per-user` or `byok` in `infra/main.parameters.json` and give it the settings that mode needs as parameters of the same file:
+
+| Parameter | App setting | For |
+| --- | --- | --- |
+| `aiPublicUrl`, `aiGithubClientId` | `AI_PUBLIC_URL`, `AI_GITHUB_CLIENT_ID` | `per-user` |
+| `aiGithubClientSecret` (secure) | `AI_GITHUB_CLIENT_SECRET` | `per-user` |
+| `aiByokType`, `aiByokBaseUrl`, `aiByokModels` | `AI_BYOK_TYPE`, `AI_BYOK_BASE_URL`, `AI_BYOK_MODELS` | `byok` |
+| `aiByokApiKey` (secure) | `AI_BYOK_API_KEY` | `byok` |
+| `aiAllowedModels` | `AI_ALLOWED_MODELS` | any |
+
+The two secure parameters are stored as Container Apps secrets (`ai-github-client-secret`, `ai-byok-api-key`) and handed to the app by reference, never as plain text in the template. Pass them at deployment time (for example from a Key Vault reference in your parameters file), not in a file you commit. Then run `azd provision` or `azd up`. When AI is on the app gets 1 CPU and 2Gi instead of 0.5 CPU and 1Gi, because the SDK runtime is about 200 MB and starts a process per generation.
 
 Do not turn on `per-user` or `byok` while `PORTAL_AUTH_DISABLED=true` unless you intend that. `per-user` is safe for the owner's allowance (each visitor pays for themselves) but lets any visitor with a Copilot plan use the portal's AI layer; `byok` refuses to run with sign-in off.
 
