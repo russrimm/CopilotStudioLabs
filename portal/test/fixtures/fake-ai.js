@@ -12,12 +12,27 @@ export const FAKE_MODELS = [
   { id: "fake-off", name: "Fake Disabled", billing: { multiplier: 1 }, policy: { state: "disabled" }, capabilities: {} },
 ];
 
+const SWAPS = [
+  [/\band\b/g, "plus"],
+  [/\bYou will\b/, "Next, you will"],
+  [/\byou will\b/, "you are going to"],
+  [/\bcan\b/, "are able to"],
+  [/\bis\b/, "is simply"],
+  [/\bare\b/, "are really"],
+];
+
 /** Reword one text without touching a number, a name, a link, a code word or a bold label. */
 export function reword(text, kind) {
-  const changed = String(text).replace(/\band\b/g, "plus").replace(/\bYou will\b/g, "Next, you will");
-  if (changed !== text) return changed;
-  if (kind === "slide" || kind === "note" || kind === "step") return String(text).replace(/\bthe\b/, "this");
-  return `Put simply, ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+  const source = String(text);
+  for (const [pattern, replacement] of SWAPS) {
+    const changed = source.replace(pattern, replacement);
+    if (changed !== source) return changed;
+  }
+  if (kind === "slide" || kind === "note" || kind === "step") return source;
+  const first = source.split(/\s/)[0];
+  // Lower-case the first word only when it is an ordinary word, never a name such as SharePoint.
+  const ordinary = /^[A-Z][a-z]+[,.]?$/.test(first);
+  return `Put simply, ${ordinary ? source.charAt(0).toLowerCase() : source.charAt(0)}${source.slice(1)}`;
 }
 
 function parsePrompt(prompt) {

@@ -78,7 +78,7 @@ function lbDraftContent() {
       useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
       useLlm: document.getElementById("lb-use-llm")?.checked !== false,
       includeKnowledgeCheck: lbIncludeKnowledgeCheck(),
-      brandProfileId: labBuilder.brand.profileId || null,
+      ...(typeof lbAiDraftChoice === "function" ? { ai: lbAiDraftChoice() } : {}),
       brandOverrides: lbBrandOverrides(),
     },
     wizard: {

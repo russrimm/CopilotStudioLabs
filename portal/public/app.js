@@ -4712,8 +4712,9 @@ function lbUpdateGeneratingAnimation(elapsedSec) {
   // While the lab waits in line no stage is under way, so none is lit.
   const activeStage = lbBuildQueue.waiting ? -1 : Math.min(LB_GENERATION_STAGE_LABELS.length - 1, Math.floor(elapsedSec / 3));
 
-  if (phaseEl) phaseEl.textContent = lbBuildQueue.waiting ? lbBuildQueue.text : LB_GENERATION_STAGE_LABELS[activeStage];
-  if (subEl) subEl.textContent = lbBuildQueue.waiting ? LB_GENERATION_WAIT_SUB : LB_GENERATION_SUB;
+  const aiText = typeof lbAiProgressText === "function" ? lbAiProgressText() : "";
+  if (phaseEl) phaseEl.textContent = lbBuildQueue.waiting ? lbBuildQueue.text : aiText ? "Writing with AI" : LB_GENERATION_STAGE_LABELS[activeStage];
+  if (subEl) subEl.textContent = lbBuildQueue.waiting ? LB_GENERATION_WAIT_SUB : aiText || LB_GENERATION_SUB;
   if (elapsedEl) {
     const mins = Math.floor(elapsedSec / 60);
     const secs = elapsedSec % 60;
@@ -4763,6 +4764,12 @@ async function lbGenerate() {
   if (typeof lbValidateSharepointSiteForBuild === "function" && !lbValidateSharepointSiteForBuild()) {
     return;
   }
+  // Write with AI is on but cannot be used yet (no model, not signed in): say so before anything is built.
+  const aiProblem = typeof lbAiCheckBeforeBuild === "function" ? lbAiCheckBeforeBuild() : "";
+  if (aiProblem) {
+    lbAiShowBuildError(aiProblem);
+    return;
+  }
   const btn = document.getElementById("lb-generate-btn");
   const status = document.getElementById("lb-status");
   const cancelBtn = document.getElementById("lb-cancel-btn");
@@ -4783,6 +4790,7 @@ async function lbGenerate() {
       if (status) status.textContent = runningMessage;
       const ticket = typeof lbNewBuildTicket === "function" ? lbNewBuildTicket() : "";
       if (ticket && typeof lbStartBuildQueuePolling === "function") lbStartBuildQueuePolling(ticket, runningMessage);
+      if (ticket && typeof lbAiOnBuildStart === "function") lbAiOnBuildStart(ticket);
 
       const captureBox = document.getElementById("lb-capture-on-build");
       const captureScreenshots = Boolean(captureBox?.checked && !captureBox?.disabled);
@@ -4855,6 +4863,7 @@ async function lbGenerate() {
     toast(err.name === "AbortError" ? "Lab build canceled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
     if (typeof lbStopBuildQueuePolling === "function") lbStopBuildQueuePolling();
+    if (typeof lbAiOnBuildEnd === "function") lbAiOnBuildEnd();
     if (typeof lbStopGeneratingAnimation === "function") lbStopGeneratingAnimation();
     labBuilder.busy = false;
     labBuilder.controller = null;

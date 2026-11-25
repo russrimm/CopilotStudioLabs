@@ -4334,6 +4334,102 @@
       line-height: 1.5;
       color: var(--text-muted);
     }
+
+    /* ── AI writing (optional, Review and build) ─────────────────────────── */
+    .lb-ai-card {
+      margin: 16px 0 14px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+    }
+    .lb-ai-card[hidden],
+    .lb-ai-card [hidden] {
+      display: none;
+    }
+    .lb-ai-card .lb-ai-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    .lb-ai-card .lb-ai-label input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .lb-ai-card .lb-ai-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .lb-ai-card .lb-ai-copy strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .lb-ai-card .lb-ai-copy span,
+    .lb-ai-card .lb-ai-note,
+    .lb-ai-card .lb-ai-sends,
+    .lb-ai-card .lb-ai-small,
+    .lb-ai-card .lb-ai-status {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .lb-ai-card .lb-ai-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
+      max-width: 40rem;
+    }
+    .lb-ai-card .lb-ai-status {
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .lb-ai-card select {
+      width: 100%;
+      min-height: 44px;
+      max-width: 100%;
+    }
+    .lb-ai-card .lb-ai-scope {
+      border: 0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .lb-ai-card .lb-ai-scope-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+    .lb-ai-card .lb-ai-scope-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+    .lb-ai-card .lb-ai-signin {
+      min-height: 44px;
+      align-self: flex-start;
+    }
+    .lb-ai-card .lb-ai-summary {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .lb-ai-card .lb-error:empty {
+      display: none;
+    }
     .lb-sharepoint-site-card {
       margin: 16px 0 14px;
       padding: 16px 18px;
@@ -6384,6 +6480,36 @@
                   </span>
                 </label>
               </div>
+              <section id="lb-ai-card" class="lb-ai-card" aria-labelledby="lb-ai-heading" hidden>
+                <p id="lb-ai-off-note" class="lb-ai-note" role="status" hidden>AI writing is turned off on this server.</p>
+                <div id="lb-ai-body" hidden>
+                  <label class="lb-ai-label" for="lb-ai-enabled">
+                    <input type="checkbox" id="lb-ai-enabled" autocomplete="off" aria-controls="lb-ai-options" aria-expanded="false">
+                    <span class="lb-ai-copy">
+                      <strong id="lb-ai-heading">Write with AI (optional)</strong>
+                      <span>Let an AI model reword the lab and the decks for your audience and scenario. The standard text is always the fallback.</span>
+                    </span>
+                  </label>
+                  <div id="lb-ai-options" class="lb-ai-options" hidden>
+                    <p id="lb-ai-status" class="lb-ai-status" role="status" aria-live="polite"></p>
+                    <button type="button" class="btn lb-ai-signin" id="lb-ai-signin" hidden>Sign in with GitHub</button>
+                    <div class="form-group" id="lb-ai-model-group">
+                      <label for="lb-ai-model">AI model</label>
+                      <select id="lb-ai-model" autocomplete="off" aria-describedby="lb-ai-model-cost"></select>
+                      <small id="lb-ai-model-cost" class="lb-ai-small"></small>
+                    </div>
+                    <fieldset class="lb-ai-scope" id="lb-ai-scope">
+                      <legend class="lb-legend">What AI writes</legend>
+                      <label class="lb-ai-scope-item" for="lb-ai-scope-lab"><input type="checkbox" id="lb-ai-scope-lab" value="lab" autocomplete="off" checked> The lab text</label>
+                      <label class="lb-ai-scope-item" for="lb-ai-scope-training"><input type="checkbox" id="lb-ai-scope-training" value="training" autocomplete="off" checked> The training decks</label>
+                      <label class="lb-ai-scope-item" for="lb-ai-scope-labday"><input type="checkbox" id="lb-ai-scope-labday" value="labday" autocomplete="off" checked> The lab-day decks</label>
+                    </fieldset>
+                    <p id="lb-ai-sends" class="lb-ai-sends"></p>
+                    <p id="lb-ai-summary" class="lb-ai-summary" aria-live="polite"></p>
+                    <p id="lb-ai-error" class="lb-error" role="alert"></p>
+                  </div>
+                </div>
+              </section>
               <section id="lb-sharepoint-site-card" class="lb-sharepoint-site-card" data-sharepoint-prompt-card="true" aria-labelledby="lb-sharepoint-site-heading" hidden>
                 <div class="lb-sharepoint-site-head">
                   <h4 id="lb-sharepoint-site-heading" class="lb-sharepoint-site-title">SharePoint site (optional)</h4>
@@ -7568,6 +7694,7 @@
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
   <script src="lab-builder-drafts.js" defer></script>
+  <script src="ai-writing.js" defer></script>
   <script src="lab-builder-my-topics.js" defer></script>
   <script src="lab-builder-my-products.js" defer></script>
 <script src="use-case-builder.js" defer></script>

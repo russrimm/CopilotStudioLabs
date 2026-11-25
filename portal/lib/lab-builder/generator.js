@@ -1627,6 +1627,8 @@ export async function generateLab(request, opts = {}) {
       aiDeckRun?.writeSaved(aiRecord.fingerprint);
       markdown = plainText(withAiNote(markdown, aiRecord));
       result.markdown = markdown;
+    } else if (aiWriter && !plan.warnings.some((w) => /AI writing/.test(w))) {
+      plan.warnings.push("AI writing was on, but none of the model's rewordings passed the checks against the original, so the lab uses the standard text.");
     }
 
     result.html = renderStandaloneLabHtml(markdown, {

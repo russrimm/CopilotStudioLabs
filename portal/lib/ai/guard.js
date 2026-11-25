@@ -94,7 +94,8 @@ export function protectedTokens(text, { ui = [], names = [] } = {}) {
   const source = String(text ?? "");
   const urls = new Set([...source.matchAll(URL_RE)].map((m) => m[0].replace(/[.,;:!?]+$/, "")));
   const withoutUrls = source.replace(URL_RE, " ");
-  const code = collect(withoutUrls, CODE_PATTERNS.slice(0, 1), { group: 1 });
+  // A `code span` keeps its backticks: dropping them changes how a learner reads it.
+  const code = collect(withoutUrls, CODE_PATTERNS.slice(0, 1));
   for (const token of collect(withoutUrls, CODE_PATTERNS.slice(1))) code.add(token);
   const stripped = withoutUrls.replace(/`[^`\n]*`/g, " ");
   const numbers = new Set([...stripped.matchAll(/(?<![\w.])\d[\d,]*(?:\.\d+)?%?/g)].map((m) => normalizeNumber(m[0])));

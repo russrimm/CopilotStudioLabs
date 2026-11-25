@@ -179,6 +179,10 @@ export function selectionsFromManifest(manifest) {
     useLearnMcp: options.useLearnMcp !== false,
     useLlm: options.useLlm !== false,
     includeKnowledgeCheck: Boolean(options.includeKnowledgeCheck ?? request.includeKnowledgeCheck ?? false),
+    // A lab built with AI writing re-opens with the same choice (only the choice: no prompt, token or name).
+    ...(options.ai && typeof options.ai === "object" && options.ai.enabled === true && typeof options.ai.model === "string"
+      ? { ai: { enabled: true, model: options.ai.model.slice(0, 120), scope: textList(options.ai.scope) } }
+      : {}),
     // Re-opening a customized lab pre-selects its brand profile and per-lab overrides in Step 7.
     ...(manifest.customization && typeof manifest.customization === "object" && typeof manifest.customization.profileId === "string"
       ? {
@@ -230,6 +234,10 @@ function summarizeManifest(rootDir, labId, manifest) {
     harness: selections?.harness ?? null,
     // A lab that covers two harnesses: both, in the order they are taught (absent for every other lab).
     ...(selections?.harnessMode === "both" ? { harnesses: selections.harnesses } : {}),
+    // A lab AI helped write says so in the list too (the note itself is in the lab).
+    ...(manifest.aiWriting && typeof manifest.aiWriting === "object"
+      ? { aiWriting: { model: shortText(manifest.aiWriting.modelName) || shortText(manifest.aiWriting.model), provider: shortText(manifest.aiWriting.provider), date: shortText(manifest.aiWriting.date) } }
+      : {}),
     requiresSharepointSite,
     sharepointSite: spSite.configured
       ? { name: spSite.name, url: spSite.url, label: spSite.label }

@@ -39,10 +39,16 @@ const HOME_ENV_KEYS = ["HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "HOMEDR
  * (COPILOT_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN), provider key or portal secret reaches it. Only the machine's own
  * profile folders are passed, and only in local mode, where the runtime must find the owner's stored sign-in.
  */
-export function runtimeEnv(env, mode) {
+export function runtimeEnv(env, mode, privateHome = null) {
   const out = { COPILOT_TELEMETRY_DISABLED: "true" };
   for (const key of BASE_ENV_KEYS) if (env[key] !== undefined) out[key] = env[key];
-  if (mode === "local-user") for (const key of HOME_ENV_KEYS) if (env[key] !== undefined) out[key] = env[key];
+  if (mode === "local-user") {
+    for (const key of HOME_ENV_KEYS) if (env[key] !== undefined) out[key] = env[key];
+  } else if (privateHome) {
+    // Shared and key-based modes get a home of their own, so nothing the runtime writes lands in the server's real home.
+    out.HOME = privateHome;
+    out.USERPROFILE = privateHome;
+  }
   return out;
 }
 
@@ -113,7 +119,7 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
       workDir = makeTempDir(tmpRoot, "ai-copilot-cwd-");
       const connection = loaded.RuntimeConnection.forSpawnedStdio({
         ...(env.COPILOT_CLI_PATH ? { path: env.COPILOT_CLI_PATH } : {}),
-        env: runtimeEnv(env, config.mode),
+        env: runtimeEnv(env, config.mode, homeDir),
         workingDirectory: workDir,
         baseDirectory: homeDir,
         sessionIdleTimeoutSeconds: 300,
