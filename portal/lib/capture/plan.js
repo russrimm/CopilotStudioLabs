@@ -23,11 +23,11 @@ import {
 import { getSlotMeta } from "../lab-builder/slots.js";
 import { listFeatureManifests } from "../../../tools/screenshot-capture/manifests.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
-import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
+import { REQUIREMENTS, COPILOT_STUDIO_SCREENS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
 import { createsAgent, describeAutomation, orderCreationFirst, orderForWalkthrough, personAutomation, sanitizeAutomation, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
-import { harnessGapMessage, harnessLabel, harnessPlan, labHarnessStatement, libraryName, libraryVariants, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
+import { harnessGapMessage, harnessLabel, harnessPlan, harnessProofFor, labHarnessStatement, libraryName, libraryVariants, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -149,6 +149,9 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
   // The harness this picture is taken in (Copilot Studio only), the step that gets the page into it, and the landmark that proves it.
   const harness = String(product ?? src.product ?? "copilot-studio") === "copilot-studio" ? normalizeHarness(src.harness) : null;
   const harnessSteps = harness ? harnessPlan(harness) : null;
+  // A screen outside any agent shows no landmark, so its plan line says it is checked by the host only and goes to review. A screen the walkthrough builds
+  // is taken on the practice agent, so it is proven by the agent's own tabs whatever its address opens.
+  const harnessScope = !stage?.scoped && capture?.route?.kind === "copilot-studio" && COPILOT_STUDIO_SCREENS[capture.route.screen]?.scope === "environment" ? "environment" : "agent";
   const harnessGap = harness && src.harnessGap && typeof src.harnessGap === "object" && src.harnessGap.lab
     ? { feature: (Array.isArray(src.harnessGap.feature) ? src.harnessGap.feature : []).map(normalizeHarness).filter(Boolean).slice(0, 3), lab: normalizeHarness(src.harnessGap.lab) }
     : null;
@@ -183,7 +186,7 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(harnessSteps ? { harness: { id: harness, label: harnessLabel(harness), switch: harnessSteps.switch, switchStep: harnessSteps.switchStep, proof: harnessSteps.proof } } : {}), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), ...(automation ? { automation } : {}), slot: plainName },
+    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(harnessSteps ? { harness: { id: harness, label: harnessLabel(harness), switch: harnessSteps.switch, switchStep: harnessSteps.switchStep, proof: harnessProofFor(harness, harnessScope) } } : {}), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), ...(automation ? { automation } : {}), slot: plainName },
   };
   // A recipe family judges its own screen: the callouts of the lab's other steps are not what its picture shows.
   shot.expectedLabels = automation?.via === "family" ? automation.landmarks : expectedLabelsFor(shot);

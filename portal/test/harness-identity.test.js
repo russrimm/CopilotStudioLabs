@@ -234,25 +234,31 @@ test("the capture plan carries each shot's harness, the switch step and the proo
   const standard = await newLab(["create-agent"], "standard");
   const plan = buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: standard.labId, scope: { mode: "all", filenames: [], featureIds: [] }, capturedDir: [ctx.libDir], scratch: true, agentSource: "created" });
   assert.equal(plan.labHarness.id, "standard");
+  assert.equal(plan.shots.find((s) => s.filename === "copilot-studio-home.png").capture.harness.proof, "None by content: this screen is outside the agent (Home or the Agents list), so only the address host is checked, and the picture is saved for review so a person accepts it.", "Home cannot be proven by what it shows");
+  assert.match(plan.shots.find((s) => s.filename === "agent-overview.png").capture.harness.proof, /^A tab strip with Overview/);
   for (const shot of plan.shots) {
     assert.equal(shot.harness, "standard");
     assert.equal(shot.capture.harness.switch, true);
     assert.match(shot.capture.harness.switchStep, /ellipsis in the lower left corner > Open classic experience > Skip feedback/);
-    assert.match(shot.capture.harness.proof, /Overview/);
+    assert.match(shot.capture.harness.proof, /Overview|^None by content: this screen is outside the agent/, "a screen outside the agent says its proof is the host only; the others name the landmark");
   }
   const dry = buildDryPlan(plan);
   assert.equal(dry.labHarness.id, "standard");
-  assert.match(dry.practiceAgentHarness, /Standard \(Classic\) harness practice agent, created inside the classic experience after the switch/);
+  assert.match(dry.practiceAgentHarness, /Standard \(Classic\) harness practice agent, made on the Agents list with More create options > Agent, Standard \(not yet seen working on a real tenant/);
+  assert.match(dry.practiceAgentHarness, /classic experience tab on copilotstudio\.preview\.microsoft\.com after the switch/);
   const text = formatDryPlan(dry);
   assert.match(text, /This lab: Standard \(Classic\) harness\. Every picture is taken in the Classic harness\./);
   assert.match(text, /harness: Standard \(Classic\) harness/);
   assert.match(text, /switch: ellipsis in the lower left corner > Open classic experience > Skip feedback/);
-  assert.match(text, /proof landmark: Side navigation with Overview/);
+  assert.match(text, /proof landmark: A tab strip with Overview and at least two of Knowledge, Tools, Topics, Agents, Activity, or Evaluation/);
+  assert.match(text, /proof landmark: None by content: this screen is outside the agent/, "a Home picture says its proof is the host only");
+  assert.match(text, /opens the classic experience in a new browser tab on copilotstudio\.preview\.microsoft\.com/);
+  assert.match(text, /A screen outside the agent \(Home, the Agents list\) cannot be proven by what it shows/);
 
   const copilot = await newLab(["mc-memory"], "microsoft-copilot");
   const copilotText = formatDryPlan(buildDryPlan(buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: copilot.labId, scope: { mode: "all", filenames: [], featureIds: [] }, capturedDir: [ctx.libDir], scratch: true, agentSource: "created" })));
   assert.match(copilotText, /harness: Microsoft Copilot harness/);
-  assert.match(copilotText, /no switch: open copilotstudio\.microsoft\.com /);
+  assert.match(copilotText, /no switch: use copilotstudio\.microsoft\.com \(the default experience\) and an agent whose Agent harness column says Microsoft Copilot/);
   assert.match(copilotText, /proof landmark: The Build, Preview, Evaluate, and Monitor tabs/);
   assert.doesNotMatch(copilotText, /Open classic experience > Skip feedback/, "a Microsoft Copilot picture never switches");
 
@@ -320,7 +326,7 @@ test("a companion picture taken in the other harness is rejected, one with no pr
 
   const unproven = capture(lab.labId, slot, { seed: 52 });
   assert.equal(unproven.status, 202);
-  assert.ok(unproven.body.verification.reasons.some((r) => r.code === "harness-unproven" && /1\.8\.0/.test(r.message)));
+  assert.ok(unproven.body.verification.reasons.some((r) => r.code === "harness-unproven" && /1\.8\.1/.test(r.message)));
 
   const accepted = ctx.store.accept(ctx.store.lab(lab.labId), slot, { defer: true });
   assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
@@ -509,6 +515,16 @@ test("a picture's evidence carries the harness proof only when it is complete, a
   assert.ok(run({ harness: proof("microsoft-copilot") }).reasons.some((r) => r.code === "wrong-harness" && r.level === "fail"));
   assert.ok(!run({ harness: proof("standard") }).reasons.some((r) => /harness/.test(r.code)));
   assert.ok(run({ harness: { ...proof("standard"), landmarks: [] } }).reasons.some((r) => r.code === "harness-unproven"), "an incomplete proof is no proof");
+  // Companion 1.8.0 proved a page outside an agent by the side bar menu, which offers Open classic experience in every experience: that proof is refused.
+  assert.ok(run({ harness: { version: 1, id: "standard", proof: "landmarks", landmarks: ["Menu in the lower left corner", "No Open classic experience command"], switched: true } }).reasons.some((r) => r.code === "harness-unproven"), "the retired menu proof is no proof");
+  // A screen outside any agent is never proven: it goes to review with where it was taken and how the page was reached.
+  const reached = { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false };
+  const outside = run({ harnessReached: reached }).reasons.find((r) => r.code === "harness-unproven");
+  assert.ok(outside && outside.level === "warn", "saved for review, never silently good");
+  assert.match(outside.message, /outside the agent/);
+  assert.match(outside.message, /copilotstudio\.preview\.microsoft\.com/);
+  assert.match(outside.message, /click path/);
+  assert.ok(!/outside the agent/.test(run({ harnessReached: { ...reached, host: "contoso.sharepoint.com" } }).reasons.find((r) => r.code === "harness-unproven").message), "a record with a host that is not Copilot Studio is ignored");
   assert.ok(!verifyImage(bytes, { filename: "a.png", requireEvidence: true, requireProof: true, evidence }).reasons.some((r) => /harness/.test(r.code)), "a slot with no harness asks for none");
 });
 

@@ -23,7 +23,7 @@ import { familyKey, familyShowSteps } from "./families.mjs";
 import * as R from "./scratch-recipes.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 import { AGENT_ACCOUNT_MESSAGE, CUSTOMER_AGENT_MESSAGE, agentAccountState } from "./practice.mjs";
-import { parseCopilotStudioAddress } from "./targets.mjs";
+import { parseCopilotStudioAddress, sameEnvironment } from "./targets.mjs";
 
 const DEFAULT_START = "https://copilotstudio.microsoft.com/";
 const CREATE_AREAS = new Set(["home", "agents", "create", "new"]);
@@ -69,7 +69,8 @@ const isProvisionalEnv = (envId) => String(envId || "").startsWith("~");
 /** A page of the environment from which the one sanctioned Create flow runs (the Agents list, Home, or the new-agent page before it is saved). */
 export function isCreateFlowUrl(url, envBase) {
   const parsed = parseCopilotStudioAddress(url);
-  if (!parsed.ok || !envBase || parsed.envBase !== envBase) return false;
+  // The environment is what counts, not the host: the classic experience (the preview host) shares the environments of the default address.
+  if (!parsed.ok || !envBase || !sameEnvironment(url, envBase)) return false;
   if (parsed.botId) return !UUID.test(parsed.botId) && /^(?:new|create)$/i.test(parsed.botId);
   return !parsed.area || CREATE_AREAS.has(parsed.area);
 }
@@ -293,7 +294,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
   const list = await go(`${env.envBase}/agents`, "the list of agents in your practice environment");
   if (list.signIn) return { ok: false, signIn: list.signIn };
   const at = parseCopilotStudioAddress(page.url());
-  if (at.envBase && at.envBase !== env.envBase) return needsYou("no-environment", chosen.envBase ? "Copilot Studio opened a different environment than the one you chose, so the computer did not build anything. Check the environment address in the consent card." : "Copilot Studio moved to a different environment while the computer was getting ready, so it did not build anything. Run the capture again.");
+  if (at.envBase && !sameEnvironment(page.url(), env.envBase)) return needsYou("no-environment", chosen.envBase ? "Copilot Studio opened a different environment than the one you chose, so the computer did not build anything. Check the environment address in the consent card." : "Copilot Studio moved to a different environment while the computer was getting ready, so it did not build anything. Run the capture again.");
   const practice = { agentId: null, envId, creating: (url) => isCreateFlowUrl(url, env.envBase) };
   const executor = makeExecutor({ page, session, practice, trace, log, sleep, terms, home, shot: "create-agent", companion, readiness, inputs: { agentName: name } });
   const stop = (made) => {
@@ -301,9 +302,17 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     return needsYou("run-stopped", made.halted);
   };
   const cannot = (what, made) => needsYou("agent-create-failed", `${what} Use “Show me once” to teach it this step, or set the agent up yourself and choose “Use an existing agent”.`, { detail: made.failed?.why || "", diagnostic: made.diagnostic?.file || null });
-  const opened = await executor.run(sanitizeSteps(R.CREATE_AGENT_OPEN, { product: "copilot-studio" }));
+  // The new-agent flow starts from "More create options": "Agent, Standard" for a Standard practice agent, "Agent, uses Copilot Credits" for a Microsoft Copilot one.
+  // NOT VERIFIED on a real tenant: what the flow shows after the option is chosen. The Name field and the Save button that follow must be found, or it stops with the exact step.
+  const opened = await R.openCreateFlow({ executor, harness: h, trace, log });
   if (opened.halted) return stop(opened);
-  if (!opened.ok) return cannot("The computer could not find a way to create an agent in this environment. The account may not be allowed to create agents here, or the New agent control was renamed.", opened);
+  if (!opened.ok) {
+    if (opened.via === "create-option") {
+      const exact = opened.stage === "menu" ? "open “More create options” on the Agents list" : `choose “${opened.option}” in “More create options”`;
+      return cannot(`The computer could not ${exact}. The account may not be allowed to create ${h === STANDARD ? "Standard" : "Microsoft Copilot"} agents here, or the control was renamed. Nothing was created.`, opened);
+    }
+    return cannot("The computer could not find a way to create an agent in this environment. The account may not be allowed to create agents here, or the New agent control was renamed.", opened);
+  }
   const filled = await executor.run(sanitizeSteps(R.CREATE_AGENT_FILL, { product: "copilot-studio" }));
   if (filled.halted) return stop(filled);
   if (!filled.ok) return cannot("The computer opened the new agent page but could not find the Name field. Nothing was created.", filled);
@@ -527,7 +536,7 @@ export function showStepsFor({ stage, shot, layout, harness = null, website = ""
   const words = wordsOf(shot);
   const dialog = kind === "dialog" || /\bdialog\b/.test(words);
   const newer = isSpecificHarness(harness) ? harness !== STANDARD : layout === "newer";
-  const nav = (name, alt = []) => [{ id: `${name.toLowerCase()}-nav`, action: "open-nav", target: { name, alt, within: "nav" } }, { id: `${name.toLowerCase()}-nav-open`, action: "verify", target: { role: "link", name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 }];
+  const nav = (name, alt = []) => [{ id: `${name.toLowerCase()}-nav`, action: "open-nav", target: { name, alt, within: "nav" } }, { id: `${name.toLowerCase()}-nav-open`, action: "verify", target: { name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 }];
   const outOfScope = /\b(?:out-of-scope|out of scope|decline|declin|redirect|refus)/.test(words);
   switch (stage) {
     case "agent":

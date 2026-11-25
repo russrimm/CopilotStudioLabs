@@ -18,8 +18,10 @@ import { dryRunItemsFromJob, dryRunLines } from "../dry-run.mjs";
 import { checkFeatureShots } from "../feature-shots-check.mjs";
 import { familyShowSteps } from "../families.mjs";
 import { authorizeStep, classifyControl, resolveAutonomy, TIER } from "../guard.mjs";
-import { HARNESS_MIN_COMPANION, harnessPlan, sanitizeHarnessProof } from "../harness.mjs";
+import { createAgentOpenPlan, openCreateFlow } from "../scratch-recipes.mjs";
+import { HARNESS_MIN_COMPANION, harnessFromAgentHarness, harnessPlan, sanitizeHarnessProof, sanitizeHarnessReached } from "../harness.mjs";
 import {
+  classicPageOf,
   ensureClassicExperience,
   harnessEvidence,
   harnessGapMessage,
@@ -27,6 +29,7 @@ import {
   orderByHarness,
   proveAgentPage,
   proveHarness,
+  readAgentHarness,
   readLandmarks,
   unprovenMessage,
   wantedHarness,
@@ -88,19 +91,64 @@ test("the switch to the classic experience is a look on its own few controls, ne
 
 // ── Reading the page: which harness do the landmarks prove ──────────────────
 
+test("the practice agent starts from More create options: Agent, Standard and Agent, uses Copilot Credits are allowed only as its create step, the Customer conversation option never, and a failed step names itself", async () => {
+  for (const harness of ["standard", "microsoft-copilot"]) {
+    const steps = sanitizeSteps(createAgentOpenPlan(harness).menu, { product: "copilot-studio" });
+    assert.deepEqual(steps.map((s) => s.id), ["create-menu", "create-option"], `${harness}: no step was dropped by the safety rules`);
+    assert.ok(steps.every((s) => s.tier === TIER.PRACTICE), "both steps are practice-agent steps, so they run only in the sanctioned create flow");
+  }
+  assert.equal(createAgentOpenPlan("customer-conversation").menu, null, "the computer never builds a Customer Conversation agent");
+  // The credits rule (a control that spends Copilot Credits is never clicked) holds everywhere else.
+  const item = (name, action) => classifyControl({ name, text: name, aria: "", title: "", role: "menuitem", tag: "button" }, { action, intent: "choose" });
+  assert.notEqual(item("Agent, uses Copilot Credits", "create").category, "credits");
+  assert.equal(item("Agent, uses Copilot Credits", "click").category, "credits", "the same words as any other action keep the rule");
+  assert.equal(item("Customer conversation agent, uses Copilot Credits", "create").category, "credits");
+  assert.equal(item("Run evaluation", "create").category, "credits");
+
+  const fake = (failId) => ({ ran: [], async run(steps) { this.ran.push(steps.map((s) => s.id)); const bad = steps.find((s) => s.id === failId); return bad ? { ok: false, steps: [], failed: { id: bad.id, why: "not found" } } : { ok: true, steps: [] }; }, async cleanup() {} });
+  const standardMenu = fake("create-menu");
+  const noMenu = await openCreateFlow({ executor: standardMenu, harness: "standard" });
+  assert.deepEqual([noMenu.ok, noMenu.via, noMenu.stage, noMenu.option], [false, "create-option", "menu", "Agent, Standard"], "a Standard agent has no other way in: the exact step is named");
+  assert.deepEqual(standardMenu.ran, [["create-menu", "create-option"]], "and the older New agent button is not tried");
+  const noOption = await openCreateFlow({ executor: fake("create-option"), harness: "standard" });
+  assert.deepEqual([noOption.ok, noOption.stage], [false, "option"]);
+  const copilotFallback = fake("create-menu");
+  const older = await openCreateFlow({ executor: copilotFallback, harness: "microsoft-copilot" });
+  assert.deepEqual([older.ok, older.via], [true, "new-agent-button"], "an older build without the create menu still has the New agent button for a Microsoft Copilot agent");
+  assert.deepEqual(copilotFallback.ran, [["create-menu", "create-option"], ["create-open"]]);
+  const noCopilotOption = await openCreateFlow({ executor: fake("create-option"), harness: "microsoft-copilot" });
+  assert.deepEqual([noCopilotOption.ok, noCopilotOption.stage, noCopilotOption.option], [false, "option", "Agent, uses Copilot Credits"], "a menu without the option stops: the button is not guessed");
+  const plain = fake("none");
+  assert.equal((await openCreateFlow({ executor: plain, harness: null })).via, "new-agent-button");
+  assert.deepEqual(plain.ran, [["create-open"]], "a shot with no harness keeps the older single button");
+});
+
+// ── Reading the page: which harness do the landmarks prove ──────────────────
+
 const TABS = ["Build", "Preview", "Evaluate", "Monitor"].map((name) => ({ role: "tab", name, region: "nav" }));
+// The tab strip of a Standard agent page (observed on a real tenant, 2026-11-24): Overview, Knowledge, Tools, Agents, Topics, Activity, Evaluation.
+const STRIP = ["Overview", "Knowledge", "Tools", "Agents", "Topics", "Activity", "Evaluation"].map((name) => ({ role: "tab", name, region: "header" }));
+// The side navigation of an OLDER classic build: kept as a fallback only.
 const SIDE = ["Overview", "Knowledge", "Tools", "Topics", "Analytics", "Settings"].map((name) => ({ role: "link", name, region: "nav", ...(name === "Overview" ? { selected: true } : {}) }));
+const previewBase = `https://copilotstudio.preview.microsoft.com/environments/${ENV}`;
+const previewAgent = `${previewBase}/bots/${BOT}`;
+const MORE = { role: "button", name: "More options", region: "nav" };
+const CLASSIC_COMMAND = { role: "menuitem", name: "Open classic experience", region: "other" };
+/** The pretend product: the agent page at the default address and on the preview address, and the home pages of both experiences (the menu is the same in both). */
 const appWith = (controls, extra = {}) =>
   createFakeApp({
     screens: {
       [`${agent}/overview`]: { text: ["Overview"], controls },
-      [`${base}/home`]: { text: ["Home"], controls: [{ role: "menuitem", name: "Open classic experience", region: "nav" }, { role: "button", name: "Submit", region: "main" }] },
+      [`${previewAgent}/overview`]: { text: ["Overview"], controls },
+      [`${base}/home`]: { text: ["Home"], controls: [MORE, CLASSIC_COMMAND, { role: "button", name: "Submit", region: "main" }] },
+      [`${previewBase}/home`]: { text: ["Home"], controls: [MORE, CLASSIC_COMMAND] },
+      [`${previewBase}/agents`]: { text: ["Agents"], controls: [] },
       ...extra,
     },
-    redirects: { "https://copilotstudio.microsoft.com/": `${base}/home` },
+    redirects: { "https://copilotstudio.microsoft.com/": `${base}/home`, "https://copilotstudio.preview.microsoft.com/": `${previewBase}/home` },
   });
 
-test("the landmarks prove the harness: the tab strip is the Microsoft Copilot harness (with Deploy, Customer Conversation), the side navigation is Standard, anything else is not proven", async () => {
+test("the landmarks prove the harness: the four tabs are the Microsoft Copilot harness (with Deploy, Customer Conversation), the Standard tab strip is Standard, anything else is not proven", async () => {
   const seen = async (controls) => {
     const app = appWith(controls);
     await app.page.goto(`${agent}/overview`);
@@ -109,27 +157,48 @@ test("the landmarks prove the harness: the tab strip is the Microsoft Copilot ha
   assert.equal((await seen(TABS)).harness, "microsoft-copilot");
   assert.deepEqual((await seen(TABS)).landmarks, ["Build", "Preview", "Evaluate", "Monitor"]);
   assert.equal((await seen([...TABS, { role: "tab", name: "Deploy", region: "nav" }])).harness, "customer-conversation", "a control named like a write (Deploy) is still read as a landmark");
-  const classic = await seen(SIDE);
-  assert.equal(classic.harness, "standard");
-  assert.deepEqual(classic.landmarks, ["Overview", "Knowledge", "Tools", "Topics", "Analytics"]);
+  const strip = await seen(STRIP);
+  assert.equal(strip.harness, "standard");
+  assert.deepEqual(strip.landmarks, ["Overview", "Knowledge", "Tools", "Topics", "Agents"]);
+  assert.equal((await seen([STRIP[0], STRIP[1], STRIP[2]])).harness, "standard", "Overview and two of the others are enough");
+  assert.equal(await seen([STRIP[0], STRIP[1]]), null, "Overview and only one other tab is not the Standard tab strip");
+  assert.equal(await seen([STRIP[1], STRIP[2], STRIP[3], STRIP[4]]), null, "without Overview it is not the Standard tab strip");
+  assert.equal(await seen([...STRIP, { role: "tab", name: "Build", region: "header" }]), null, "a mix with a Microsoft Copilot tab proves nothing");
+  assert.equal((await seen([...STRIP, ...TABS])).harness, "microsoft-copilot", "the four tabs win");
+  // An older build had a side navigation instead: still read, as a fallback.
+  const side = await seen(SIDE);
+  assert.equal(side.harness, "standard");
+  assert.deepEqual(side.landmarks, ["Overview", "Knowledge", "Tools", "Topics", "Analytics"]);
   assert.equal((await seen([...SIDE, ...TABS])).harness, "microsoft-copilot", "the tab strip wins");
   assert.equal(await seen([{ role: "link", name: "Overview", region: "nav" }]), null, "Overview alone is not the classic navigation");
   assert.equal(await seen([]), null);
   // A read that only reads: it never clicks.
-  const app = appWith(SIDE);
+  const app = appWith(STRIP);
   await app.page.goto(`${agent}/overview`);
   await readLandmarks(app.page);
   assert.deepEqual(app.log.clicks, []);
 });
 
-test("the proof a picture carries is only what was proven, and the portal reads it as it is", () => {
-  const proof = harnessEvidence({ id: "standard", landmarks: ["Overview", "Knowledge"], switched: true, wanted: "standard" });
-  assert.deepEqual(proof, { version: 1, id: "standard", proof: "landmarks", landmarks: ["Overview", "Knowledge"], switched: true, wanted: "standard" });
+test("the proof a picture carries is only what was proven, where it was, and how it was reached; a proof made of the retired menu lines is refused", () => {
+  const proof = harnessEvidence({ id: "standard", landmarks: ["Overview", "Knowledge"], switched: true, wanted: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" });
+  assert.deepEqual(proof, { version: 2, id: "standard", proof: "landmarks", landmarks: ["Overview", "Knowledge"], switched: true, wanted: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" });
   assert.deepEqual(sanitizeHarnessProof(proof), proof);
+  assert.deepEqual(sanitizeHarnessProof({ ...proof, host: "contoso.sharepoint.com", via: "somewhere" }), { version: 2, id: "standard", proof: "landmarks", landmarks: ["Overview", "Knowledge"], switched: true, wanted: "standard" }, "only a Copilot Studio host and a known way are kept");
   assert.equal(harnessEvidence({ id: "standard", landmarks: [], wanted: "standard" }), null, "no landmark, no proof");
   assert.equal(harnessEvidence({ id: null, landmarks: ["Overview"] }), null);
   assert.equal(harnessEvidence({ id: "either", landmarks: ["Overview"] }), null);
+  // Companion 1.8.0 proved a page outside an agent by the side bar menu, which offers Open classic experience in EVERY experience: such a proof proves nothing.
+  const retired = { version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Menu in the lower left corner", "Open classic experience offered"], switched: false, wanted: "microsoft-copilot" };
+  assert.equal(sanitizeHarnessProof(retired), null);
+  assert.equal(sanitizeHarnessProof({ ...retired, id: "standard", landmarks: ["Menu in the lower left corner", "No Open classic experience command"] }), null);
+  // A 1.8.0 proof made of an agent page's own tabs is still good.
+  assert.equal(sanitizeHarnessProof({ version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Build", "Preview", "Evaluate", "Monitor"], switched: false, wanted: "microsoft-copilot" })?.id, "microsoft-copilot");
   assert.equal(HARNESS_MIN_COMPANION, COMPANION_VERSION, "the version that proves the harness is this one");
+  assert.equal(COMPANION_VERSION, "1.8.1");
+  // A screen outside an agent has no proof, only where it was and how it was reached.
+  assert.deepEqual(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" }), { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false });
+  assert.equal(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com" }), null, "how it was reached is part of the record");
+  assert.equal(sanitizeHarnessReached({ id: "standard", host: "contoso.sharepoint.com", via: "click-path" }), null, "and so is a Copilot Studio host");
 });
 
 test("the plain sentences name both harnesses once, and a shot of a product with no harnesses is never held to one", () => {
@@ -185,10 +254,29 @@ function planShot(harness, capture = {}, extra = {}) {
   };
 }
 
-/** An executor that records what it is asked to click (the switch itself is proven in a real browser). */
-const recorder = () => {
+/**
+ * An executor that records which switch steps it is asked to run, and plays the product for the one that matters: the click on Open classic experience opens the
+ * classic experience in a NEW TAB (observed on a real tenant). The clicks themselves are proven against a real page in harness-browser.test.mjs.
+ * `opens`: "new-tab" (the real behavior), "same-tab" (the page itself moves), or "nothing" (the click does nothing).
+ */
+const recorder = (app = null, { opens = "new-tab" } = {}) => {
   const calls = [];
-  return { calls, deps: { createExecutor: () => ({ run: async (steps) => { calls.push(steps.map((s) => s.id).join("+")); return { ok: true, steps: [], failed: null, halted: null }; }, cleanup: async () => ({ closed: false, left: 0 }) }) } };
+  return {
+    calls,
+    deps: {
+      createExecutor: ({ page }) => ({
+        run: async (steps) => {
+          for (const step of steps) {
+            calls.push(step.id);
+            if (step.id === "switch-item" && app && opens === "new-tab") app.openTab(`${previewBase}/home`);
+            if (step.id === "switch-item" && opens === "same-tab") await page.goto(`${previewBase}/home`);
+          }
+          return { ok: true, steps: [], failed: null, halted: null };
+        },
+        cleanup: async () => ({ closed: false, left: 0 }),
+      }),
+    },
+  };
 };
 
 async function run(t, app, shot, { mode = "auto", targets = {}, agentUrl = `${agent}/overview`, session = null, guided = {}, log = [] } = {}) {
@@ -197,7 +285,7 @@ async function run(t, app, shot, { mode = "auto", targets = {}, agentUrl = `${ag
   return runCaptureShot({
     page: app.page,
     shot,
-    session: session || createCaptureSession({ env, targets, landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0, findMs: 50 }),
+    session: session || createCaptureSession({ env, targets, landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0, findMs: 50, switchWaitMs: 0, switchTabMs: 300 }),
     effectiveMode: mode,
     env,
     gate: gateOk(),
@@ -212,80 +300,164 @@ async function run(t, app, shot, { mode = "auto", targets = {}, agentUrl = `${ag
 }
 
 const sessionWith = (harnessDeps, extra = {}) => {
-  const session = createCaptureSession({ env: { CAPTURE_COPILOT_STUDIO_AGENT_URL: `${agent}/overview` }, landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0, findMs: 50, ...extra });
+  const session = createCaptureSession({ env: { CAPTURE_COPILOT_STUDIO_AGENT_URL: `${agent}/overview` }, landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0, findMs: 50, switchWaitMs: 0, switchTabMs: 300, ...extra });
   session.harnessDeps = harnessDeps;
   return session;
 };
 
-test("a Standard shot switches first, proves the classic landmarks, stamps what it proved, and does not switch again in the same session; a new session switches again", async (t) => {
-  const exec = recorder();
-  const app = appWith(SIDE);
+test("THE REAL FAILURE: a Standard shot switches first, the click opens a NEW TAB, and the shot is taken in that tab (the old code kept using the first one); the switch is not repeated in the same job", async (t) => {
+  const app = appWith(STRIP, { [`${agent}/overview`]: { text: ["Overview"], controls: STRIP } });
+  const exec = recorder(app);
   const session = sessionWith(exec.deps);
   const log = [];
   const first = await run(t, app, planShot("standard"), { session, log });
   assert.equal(first.status, "captured", first.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu"], "the ellipsis, then Open classic experience (no feedback prompt was shown, so Skip feedback was not clicked), then the menu once more to see the command is gone");
-  assert.equal(app.log.goto[0], `${base}/home`, "the switch starts on the home page, before the agent");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the More options button, then Open classic experience (no feedback prompt was shown, so Skip feedback was not clicked); nothing else is clicked to prove it");
+  assert.equal(app.log.goto[0], `${base}/home`, "the switch starts on the default address's home page, before the agent");
+  assert.equal(app.log.tabs, 1, "the click opened one new tab");
+  const classic = classicPageOf(session);
+  assert.ok(classic && classic !== app.page, "the new tab is the page in use");
+  assert.equal(app.page.url(), `${base}/home`, "the first tab stayed where it was");
+  assert.equal(classic.url(), `${previewAgent}/overview`, "the agent was opened in the new tab, on the preview host under /bots/<id>/");
+  assert.equal(first.finalUrl, `${previewAgent}/overview`);
   assert.equal(first.harness.id, "standard");
   assert.equal(first.harness.switched, true);
   assert.equal(first.harness.wanted, "standard");
-  assert.deepEqual(first.harness.landmarks, ["Overview", "Knowledge", "Tools", "Topics", "Analytics"]);
+  assert.equal(first.harness.host, "copilotstudio.preview.microsoft.com");
+  assert.equal(first.harness.via, "click-path");
+  assert.deepEqual(first.harness.landmarks, ["Overview", "Knowledge", "Tools", "Topics", "Agents"]);
   assert.match(log.join("\n"), /Switching to the classic experience: ellipsis in the lower left corner > Open classic experience > Skip feedback/);
-  assert.match(log.join("\n"), /Proved the Standard \(Classic\) harness: Overview, Knowledge, Tools, Topics, Analytics/);
+  assert.match(log.join("\n"), /The classic experience is open in a new tab \(copilotstudio\.preview\.microsoft\.com\), reached by the click path/);
+  assert.match(log.join("\n"), /Proved the Standard \(Classic\) harness: Overview, Knowledge, Tools, Topics, Agents/);
   assert.equal(first.detail.harness.proven, "standard");
-  assert.match(plainOutcome(first.detail, first.executedSteps, "auto"), /Proved the Standard \(Classic\) harness: Overview, Knowledge, Tools, Topics, Analytics \(switched to the classic experience first\)\./);
+  assert.match(plainOutcome(first.detail, first.executedSteps, "auto"), /Proved the Standard \(Classic\) harness: Overview, Knowledge, Tools, Topics, Agents \(switched to the classic experience first\)\./);
 
   const again = await run(t, app, planShot("standard"), { session });
   assert.equal(again.status, "captured", again.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu"], "the switch is not repeated inside the session, but the landmark was read again");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the switch is not repeated inside the job, but the landmark was read again");
+  assert.equal(app.log.tabs, 1);
   assert.equal(again.harness.id, "standard");
 
-  const other = appWith(SIDE);
-  const fresh = await run(t, other, planShot("standard"), { session });
-  assert.equal(fresh.status, "captured", fresh.error);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu", "switch-menu", "switch-item", "switch-menu"], "a new page is a new browser session: the switch is made again");
+  // The classic tab is closed (by the person): the next Standard shot switches again, and follows the new tab again.
+  await classic.close();
+  const third = await run(t, app, planShot("standard"), { session });
+  assert.equal(third.status, "captured", third.error);
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item", "switch-menu", "switch-item"], "the classic tab was gone, so the click path was made again");
+  assert.equal(app.log.tabs, 2);
+  assert.notEqual(classicPageOf(session), classic);
+});
+
+test("a switch that moves the same tab is followed too; a click that opens nothing falls back to the preview address in a new tab, recorded as the way used; with neither the shot stops with a plain reason", async (t) => {
+  const sameApp = appWith(STRIP, { [`${agent}/overview`]: { text: ["Overview"], controls: STRIP } });
+  const same = sessionWith(recorder(sameApp, { opens: "same-tab" }).deps);
+  const moved = await run(t, sameApp, planShot("standard"), { session: same });
+  assert.equal(moved.status, "captured", moved.error);
+  assert.equal(sameApp.log.tabs, 0, "no new tab was needed");
+  assert.equal(classicPageOf(same), sameApp.page);
+  assert.equal(moved.harness.via, "click-path");
+
+  const directApp = appWith(STRIP);
+  const log = [];
+  const direct = await run(t, directApp, planShot("standard"), { session: sessionWith(recorder(directApp, { opens: "nothing" }).deps), log });
+  assert.equal(direct.status, "captured", direct.error);
+  assert.equal(directApp.context.pages().length, 2, "the preview address was opened in a new tab");
+  assert.equal(direct.harness.via, "preview-address", "the proof records the way used");
+  assert.match(log.join("\n"), /The click did not open the classic experience, so the computer opens its address directly \(copilotstudio\.preview\.microsoft\.com\)/);
+
+  // The preview address does not lead to the classic experience either: Needs you, with the reason.
+  const broken = createFakeApp({ screens: { [`${base}/home`]: { text: ["Home"], controls: [MORE, CLASSIC_COMMAND] }, [`${base}/agents`]: { text: ["Agents"], controls: [] } }, redirects: { "https://copilotstudio.microsoft.com/": `${base}/home`, [`${previewBase}/agents`]: `${base}/agents` } });
+  const failed = await run(t, broken, planShot("standard"), { session: sessionWith(recorder(broken, { opens: "nothing" }).deps) });
+  assert.deepEqual([failed.status, failed.cause], ["needs-you", "harness-switch-failed"]);
+  assert.match(failed.error, /neither the click path nor the address copilotstudio\.preview\.microsoft\.com led to a classic page/);
+  assert.equal(broken.log.screenshots, 0);
 });
 
 test("a page in the wrong harness is never saved as a picture of the other: the shot is needs-you with the plain reason, in every automatic mode", async (t) => {
-  const exec = recorder();
   const app = appWith(TABS);
-  const result = await run(t, app, planShot("standard"), { session: sessionWith(exec.deps) });
+  const result = await run(t, app, planShot("standard"), { session: sessionWith(recorder(app).deps) });
   assert.deepEqual([result.status, result.cause], ["needs-you", "wrong-harness"]);
   assert.equal(result.error, "This agent is in the Microsoft Copilot harness; this picture needs the Standard (Classic) harness. Choose a Standard (Classic) agent, or let the computer create one.");
   assert.equal(app.log.screenshots, 0, "nothing was photographed");
   assert.equal(result.harness, undefined);
   assert.equal(result.detail.harness.found, "microsoft-copilot");
 
-  const classicApp = appWith(SIDE);
-  const copilot = await run(t, classicApp, planShot("microsoft-copilot"), { session: sessionWith(recorder().deps) });
+  const classicApp = appWith(STRIP);
+  const copilot = await run(t, classicApp, planShot("microsoft-copilot"), { session: sessionWith(recorder(classicApp).deps) });
   assert.deepEqual([copilot.status, copilot.cause], ["needs-you", "wrong-harness"]);
   assert.match(copilot.error, /^This agent is in the Standard \(Classic\) harness; this picture needs the Microsoft Copilot harness\./);
   assert.equal(classicApp.log.screenshots, 0);
 
   // A page that shows neither is not guessed at.
-  const blank = await run(t, appWith([]), planShot("standard"), { session: sessionWith(recorder().deps) });
+  const empty = appWith([]);
+  const blank = await run(t, empty, planShot("standard"), { session: sessionWith(recorder(empty).deps) });
   assert.deepEqual([blank.status, blank.cause], ["needs-you", "harness-unproven"]);
   assert.match(blank.error, /could not tell which harness this agent is in/);
 });
 
-test("a Microsoft Copilot shot never switches; after a Standard shot it goes back to the default experience first", async (t) => {
-  const exec = recorder();
-  const app = appWith(TABS);
+test("a Microsoft Copilot shot never switches; after a Standard shot the classic tab is closed and the first tab, on the default address, is used", async (t) => {
+  const app = appWith(STRIP, { [`${agent}/overview`]: { text: ["Overview"], controls: TABS } });
+  const exec = recorder(app);
   const session = sessionWith(exec.deps);
   const copilot = await run(t, app, planShot("microsoft-copilot"), { session });
   assert.equal(copilot.status, "captured", copilot.error);
   assert.deepEqual(exec.calls, [], "no switch step was run for a Microsoft Copilot picture");
   assert.equal(copilot.harness.id, "microsoft-copilot");
   assert.equal(copilot.harness.switched, false);
+  assert.equal(copilot.harness.host, "copilotstudio.microsoft.com");
+  assert.equal(copilot.harness.via, "default-address");
   assert.deepEqual(copilot.harness.landmarks, ["Build", "Preview", "Evaluate", "Monitor"]);
   assert.ok(!app.log.goto.includes("https://copilotstudio.microsoft.com/"), "the default experience was already the one in use");
 
-  harnessState(session, app.page).classic = true;
+  const classic = await run(t, app, planShot("standard"), { session });
+  assert.equal(classic.status, "captured", classic.error);
+  assert.equal(app.context.pages().length, 2);
+  const tab = classicPageOf(session);
+
   const back = await run(t, app, planShot("microsoft-copilot"), { session });
   assert.equal(back.status, "captured", back.error);
-  assert.ok(app.log.goto.includes("https://copilotstudio.microsoft.com/"), "the default experience address was opened again");
-  assert.equal(harnessState(session, app.page).classic, false);
-  assert.deepEqual(exec.calls, []);
+  assert.equal(app.context.pages().length, 1, "the extra tab was closed when it was no longer needed");
+  assert.ok(tab.isClosed());
+  assert.equal(classicPageOf(session), null);
+  assert.equal(back.harness.host, "copilotstudio.microsoft.com");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "nothing else was clicked to change the experience");
+
+  // A page that is itself in the classic experience (the same tab moved) goes back to the default address in place.
+  const movedApp = appWith(TABS);
+  const moved = sessionWith(recorder(movedApp).deps);
+  harnessState(moved, movedApp.page).classic = true;
+  const inPlace = await run(t, movedApp, planShot("microsoft-copilot"), { session: moved });
+  assert.equal(inPlace.status, "captured", inPlace.error);
+  assert.ok(movedApp.log.goto.includes("https://copilotstudio.microsoft.com/"), "the default experience address was opened again");
+  assert.equal(harnessState(moved, movedApp.page).classic, false);
+});
+
+test("a screen outside any agent is never proven by what it shows: it is taken on the host that matches the harness, stamped with the host and how it was reached, and no menu is read", async (t) => {
+  const homeShot = (harness) => planShot(harness, { needs: [], route: { kind: "copilot-studio", screen: "home", scope: "environment" }, screen: { id: "home", label: "the Copilot Studio home page" }, path: ["Copilot Studio", "Home"], expect: { family: "copilot-studio", scope: "environment", paths: ["home"], label: "the Copilot Studio home page", strict: true } });
+  const app = appWith(STRIP);
+  const exec = recorder(app);
+  const standard = await run(t, app, homeShot("standard"), { session: sessionWith(exec.deps), agentUrl: null });
+  assert.equal(standard.status, "captured", standard.error);
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "only the switch clicked anything: the menu is the same in every experience, so it is not opened to find out what experience this is");
+  assert.equal(standard.harness, null, "no proof");
+  assert.deepEqual(standard.harnessReached, { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false });
+  assert.equal(standard.detail.harness.notProvenByContent, true);
+  assert.equal(standard.finalUrl, `${previewBase}/home`, "a Standard lab's Home is taken on the preview host");
+
+  const copilotApp = appWith(TABS);
+  const copilotExec = recorder(copilotApp);
+  const copilot = await run(t, copilotApp, homeShot("microsoft-copilot"), { session: sessionWith(copilotExec.deps), agentUrl: null });
+  assert.equal(copilot.status, "captured", copilot.error);
+  assert.deepEqual(copilotExec.calls, [], "nothing was clicked");
+  assert.equal(copilot.harness, null);
+  assert.deepEqual(copilot.harnessReached, { version: 2, id: "microsoft-copilot", scope: "environment", host: "copilotstudio.microsoft.com", via: "default-address", proven: false });
+
+  // The host is corroboration that can only refuse: a Standard picture of a page that ends on the default host is never kept.
+  const bounced = createFakeApp({ screens: { [`${base}/home`]: { text: ["Home"], controls: [MORE, CLASSIC_COMMAND] } }, redirects: { "https://copilotstudio.microsoft.com/": `${base}/home`, [`${previewBase}/home`]: `${base}/home` } });
+  const wrongSession = sessionWith(recorder(bounced).deps);
+  harnessState(wrongSession, bounced.page).classic = true;
+  const wrong = await run(t, bounced, homeShot("standard"), { session: wrongSession, agentUrl: null });
+  assert.deepEqual([wrong.status, wrong.cause], ["needs-you", "wrong-harness"]);
+  assert.match(wrong.error, /^This page is on copilotstudio\.microsoft\.com, which is the Microsoft Copilot harness experience; this picture needs the Standard \(Classic\) harness\./);
 });
 
 test("a shot whose module is not written for the lab's harness is never taken, and the other harness is never tried", async (t) => {
@@ -330,32 +502,78 @@ test("guided: the person sets the screen up, but the landmarks are read at captu
   assert.match(log.join("\n"), /could not tell which harness this agent is in.*saved without a harness recorded, so the portal sends it to review/s);
 });
 
-test("a chosen agent whose Agents list row says it is in another harness is refused before it is opened, with how to fix it", async (t) => {
-  const app = createFakeApp({
-    screens: {
-      [`${base}/agents`]: { text: ["Agents"], poweredBy: { "Energy Assistant": "Microsoft Copilot harness" }, controls: [{ role: "link", name: "Energy Assistant", region: "main", goto: `${agent}/overview` }] },
-      [`${base}/home`]: { text: ["Home"], controls: [] },
-      [`${agent}/overview`]: { text: ["Overview"], controls: TABS },
-    },
-    redirects: { "https://copilotstudio.microsoft.com/": `${base}/home` },
+const HARNESS_TIP = { copilot: "This agent runs on the Microsoft Copilot harness. Copilot Credits are used as you create and edit it.", standard: "This agent runs on the standard harness. It doesn't use Copilot Credits for users with a Microsoft 365 Copilot license." };
+
+test("the Agent harness cell is read from its start (the tooltip is appended to the cell's text), per agent row; an older Powered by column is a fallback; rows that disagree decide nothing", () => {
+  assert.equal(harnessFromAgentHarness(`Microsoft Copilot${HARNESS_TIP.copilot}`), "microsoft-copilot");
+  assert.equal(harnessFromAgentHarness(`Standard${HARNESS_TIP.standard}`), "standard", "the tooltip's own words (Microsoft 365 Copilot, Copilot Credits) never decide");
+  assert.equal(harnessFromAgentHarness("Microsoft Copilot"), "microsoft-copilot");
+  assert.equal(harnessFromAgentHarness("  standard  "), "standard");
+  assert.equal(harnessFromAgentHarness("Customer Conversation"), "customer-conversation");
+  assert.equal(harnessFromAgentHarness("Published"), null);
+  assert.equal(harnessFromAgentHarness(`Last modified today. ${HARNESS_TIP.standard}`), null, "text that does not start with a harness is not a harness");
+  assert.equal(harnessFromAgentHarness(""), null);
+});
+
+test("a chosen agent whose Agents list row says it is in another harness is refused before it is opened, in both directions, with how to fix it", async (t) => {
+  const row = (name, harness, tip) => ({ role: "button", name: `Open ${name}`, region: "main", goto: harness === "standard" ? `${previewAgent}/overview` : `${base}/agents/${BOT}` });
+  const listFor = (hostBase) => ({
+    text: ["Agents"],
+    agentHarness: { "Energy Assistant": { column: "agent-harness", texts: [`Microsoft Copilot${HARNESS_TIP.copilot}`] } },
+    controls: [row("Energy Assistant", "microsoft-copilot"), { role: "button", name: "Open account menu for Ada Lovelace", region: "header" }],
   });
-  const session = sessionWith(recorder().deps, {});
+  const app = appWith(STRIP, { [`${previewBase}/agents`]: listFor(), [`${base}/agents`]: listFor() });
+  const session = sessionWith(recorder(app).deps, {});
   session.values = { ...session.values, copilotStudioAgentName: "Energy Assistant", copilotStudioAgentUrl: "" };
   const result = await run(t, app, planShot("standard"), { agentUrl: null, session });
   assert.deepEqual([result.status, result.cause], ["needs-you", "wrong-harness"]);
   assert.equal(result.error, "This agent is in the Microsoft Copilot harness; this picture needs the Standard (Classic) harness. Choose a Standard (Classic) agent, or let the computer create one.");
-  assert.ok(!app.log.clicks.includes("Energy Assistant"), "the agent was not opened");
+  assert.equal(result.detail.harness.via, "agent-harness-column");
+  assert.ok(!app.log.clicks.includes("Open Energy Assistant"), "the agent was not opened");
+  assert.ok(!app.log.clicks.includes("Open account menu for Ada Lovelace"), "the top bar's Open button is never taken for a row's");
+  assert.equal(app.log.screenshots, 0);
+
+  // The other way round: a Standard row for a Microsoft Copilot picture. Nothing is switched.
+  const standardList = { text: ["Agents"], agentHarness: { "Energy Assistant": { column: "agent-harness", texts: [`Standard${HARNESS_TIP.standard}`] } }, controls: [row("Energy Assistant", "standard")] };
+  const other = appWith(TABS, { [`${base}/agents`]: standardList });
+  const exec = recorder(other);
+  const second = sessionWith(exec.deps, {});
+  second.values = { ...second.values, copilotStudioAgentName: "Energy Assistant", copilotStudioAgentUrl: "" };
+  const refused = await run(t, other, planShot("microsoft-copilot"), { agentUrl: null, session: second });
+  assert.deepEqual([refused.status, refused.cause], ["needs-you", "wrong-harness"]);
+  assert.equal(refused.error, "This agent is in the Standard (Classic) harness; this picture needs the Microsoft Copilot harness. Choose a Microsoft Copilot agent, or let the computer create one.");
+  assert.deepEqual(exec.calls, [], "no switch was made for a Microsoft Copilot picture");
+  assert.ok(!other.log.clicks.includes("Open Energy Assistant"));
+
+  // A row that agrees is opened by its Open button.
+  const fine = appWith(STRIP, { [`${previewBase}/agents`]: { text: ["Agents"], agentHarness: { "Energy Assistant": { column: "agent-harness", texts: [`Standard${HARNESS_TIP.standard}`] } }, controls: [row("Energy Assistant", "standard")] } });
+  const third = sessionWith(recorder(fine).deps, {});
+  third.values = { ...third.values, copilotStudioAgentName: "Energy Assistant", copilotStudioAgentUrl: "" };
+  const taken = await run(t, fine, planShot("standard"), { agentUrl: null, session: third });
+  assert.equal(taken.status, "captured", taken.error);
+  assert.deepEqual(fine.log.clicks, ["Open Energy Assistant"]);
+  assert.equal(taken.harness.id, "standard");
+  assert.equal(taken.finalUrl, `${previewAgent}/overview`);
+
+  // Rows with the same name in two harnesses decide nothing (the page's own landmarks do), and an older build's Powered by column is still read.
+  const ambiguous = appWith([], { [`${base}/agents`]: { text: [], agentHarness: { Twin: { column: "agent-harness", texts: ["Standard", "Microsoft Copilot"] } }, controls: [] } });
+  await ambiguous.page.goto(`${base}/agents`);
+  assert.equal(await readAgentHarness(ambiguous.page, "Twin"), null);
+  const older = appWith([], { [`${base}/agents`]: { text: [], agentHarness: { Old: { column: "powered-by", texts: ["Microsoft Copilot harness"] } }, controls: [] } });
+  await older.page.goto(`${base}/agents`);
+  assert.equal(await readAgentHarness(older.page, "Old"), "microsoft-copilot");
 });
 
-test("the switch stops, with a plain reason, when the page offers no way into the classic experience", async (t) => {
+test("the switch stops, with a plain reason, when neither the page's controls nor the preview address lead into the classic experience", async (t) => {
   const failing = { createExecutor: () => ({ run: async () => ({ ok: false, steps: [], failed: { id: "switch-menu" }, halted: null }), cleanup: async () => ({}) }) };
   const app = appWith(SIDE);
   const session = sessionWith(failing);
   const out = await ensureClassicExperience({ page: app.page, session, go: async (url) => { await app.page.goto(url); return { url }; }, sleep: instant, deps: failing.deps || failing });
   assert.equal(out.ok, false);
   assert.equal(out.cause, "harness-switch-failed");
-  assert.match(out.error, /could not find the ellipsis in the lower left corner/);
+  assert.match(out.error, /neither the click path nor the address copilotstudio\.preview\.microsoft\.com led to a classic page/);
   assert.equal(harnessState(session, app.page).classic, false, "nothing is remembered as switched");
+  assert.equal(classicPageOf(session), null);
   const proof = await proveHarness({ page: app.page, session, wanted: "standard", scope: "agent", allowClicks: false, sleep: instant, waitMs: 0 });
   assert.equal(proof.ok, false, "and a page that is not an agent page proves nothing");
 });
@@ -424,23 +642,30 @@ test("the registry looks agents up by environment, lab, and harness; an agent re
 test("an agent made for a harness is proven by its landmarks: a created agent that opens in the other harness is recorded as what it is and not used", async (t) => {
   const registry = createPracticeRegistry(tmp(t));
   const autonomy = resolveAutonomy({ consented: true, level: "practice", practiceEnvironmentUrl: `${base}/home` }, { allowPracticeWrites: true });
-  const exec = recorder();
-  const newAgent = `${base}/bots/7a1c0001-5b3d-4e6f-8a9b-c0d1e2f3a4b5`;
-  const app = createFakeApp({ screens: { [`${base}/agents`]: { text: ["Agents"], controls: [] }, [`${base}/home`]: { text: ["Home"], controls: [{ role: "menuitem", name: "Open classic experience", region: "nav" }] }, [`${newAgent}/overview`]: { text: ["Overview"], controls: TABS } }, redirects: { "https://copilotstudio.microsoft.com/": `${base}/home` } });
-  const session = createCaptureSession({ autonomy, registry, agentSource: "created", landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0 });
+  const newAgent = `${previewBase}/bots/7a1c0001-5b3d-4e6f-8a9b-c0d1e2f3a4b5`;
+  const app = appWith(STRIP, { [`${previewBase}/agents`]: { text: ["Agents"], controls: [] }, [`${newAgent}/overview`]: { text: ["Overview"], controls: TABS } });
+  const exec = recorder(app);
+  const session = createCaptureSession({ autonomy, registry, agentSource: "created", landmarkMs: 0, landmarkSettleMs: 0, promptMs: 0, switchWaitMs: 0, switchTabMs: 300 });
   session.harnessDeps = exec.deps;
-  const go = async (url) => { await app.page.goto(url); return { url }; };
-  // The "create" steps end on a Microsoft Copilot agent although a Standard one was asked for.
-  const executorFor = () => ({ run: async () => { await app.page.goto(`${newAgent}/overview`); return { ok: true, steps: [] }; } });
-  const result = await ensurePracticeAgent({ page: app.page, autonomy, registry, session, executorFor, go, harness: "standard", random: () => "abc123", sleep: instant });
+  // The shot has already switched (the way runCaptureShot does it) and works in the classic tab.
+  const switched = await ensureClassicExperience({ page: app.page, session, go: async (url, label, options = {}) => { await (options.on || app.page).goto(url); return { url }; }, sleep: instant, deps: exec.deps });
+  assert.equal(switched.ok, true);
+  const tab = switched.page;
+  assert.notEqual(tab, app.page);
+  const go = async (url) => { await tab.goto(url); return { url }; };
+  // The create steps: the Agents list's More create options and "Agent, Standard", then the name and the confirm button. They end on a Microsoft Copilot agent although a Standard one was asked for.
+  const ran = [];
+  const executorFor = () => ({ run: async (steps) => { ran.push(steps.map((s) => s.id)); if (steps.some((s) => s.id === "create-confirm")) await tab.goto(`${newAgent}/overview`); return { ok: true, steps: [] }; }, cleanup: async () => ({}) });
+  const result = await ensurePracticeAgent({ page: tab, autonomy, registry, session, executorFor, go, harness: "standard", random: () => "abc123", sleep: instant });
   assert.equal(result.ok, false);
   assert.equal(result.cause, "wrong-harness");
   assert.match(result.error, /^This agent is in the Microsoft Copilot harness; this picture needs the Standard \(Classic\) harness\. The practice agent was not used\./);
-  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the Classic agent is made after the switch");
+  assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "the switch was made once, for the Classic agent; the second call reused it");
+  assert.deepEqual(ran, [["create-menu", "create-option"], ["create-name", "create-confirm"]], "the Standard agent starts from More create options > Agent, Standard, and the steps after it are the existing ones");
   assert.equal(registry.items().agents[0].name, "Classic shots - abc123");
   assert.equal(registry.find("env-1", undefined, "standard"), null);
   assert.equal(registry.items().agents[0].harness, "microsoft-copilot", "recorded under the harness it was proven to be in, never the one asked for");
-  assert.equal(await ensurePracticeAgent({ page: app.page, autonomy, registry, session, executorFor, go, harness: "standard", sleep: instant }).then((r) => r.error), result.error, "the answer is remembered for the rest of the job");
+  assert.equal(await ensurePracticeAgent({ page: tab, autonomy, registry, session, executorFor, go, harness: "standard", sleep: instant }).then((r) => r.error), result.error, "the answer is remembered for the rest of the job");
 });
 
 test("the recipes choose their steps from the harness, not from a probe: Standard has the side navigation steps, the others the tab steps", () => {
@@ -492,12 +717,13 @@ test("the dry run prints, for every shot, its harness, the step that gets the pa
   const job = { shots: [{ filename: "a.classic.png", harness: "standard", capture: { product: "copilot-studio" } }, { filename: "b.copilot.png", harness: "microsoft-copilot" }, { filename: "c.png", harness: null }, { filename: "d.png", harness: "standard", harnessGap: { feature: ["microsoft-copilot"], lab: "standard" } }] };
   const text = dryRunLines(dryRunItemsFromJob(job)).join("\n");
   assert.match(text, /a\.classic\.png.*\[Standard \(Classic\) harness\]/);
-  assert.match(text, /Harness: Standard \(Classic\) harness\r?\n\s+Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\./);
-  assert.match(text, /Proof before the picture: Side navigation with Overview/);
-  assert.match(text, /Harness: Microsoft Copilot harness\r?\n\s+No switch: open copilotstudio\.microsoft\.com/);
+  assert.match(text, /Harness: Standard \(Classic\) harness\r?\n\s+Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\. The click opens the classic experience in a new browser tab on copilotstudio\.preview\.microsoft\.com; the picture is taken in that tab, where Standard agents open\./);
+  assert.match(text, /Proof before the picture: A tab strip with Overview and at least two of Knowledge, Tools, Topics, Agents, Activity, or Evaluation/);
+  assert.match(text, /Harness: Microsoft Copilot harness\r?\n\s+No switch: use copilotstudio\.microsoft\.com \(the default experience\) and an agent whose Agent harness column says Microsoft Copilot/);
   assert.match(text, /Proof before the picture: The Build, Preview, Evaluate, and Monitor tabs/);
   assert.match(text, /d\.png\r?\n\s+Not taken: This module is written for the Microsoft Copilot harness/);
-  assert.equal(harnessPlan("standard").switchStep, "Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback.");
+  assert.match(harnessPlan("standard").switchStep, /^Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\. The click opens the classic experience in a new browser tab on copilotstudio\.preview\.microsoft\.com/);
+  assert.match(harnessPlan("standard").environment, /^A screen outside the agent \(Home, the Agents list\) cannot be proven by what it shows\./);
 });
 
 const capture = (...args) => spawnSync(process.execPath, ["capture.js", ...args], { cwd: TOOL, encoding: "utf8", timeout: 60_000 });
@@ -520,7 +746,7 @@ test("capture.js --harness accepts the five shot-level values, names the harness
   assert.match(dry.stdout, /\.classic\.png/, "the picture is saved under the name that carries its harness");
   assert.match(dry.stdout, /Proof before the picture:/);
   const copilot = capture("--product=copilot-studio", "--dry-run", "--harness=microsoft-copilot");
-  assert.match(copilot.stdout, /No switch: open copilotstudio\.microsoft\.com/);
+  assert.match(copilot.stdout, /No switch: use copilotstudio\.microsoft\.com/);
   assert.match(copilot.stdout, /\.copilot\.png/);
   // A shot kept once per harness is captured only when a variant is named.
   const both = capture("--product=copilot-studio", "--dry-run", "--harness=both");

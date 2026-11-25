@@ -12,6 +12,7 @@
 //   admin centers           the admin center address (optional: a public address is used)
 
 import { cleanExpectedLabels } from "./labels.mjs";
+import { CLASSIC_EXPERIENCE_HOST, DEFAULT_EXPERIENCE_HOST, experienceHostKind, experienceOriginFor } from "./harness.mjs";
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
@@ -20,8 +21,8 @@ import { cleanExpectedLabels } from "./labels.mjs";
  * and travels as a job setting. `profile` fields live on the brand profile with the same id.
  */
 export const TARGET_FIELDS = Object.freeze([
-  { id: "copilotStudioUrl", label: "Copilot Studio environment address", kind: "url", product: "copilot-studio", env: "CAPTURE_COPILOT_STUDIO_START_URL", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/home", help: "Optional. Copy it from the address bar when Copilot Studio shows your environment's home page.", family: "copilot-studio" },
-  { id: "copilotStudioAgentUrl", label: "Copilot Studio agent address", kind: "url", product: "copilot-studio", env: "CAPTURE_COPILOT_STUDIO_AGENT_URL", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/bots/<agent id>/overview", help: "Open your agent in Copilot Studio and copy the address from the address bar. This is how every agent screen (Overview, Knowledge, Tools, Settings) is reached.", family: "copilot-studio", agent: true },
+  { id: "copilotStudioUrl", label: "Copilot Studio environment address", kind: "url", product: "copilot-studio", env: "CAPTURE_COPILOT_STUDIO_START_URL", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/home", help: "Optional. Copy it from the address bar when Copilot Studio shows your environment's home page. An address on copilotstudio.microsoft.com or on copilotstudio.preview.microsoft.com (the classic experience) works; the computer opens each screen on the host its harness needs.", family: "copilot-studio" },
+  { id: "copilotStudioAgentUrl", label: "Copilot Studio agent address", kind: "url", product: "copilot-studio", env: "CAPTURE_COPILOT_STUDIO_AGENT_URL", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/bots/<agent id>/overview", help: "Open your agent in Copilot Studio and copy the address from the address bar (a Standard agent opens on copilotstudio.preview.microsoft.com, and that address works too). This is how every agent screen (Overview, Knowledge, Tools, Settings) is reached.", family: "copilot-studio", agent: true },
   { id: "copilotStudioAgentName", label: "Copilot Studio agent name", kind: "text", product: "copilot-studio", env: null, placeholder: "My agent", help: "Use this instead of the address: the exact name of your agent. It is opened from the Agents list." },
   { id: "agentBuilderAgentName", label: "Agent Builder agent name", kind: "text", product: "m365-copilot-agent-builder", env: null, placeholder: "My agent", help: "The exact name of the agent you build in Microsoft 365 Copilot." },
   { id: "sharepointSiteUrl", label: "SharePoint site address", kind: "url", product: "sharepoint-ai", env: "CAPTURE_SHAREPOINT_SITE_URL", placeholder: "https://contoso.sharepoint.com/sites/training", help: "The site the lab uses. Shots of site pages open it." },
@@ -46,6 +47,7 @@ export function envNameForField(id) {
 }
 
 const COPILOT_STUDIO_HOST_RE = /(?:^|\.)copilotstudio\./i;
+const COPILOT_STUDIO_HOST_TEXT = `${DEFAULT_EXPERIENCE_HOST} or ${CLASSIC_EXPERIENCE_HOST}`;
 
 /**
  * Check one setting. An empty value is valid and means "not set". Addresses must be https without a user name or
@@ -73,7 +75,7 @@ export function validateTargetValue(id, raw) {
   if (url.username || url.password) return { ok: false, value: "", error: `Remove the user name and password from the ${field.label.toLowerCase()}.` };
   if (!url.hostname || !url.hostname.includes(".")) return { ok: false, value: "", error: `${field.label} must be a full web address.` };
   if (field.family === "copilot-studio") {
-    if (!COPILOT_STUDIO_HOST_RE.test(url.hostname)) return { ok: false, value: "", error: `${field.label} must be a Copilot Studio address (copilotstudio.microsoft.com).` };
+    if (!COPILOT_STUDIO_HOST_RE.test(url.hostname)) return { ok: false, value: "", error: `${field.label} must be a Copilot Studio address (${COPILOT_STUDIO_HOST_TEXT}).` };
     if (field.agent && !parseCopilotStudioAddress(text).botId) {
       return { ok: false, value: "", error: "That address does not point at an agent. Open your agent in Copilot Studio and copy the address from the address bar." };
     }
@@ -215,7 +217,7 @@ export function parseCopilotStudioAddress(raw) {
   }
   if (url.protocol !== "https:" || !COPILOT_STUDIO_HOST_RE.test(url.hostname)) return { ok: false };
   const segs = url.pathname.split("/").filter(Boolean);
-  const out = { ok: true, origin: url.origin, host: url.hostname, envId: null, botId: null, area: null, section: null, envBase: null, agentBase: null };
+  const out = { ok: true, origin: url.origin, host: url.hostname, hostKind: experienceHostKind(url.hostname), envId: null, botId: null, area: null, section: null, envBase: null, agentBase: null };
   if (segs[0] !== "environments" || !segs[1]) return out;
   out.envId = segs[1];
   out.envBase = `${url.origin}/environments/${segs[1]}`;
@@ -230,6 +232,36 @@ export function parseCopilotStudioAddress(raw) {
     out.section = rest[1] || null;
   }
   return out;
+}
+
+/**
+ * Whether two Copilot Studio addresses are in the same environment. The host does not matter: the default address and the preview address (the classic
+ * experience) share the environments and the sign-in, so an address on the preview host is never "another environment" or "another tenant" by its host.
+ */
+export function sameEnvironment(a, b) {
+  const x = parseCopilotStudioAddress(a);
+  const y = parseCopilotStudioAddress(b);
+  return Boolean(x.ok && y.ok && x.envId && y.envId && x.envId.toLowerCase() === y.envId.toLowerCase());
+}
+
+/**
+ * The same address on the host a harness is taken on: Standard (Classic) on the preview host, Microsoft Copilot and Customer Conversation on the default host.
+ * Only the host changes. An address that is not on one of those two hosts (another cloud, another product), and a harness that has no host of its own, are
+ * returned as they are.
+ */
+export function addressForHarness(raw, harness) {
+  const origin = experienceOriginFor(harness);
+  if (!origin) return raw;
+  try {
+    const url = new URL(String(raw));
+    if (url.protocol !== "https:" || !experienceHostKind(url.hostname)) return raw;
+    const wanted = new URL(origin);
+    if (url.hostname === wanted.hostname) return raw;
+    url.host = wanted.host;
+    return url.href;
+  } catch {
+    return raw;
+  }
 }
 
 /** The address of a Copilot Studio screen, from what is known so far. Null when the context is not enough. */

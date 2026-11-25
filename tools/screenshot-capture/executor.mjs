@@ -427,8 +427,22 @@ export async function locatorsForStrategy(page, strategy, step, { names, roles }
 // ── Page guards: native prompts, new tabs ───────────────────────────────────
 
 const guarded = new WeakSet();
+// Pages that may open a tab right now: the one click that switches to the classic experience opens the classic experience in a NEW TAB (observed on a real
+// tenant), and that tab is the page the picture is taken in, so it must not be closed. Everywhere else a new tab is closed (a click that opens a tab is not one
+// the computer follows).
+const popupsAllowed = new Map();
 
-/** Native "leave this page?" prompts are accepted (that discards unsaved edits); every other native prompt is dismissed. New tabs a click opens are closed. */
+/** Let `page` open a new tab for now (the switch to the classic experience). Returns the function that ends the allowance. */
+export function allowPopups(page) {
+  popupsAllowed.set(page, (popupsAllowed.get(page) || 0) + 1);
+  return () => {
+    const left = (popupsAllowed.get(page) || 1) - 1;
+    if (left > 0) popupsAllowed.set(page, left);
+    else popupsAllowed.delete(page);
+  };
+}
+
+/** Native "leave this page?" prompts are accepted (that discards unsaved edits); every other native prompt is dismissed. New tabs a click opens are closed, except while the switch allows one. */
 export function attachPageGuards(page, { trace = null } = {}) {
   if (!page || guarded.has(page) || typeof page.on !== "function") return;
   guarded.add(page);
@@ -439,6 +453,10 @@ export function attachPageGuards(page, { trace = null } = {}) {
     Promise.resolve(done).catch(() => {});
   });
   page.on("popup", (popup) => {
+    if (popupsAllowed.has(page)) {
+      trace?.event("popup-kept", { why: "classic-switch" });
+      return;
+    }
     trace?.event("popup-closed", {});
     Promise.resolve(popup.close()).catch(() => {});
   });

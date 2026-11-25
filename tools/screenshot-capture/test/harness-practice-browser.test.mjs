@@ -1,7 +1,10 @@
-// Real-browser proof that the practice agent is made per harness: a Classic agent (made inside the classic experience, after the switch) for a Standard
-// (Classic) picture and a Microsoft Copilot agent (made in the default experience) for a Microsoft Copilot picture, each proven by its landmarks, each
-// recorded under its harness, never reused for the other, and an agent recorded before harnesses were recorded is never reused for either.
-// It runs against the pretend Copilot Studio in `harnessMode`. Each test skips itself when no browser is installed.
+// Real-browser proof that the practice agent is made per harness: a Classic agent (started from More create options > Agent, Standard, in the classic experience
+// tab after the switch) for a Standard (Classic) picture and a Microsoft Copilot agent (started from More create options > Agent, uses Copilot Credits, in the
+// default experience) for a Microsoft Copilot picture, each proven by its landmarks, each recorded under its harness, never reused for the other, and an agent
+// recorded before harnesses were recorded is never reused for either.
+// It runs against the pretend Copilot Studio in `harnessMode` (two hosts, a new tab for the classic experience; see fake-product-site.mjs). What a real tenant
+// shows AFTER "Agent, Standard" is chosen was never observed, so the pretend one is a guess; the steps after the option are the existing ones.
+// Each test skips itself when no browser is installed.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -58,7 +61,7 @@ function agentShot(filename, harness) {
 }
 
 async function withTenant(options, fn) {
-  const site = createFakeProductSite({ harnessMode: true, experienceDecides: false, defaultDelayMs: 40, chatDelayMs: 80, ...options });
+  const site = createFakeProductSite({ harnessMode: true, defaultDelayMs: 40, chatDelayMs: 80, ...options });
   const browser = await playwright.chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   await site.attach(context);
@@ -73,7 +76,7 @@ async function withTenant(options, fn) {
       { consented: true, level: mode, practiceEnvironmentUrl: FAKE_PRACTICE_ENV_URL, ...(mode === "scratch" ? { scratchContext: CONTEXT } : {}) },
       { allowPracticeWrites: true },
     );
-    const session = createCaptureSession({ autonomy, registry, home, agentSource: "created", writeGapMs: 0, effectMs: 2500, findMs: 4000, landmarkMs: 4000, landmarkSettleMs: 150, promptMs: 1200 });
+    const session = createCaptureSession({ autonomy, registry, home, agentSource: "created", writeGapMs: 0, effectMs: 2500, findMs: 4000, landmarkMs: 4000, landmarkSettleMs: 150, promptMs: 1200, switchWaitMs: 4000, switchTabMs: 6000 });
     const shoot = (shot) =>
       runCaptureShot({
         page,
@@ -89,7 +92,7 @@ async function withTenant(options, fn) {
         verifyBuffer: verifyCapturedImageBuffer,
         readiness: { maxMs: 3000, answerMs: 10000 },
       });
-    await fn({ site, registry, session, shoot, lines, dir });
+    await fn({ site, registry, session, shoot, lines, dir, context });
   } finally {
     await browser.close();
     fs.rmSync(dir, { recursive: true, force: true });
@@ -98,20 +101,27 @@ async function withTenant(options, fn) {
 
 const practiceAgents = (site) => site.practiceAgents().map((a) => ({ name: a.name, harness: a.harness }));
 
-test("built from scratch, a Microsoft Copilot picture and a Standard picture each get their own practice agent: distinct, within 30 characters, made in the right experience, proven, and recorded by harness", { skip, timeout: 300_000 }, async () => {
-  await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines }) => {
+test("built from scratch, a Microsoft Copilot picture and a Standard picture each get their own practice agent: distinct, within 30 characters, started from the right create option, made in the right experience, proven, and recorded by harness", { skip, timeout: 300_000 }, async () => {
+  await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines, context }) => {
     const copilot = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
     assert.equal(copilot.status, "captured", copilot.error);
     assert.equal(site.stats.classicClicks, 0, "the Microsoft Copilot agent was made without any switch");
+    assert.deepEqual(site.stats.createPicks, ["copilot"], "it started from More create options > Agent, uses Copilot Credits");
     assert.equal(copilot.harness.id, "microsoft-copilot");
+    assert.equal(copilot.harness.host, "copilotstudio.microsoft.com");
     assert.deepEqual(practiceAgents(site), [{ name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" }]);
 
     const classic = await shoot(agentShot("agent.classic.png", "standard"));
     assert.equal(classic.status, "captured", classic.error);
     assert.equal(site.stats.classicClicks, 1, "the Classic agent was made after the switch");
+    assert.equal(site.stats.popups, 1, "which opened the classic experience in a new tab");
+    assert.deepEqual(site.stats.createPicks, ["copilot", "standard"], "and it started from More create options > Agent, Standard");
     assert.equal(site.stats.feedbackSubmits, 0);
     assert.equal(classic.harness.id, "standard");
     assert.equal(classic.harness.switched, true);
+    assert.equal(classic.harness.host, "copilotstudio.preview.microsoft.com");
+    assert.equal(classic.harness.via, "click-path");
+    assert.equal(context.pages().length, 2);
     const made = practiceAgents(site);
     assert.deepEqual(made, [
       { name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" },
@@ -132,6 +142,7 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
     assert.equal(site.practiceAgents().length, 2, "the Microsoft Copilot slot used its own agent, and made no third one");
     assert.equal(again.detail.practice.harness, "microsoft-copilot");
     assert.equal(site.stats.classicClicks, 1, "going back to a Microsoft Copilot picture did not switch anything");
+    assert.equal(context.pages().length, 1, "and the classic tab was closed");
     assert.match(lines.join("\n"), /Switching to the classic experience: ellipsis in the lower left corner > Open classic experience > Skip feedback/);
     assert.deepEqual(site.stats.dangers, []);
   });
@@ -185,28 +196,29 @@ test("with a practice agent (not built from scratch) the agent handed over from 
   });
 });
 
-test("one job with both harnesses, one harness after the other: the classic switch is made once, the default experience is opened again once, two practice agents are made, each picture carries the harness it was proven in, and a page still in the wrong harness after the switch is Needs you", { skip, timeout: 420_000 }, async () => {
-  await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines }) => {
+test("one job with both harnesses, one harness after the other: the classic switch is made once, the classic tab is closed once, two practice agents are made, each picture carries the harness it was proven in, and a classic experience that cannot be reached is Needs you", { skip, timeout: 420_000 }, async () => {
+  await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines, context }) => {
     // The plan gives all the Standard shots, then all the Microsoft Copilot shots (the creation step first inside each).
     const first = await shoot(agentShot("a.classic.png", "standard"));
     const second = await shoot(agentShot("b.classic.png", "standard"));
     assert.deepEqual([first.status, second.status], ["captured", "captured"], first.error || second.error);
     assert.deepEqual([first.harness.id, second.harness.id], ["standard", "standard"]);
     assert.equal(site.stats.classicClicks, 1, "the switch to the classic experience was made once for both Standard shots");
+    assert.equal(site.stats.popups, 1);
     assert.equal(first.harness.switched, true);
-    assert.equal(site.experience.classic, true);
-    assert.doesNotMatch(lines.join("\n"), /Changing experience/, "no return to the default experience before the Microsoft Copilot part");
+    assert.equal(context.pages().length, 2, "the first tab and the classic tab");
+    assert.doesNotMatch(lines.join("\n"), /Closed the classic tab/, "the classic tab stays open for the whole Standard part");
 
     const third = await shoot(agentShot("c.copilot.png", "microsoft-copilot"));
     const fourth = await shoot(agentShot("d.copilot.png", "microsoft-copilot"));
     assert.deepEqual([third.status, fourth.status], ["captured", "captured"], third.error || fourth.error);
     assert.deepEqual([third.harness.id, fourth.harness.id], ["microsoft-copilot", "microsoft-copilot"]);
     assert.equal(third.harness.switched, false, "a Microsoft Copilot picture is never marked as switched");
-    assert.equal(site.experience.classic, false, "the session is back in the default experience");
+    assert.equal(context.pages().length, 1, "the classic tab was closed, and the first tab (on the default address) is the page in use");
     assert.equal(site.stats.classicClicks, 1, "going back to the default experience clicked nothing in the classic one");
     const text = lines.join("\n");
     assert.equal((text.match(/Switching to the classic experience:/g) || []).length, 1);
-    assert.equal((text.match(/Changing experience: going back to the default experience/g) || []).length, 1, "one return to the default experience");
+    assert.equal((text.match(/Closed the classic tab/g) || []).length, 1, "the classic tab was closed once");
     assert.match(text, /Proved the Microsoft Copilot harness: Build, Preview, Evaluate, Monitor/);
 
     // Two practice agents inside the same job, each proven in its own experience and neither used for the other.
@@ -217,19 +229,20 @@ test("one job with both harnesses, one harness after the other: the classic swit
     assert.deepEqual(registry.items().agents.map((a) => a.harness), ["standard", "microsoft-copilot"]);
     assert.deepEqual([first, second, third, fourth].map((r) => r.detail.practice.harness), ["standard", "standard", "microsoft-copilot", "microsoft-copilot"]);
 
-    // A plan that goes back to the first harness switches again, only because the session was left in the default experience.
+    // A plan that goes back to the first harness switches again (a new tab), because the classic tab was closed.
     const back = await shoot(agentShot("e.classic.png", "standard"));
     assert.equal(back.status, "captured", back.error);
     assert.equal(back.harness.id, "standard");
     assert.equal(site.stats.classicClicks, 2, "an interleaved Standard shot switched again, proved again");
+    assert.equal(site.stats.popups, 2);
     assert.equal(site.practiceAgents().length, 2, "and used the Classic agent it already had");
   });
 
-  // The switch did nothing: the page is still in the Microsoft Copilot harness, the shot is Needs you, nothing is built, and no picture is kept.
-  await withTenant({ level: "scratch", switchBroken: true }, async ({ site, shoot, dir }) => {
+  // The classic experience cannot be reached (neither the click path nor the preview address leads there): the shot is Needs you, nothing is built, and no picture is kept.
+  await withTenant({ level: "scratch", previewUnavailable: true }, async ({ site, shoot, dir }) => {
     const result = await shoot(agentShot("f.classic.png", "standard"));
-    assert.deepEqual([result.status, result.cause], ["needs-you", "wrong-harness"]);
-    assert.match(result.error, /This agent is in the Microsoft Copilot harness; this picture needs the Standard \(Classic\) harness\./);
+    assert.deepEqual([result.status, result.cause], ["needs-you", "harness-switch-failed"]);
+    assert.match(result.error, /neither the click path nor the address copilotstudio\.preview\.microsoft\.com led to a classic page/);
     assert.equal(result.harness, undefined, "no harness is stamped on a picture that was not taken");
     assert.equal(site.practiceAgents().length, 0, "no practice agent was made in the wrong experience");
     assert.ok(!fs.existsSync(path.join(dir, "a", "f.classic.png")), "the picture was not saved");

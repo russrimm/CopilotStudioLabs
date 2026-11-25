@@ -5,7 +5,7 @@
 // Shared by the companion, the lab runner, and the portal's step derivation, so a step that
 // would leave the signed-in state is dropped when the plan is built and again on this computer.
 
-import { CLASSIC_SWITCH } from "./harness.mjs";
+import { CLASSIC_SWITCH, CREATE_OPTIONS, MICROSOFT_COPILOT, STANDARD } from "./harness.mjs";
 
 /** Controls that delete or undo something in the tenant. */
 export const DESTRUCTIVE_LABEL_RE = /\b(?:delete|remove|erase|purge|destroy|disconnect|unregister|revoke|reset all|delete all)\b/i;
@@ -262,6 +262,10 @@ const isTestViewName = wordMatcher(["activity map", "show activity map", "open a
 // The only controls the switch to the classic experience may touch, by accessible name: the ellipsis, Open classic experience, Skip feedback, and the
 // older New experience switch. "Submit" and "Send feedback" are not in the list: the computer never submits feedback.
 const SWITCH_NAMES = new Set([...CLASSIC_SWITCH.menu.names, ...CLASSIC_SWITCH.item.names, ...CLASSIC_SWITCH.skipFeedback.names, ...CLASSIC_SWITCH.toggle.names].map((n) => normalizeControlName(n)).filter(Boolean));
+// The two create options that make a practice agent ("Agent, Standard" and "Agent, uses Copilot Credits", in More create options on the Agents list). The second one
+// is named like a credit-spending control, so it is allowed ONLY as the "create" step of the practice agent's own creation flow (which needs the practice
+// agent's consent and the sanctioned create flow), and nothing else is let through by this. "Customer conversation agent, uses Copilot Credits" is not one of them.
+const CREATE_OPTION_NAMES = new Set([...CREATE_OPTIONS[STANDARD].names, ...CREATE_OPTIONS[MICROSOFT_COPILOT].names].map((n) => normalizeControlName(n)).filter(Boolean));
 // An ellipsis that has no word for a name (three dots, or a horizontal ellipsis character).
 const ELLIPSIS_GLYPH = /^[.\u2026\u22ef\u00b7\u2022\s]{1,6}$/;
 // Links into the tenant's admin area (a path segment or host named admin): never followed by an action.
@@ -427,7 +431,8 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (desc.href && ADMIN_LINK_RE.test(String(desc.href))) return verdict(TIER.NEVER, "admin", "Admin pages are never opened or changed.");
   if (names.some(isFileName)) return verdict(TIER.NEVER, "file", "Uploading or downloading files is never done.");
   // Moving to a tab or a page named like a credit-spending action only opens it; clicking the action itself never happens.
-  if (!isText && role !== "tab" && !["select-tab", "open-nav", "reveal", "expand", "open-item", "verify"].includes(action) && names.some(isCreditName)) return verdict(TIER.NEVER, "credits", "This spends Copilot Credits (an evaluation run or generated questions), so the computer never does it.");
+  const isCreateOption = action === "create" && !isText && names.some((n) => CREATE_OPTION_NAMES.has(n));
+  if (!isText && !isCreateOption && role !== "tab" && !["select-tab", "open-nav", "reveal", "expand", "open-item", "verify"].includes(action) && names.some(isCreditName)) return verdict(TIER.NEVER, "credits", "This spends Copilot Credits (an evaluation run or generated questions), so the computer never does it.");
 
   if (inDialog && dialogTitle && isHazardDialogTitle(dialogTitle) && !isText) {
     if (!(role === "tab" || role === "radio")) return verdict(TIER.NEVER, "dialog-hazard", "This dialog is about something that must never be confirmed, so only Cancel or Close is used.");

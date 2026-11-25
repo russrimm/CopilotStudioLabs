@@ -2,17 +2,25 @@
 // shared library) and the Local Capture Companion (the switch to the Classic harness and the proof that the page is in the
 // right one) both import it, so a picture can never be called one harness by one side and another by the other.
 //
-// Facts this file rests on (Microsoft Learn):
-//   - A new agent is a Microsoft Copilot harness agent by default; a Standard (Classic) harness agent is reached by switching to the
-//     classic experience first: Home, the three dots (...) at the bottom of the side bar, Open classic experience. The switch lasts for
-//     the current Copilot Studio session only.
+// Facts this file rests on (Microsoft Learn, and what was OBSERVED on a real tenant on 2026-11-24, read only, with the owner at the PC):
+//   - The default address https://copilotstudio.microsoft.com/ is the Microsoft Copilot experience (Home, Agents, Workflows, Apps). A new agent
+//     there is a Microsoft Copilot harness agent by default.
+//   - The classic experience is reached by hand with three clicks: the "More options" button (the ellipsis in the lower left corner), the
+//     "Open classic experience" menu item, and "Skip feedback" on the feedback prompt that follows (never Submit). The click OPENS A NEW BROWSER
+//     TAB on https://copilotstudio.preview.microsoft.com/ and leaves the original tab on the default address. Both tabs share the sign-in.
 //     https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/switch-experiences
-//   - A Microsoft Copilot harness agent has the tabs Build, Preview, Evaluate, and Monitor.
+//   - The "More options" menu offers "Open classic experience" in EVERY experience (default, preview, and on a Standard agent page), so the menu
+//     proves nothing about which experience a page is in.
+//   - A Standard agent lives on the preview host at /environments/<env>/bots/<agent>/..., and opening one from the Agents list of the default address
+//     redirects there by itself. Its page shows a TAB STRIP: Overview, Knowledge, Tools, Agents, Topics, Activity, Evaluation (and an overflow button).
+//   - A Microsoft Copilot harness agent has the tabs Build, Preview, Evaluate, and Monitor (seen at /agents/<id>).
 //     https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview
 //   - A Customer Conversation harness agent has Build, Preview, Evaluate, Deploy, and Monitor (it is not part of the switch).
 //     https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation
-//   - The Agents list has a "Powered by" column naming the harness of each agent, and a Standard harness agent opens in the classic experience.
+//   - The Agents list (the same on both hosts) is a table with an "Agent harness" column whose cell says "Microsoft Copilot" or "Standard".
 //     https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/agents-page
+//   - "More create options" on the Agents list offers "Agent, uses Copilot Credits" (Microsoft Copilot), "Customer conversation agent, uses Copilot
+//     Credits", and "Agent, Standard". What the flow shows AFTER choosing one was NOT observed (nothing was created).
 //
 // Nothing here touches a browser or the disk: it is plain data and small pure functions, so both sides test it the same way.
 
@@ -44,7 +52,7 @@ export const HARNESS_SHORT = Object.freeze({
 
 /** What a person does to get to each harness, in one sentence (shown on cards and in the capture plan). */
 export const HARNESS_HOW = Object.freeze({
-  [STANDARD]: "Switch to the classic experience first: click the ellipsis in the lower left corner, click Open classic experience, then click Skip feedback.",
+  [STANDARD]: "Switch to the classic experience first: click the ellipsis in the lower left corner, click Open classic experience, then click Skip feedback. The classic experience opens in a new browser tab on copilotstudio.preview.microsoft.com, and Standard agents open there.",
   [MICROSOFT_COPILOT]: "Go to copilotstudio.microsoft.com. A new agent there is a Microsoft Copilot harness agent by default (the Build, Preview, Evaluate, and Monitor tabs). Do not switch to the classic experience.",
   [CUSTOMER_CONVERSATION]: "Create the agent on the Customer Conversation harness (preview). It has a Deploy tab and is not part of the classic switch.",
   [EITHER]: "This screen is outside the agent, so it looks the same in every harness.",
@@ -254,7 +262,17 @@ export function wrongHarnessMessage(found, wanted) {
 /** The tabs of the newer layout. Both the Microsoft Copilot harness and the Customer Conversation harness have them; only the second has Deploy. */
 export const NEWER_TABS = Object.freeze(["Build", "Preview", "Evaluate", "Monitor"]);
 export const CUSTOMER_ONLY_TABS = Object.freeze(["Deploy"]);
-/** Side navigation items of the classic layout. Overview must be there, plus at least one more of these. */
+/**
+ * The TAB STRIP of a Standard agent page (observed 2026-11-24 on the preview host, /bots/<id>/overview): Overview, Knowledge, Tools, Agents, Topics,
+ * Activity, Evaluation, and an overflow button ("2 more options") that is not a tab. Overview must be there, plus at least `min` of `anyOf`, and none
+ * of the Microsoft Copilot tabs (Build, Preview, Evaluate, Monitor).
+ */
+export const CLASSIC_TABS = Object.freeze({
+  required: ["Overview"],
+  anyOf: ["Knowledge", "Tools", "Topics", "Agents", "Activity", "Evaluation"],
+  min: 2,
+});
+/** Side navigation items of an OLDER classic build (before the tab strip). Overview must be there, plus at least one more of these. Kept only as a fallback. */
 export const CLASSIC_NAV = Object.freeze({
   required: ["Overview"],
   anyOf: ["Knowledge", "Tools", "Actions", "Topics", "Analytics", "Channels", "Settings", "Evaluation", "Evaluations"],
@@ -263,20 +281,28 @@ export const CLASSIC_NAV = Object.freeze({
 const lower = (list) => new Set((Array.isArray(list) ? list : []).map((v) => String(v).trim().toLowerCase()));
 
 /**
- * Which harness an agent page is in, from the control names it shows: the tabs of the tab strip and the items of the side navigation.
- * Only control names are read, never page text. Returns `null` when the page shows neither layout (not an agent page, or not drawn yet).
+ * Which harness an agent page is in, from the control names it shows: the tabs of the tab strip (and, for an older build, the items of the
+ * side navigation). Only control names are read, never page text. Returns `null` when the page shows none of them (not an agent page, not drawn yet,
+ * or a mix that proves nothing).
+ *   - Build, Preview, Evaluate, and Monitor (all four): the Microsoft Copilot harness (with Deploy: Customer Conversation);
+ *   - Overview and at least two of Knowledge, Tools, Topics, Agents, Activity, Evaluation, and none of the four above: Standard (Classic);
+ *   - older builds only: a side navigation with Overview and one more item, with the four-tab strip absent: Standard (Classic).
  * @param {{tabs?: string[], nav?: string[]}} seen
  * @returns {{harness: string, landmarks: string[]}|null}
  */
 export function harnessFromLandmarks({ tabs = [], nav = [] } = {}) {
   const tabSet = lower(tabs);
   const navSet = lower(nav);
-  const newer = NEWER_TABS.every((name) => tabSet.has(name.toLowerCase()));
-  if (newer) {
+  const newerSeen = NEWER_TABS.filter((name) => tabSet.has(name.toLowerCase()));
+  if (newerSeen.length === NEWER_TABS.length) {
     const deploy = CUSTOMER_ONLY_TABS.every((name) => tabSet.has(name.toLowerCase()));
     return deploy
       ? { harness: CUSTOMER_CONVERSATION, landmarks: [...NEWER_TABS, ...CUSTOMER_ONLY_TABS] }
       : { harness: MICROSOFT_COPILOT, landmarks: [...NEWER_TABS] };
+  }
+  if (!newerSeen.length && CLASSIC_TABS.required.every((name) => tabSet.has(name.toLowerCase()))) {
+    const others = CLASSIC_TABS.anyOf.filter((name) => tabSet.has(name.toLowerCase()));
+    if (others.length >= CLASSIC_TABS.min) return { harness: STANDARD, landmarks: [...CLASSIC_TABS.required, ...others.slice(0, 4)] };
   }
   if (CLASSIC_NAV.required.every((name) => navSet.has(name.toLowerCase()))) {
     const others = CLASSIC_NAV.anyOf.filter((name) => navSet.has(name.toLowerCase()));
@@ -287,59 +313,126 @@ export function harnessFromLandmarks({ tabs = [], nav = [] } = {}) {
 
 /** The one-line proof a plan prints for each harness: the landmark the companion looks for before it takes the picture. */
 export const HARNESS_PROOF = Object.freeze({
-  [STANDARD]: "Side navigation with Overview and at least one of Knowledge, Tools, Topics, Analytics, or Channels, and no Build, Preview, Evaluate, and Monitor tab strip.",
+  [STANDARD]: "A tab strip with Overview and at least two of Knowledge, Tools, Topics, Agents, Activity, or Evaluation, and no Build, Preview, Evaluate, and Monitor tabs (an older build: a side navigation with Overview and more).",
   [MICROSOFT_COPILOT]: "The Build, Preview, Evaluate, and Monitor tabs, and no Deploy tab.",
   [CUSTOMER_CONVERSATION]: "The Build, Preview, Evaluate, Deploy, and Monitor tabs.",
   [EITHER]: "None needed: the screen is outside the agent.",
 });
 
-/**
- * The switch to the classic experience, exactly as the owner does it by hand: click the ellipsis (three dots) in the LOWER LEFT corner of the
- * page, click "Open classic experience", then click "Skip feedback" on the feedback prompt that follows (never submit feedback). The same path
- * is documented on Microsoft Learn (Home, the three dots at the bottom of the side bar, Open classic experience). The switch lasts for the
- * browser session, so it is made once and the landmark is checked again before every Classic picture.
- *
- * The visible words "Open classic experience" and "Skip feedback" are the owner's; the ellipsis has no visible name, so its accessible
- * names are a short list of candidates tried in order. They are NOT verified on a real tenant. An older build had a "New experience" toggle
- * on the Home page instead; it is kept only as a fallback.
- */
-export const CLASSIC_SWITCH = Object.freeze({
-  menu: { names: ["More", "More options", "Settings and more", "Options", "Menu", "...", "\u2026"], within: "nav", corner: "lower-left" },
-  item: { names: ["Open classic experience", "Classic experience", "Switch to classic experience", "Open classic"], roles: ["menuitem", "button", "link"] },
-  skipFeedback: { names: ["Skip feedback"], roles: ["button"], never: ["Submit", "Submit feedback", "Send feedback"] },
-  toggle: { names: ["New experience"], roles: ["switch", "checkbox"], expect: "off" },
-  // After the switch, the classic experience is offered as already open: the menu no longer lists the command, or the toggle is off.
-  gone: ["Open classic experience"],
-  path: "ellipsis in the lower left corner > Open classic experience > Skip feedback",
-  sources: [HARNESS_SOURCES.switch],
-});
+/** The proof line of a shot whose screen is outside any agent (Home, the Agents list): its content proves nothing, so only the address host is checked. */
+export const HARNESS_PROOF_ENVIRONMENT = "None by content: this screen is outside the agent (Home or the Agents list), so only the address host is checked, and the picture is saved for review so a person accepts it.";
+
+/** The proof line a plan prints for one shot: the harness's landmark, or the host-only note for a screen outside any agent. */
+export function harnessProofFor(harness, scope = "agent") {
+  const id = normalizeHarness(harness);
+  return scope === "environment" && isSpecificHarness(id) ? HARNESS_PROOF_ENVIRONMENT : HARNESS_PROOF[id] || "";
+}
 
 /** Where a Microsoft Copilot harness picture starts: the default experience. A page found in the classic experience goes back here. */
 export const DEFAULT_EXPERIENCE_URL = "https://copilotstudio.microsoft.com/";
 /** The same place as a host name, for the plan's sentences (a plan names no address, so it says the host the way a person would). */
 export const DEFAULT_EXPERIENCE_HOST = "copilotstudio.microsoft.com";
+/**
+ * Where the classic experience lives (observed 2026-11-24): "Open classic experience" opens it in a NEW browser tab on this host, and a Standard agent
+ * opens here at /environments/<env>/bots/<agent>/overview (the default address redirects to it by itself). The address also loads directly with the same sign-in.
+ */
+export const CLASSIC_EXPERIENCE_URL = "https://copilotstudio.preview.microsoft.com/";
+export const CLASSIC_EXPERIENCE_HOST = "copilotstudio.preview.microsoft.com";
+/** The two hosts that are Copilot Studio, for every check that asks "is this the product". Neither is another tenant. */
+export const COPILOT_STUDIO_HOSTS = Object.freeze([DEFAULT_EXPERIENCE_HOST, CLASSIC_EXPERIENCE_HOST]);
+
+/** "default" for the default experience's host, "classic" for the preview host, null for anything else. Accepts a host name or an address. */
+export function experienceHostKind(value) {
+  let host = String(value ?? "").trim().toLowerCase();
+  if (!host) return null;
+  if (/^[a-z][a-z0-9+.-]*:\/\//.test(host)) {
+    try {
+      host = new URL(host).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
+  }
+  if (host === DEFAULT_EXPERIENCE_HOST) return "default";
+  if (host === CLASSIC_EXPERIENCE_HOST) return "classic";
+  return null;
+}
+
+/** The address of the default start page, or of the classic one, for the harness a picture needs. A harness with no host of its own gets null. */
+export function experienceOriginFor(harness) {
+  const id = normalizeHarness(harness);
+  if (id === STANDARD) return `https://${CLASSIC_EXPERIENCE_HOST}`;
+  if (id === MICROSOFT_COPILOT || id === CUSTOMER_CONVERSATION) return `https://${DEFAULT_EXPERIENCE_HOST}`;
+  return null;
+}
+
+/**
+ * The switch to the classic experience, exactly as the owner does it by hand: click the ellipsis (the "More options" button) in the LOWER LEFT corner
+ * of the page, click "Open classic experience", then click "Skip feedback" on the feedback prompt that follows (never submit feedback). The same path
+ * is documented on Microsoft Learn (Home, the three dots at the bottom of the side bar, Open classic experience).
+ *
+ * OBSERVED on a real tenant on 2026-11-24 (read only): the button is named "More options" and sits at the lower left; its menu (the same in every
+ * experience, so it proves nothing about the page) offers See what's new, Solutions, Open classic experience, Power Platform Admin Center, Learning
+ * resources, and Session details; the click shows a feedback prompt with a "Skip feedback" button, and then OPENS THE CLASSIC EXPERIENCE IN A NEW
+ * BROWSER TAB on the preview host. The original tab stays on the default address, so the rest of a Standard picture is taken in the NEW tab. The page
+ * takes 15 to 30 seconds to draw its controls, so the companion waits for them.
+ *
+ * The other candidate names are only a fallback for another build. An older build had a "New experience" toggle on the Home page instead.
+ */
+export const CLASSIC_SWITCH = Object.freeze({
+  menu: { names: ["More options", "More", "Settings and more", "Options", "Menu", "...", "\u2026"], within: "nav", corner: "lower-left" },
+  item: { names: ["Open classic experience", "Classic experience", "Switch to classic experience", "Open classic"], roles: ["menuitem", "button", "link"] },
+  skipFeedback: { names: ["Skip feedback"], roles: ["button"], never: ["Submit", "Submit feedback", "Send feedback"] },
+  toggle: { names: ["New experience"], roles: ["switch", "checkbox"], expect: "off" },
+  // The command stays in the menu in every experience: nothing is concluded from it being there, or not.
+  path: "ellipsis in the lower left corner > Open classic experience > Skip feedback",
+  // What the click does: the classic experience opens in a new browser tab on this host.
+  opens: "a new browser tab",
+  host: CLASSIC_EXPERIENCE_HOST,
+  observed: "2026-11-24",
+  sources: [HARNESS_SOURCES.switch],
+});
+
+/**
+ * The create options on the Agents list ("More create options", the same on both hosts; observed 2026-11-24, nothing was created). The Standard practice
+ * agent starts from "Agent, Standard", the Microsoft Copilot one from "Agent, uses Copilot Credits". NOT VERIFIED on a real tenant: what the flow shows
+ * after choosing one. The names are the only controls the creation step may click for this (see guard.mjs).
+ */
+export const CREATE_OPTIONS = Object.freeze({
+  menu: { names: ["More create options"] },
+  [STANDARD]: { names: ["Agent, Standard"] },
+  [MICROSOFT_COPILOT]: { names: ["Agent, uses Copilot Credits"] },
+  [CUSTOMER_CONVERSATION]: { names: ["Customer conversation agent, uses Copilot Credits"] },
+});
+
+/**
+ * The rule for a screen outside any agent (Home, the Agents list). Such a screen looks the same in every harness and the "More options" menu is the same
+ * everywhere, so NOTHING on it proves the harness. It is taken in the experience that matches the lab's harness (Standard: on the preview host after the
+ * switch; Microsoft Copilot: on the default address), stamped with the address host and how the page was reached, and never counted as proven: it is
+ * saved for review, so a person looks at it and accepts it.
+ */
+export const ENVIRONMENT_SCREEN_RULE = "A screen outside the agent (Home, the Agents list) cannot be proven by what it shows. It is taken in the experience that matches the lab's harness (Standard (Classic): on copilotstudio.preview.microsoft.com after the switch; Microsoft Copilot: on copilotstudio.microsoft.com), stamped with the address host and how the page was reached, and saved for review so a person accepts it.";
 
 /**
  * What the capture plan says for a harness: the step that gets the page into it, and the landmark that proves it. `switch` is false for a
  * harness the companion never switches to (the default one, or one with its own creation path).
- * @returns {{harness: string, label: string, switch: boolean, switchStep: string, proof: string}|null}
+ * @returns {{harness: string, label: string, switch: boolean, switchStep: string, proof: string, environment: string}|null}
  */
 export function harnessPlan(harness) {
   const id = normalizeHarness(harness);
   if (!id) return null;
   if (id === STANDARD) {
-    return { harness: id, label: HARNESS_LABELS[id], switch: true, switchStep: `Switch: ${CLASSIC_SWITCH.path}.`, proof: HARNESS_PROOF[id] };
+    return { harness: id, label: HARNESS_LABELS[id], switch: true, switchStep: `Switch: ${CLASSIC_SWITCH.path}. The click opens the classic experience in a new browser tab on ${CLASSIC_EXPERIENCE_HOST}; the picture is taken in that tab, where Standard agents open.`, proof: HARNESS_PROOF[id], environment: ENVIRONMENT_SCREEN_RULE };
   }
   if (id === MICROSOFT_COPILOT) {
-    return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: `No switch: open ${DEFAULT_EXPERIENCE_HOST} (the default experience). A page found in the classic experience goes back there; the classic experience is never used for this picture.`, proof: HARNESS_PROOF[id] };
+    return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: `No switch: use ${DEFAULT_EXPERIENCE_HOST} (the default experience) and an agent whose Agent harness column says Microsoft Copilot. A classic tab from an earlier picture is closed first; the classic experience is never used for this picture.`, proof: HARNESS_PROOF[id], environment: ENVIRONMENT_SCREEN_RULE };
   }
   if (id === CUSTOMER_CONVERSATION) {
-    return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: "No switch: the agent is created on the Customer Conversation harness (preview), which is not part of the classic switch.", proof: HARNESS_PROOF[id] };
+    return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: "No switch: the agent is created on the Customer Conversation harness (preview), which is not part of the classic switch.", proof: HARNESS_PROOF[id], environment: ENVIRONMENT_SCREEN_RULE };
   }
-  return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: "No switch needed.", proof: HARNESS_PROOF[id] };
+  return { harness: id, label: HARNESS_LABELS[id], switch: false, switchStep: "No switch needed.", proof: HARNESS_PROOF[id], environment: "" };
 }
 
-/** The "Powered by" cell of the Agents list, as the harness it names (null when the text names none). */
+/** The "Powered by" cell of an OLDER Agents list, as the harness it names (null when the text names none). Anywhere in the text. */
 export function harnessFromPoweredBy(text) {
   const value = String(text ?? "").toLowerCase();
   if (!value.trim()) return null;
@@ -349,27 +442,70 @@ export function harnessFromPoweredBy(text) {
   return null;
 }
 
+/**
+ * The "Agent harness" cell of the Agents list (observed 2026-11-24), as the harness it names. The cell text STARTS with "Microsoft Copilot" or "Standard" and the
+ * tooltip text is appended to it ("StandardThis agent runs on the standard harness. It doesn't use Copilot Credits for users with a Microsoft 365 Copilot
+ * license."), so only the start is read: the tooltip's own words never decide. Null when the cell names none.
+ */
+export function harnessFromAgentHarness(text) {
+  const value = String(text ?? "").trim().toLowerCase();
+  if (!value) return null;
+  if (/^customer\s+conversation/.test(value)) return CUSTOMER_CONVERSATION;
+  if (/^microsoft\s+copilot/.test(value)) return MICROSOFT_COPILOT;
+  // The tooltip follows the label with no space ("StandardThis agent runs on..."), so the label is read from the start and nothing after it matters.
+  if (/^(?:standard|classic)/.test(value)) return STANDARD;
+  return null;
+}
+
 // ── The proof a companion sends with a picture ─────────────────────────────
 
-/** Version of the `evidence.harness` block (separate from the evidence version, so older pictures are never re-judged by it). */
-export const HARNESS_PROOF_VERSION = 1;
-/** The first companion that proves the harness before it takes a picture. */
-export const HARNESS_MIN_COMPANION = "1.8.0";
+/** Version of the `evidence.harness` block (separate from the evidence version, so older pictures are never re-judged by it). 2: adds `host` and `via`. */
+export const HARNESS_PROOF_VERSION = 2;
+/** The first companion that proves the harness the way the real product behaves (the new tab, the tab strip, the Agent harness column). */
+export const HARNESS_MIN_COMPANION = "1.8.1";
+
+/** How the page a picture was taken in was reached: the click path (More options > Open classic experience), the preview address opened directly, or the default address. */
+export const HARNESS_VIA = Object.freeze(["click-path", "preview-address", "default-address"]);
+/** The landmark lines of the retired menu proof (companion 1.8.0): the menu offers the command in every experience, so such a proof proves nothing and is refused. */
+const RETIRED_PROOF_LANDMARK = /^(?:menu in the lower left corner|open classic experience offered|no open classic experience command)$/i;
+
+const cleanLine = (value, max = 60) => String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
+/** A host name that is Copilot Studio, or "": nothing else (no tenant name, no address) is ever kept. */
+const knownHost = (value) => (COPILOT_STUDIO_HOSTS.includes(String(value ?? "").toLowerCase()) ? String(value).toLowerCase() : "");
+const knownVia = (value) => (HARNESS_VIA.includes(String(value ?? "")) ? String(value) : "");
 
 /**
  * Clean the harness proof a companion reports. Returns null for anything that is not a complete, current proof.
- * `id` is the harness the page was proven to be in; `wanted` is what the slot needed.
+ * `id` is the harness the page was proven to be in; `wanted` is what the slot needed; `host` and `via` say where the page was and how it was reached.
+ * A proof made of the retired menu lines (companion 1.8.0, a page outside an agent) is refused: that proof could not tell the experiences apart.
  */
 export function sanitizeHarnessProof(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const id = normalizeHarness(raw.id);
   if (!id || id === EITHER) return null;
-  if (!Number.isInteger(raw.version) || raw.version < HARNESS_PROOF_VERSION) return null;
+  if (!Number.isInteger(raw.version) || raw.version < 1) return null;
   if (raw.proof !== "landmarks") return null;
-  const landmarks = (Array.isArray(raw.landmarks) ? raw.landmarks : []).slice(0, 8).map((l) => String(l ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, 60)).filter(Boolean);
+  const landmarks = (Array.isArray(raw.landmarks) ? raw.landmarks : []).slice(0, 8).map((l) => cleanLine(l)).filter(Boolean);
   if (!landmarks.length) return null;
+  if (landmarks.some((l) => RETIRED_PROOF_LANDMARK.test(l))) return null;
   const wanted = normalizeHarness(raw.wanted);
-  return { version: HARNESS_PROOF_VERSION, id, proof: "landmarks", landmarks, switched: raw.switched === true, ...(wanted ? { wanted } : {}) };
+  const host = knownHost(raw.host);
+  const via = knownVia(raw.via);
+  return { version: HARNESS_PROOF_VERSION, id, proof: "landmarks", landmarks, switched: raw.switched === true, ...(wanted ? { wanted } : {}), ...(host ? { host } : {}), ...(via ? { via } : {}) };
+}
+
+/**
+ * The record a companion keeps for a screen OUTSIDE any agent (Home, the Agents list): the harness the page was taken in, the host it was on, and how it was reached.
+ * It is NOT a proof (nothing on such a screen proves a harness), so a picture that has only this goes to review. Null for anything incomplete.
+ */
+export function sanitizeHarnessReached(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const id = normalizeHarness(raw.id);
+  if (!id || id === EITHER) return null;
+  const host = knownHost(raw.host);
+  const via = knownVia(raw.via);
+  if (!host || !via) return null;
+  return { version: HARNESS_PROOF_VERSION, id, scope: "environment", host, via, proven: false };
 }
 
 // ── Practice agent names (added by the companion) ──────────────────────────

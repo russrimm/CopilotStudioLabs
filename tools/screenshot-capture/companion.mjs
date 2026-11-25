@@ -49,10 +49,10 @@ import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, vali
 import { createTrace, traceFilePath } from "./trace.mjs";
 import { normalizeAgentSource, orderCreationFirst, resolveStage } from "./walkthrough.mjs";
 import { HARNESS_LABELS, harnessPlan } from "./harness.mjs";
-import { harnessGapMessage, orderByHarness, wantedHarness } from "./harness-run.mjs";
+import { forgetClassicPage, harnessGapMessage, orderByHarness, wantedHarness } from "./harness-run.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.8.0";
+export const COMPANION_VERSION = "1.8.1";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -701,6 +701,8 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
     evidence.setup = setupEvidence(outcome.detail?.setup);
     // The harness the page was PROVEN to be in (never the one the slot asked for); a picture with no proof carries none, and the portal sends it to review.
     if (outcome.harness) evidence.harness = outcome.harness;
+    // A screen outside any agent shows nothing that proves a harness: the host it was taken on and how the page was reached travel with it, and it is saved for review.
+    if (outcome.harnessReached) evidence.harnessReached = outcome.harnessReached;
     evidence.title = scrubSensitiveText(evidence.title, terms);
     const bytes = fs.readFileSync(outcome.filePath);
     const check = verifyImage(bytes, {
@@ -1083,6 +1085,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
               if (classifyBrowserError(err) !== "page-crashed" || watcher?.closed()) throw err;
               log("  The browser tab crashed. Opening a new tab and trying this screenshot again.");
               trace?.event("page-crash-retry", { shot: shot.filename });
+              // The classic tab may be the one that crashed: it is forgotten (and closed when it is still open), so a Standard picture switches again.
+              await forgetClassicPage(session, { keep: null }).catch(() => {});
               page = await ensureLivePage(context, { isClosed: () => true }, { watcher, trace });
               result = await attemptShot();
             }
@@ -1368,7 +1372,7 @@ export function plainOutcome(detail, steps, mode) {
   const picked = selected.length ? `, then selected ${selected.join(" and ")}` : "";
   const did = Array.isArray(detail?.setup?.summary) && detail.setup.summary.length ? `, then ${detail.setup.summary.map((s) => String(s).replace(/^(\w)/, (c) => c.toLowerCase())).join(", then ")}` : "";
   const limited = detail?.setup?.limitedBy === "practice-agent" ? " It needs a practice agent to show the final state." : "";
-  const harness = detail?.harness?.proven ? ` Proved the ${HARNESS_LABELS[detail.harness.proven] || detail.harness.proven}: ${(detail.harness.landmarks || []).join(", ")}${detail.harness.switched ? " (switched to the classic experience first)" : ""}.` : "";
+  const harness = detail?.harness?.proven ? ` Proved the ${HARNESS_LABELS[detail.harness.proven] || detail.harness.proven}: ${(detail.harness.landmarks || []).join(", ")}${detail.harness.switched ? " (switched to the classic experience first)" : ""}.` : detail?.harness?.reached ? ` This screen is outside the agent, so its harness is not proven by what it shows; it was taken on ${detail.harness.reached.host}, and it is saved for review.` : "";
   return `${opened}${picked}${did}.${mode === "guided" ? " You set up the screen." : ""}${limited}${harness}`;
 }
 

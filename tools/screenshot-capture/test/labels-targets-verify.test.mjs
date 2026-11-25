@@ -18,6 +18,8 @@ import {
   missingRequirements,
   parseCopilotStudioAddress,
   requirementMet,
+  sameEnvironment,
+  addressForHarness,
   targetEnvFromValues,
   targetTextFromValues,
   targetValuesFromJob,
@@ -113,6 +115,22 @@ test("Copilot Studio addresses are taken apart, and the agents list is not mista
   assert.equal(copilotStudioScreenUrl("settings", { agentBase: `${base}/bots/${BOT}` }), `${base}/bots/${BOT}/settings`);
   assert.equal(copilotStudioScreenUrl("settings", { envBase: base }), null, "an agent screen needs an agent");
   assert.equal(copilotStudioScreenUrl("home", { envBase: base }), `${base}/home`);
+});
+
+test("the preview host is Copilot Studio too: it is the same environment, never another tenant, and a harness picks the host", () => {
+  const preview = `https://copilotstudio.preview.microsoft.com/environments/${ENV}`;
+  const agent = parseCopilotStudioAddress(`${preview}/bots/${BOT}/overview`);
+  assert.deepEqual([agent.ok, agent.host, agent.hostKind, agent.envId, agent.botId, agent.section], [true, "copilotstudio.preview.microsoft.com", "classic", ENV, BOT, "overview"]);
+  assert.equal(parseCopilotStudioAddress(`${base}/agents`).hostKind, "default");
+  assert.equal(parseCopilotStudioAddress("https://copilotstudio.preview.microsoft.com.example.com/environments/x").hostKind, null, "a look-alike host is on neither experience host");
+  assert.equal(parseCopilotStudioAddress("https://example.com/environments/x/bots/y").ok, false);
+  assert.equal(sameEnvironment(`${base}/agents`, `${preview}/bots/${BOT}/overview`), true, "the same environment on the other host");
+  assert.equal(sameEnvironment(`${base}/agents`, `https://copilotstudio.preview.microsoft.com/environments/${BOT}/home`), false, "another environment is still another environment");
+  assert.equal(addressForHarness(`${base}/bots/${BOT}/overview?x=1`, "standard"), `${preview}/bots/${BOT}/overview?x=1`);
+  assert.equal(addressForHarness(`${preview}/agents`, "microsoft-copilot"), `${base}/agents`);
+  assert.equal(addressForHarness(`${preview}/agents`, "standard"), `${preview}/agents`, "already on the right host");
+  assert.equal(addressForHarness("https://example.com/agents", "standard"), "https://example.com/agents", "another site is left alone");
+  assert.equal(addressForHarness(`${base}/agents`, "either"), `${base}/agents`, "a harness with no host of its own changes nothing");
 });
 
 test("the landing check says plainly what was captured and what was expected", () => {

@@ -235,13 +235,13 @@ test("the capture plan runs one harness at a time, one practice agent per harnes
   assert.deepEqual(dry.labHarness.order, ["standard", "microsoft-copilot"]);
   assert.equal(dry.experienceChanges, 1);
   assert.deepEqual(dry.practiceAgents.map((a) => a.harness), ["standard", "microsoft-copilot"]);
-  assert.match(dry.practiceAgents[0].note, /created inside the classic experience after the switch \(ellipsis in the lower left corner > Open classic experience > Skip feedback\)/);
-  assert.match(dry.practiceAgents[1].note, /created in the default experience at copilotstudio\.microsoft\.com \(no switch\)/);
-  const standardShot = dry.automatic.find((s) => s.harness === "standard");
+  assert.match(dry.practiceAgents[0].note, /made on the Agents list with More create options > Agent, Standard \(not yet seen working on a real tenant.*in the classic experience tab on copilotstudio\.preview\.microsoft\.com after the switch \(ellipsis in the lower left corner > Open classic experience > Skip feedback\)/);
+  assert.match(dry.practiceAgents[1].note, /made on the Agents list with More create options > Agent, uses Copilot Credits \(not yet seen working on a real tenant.*in the default experience at copilotstudio\.microsoft\.com \(no switch\)/);
+  const standardShot = dry.automatic.find((s) => s.harness === "standard" && s.filename === "agent-overview.png");
   const copilotShot = dry.automatic.find((s) => s.harness === "microsoft-copilot");
-  assert.match(standardShot.switchStep, /^Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\./);
-  assert.match(copilotShot.switchStep, /^No switch: open copilotstudio\.microsoft\.com/);
-  assert.match(standardShot.proof, /Overview/);
+  assert.match(standardShot.switchStep, /^Switch: ellipsis in the lower left corner > Open classic experience > Skip feedback\. The click opens the classic experience in a new browser tab on copilotstudio\.preview\.microsoft\.com/);
+  assert.match(copilotShot.switchStep, /^No switch: use copilotstudio\.microsoft\.com \(the default experience\) and an agent whose Agent harness column says Microsoft Copilot/);
+  assert.match(standardShot.proof, /tab strip with Overview/);
   assert.match(copilotShot.proof, /Build, Preview, Evaluate, and Monitor/);
 
   const text = formatDryPlan(dry);

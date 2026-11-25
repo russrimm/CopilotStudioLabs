@@ -13,7 +13,7 @@ import zlib from "node:zlib";
 import { cleanExpectedLabels, labelIsVisible, visibleWordSet } from "./labels.mjs";
 import { PLACEHOLDER_MESSAGE, detectPlaceholder } from "./placeholder-detect.mjs";
 import { assessLanding } from "./targets.mjs";
-import { HARNESS_LABELS, HARNESS_MIN_COMPANION, isSpecificHarness, normalizeHarness, sanitizeHarnessProof } from "./harness.mjs";
+import { HARNESS_LABELS, HARNESS_MIN_COMPANION, isSpecificHarness, normalizeHarness, sanitizeHarnessProof, sanitizeHarnessReached } from "./harness.mjs";
 
 export const IMAGE_LIMITS = Object.freeze({
   maxBytes: 8 * 1024 * 1024,
@@ -346,6 +346,8 @@ export function sanitizeEvidence(raw) {
     capturedAt: cleanText(raw.capturedAt, 40),
     // What the companion proved about the harness the page was in (see harness.mjs): absent from an older companion, and never trusted unless it is complete.
     harness: sanitizeHarnessProof(raw.harness),
+    // A screen outside any agent shows nothing that proves a harness: only the host it was taken on and how the page was reached, never a proof.
+    harnessReached: sanitizeHarnessReached(raw.harnessReached),
     executedSteps: Number.isFinite(Number(raw.executedSteps)) ? Math.max(0, Math.min(1000, Number(raw.executedSteps))) : null,
     mode: ["auto", "guided", "legacy", "autonomous"].includes(raw.mode) ? raw.mode : null,
     setup: sanitizeSetupEvidence(raw.setup),
@@ -575,7 +577,10 @@ export function verifyImage(bytes, options = {}) {
     const wantedHarness = normalizeHarness(options.expectHarness);
     if (options.requireProof && isSpecificHarness(wantedHarness)) {
       if (!evidence.harness) {
-        reasons.push(reason("harness-unproven", "warn", `The companion did not prove which harness this picture was taken in (companions older than ${HARNESS_MIN_COMPANION} never do, and a screen outside an agent cannot be proven), so it is saved for review. Check which harness it shows before you accept it.`));
+        const reached = evidence.harnessReached;
+        reasons.push(reason("harness-unproven", "warn", reached
+          ? `This screen is outside the agent (Home or the Agents list), so what it shows cannot prove which harness it was taken in. The companion took it on ${reached.host} (the ${HARNESS_LABELS[reached.id]} experience), reached by ${reached.via === "click-path" ? "the click path (More options, Open classic experience, Skip feedback)" : reached.via === "preview-address" ? "the preview address, opened directly" : "the default address"}, and it is saved for review. Check it shows the ${HARNESS_LABELS[wantedHarness]} before you accept it.`
+          : `The companion did not prove which harness this picture was taken in (companions older than ${HARNESS_MIN_COMPANION} never do, and a screen outside an agent cannot be proven), so it is saved for review. Check which harness it shows before you accept it.`));
       } else if (evidence.harness.id !== wantedHarness) {
         reasons.push(reason("wrong-harness", "fail", `This picture was taken in the ${HARNESS_LABELS[evidence.harness.id]}, but this screenshot needs the ${HARNESS_LABELS[wantedHarness]}, so it was not saved.`));
       }

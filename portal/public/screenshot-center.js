@@ -1898,6 +1898,7 @@ function scBuildHarnessBanner(labId) {
   });
   box.appendChild(scEl("p", { class: "sc-harness-statement", text: model.statement, data: { scHarnessStatement: "1" } }));
   if (model.source) box.appendChild(scEl("p", { class: "sc-harness-source", text: model.source }));
+  if (model.how) box.appendChild(scEl("p", { class: "sc-harness-how", text: model.how, data: { scHarnessHow: "1" } }));
   if (model.combined && model.parts.length) {
     const parts = scEl("ul", { class: "sc-harness-parts", attrs: { "aria-label": "Pictures taken in each harness" } });
     for (const part of model.parts) {

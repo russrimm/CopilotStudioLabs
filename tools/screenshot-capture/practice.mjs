@@ -13,7 +13,8 @@ import crypto from "node:crypto";
 
 import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, NOT_RECORDED_LABEL, PRACTICE_AGENT_PREFIXES, STANDARD, isSpecificHarness, normalizeHarness } from "./harness.mjs";
 import { ensureClassicExperience, ensureDefaultExperience, proveAgentPage, unprovenMessage, wrongHarness } from "./harness-run.mjs";
-import { parseCopilotStudioAddress } from "./targets.mjs";
+import { parseCopilotStudioAddress, sameEnvironment } from "./targets.mjs";
+import { openCreateFlow } from "./scratch-recipes.mjs";
 
 export const PRACTICE_PREFIX = "Lab screenshots - ";
 const REGISTRY_NAME = ".practice-agents.json";
@@ -339,7 +340,7 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
     const switched = await experience();
     if (switched.signIn) return { ok: false, signIn: switched.signIn, cause: "sign-in", error: "" };
     if (!switched.ok) return failed({ ok: false, cause: switched.cause || "harness-switch-failed", error: switched.error });
-    const target = `${env.envBase}/bots/${existing.botId}/overview`;
+    const target = existing.address || `${env.envBase}/bots/${existing.botId}/overview`;
     await go(target, "your practice agent");
     if (String(page.url()).includes(existing.botId)) {
       const proof = await prove(20_000);
@@ -347,7 +348,8 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
       registry.recordReuse(env.envId, undefined, { accountId: session.accountId, harness: h });
       trace?.event("practice-agent", { reused: true, harness: h });
       log?.("  Reusing your practice agent.");
-      return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true, harness: h });
+      const landed = parseCopilotStudioAddress(page.url());
+      return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: landed.agentBase || `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true, harness: h });
     }
     trace?.event("practice-agent-missing", {});
     log?.("  The practice agent from an earlier job could not be opened, so a new one will be created.");
@@ -359,24 +361,33 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
   if (!prepared.ok) return failed({ ok: false, cause: prepared.cause || "harness-switch-failed", error: prepared.error });
   const name = practiceName(random, h);
   await go(`${env.envBase}/agents`, "the list of agents in your practice environment");
-  const practice = { agentId: null, creating: (url) => String(url || "").startsWith(env.envBase) };
+  const practice = { agentId: null, creating: (url) => sameEnvironment(url, env.envBase) };
   const executor = executorFor(practice);
+  // The new-agent flow starts from "More create options" ("Agent, Standard" for a Standard agent, "Agent, uses Copilot Credits" for a Microsoft Copilot one).
+  // NOT VERIFIED on a real tenant: what the flow shows after the option is chosen; the Name field and the confirm button that follow must be found, or it stops.
+  const opening = await openCreateFlow({ executor, harness: h, trace, log });
+  if (!opening.ok) {
+    const exact = opening.via === "create-option" ? (opening.stage === "menu" ? "open More create options" : `choose “${opening.option}” in More create options`) : "open the new agent form";
+    return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created: the computer could not ${exact} (${opening.failed?.why || "a step failed"}). Nothing was created.`, setup: opening });
+  }
+  // A Microsoft Copilot agent opens at /agents/<id> (observed), a Standard one at /bots/<id>/...: the address that is read afterward is what counts, so only the older
+  // single-harness flow expects /bots/ in the address after the click.
   const result = await executor.run([
-    { id: "create-open", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create blank agent", alt: ["Create agent", "New agent", "Create an agent"], within: "main" }, expect: { text: ["Name"] } },
     { id: "create-name", action: "type", intent: "type", tier: 2, target: { role: "textbox", name: "Name", alt: ["Agent name", "Name your agent"], within: "main" }, text: { literal: name } },
-    { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent", "Save"], within: "main" }, expect: { urlPath: "/bots/" } },
+    { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent", "Save"], within: "main" }, ...(h === MICROSOFT_COPILOT ? {} : { expect: { urlPath: "/bots/" } }) },
   ].map((s) => ({ ...s, note: s.id === "create-name" ? "Named the practice agent" : "Created the practice agent" })));
   if (!result.ok) return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result });
   const created = parseCopilotStudioAddress(page.url());
   if (!created.botId) return failed({ ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." });
   // The new agent's harness is what its page proves, never what was asked for: it is recorded under the proven harness.
   const proof = await prove();
-  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview`, accountId: session.accountId || null, harness: proof.proven || null });
+  const where = created.agentBase || `${env.envBase}/bots/${created.botId}`;
+  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: created.section ? `${where}/${created.section}` : where, accountId: session.accountId || null, harness: proof.proven || null });
   registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
   trace?.event("practice-agent", { reused: false, harness: h, proven: proof.proven || null });
   if (!proof.ok) return failed({ ok: false, cause: proof.cause, error: proof.error });
   log?.(`  Created the practice agent “${name}”. It is listed in the report at the end of the job.`);
-  return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: `${env.envBase}/bots/${created.botId}`, name, reused: false, harness: h });
+  return remember({ ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: where, name, reused: false, harness: h });
 }
 
 /** Why the computer does not make an agent for a Customer Conversation picture. */
