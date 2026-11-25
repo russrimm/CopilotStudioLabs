@@ -69,16 +69,19 @@ after(() => {
 });
 
 /** Audit every slide of a rendered deck; `fullTitles` (when known) are the titles the slides were asked to show. */
-function auditDeck(label, buffer, { fullTitles = null, minTitlePt = 18, withLogo = false } = {}) {
+function auditDeck(label, buffer, { fullTitles = null, minTitlePt = 18, withLogo = false, margin = 640080 } = {}) {
   const read = readDeck(buffer);
   const problems = [];
   read.slides.forEach((slide, i) => {
-    for (const problem of auditSlideTop(slide.xml, { notes: slide.notes, fullTitle: fullTitles ? fullTitles[i] : null, minTitlePt, logo: withLogo })) {
+    for (const problem of auditSlideTop(slide.xml, { notes: slide.notes, fullTitle: fullTitles ? fullTitles[i] : null, minTitlePt, logo: withLogo, margin })) {
       problems.push(`${label}, slide ${slide.number}: ${problem}`);
     }
   });
   return { problems, slides: read.slides.length };
 }
+
+// The training decks follow the sample deck's 0.6 inch margins; the lab-day decks keep their own 0.7 inch ones.
+const TRAINING_MARGIN = 548640;
 
 const variantSpec = (spec, variant) => {
   const shape = TITLE_VARIANTS[variant];
@@ -99,7 +102,7 @@ test("the owner's long lab title gives every training deck slide its own room, a
   const problems = [];
   for (const deck of decks) {
     const { buffer } = renderTrainingDeck(deck.spec, {});
-    problems.push(...auditDeck(deck.descriptor.fileName, buffer, { fullTitles: deck.spec.slides.map((s) => clean(s.title)), minTitlePt: 22 }).problems);
+    problems.push(...auditDeck(deck.descriptor.fileName, buffer, { fullTitles: deck.spec.slides.map((s) => clean(s.title)), minTitlePt: 22, margin: TRAINING_MARGIN }).problems);
   }
   assert.deepEqual(problems, []);
   const complete = decks.find((d) => d.descriptor.kind === "complete");
@@ -120,7 +123,7 @@ test("every training slide kind keeps the eyebrow, title, subtitle, and body apa
         spec.slides.forEach((s) => kinds.add(s.kind));
         const { buffer } = renderTrainingDeck(spec, { branding });
         assert.deepEqual(checkPptxPackage(buffer, { expectNotes: true }), [], `${brandName} ${variant} ${deck.descriptor.kind}: a clean package`);
-        const result = auditDeck(`${brandName}/${variant}/${deck.descriptor.kind}`, buffer, { fullTitles: spec.slides.map((s) => clean(s.title)), minTitlePt: 22, withLogo: Boolean(branding.logoBuffer) });
+        const result = auditDeck(`${brandName}/${variant}/${deck.descriptor.kind}`, buffer, { fullTitles: spec.slides.map((s) => clean(s.title)), minTitlePt: 22, withLogo: Boolean(branding.logoBuffer), margin: TRAINING_MARGIN });
         problems.push(...result.problems);
         audited += result.slides;
       }
@@ -141,12 +144,13 @@ test("a title that fits keeps its size and its place; one that does not steps do
   };
   const short = sizeOf(deck.spec, 1);
   assert.equal(short.size, 30, "a short content title stays 30 pt");
-  assert.equal(short.bottom <= 1460000 + 1, true, "and it hugs the same baseline as before");
+  assert.equal(short.y, 658368, "and it sits at 0.72 inch, as in the sample deck");
+  assert.equal(short.bottom <= 1481328 + 1, true, "with its last line above the content, which starts at 1.65 inch");
   const cover = sizeOf(deck.spec, 0);
-  assert.equal(cover.size, 36, "a short title slide title stays 36 pt");
+  assert.equal(cover.size, 48, "a short title slide title is 48 pt, as in the sample deck");
   const longSpec = variantSpec(deck.spec, "owner");
   const longCover = sizeOf(longSpec, 0);
-  assert.ok(longCover.size < 36 && longCover.size >= 24, `the owner's title steps down on the title slide (${longCover.size} pt)`);
+  assert.ok(longCover.size < 48 && longCover.size >= 28, `the owner's title steps down on the title slide (${longCover.size} pt)`);
   const longContent = sizeOf(longSpec, 1);
   assert.ok(longContent.size < 30 && longContent.size >= 22, `and on a content slide (${longContent.size} pt)`);
   const absurd = sizeOf({ ...deck.spec, slides: deck.spec.slides.map((s, i) => (i === 1 ? { ...s, title: `${s.title}: ${OWNER_LAB_TITLE} ${OWNER_LAB_TITLE} ${OWNER_LAB_TITLE}` } : s)) }, 1);

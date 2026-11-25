@@ -105,7 +105,7 @@ test("each topic deck follows the storyline within the slide, time, and note lim
       for (const slide of read.slides) {
         assert.ok(slide.notes.some((l) => /^TIME: about \d+ minutes?\.$/.test(l)), `${label} slide ${slide.number}: notes give the time`);
         assert.ok(slide.notes.some((l) => /^(SAY|EXAMPLE TO SAY OUT LOUD): /.test(l)), `${label} slide ${slide.number}: notes have a talk track`);
-        assert.ok(slide.lines.length <= 24, `${label} slide ${slide.number}: not a text wall`);
+        assert.ok(slide.lines.length <= 45 && slide.lines.join(" ").split(/\s+/).length <= 240, `${label} slide ${slide.number}: not a text wall`);
       }
       if (descriptor.thin) continue;
       checked += 1;
@@ -264,14 +264,13 @@ test("every deck is a clean PowerPoint package with notes, no overflow, and alt 
         for (const group of slide.groups) assert.ok(group.descr.length >= 25, `${label} slide ${slide.number}: alt text for "${group.name}"`);
         for (const alt of slide.pictures) assert.ok(alt.length >= 10, `${label} slide ${slide.number}: alt text for a picture`);
       }
-      const bodySizes = deck.read.slides.flatMap((s) =>
-        [...s.xml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)]
-          .filter((m) => !/name="(?:Brand Bar[^"]*|Eyebrow|Footer Context|Slide Counter|Words to Know|Words Divider|Arrow \d+|Then|Picture Arrow \d+|Link \d+)"/.test(m[1]))
-          .flatMap((m) => [...m[1].matchAll(/<a:rPr[^>]* sz="(\d+)"/g)].map((r) => Number(r[1]))),
+      // The sample deck's scale: sentences are 12 to 16 points, small caps labels and the footer 10 and 11.
+      const runSizes = deck.read.slides.flatMap((s) =>
+        [...s.xml.matchAll(/<a:r>\s*<a:rPr[^>]* sz="(\d+)"[\s\S]*?<a:t>([^<]*)<\/a:t>/g)].map((m) => ({ size: Number(m[1]) / 100, text: m[2] })),
       );
-      assert.ok(bodySizes.length > 0 && Math.min(...bodySizes) >= 1600, `${label}: body text is at least 16 points (smallest ${Math.min(...bodySizes) / 100})`);
+      assert.ok(runSizes.length > 0 && Math.min(...runSizes.map((r) => r.size)) >= 10, `${label}: nothing under 10 points`);
       const stripSizes = deck.read.slides.flatMap((s) => [...s.xml.matchAll(/name="Words to Know"[\s\S]*?<\/p:sp>/g)].flatMap((m) => [...m[0].matchAll(/<a:rPr[^>]* sz="(\d+)"/g)].map((r) => Number(r[1]))));
-      assert.ok(stripSizes.every((sz) => sz >= 1200), `${label}: the words strip is at least 12 points`);
+      assert.ok(stripSizes.every((sz) => sz >= 1000), `${label}: the words strip is at least 10 points`);
     }
   }
 });

@@ -41,8 +41,11 @@ const SCENARIOS = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-prof
  * 1: first release (storyline, foundations decks, complete deck).
  * 2: the title, eyebrow, and subtitle are laid out from one measured vertical budget (pptx-text-fit.js): a long title
  *    steps down, then is shortened, and can no longer run into the eyebrow or the body.
+ * 3: every slide is redrawn in the owner's sample look (training-design.js): dark navy title, divider, and closing slides
+ *    with a coral bar and circles, light content slides with an eyebrow, title, footer, and slide number in fixed places,
+ *    cards, numbered circles, chevron flows, tinted callouts, and one table; harness colors in combined decks.
  */
-export const TRAINING_SCHEMA_VERSION = 2;
+export const TRAINING_SCHEMA_VERSION = 3;
 
 /**
  * Version of the combined-harness deck layout. It is part of the fingerprint of a lab that covers two harnesses only,

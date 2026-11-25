@@ -11,9 +11,79 @@ import { wrapText, linesHeightEmu, fontFactors, measureWidthPt } from "../../lib
 export const SLIDE_W = 12192000;
 export const FOOTER_TOP = 6858000 - 365760;
 export const FOOTER_NAMES = new Set(["Footer Context", "Slide Counter"]);
-export const CHROME_NAMES = new Set(["Brand Bar", "Brand Bar Secondary", "Hero Brand Top Bar", "Cover Top Bar", "Eyebrow", "Title", "Slide Title", "Slide Kicker", "Slide Badge", "Header Divider", ...FOOTER_NAMES]);
+export const CHROME_NAMES = new Set(["Brand Bar", "Brand Bar Secondary", "Hero Brand Top Bar", "Cover Top Bar", "Eyebrow", "Title", "Slide Title", "Slide Kicker", "Slide Badge", "Header Divider", "Part Tag", "Series", ...FOOTER_NAMES]);
 
 const decode = (text) => String(text).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+
+/** Runs of text in a piece of slide XML: text, size, weight, color, typeface, and the link it carries. */
+function parseRuns(body) {
+  return [...body.matchAll(/<a:r>([\s\S]*?)<\/a:r>/g)].map((r) => ({
+    text: decode((r[1].match(/<a:t[^>]*>([^<]*)<\/a:t>/) || [null, ""])[1]),
+    sizePt: Number((r[1].match(/sz="(\d+)"/) || [null, "1300"])[1]) / 100,
+    bold: /\bb="1"/.test(r[1]),
+    color: (r[1].match(/<a:solidFill><a:srgbClr val="([0-9A-Fa-f]{6})"/) || [null, ""])[1].toUpperCase(),
+    font: (r[1].match(/<a:latin typeface="([^"]*)"/) || [null, ""])[1],
+    link: /<a:hlinkClick\b/.test(r[1]),
+  }));
+}
+
+/**
+ * Every shape of a slide, in drawing order, including the children of a group: its rectangle, geometry, fill, outline,
+ * whether it is marked decorative, its text runs, and whether it sits in a group. Judges the file, not the builder.
+ */
+export function parseAllShapes(xml) {
+  const groups = [...xml.matchAll(/<p:grpSp>[\s\S]*?<\/p:grpSp>/g)].map((m) => [m.index, m.index + m[0].length]);
+  return [...xml.matchAll(/<p:sp>([\s\S]*?)<\/p:sp>/g)].map((m) => {
+    const body = m[1];
+    const off = body.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
+    const ext = body.match(/<a:ext cx="(\d+)" cy="(\d+)"\/>/);
+    const spPr = (body.match(/<p:spPr>([\s\S]*?)<\/p:spPr>/) || [null, ""])[1];
+    const bodyPr = body.match(/<a:bodyPr([^>]*)>/);
+    const inset = (n) => Number((bodyPr?.[1].match(new RegExp(`${n}="(\\d+)"`)) || [null, "0"])[1]);
+    const runs = parseRuns(body);
+    return {
+      name: decode((body.match(/<p:cNvPr id="\d+" name="([^"]*)"/) || [null, ""])[1]),
+      descr: decode((body.match(/<p:cNvPr id="\d+" name="[^"]*" descr="([^"]*)"/) || [null, ""])[1]),
+      placeholder: /<p:ph\b/.test(body),
+      inGroup: groups.some(([a, b]) => m.index > a && m.index < b),
+      decorative: /<adec:decorative\b[^>]*val="1"/.test(body),
+      geom: (spPr.match(/prst="(\w+)"/) || [null, "rect"])[1],
+      adj: (spPr.match(/<a:gd name="adj" fmla="val (\d+)"/) || [null, null])[1],
+      fill: ((spPr.match(/<\/a:prstGeom>\s*<a:solidFill><a:srgbClr val="([0-9A-Fa-f]{6})"/) || [null, null])[1] || "").toUpperCase() || null,
+      line: ((spPr.match(/<a:ln\b[^>]*>\s*<a:solidFill><a:srgbClr val="([0-9A-Fa-f]{6})"/) || [null, null])[1] || "").toUpperCase() || null,
+      x: off ? Number(off[1]) : 0,
+      y: off ? Number(off[2]) : 0,
+      cx: ext ? Number(ext[1]) : 0,
+      cy: ext ? Number(ext[2]) : 0,
+      insets: { l: inset("lIns"), t: inset("tIns"), r: inset("rIns"), b: inset("bIns") },
+      anchor: (bodyPr?.[1].match(/anchor="(\w+)"/) || [null, "t"])[1],
+      runs: runs.filter((r) => r.text),
+      text: runs.map((r) => r.text).join(""),
+    };
+  });
+}
+
+/** The tables of a slide: each cell's fill and text runs, plus the table's name and alt text. */
+export function parseTables(xml) {
+  return [...xml.matchAll(/<p:graphicFrame>([\s\S]*?)<\/p:graphicFrame>/g)].map((m) => ({
+    name: decode((m[1].match(/<p:cNvPr id="\d+" name="([^"]*)"/) || [null, ""])[1]),
+    descr: decode((m[1].match(/<p:cNvPr id="\d+" name="[^"]*" descr="([^"]*)"/) || [null, ""])[1]),
+    rows: [...m[1].matchAll(/<a:tr\b[^>]*>([\s\S]*?)<\/a:tr>/g)].map((row) =>
+      [...row[1].matchAll(/<a:tc>([\s\S]*?)<\/a:tc>/g)].map((cell) => ({
+        fill: ((cell[1].match(/<\/a:lnB>\s*<a:solidFill><a:srgbClr val="([0-9A-Fa-f]{6})"/) || [null, ""])[1]).toUpperCase(),
+        runs: parseRuns(cell[1]).filter((r) => r.text),
+      })),
+    ),
+  }));
+}
+
+/** The background color of a slide. */
+export function slideBackground(xml) {
+  return ((xml.match(/<p:bg>[\s\S]*?<a:srgbClr val="([0-9A-Fa-f]{6})"/) || [null, "FFFFFF"])[1]).toUpperCase();
+}
+
+/** The notes lines of one slide are read by the caller; this is the fixed footer position the training decks use. */
+export const TRAINING_FOOTER_Y = 6473952;
 
 /** The top-level elements of a slide's shape tree, in reading order. Children of a group are not listed on their own. */
 export function parseSlideElements(xml) {
@@ -66,6 +136,7 @@ export function parseSlideElements(xml) {
       type,
       name,
       descr,
+      decorative: /<adec:decorative\b[^>]*val="1"/.test(body),
       x: off ? Number(off[1]) : 0,
       y: off ? Number(off[2]) : 0,
       cx: ext ? Number(ext[1]) : 0,
@@ -136,13 +207,14 @@ function auditHeroPanel(shapes, body) {
  * Everything wrong with the top of one slide, as plain sentences; an empty list means the eyebrow, title, subtitle,
  * and first body element each have their own room. `notes` is the slide's speaker-note lines.
  */
-export function auditSlideTop(slideXml, { notes = [], fullTitle = null, minTitlePt = 18, logo = false } = {}) {
+export function auditSlideTop(slideXml, { notes = [], fullTitle = null, minTitlePt = 18, logo = false, margin = 640080 } = {}) {
   const problems = [];
   const shapes = parseSlideElements(slideXml);
   const byName = (n) => shapes.find((s) => s.name === n);
   const title = byName("Title") || byName("Slide Title");
   const hero = !title;
-  const body = shapes.filter((s) => !CHROME_NAMES.has(s.name));
+  // Decorative shapes (a bar, circles, a logo plate) are part of the backdrop; they may sit behind or beside text.
+  const body = shapes.filter((s) => !CHROME_NAMES.has(s.name) && !s.decorative);
   const eyebrow = byName("Eyebrow");
   const kicker = byName("Slide Kicker");
   const badge = byName("Slide Badge");
@@ -156,7 +228,7 @@ export function auditSlideTop(slideXml, { notes = [], fullTitle = null, minTitle
   const needed = linesHeightEmu(lines, first.sizePt, first.font, first.spacingPct);
   if (needed > title.cy) problems.push(`the title needs ${needed} EMU (${lines} lines at ${first.sizePt} pt) but its box is ${title.cy} EMU tall`);
   if (first.sizePt < minTitlePt) problems.push(`the title is ${first.sizePt} pt, under the ${minTitlePt} pt minimum`);
-  if (title.right > SLIDE_W - 640080 + 1) problems.push("the title runs past the right margin");
+  if (title.right > SLIDE_W - margin + 1) problems.push("the title runs past the right margin");
   if (eyebrow && overlaps(eyebrow, title)) problems.push(`the eyebrow (${eyebrow.y}-${eyebrow.bottom}) and the title (${title.y}-${title.bottom}) overlap`);
   if (kicker && overlaps(kicker, title)) problems.push(`the kicker (${kicker.y}-${kicker.bottom}) and the title (${title.y}-${title.bottom}) overlap`);
   if (badge && overlaps(badge, title)) problems.push(`the badge (${badge.y}-${badge.bottom}) and the title (${title.y}-${title.bottom}) overlap`);

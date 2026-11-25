@@ -64,8 +64,6 @@ const HEADER_TITLE_STEPS = [
 // A logo on a title slide sits at the top right; lines beside it stay one line and clear of it.
 const HERO_LOGO_CLEAR = 1850000;
 
-// A brand font replaces both typefaces, and the run writer then bolds every run set in it, so body text measures as bold.
-const bodyIsBold = () => FONT_BODY === FONT_HEADING;
 
 /**
  * Fit the text stack of a topic title slide (lab line, badge line, topic title, subtitle, summary) into its panel.
@@ -82,8 +80,8 @@ function fitHeroPanel({ labLine, badgeLine, title, subtitle, summary, widthEmu, 
         { text: lab.text, sizePt: lab.sizePt, fontName: FONT_HEADING, bold: true },
         { text: badge.text, sizePt: badge.sizePt, fontName: FONT_HEADING, bold: true },
         { text: titleFit.text, sizePt: titleFit.sizePt, fontName: FONT_HEADING, bold: true, spaceAfterPt: 8 },
-        ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
-        ...(summaryText(chars) ? [{ text: summaryText(chars), sizePt: 12.5, fontName: FONT_BODY, bold: bodyIsBold() }] : []),
+        ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, spaceAfterPt: 6 }] : []),
+        ...(summaryText(chars) ? [{ text: summaryText(chars), sizePt: 12.5, fontName: FONT_BODY }] : []),
       ],
       widthEmu,
     );
@@ -104,7 +102,7 @@ function fitHeroPanel({ labLine, badgeLine, title, subtitle, summary, widthEmu, 
     [
       { text: lab.text, sizePt: lab.sizePt, fontName: FONT_HEADING, bold: true },
       { text: badge.text, sizePt: badge.sizePt, fontName: FONT_HEADING, bold: true },
-      ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
+      ...(subtitle ? [{ text: subtitle, sizePt: 12, fontName: FONT_BODY, spaceAfterPt: 6 }] : []),
     ],
     widthEmu,
   );
@@ -1845,9 +1843,13 @@ class SlideBuilder {
     if (!text) return "";
     const sz = Math.round((Number(runSpec.sizePt) || 13) * 100);
     const font = runSpec.font || FONT_BODY;
-    const boldAttr = runSpec.bold || (this.deck.brandFont && font === FONT_HEADING) ? ` b="1"` : "";
+    // A brand font has no semibold weight, so a run that asks for the heading face is set bold. Body text is not:
+    // under a brand font both faces carry the same name, so the name alone cannot tell them apart.
+    const headingFace = Boolean(runSpec.font) && runSpec.font === FONT_HEADING;
+    const boldAttr = runSpec.bold || (this.deck.brandFont && headingFace) ? ` b="1"` : "";
     const italicAttr = runSpec.italic ? ` i="1"` : "";
     const underlineAttr = runSpec.underline || runSpec.url ? ` u="sng"` : "";
+    const trackingAttr = runSpec.tracking ? ` spc="${Math.round(runSpec.tracking)}"` : "";
     const colorHex = normalizeHexColor(
       runSpec.colorHex || (runSpec.url ? this.deck.primaryHex : COLORS.body)
     );
@@ -1859,7 +1861,7 @@ class SlideBuilder {
     // Strict ECMA-376 CT_TextCharacterProperties child element order:
     // solidFill -> latin -> ea -> cs -> hlinkClick
     return `<a:r>
-            <a:rPr lang="en-US" sz="${sz}"${boldAttr}${italicAttr}${underlineAttr} dirty="0">
+            <a:rPr lang="en-US" sz="${sz}"${boldAttr}${italicAttr}${underlineAttr}${trackingAttr} dirty="0">
               <a:solidFill><a:srgbClr val="${colorHex}"/></a:solidFill>
               <a:latin typeface="${xmlEscape(font)}"/>
               <a:ea typeface="${xmlEscape(font)}"/>
@@ -1873,7 +1875,7 @@ class SlideBuilder {
   renderParagraphXml(pSpec) {
     const baseSizePt = Number(pSpec.sizePt) || 13;
     const baseColor = pSpec.colorHex || COLORS.body;
-    const baseFont = pSpec.font || FONT_BODY;
+    const baseFont = pSpec.font;
     const align = pSpec.align || "l";
     const spaceBeforePt = Number(pSpec.spaceBeforePt) || 0;
     const spaceAfterPt = pSpec.spaceAfterPt !== undefined ? Number(pSpec.spaceAfterPt) : 4;
@@ -1989,6 +1991,7 @@ class SlideBuilder {
           sizePt: baseSizePt,
           bold: Boolean(pSpec.bold),
           italic: Boolean(pSpec.italic),
+          tracking: pSpec.tracking,
           colorHex: baseColor,
           font: baseFont,
         }),
@@ -2011,7 +2014,13 @@ class SlideBuilder {
     const cx = Math.max(12700, Math.round(spec.cx || 914400));
     const cy = Math.max(12700, Math.round(spec.cy || 457200));
     const geom = spec.geom || "rect";
-    const avLst = geom === "roundRect" ? `<a:avLst><a:gd name="adj" fmla="val 6500"/></a:avLst>` : `<a:avLst/>`;
+    const adj = Number.isFinite(spec.adj) ? Math.round(spec.adj) : null;
+    const avLst =
+      adj !== null
+        ? `<a:avLst><a:gd name="adj" fmla="val ${adj}"/></a:avLst>`
+        : geom === "roundRect"
+          ? `<a:avLst><a:gd name="adj" fmla="val 6500"/></a:avLst>`
+          : `<a:avLst/>`;
     const fillXml = spec.fillHex
       ? `<a:solidFill><a:srgbClr val="${normalizeHexColor(spec.fillHex)}"/></a:solidFill>`
       : `<a:noFill/>`;
@@ -2026,13 +2035,17 @@ class SlideBuilder {
     };
     const anchor = spec.anchor || "t";
     const descrAttr = spec.descr ? ` descr="${xmlEscape(spec.descr)}"` : "";
+    // A purely decorative shape is marked so a screen reader skips it (the PowerPoint 2019 "decorative" flag).
+    const cNvPr = spec.decorative
+      ? `<p:cNvPr id="${id}" name="${xmlEscape(spec.name || `Shape ${id}`)}"${descrAttr}><a:extLst><a:ext uri="{C183D7F6-B498-43B3-948B-1728B52AA6E4}"><adec:decorative xmlns:adec="http://schemas.microsoft.com/office/drawing/2017/decorative" val="1"/></a:ext></a:extLst></p:cNvPr>`
+      : `<p:cNvPr id="${id}" name="${xmlEscape(spec.name || `Shape ${id}`)}"${descrAttr}/>`;
     const paragraphs = (spec.paragraphs?.length ? spec.paragraphs : [{ text: "", sizePt: 10 }])
       .map((p) => this.renderParagraphXml(p))
       .join("\n        ");
 
     return `<p:sp>
       <p:nvSpPr>
-        <p:cNvPr id="${id}" name="${xmlEscape(spec.name || `Shape ${id}`)}"${descrAttr}/>
+        ${cNvPr}
         <p:cNvSpPr txBox="1"/>
         <p:nvPr/>
       </p:nvSpPr>
@@ -3754,8 +3767,8 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
     });
     const coverSubtitleText = options.subtitle ? stripMarkdownFormatting(truncateText(options.subtitle, 280)) : "";
     const coverTail = [
-      ...(coverSubtitleText ? [{ text: coverSubtitleText, sizePt: 14, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 6 }] : []),
-      ...(deck.coverSubtitle ? [{ text: truncateText(deck.coverSubtitle, 160), sizePt: 13, fontName: FONT_BODY, bold: bodyIsBold(), spaceAfterPt: 4 }] : []),
+      ...(coverSubtitleText ? [{ text: coverSubtitleText, sizePt: 14, fontName: FONT_BODY, spaceAfterPt: 6 }] : []),
+      ...(deck.coverSubtitle ? [{ text: truncateText(deck.coverSubtitle, 160), sizePt: 13, fontName: FONT_BODY, spaceAfterPt: 4 }] : []),
     ];
     const coverTop = 680000 + 365760;
     const orgHeight = linesHeightEmu(1, coverOrg.sizePt, FONT_HEADING, 118000);
