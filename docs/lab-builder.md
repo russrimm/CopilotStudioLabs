@@ -2107,7 +2107,7 @@ capture settings:
   nothing to type, and those screenshots are never shown as *Waiting for your agent address*. The Screenshot Center says
   **Will use the practice agent the computer creates first.**, and once the agent exists **Using the practice agent created
   for this lab.** The plan runs the shots that create the agent (`create-agent`, `harness-choice`) before the first shot that
-  needs it. A lab built with [Both, one after another](#both-harnesses-one-after-another) needs one practice agent per harness (a Classic agent, created after the switch to the classic experience, and a Microsoft Copilot agent, created in the default experience), and the capture plan runs one harness at a time; see *A lab that covers both harnesses* under [Which harness a picture shows](#which-harness-a-picture-shows-standard-classic-or-microsoft-copilot-never-mixed).
+  needs it. A lab built with [Both, one after another](#both-harnesses-one-after-another) needs one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard**, and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**; what the product shows after **Agent, Standard** is not verified on a real tenant), and the capture plan runs one harness at a time; see *A lab that covers both harnesses* under [Which harness a picture shows](#which-harness-a-picture-shows-standard-classic-or-microsoft-copilot-never-mixed).
 - **An agent I choose.** Exactly as it worked before: the agent address or name from the settings above is required
   (validation, masking, `values` handling, and the wizard hand-off are unchanged), the shots wait for it, and the old note
   *Waiting for your agent address. Add it above, then capture this one.* applies. Typing an address or name while the default
@@ -2250,7 +2250,7 @@ in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints e
 After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
 
-**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, created after the switch to the classic experience, and a Microsoft Copilot agent, created in the default experience), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
+**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard** since 1.8.1 and not verified on a real tenant after that choice, and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
 address* is replaced by one choice per lab, **Which agent should these screenshots use?** (see *Capture settings* above): **The agent created earlier in this capture
 (recommended)** or **An agent I choose** (an address or a name, as before; a saved address counts as that choice). The created agent is the practice agent the
 computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
@@ -2321,7 +2321,7 @@ section: for each recipe, what it did on which shot, what it created (or *Create
 **The dry plan (read it before a run).** `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id> [--all] [--json]` and `POST /api/capture/dry-plan` (`{ target: { type: "lab", labId }, scope }`; or `GET /api/capture/dry-plan?labId=…&scope=all`)
 list which shots will now run automatically and in which order (with the recipe, its panel or opener, whether it has been seen on a real tenant, and how it is judged), which practice-agent objects will be created for them,
 and which stay manual with the reason and the manual steps. From companion 1.8.0 it also states the lab's harness (*This lab: Standard (Classic) harness. Every picture is taken in the Classic harness.*), the practice agent each harness needs, and per shot the harness, the switch step
-(*switch: ellipsis in the lower left corner > Open classic experience > Skip feedback*, or *no switch: open copilotstudio.microsoft.com*), and the proof landmark. It queues nothing and needs no companion.
+(*switch: ellipsis in the lower left corner > Open classic experience > Skip feedback*, which opens the classic experience in a new tab on the preview address, or *no switch: use copilotstudio.microsoft.com*), the proof landmark, and the rule for screens outside an agent (taken in the matching experience, stamped with the host and how the page was reached, and always saved for review because content cannot prove them). It queues nothing and needs no companion.
 
 **An older companion.** Jobs still queue for a companion older than 1.6.3, which runs them the old way and ignores the new fields. The queue response then carries `recipes: { supported: false, min, version, shots, message }`
 (and the status carries `autonomy.recipesSupported` and `autonomy.recipesMinCompanion`), the Screenshot Center says in plain words that the new recipes need the newer companion (*N screenshots … still need you. Download the companion again and replace the old one*), and
@@ -2500,7 +2500,10 @@ image.
 
 A Copilot Studio screenshot is a **Standard (Classic) harness** picture or a **Microsoft Copilot harness** picture, and the two are never
 mixed. A new agent in Copilot Studio is a Microsoft Copilot harness agent by default (the layout with the **Build**, **Preview**,
-**Evaluate**, and **Monitor** tabs). A Standard (Classic) agent exists only after a person switches to the classic experience first. The
+**Evaluate**, and **Monitor** tabs). A Standard (Classic) agent lives in the classic experience, which opens on its own address
+(`copilotstudio.preview.microsoft.com`, agent pages at `/bots/<id>/`); a person gets there with **Open classic experience** (it opens in a new
+tab) or opens a Standard agent from the Agents list, which redirects. A Standard agent is created with **More create options > Agent, Standard**.
+The
 Customer Conversation harness (preview) adds a **Deploy** tab. Sources:
 [Switch between experiences](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/switch-experiences),
 [Microsoft Copilot harness overview](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview),
@@ -2551,8 +2554,8 @@ slot, or the reverse) and does not raise `mixed-harness-pictures` for a combined
 
 The capture plan of a combined lab runs **one harness at a time**: every slot of the first harness (its part, plus the shared topics), then
 every slot of the second, with each harness's creation step first, so the companion switches experience as few times as possible (the classic
-switch once, then back to the default experience once). It makes **one practice agent per harness** (`Classic shots - ...` created inside the
-classic experience after the switch, `Copilot shots - ...` created in the default experience), neither used for the other. The dry plan
+switch once, then back to the default experience once). It makes **one practice agent per harness** (`Classic shots - ...` made with **Agent, Standard**,
+`Copilot shots - ...` made with **Agent, uses Copilot Credits**), neither used for the other. The dry plan
 says so: *This lab: both harnesses, one after another...*, the two practice agents, *The computer takes one harness at a time and changes
 experience 1 time*, and per shot the harness, the switch step, and the proof landmark.
 
@@ -2571,42 +2574,89 @@ saved check of every picture (`screenshots/verification.json` for a lab, `librar
 `harness: { id, proof, at }`, where `proof` is `landmarks` (the companion saw the harness's landmarks before it took the picture) or `person`
 (a person said so, by uploading into the slot or by tagging). A stamp counts only while the picture's SHA-256 still matches.
 
-**Capturing in the right harness (companion 1.8.0).** The companion treats the harness as an explicit, per-shot requirement and proves it
+**Capturing in the right harness (companion 1.8.0, corrected in 1.8.1).** The companion treats the harness as an explicit, per-shot requirement and proves it
 before it takes the picture. It no longer trusts whichever layout the agent opened in.
 
-- **Standard (Classic).** Switch once per browser session, as a person does: click the **ellipsis (three dots) in the lower left corner**
-  of the page, click **Open classic experience**, then click **Skip feedback** on the feedback prompt that follows. It never submits
-  feedback; **Skip feedback** is the only button it clicks there. Then it proves the classic layout by landmarks (the side navigation with
-  **Overview** and at least one of **Knowledge**, **Tools**, **Topics**, **Analytics**, or **Channels**, and no Build, Preview, Evaluate,
-  Monitor tab strip). The landmarks are checked again before every Classic picture, in case the page fell back.
-- **Microsoft Copilot.** No switch. It opens `https://copilotstudio.microsoft.com` (the default experience) and proves the **Build**,
-  **Preview**, **Evaluate**, and **Monitor** tabs are present, with no **Deploy** tab. A page found in the classic experience goes back to the
-  default experience and is proven again; if it cannot get back, the shot stops as *Needs you*.
+**What the real product does (observed 2026-11-24, read only, on a real tenant with the owner at the PC).** Companion 1.8.0 was built from
+guesses; these observations replace them, and 1.8.1 is built on them:
+
+1. `https://copilotstudio.microsoft.com/` opens the environment Home (links Home, Agents, Workflows, Apps (Preview)) and takes 15 to 30
+   seconds to draw its controls. The lower left control is a button named **More options**.
+2. Its menu (See what's new, Solutions, **Open classic experience**, Power Platform Admin Center, Learning resources, Session details) is
+   offered **in every experience**: the default one, the preview address, and a Standard agent page. So the menu proves nothing about which
+   experience a page is in; the 1.8.0 menu proof was wrong and is removed.
+3. **Open classic experience** shows a feedback prompt (**Skip feedback**; never Submit) and then opens
+   `https://copilotstudio.preview.microsoft.com/environments/<id>/home` **in a new browser tab**. The first tab stays on the default address.
+   Companion 1.8.0 kept working in the first tab, so every later proof found the default experience.
+4. The preview address also opens directly in a new tab with the same sign-in, and opening a Standard agent from the default Agents list
+   redirects in the same tab to `.../bots/<id>/overview` on the preview address.
+5. The Agents list (the same on both addresses) has the columns Name, Status, Owner, Last modified, and **Agent harness**; each row's harness
+   cell reads *Microsoft Copilot* or *Standard* (the tooltip text is appended to the cell text). Each row has **Open <name>** and **More actions
+   for <name>** buttons.
+6. A **Standard agent page** shows a **tab strip** (Overview, Knowledge, Tools, Agents, Topics, Activity, Evaluation, and an overflow button);
+   it is not a side navigation. A **Microsoft Copilot agent page** shows the tab strip Build, Preview, Evaluate, Monitor.
+7. On the Agents list, **More create options** (both addresses) offers *Agent, uses Copilot Credits* (Microsoft Copilot), *Customer
+   conversation agent, uses Copilot Credits*, and *Agent, Standard*.
+8. The tenant already had Standard agents, so a Standard lab can take its pictures from **An agent I choose** with an existing Standard agent.
+
+- **Standard (Classic).** Switch once per capture, as a person does: click the **ellipsis (the **More options** button) in the lower left
+  corner** of the page, click **Open classic experience**, then click **Skip feedback** on the feedback prompt that follows. It never submits
+  feedback; **Skip feedback** is the only button it clicks there. **The click opens the classic experience in a new tab on the preview
+  address, and the companion follows that tab**: it compares the pages before and after (or accepts the same tab), waits until the new page is
+  on the preview host and drawn, brings it to the front, closes any other extra tab, and runs the rest of the shot on it. A page the product
+  itself opens in a new tab is kept (the page guard closes every other popup). If the click path does not produce a classic page, opening the
+  preview address directly in a new tab is the recovery, recorded in the proof (`via`: `click-path`, `preview-address`); if neither works the
+  shot ends as *Needs you* with a plain reason. Standard agents are opened from their row on the Agents list (the product redirects to
+  `/bots/<id>/...` on the preview address) or by address. The landmarks are checked again before every Classic picture. The classic tab stays
+  open for the Standard pictures that follow and is closed before the first Microsoft Copilot picture.
+- **Microsoft Copilot.** No switch. It uses a page on `https://copilotstudio.microsoft.com` (the default experience) and an agent whose **Agent
+  harness** cell says *Microsoft Copilot*, and proves the **Build**, **Preview**, **Evaluate**, and **Monitor** tabs are present, with no
+  **Deploy** tab. An extra classic tab is closed first; a page that is itself in the classic experience goes back to the default address and
+  is proven again; if it cannot get back, the shot stops as *Needs you*.
+- **The proof (agent pages).** Read by accessible name (a name the page doubles in its text, such as `OverviewOverview`, counts once): a tab
+  strip with **Overview** and at least two of **Knowledge**, **Tools**, **Topics**, **Agents**, **Activity**, **Evaluation**, and none of
+  Build, Preview, Evaluate, Monitor proves **Standard (Classic)**; the four-tab strip proves **Microsoft Copilot**. The side navigation of an
+  older classic build (Overview plus Knowledge, Tools, Topics, Analytics, or Channels) is kept only as a fallback. The address shape
+  (`/bots/<id>/` for Standard, `/agents/<id>` for Microsoft Copilot) and the host are corroboration only, never the sole proof.
+- **Agent selection by the Agents list.** When a job names an agent, or the lab uses **An agent I choose**, the row's **Agent harness** cell
+  is read first (the older **Powered by** column is the fallback; rows that disagree decide nothing). A wrong-harness agent is refused before
+  it is opened, with the same *Needs you* path: *This agent is Standard; this picture needs the Microsoft Copilot harness. Choose a Microsoft
+  Copilot agent, or let the computer create one.*
 - **Wrong harness.** When the page is in the wrong harness after the attempt, the shot stops as *Needs you* with a plain reason, for example
   *This agent is in the Microsoft Copilot harness; this picture needs the Standard (Classic) harness.* The picture is never saved as good.
-- **Practice agents.** The practice-agent builder makes one agent per harness: a Classic practice agent (created inside the classic
-  experience, after the switch) for Classic slots and a Microsoft Copilot practice agent (created in the default experience) for the others.
-  The names are distinct, within the 30-character agent-name cap, and carry a short harness marker. **The agent created earlier in this
-  capture** resolves to the agent of the right harness per slot and never reuses one for the other; **An agent I choose** is refused for a slot
-  of the other harness. The practice agents are remembered per environment, lab, and harness.
-- **Stamping.** The upload carries `evidence.harness` (`{ version: 1, id, proof: "landmarks", landmarks, switched, wanted }`), and the portal
-  stamps the picture with the harness it was **actually** taken in, not the one that was hoped for. Proof for the wrong harness is rejected
-  (`422 wrong-harness`); no proof at all goes to review (`harness-unproven`).
-- **Screens outside an agent, and guided mode.** The proof is read from the page: an agent's own tabs (Build, Preview, Evaluate, Monitor) or its
-  classic side navigation (Overview, Knowledge, Tools, Topics, ...). A screen outside any agent (the Copilot Studio home, the start of Create) shows
-  neither, so the companion cannot prove its harness: it still takes the picture, but saves it **without a harness recorded**, and the portal sends
-  it to review (a person checks which harness it shows, then accepts it; it is recorded as the slot's harness on that person's word). In **guided
-  mode** the person drives the browser and the companion only reads, so it never clicks the switch there; it proves the harness at the agent
-  screens and sends the rest to review the same way. Companion status causes: `wrong-harness`, `harness-unproven`, `harness-switch-failed`,
-  `harness-gap`.
+- **Practice agents.** The practice-agent builder makes one agent per harness. A Classic practice agent starts from **More create options >
+  Agent, Standard** on the Agents list of the classic tab (after the switch; the same menu is offered on the default address, so the option
+  itself needs no switch) and a Microsoft Copilot practice agent from **Agent, uses Copilot Credits** in the default experience. **NOT VERIFIED on a real tenant:** what the product shows after **Agent, Standard** was not observed
+  (nothing was created), so the steps after that click are the older recipe steps behind landmark checks, and a step that does not match ends
+  as *Needs you* with the exact step. Only those two menu items are exempt from the Copilot Credits rule, for the one create click;
+  **Customer conversation agent** is never clicked. The names are distinct, within the 30-character agent-name cap, and carry a short harness
+  marker. **The agent created earlier in this capture** resolves to the agent of the right harness per slot and never reuses one for the
+  other; **An agent I choose** is refused for a slot of the other harness. The practice agents are remembered per environment, lab, and harness.
+- **Stamping.** The upload carries `evidence.harness` (`{ version: 2, id, proof: "landmarks", landmarks, switched, wanted, host, via }`), and
+  the portal stamps the picture with the harness it was **actually** taken in, not the one that was hoped for. Proof for the wrong harness is
+  rejected (`422 wrong-harness`); no proof at all goes to review (`harness-unproven`).
+- **Screens outside an agent (Home, the Agents list): not provable by content.** They show no agent tabs, and the Open classic experience
+  menu item is offered everywhere, so nothing on them proves the harness. The rule: such a screen is taken in the experience that matches the
+  lab's harness (Standard labs on the preview address after the switch, Microsoft Copilot labs on the default address); the address host is
+  checked and can only **refuse** (a Standard screen on the default host, or a Microsoft Copilot screen on the preview host, is not taken);
+  and the picture is stamped with the host and how the page was reached (`evidence.harnessReached`, `proven: false`). The portal saves it with
+  the review reason *harness-unproven*, so **a person accepts it**; it is never silently good. The dry plan, the Screenshot Center, and the
+  companion README state this rule. In **guided mode** the person drives the browser and the companion only reads, so it never clicks the
+  switch there; it proves the harness at the agent screens and sends the rest to review the same way. Companion status causes:
+  `wrong-harness`, `harness-unproven`, `harness-switch-failed`, `harness-gap`.
 - **Older companions.** A companion older than **1.8.0** sends no proof, so its pictures go to **review** (the same pattern as the earlier
-  version gates), never straight into good pictures. The job queue says so: *Update your Local Capture Companion to 1.8.0 or newer. Older versions
-    cannot prove which harness a picture is taken in (Standard (Classic) or Microsoft Copilot), so their Copilot Studio pictures are saved for
-    review.* The check is `HARNESS_MIN_COMPANION` in `harness.mjs`.
+  version gates), never straight into good pictures. A companion older than **1.8.1** is told to update, because it cannot follow the new tab
+  and so cannot take a Standard (Classic) picture. The job queue says so: *Update your Local Capture Companion to 1.8.1 or newer. Older
+  versions do not follow the new tab that Open classic experience opens, so they cannot take a Standard (Classic) picture, and they cannot
+  prove which harness a Copilot Studio picture is taken in, so those pictures are saved for review.* The check is `HARNESS_MIN_COMPANION` in
+  `harness.mjs`. **Decision on 1.8.0 proofs:** a 1.8.0 proof of an agent page (the Build, Preview, Evaluate, Monitor tabs) is still valid,
+  and a 1.8.0 Standard proof of an agent page could not have been produced, because the switch never reached the classic tab; but a 1.8.0
+  proof of a screen outside an agent used the menu check, which is wrong, so a proof that carries those menu landmarks (*Menu in the lower left
+  corner*, *Open classic experience offered*, *No Open classic experience command*) is refused as no proof and the picture goes to review.
 
 The exact switch path was given by the owner and matches the Learn page above (Home, the three dots at the bottom of the side bar, **Open
-classic experience**). It has **not been run on a real tenant**: the ellipsis has no visible name, so the companion tries a short list of
-accessible names, and the control names are written as recipes in `harness.mjs` (`CLASSIC_SWITCH`) so they can be corrected in one place.
+classic experience**, **Skip feedback**). It was observed on a real tenant on 2026-11-24 (read only), and the control names are written as
+recipes in `harness.mjs` (`CLASSIC_SWITCH`) so they can be corrected in one place.
 
 **The plan and the dry plan.** Every shot of a capture plan carries `harness`, `harnessLabel`, `capture.harness` (`{ id, label, switch,
 switchStep, proof }`), and, for a gap, `harnessGap`. `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id>` prints the lab's
@@ -2642,9 +2692,12 @@ pictures (reason *wrong-harness*) and the slot is pending again; a library pictu
 on its own. A **one-off migration** for an existing library is the same action done in bulk: for each name in `libraryState().unrecorded`, call
 `tagPicture` with the harness the person confirms (look at each picture first; the harness cannot be read from its bytes).
 
-**Not verified on a real tenant.** The exact accessible names of the ellipsis, **Open classic experience**, and **Skip feedback**; the proof for
-Standard screens outside an agent (Home, the agent list: the landmark there is that the menu no longer offers **Open classic experience**);
-the **Powered by** column text (the Agents list names the harness an agent uses); and other browsers.
+**Not verified on a real tenant (as of 2026-11-24).** Creating a Standard practice agent (what the product shows after **More create options >
+Agent, Standard**, and the steps that follow); a content proof for the screens outside an agent (Home, the Agents list), which have only the host
+and how the page was reached, so they go to review; whether the tab strip's tabs carry a clean accessible name (a doubled name is handled); a
+complete capture run on the real tenant; and other browsers. Observed and no longer unverified: the switch path (the **More options** button,
+**Open classic experience**, **Skip feedback**, the new tab on the preview address), the **Agent harness** column text, the Standard agent
+tab strip, and the **More create options** menu.
 
 #### Where the shared library lives
 
