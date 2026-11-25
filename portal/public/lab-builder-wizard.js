@@ -4310,11 +4310,12 @@ async function lbPreview(options = {}) {
       `${plural(own, "module", "modules")}${recaps ? ` + ${plural(recaps, "refresher", "refreshers")}` : ""}, about ${data.duration}`,
       lbLevelName(data.level),
       ...(subtopicTotal ? [`${subtopicIncluded} of ${plural(subtopicTotal, "sub-topic", "sub-topics")} included`] : []),
-      ...(typeof lbAiFactText === "function" && lbAiFactText() ? [lbAiFactText()] : []),
     ];
+    // The AI choice changes without the outline being rebuilt, so it sits in a span of its own that ai-writing.js keeps current.
+    const aiFact = typeof lbAiFactText === "function" ? `<span id="lb-outline-ai-fact">${escapeHtml(lbAiFactText() ? ` · ${lbAiFactText()}` : "")}</span>` : "";
     el.innerHTML = `
       <div class="lb-outline-title">${escapeHtml(data.title)}</div>
-      <p class="lb-outline-facts">${escapeHtml(facts.join(" · "))}. Times are estimates, not limits.</p>
+      <p class="lb-outline-facts">${escapeHtml(facts.join(" · "))}${aiFact}. Times are estimates, not limits.</p>
       <div class="lb-outline-tools">
         ${lbRenderOutlineOrderToolbar()}
         <button type="button" class="lb-link-btn" data-outline-action="toggle-edit" aria-expanded="${edit}">${edit ? "Done" : "Edit order"}</button>

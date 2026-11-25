@@ -66,6 +66,7 @@ function lbAiRender() {
   const status = labBuilderAi.status;
   const card = lbAiEl("lb-ai-card");
   if (!card) return;
+  lbAiRefreshOutlineFact();
   const off = Boolean(status) && status.state === "off";
   const possible = Boolean(status) && status.possible === true;
   card.hidden = !(off || possible);
@@ -101,6 +102,12 @@ function lbAiRender() {
   lbAiSetText("lb-ai-sends", status.sends || "");
   lbAiSetText("lb-ai-summary", lbAiSummaryText());
   lbAiSetText("lb-ai-error", labBuilderAi.error);
+}
+
+/** Keeps the outline's one-line facts in step with the choice, without rebuilding the outline. */
+function lbAiRefreshOutlineFact() {
+  const fact = lbAiFactText();
+  lbAiSetText("lb-outline-ai-fact", fact ? ` · ${fact}` : "");
 }
 
 async function lbAiLoadStatus() {

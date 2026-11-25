@@ -4343,10 +4343,6 @@
       border: 1px solid var(--border-strong);
       background: var(--bg);
     }
-    .lb-ai-card[hidden],
-    .lb-ai-card [hidden] {
-      display: none;
-    }
     .lb-ai-card .lb-ai-label {
       display: flex;
       align-items: flex-start;
@@ -4428,6 +4424,11 @@
       overflow-wrap: anywhere;
     }
     .lb-ai-card .lb-error:empty {
+      display: none;
+    }
+    /* Last in the block so it wins over the display rules above. */
+    .lb-ai-card[hidden],
+    .lb-ai-card [hidden] {
       display: none;
     }
     .lb-sharepoint-site-card {
