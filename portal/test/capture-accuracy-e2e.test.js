@@ -28,13 +28,19 @@ test("e2e: with the agent address, every automatic screenshot is accepted on the
   const t = tally(out.rows);
   assert.equal(t.acceptedOnWrongScreen, 0, "a wrong screen is never accepted");
   assert.equal(t.landedWrong, 0);
-  assert.equal(t.needsReview, 0, "nothing is stuck in needs-review for a label that never appears");
-  assert.ok(t.accepted >= 4, out.lines.join("\n"));
-  for (const filename of ["agent-overview.png", "agent-instructions.png", "generative-orchestration-setting.png", "create-agent-describe.png"]) {
+  assert.equal(t.needsReview, 2, "only the two screens outside the agent wait for a person: no content proves their harness (nothing is stuck for a label that never appears)");
+  assert.ok(t.accepted >= 3, out.lines.join("\n"));
+  for (const filename of ["agent-overview.png", "agent-instructions.png", "generative-orchestration-setting.png"]) {
     const row = out.rows.find((r) => r.filename === filename);
     assert.equal(row.status, "captured", `${filename}: ${row.reason}`);
     assert.equal(judge(row).right, true, filename);
     assert.ok(row.raw.outcome.startsWith("Opened Copilot Studio"), `${filename}: the card says how it got there`);
+  }
+  for (const filename of ["copilot-studio-home.png", "create-agent-describe.png"]) {
+    const row = out.rows.find((r) => r.filename === filename);
+    assert.equal(row.status, "needs-review", filename);
+    assert.deepEqual(row.verification.reasons.map((r) => r.code), ["harness-unproven"], `${filename}: on the right screen, kept for a person only because nothing proves its harness`);
+    assert.equal(judge(row).right, true, filename);
   }
   assert.deepEqual(out.site.stats.writes, [], "no publish, no create, nothing");
   assert.equal(out.site.stats.appsNewVisits, 0);

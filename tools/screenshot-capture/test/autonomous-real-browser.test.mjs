@@ -43,10 +43,12 @@ test("read-only automatic capture captures every browser-reachable shot and stop
     await scenario.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await scenario.runJob({ job: JOB() });
     assertClean(out);
-    assert.equal(count(out.rows, "captured"), 7, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 5, out.lines.join("\n"));
     const review = out.rows.filter((r) => r.status === "needs-review");
+    // The two screens outside the agent (Home, the start of Create) cannot be proven by what they show, so they are always kept for a person (see the harness rule).
     // The pretend site has no activity map, so that picture is saved for review (the recipe checks the screen by its own label); the two screens that need a practice agent still say so.
-    assert.deepEqual(review.map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png", "publish-confirmation.png"]);
+    assert.deepEqual(review.map((r) => r.filename), ["copilot-studio-home.png", "create-agent-describe.png", "activity-map-plan.png", "knowledge-answer-citation.png", "publish-confirmation.png"]);
+    assert.deepEqual(review.filter((r) => r.verification.reasons.some((x) => x.code === "harness-unproven")).map((r) => r.filename), ["copilot-studio-home.png", "create-agent-describe.png"], "a screen outside the agent is not proven by its content");
     assert.deepEqual(review.filter((r) => r.cause === "needs-practice-agent").map((r) => r.filename), ["knowledge-answer-citation.png", "publish-confirmation.png"], "the two screens that need a practice agent say so");
     // A label the lab expects that the page does not show is now a reason on its own (companion pictures must prove the screen), next to the recipe's own review.
     assert.deepEqual(review.find((r) => r.filename === "activity-map-plan.png").verification.reasons.map((x) => x.code), ["labels-missing", "recipe-review"]);
@@ -68,7 +70,7 @@ test("without consent the job carries nothing above Tier 0, and the companion re
     const out = await noFlag.runJob({ job: JOB(), runOptions: { allowPracticeWrites: false } });
     assertClean(out);
     assert.deepEqual(out.site.stats.writes, [], "the portal asked for a practice agent and the computer said no");
-    assert.equal(count(out.rows, "needs-review"), 3, "the activity map the pretend site lacks, and the two screens that need a practice agent");
+    assert.equal(count(out.rows, "needs-review"), 5, "the two screens outside the agent, the activity map the pretend site lacks, and the two screens that need a practice agent");
     assert.match(out.lines.join("\n"), /allow-practice-writes/, "the person is told what to change");
   } finally {
     await noFlag.close();
@@ -90,8 +92,8 @@ test("with consent and the flag a practice agent is created once, reused by the 
     await scenario.call("PUT", "/api/capture/consent", PRACTICE);
     const first = await scenario.runJob({ job: JOB(), runOptions: { allowPracticeWrites: true } });
     assertClean(first, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
-    assert.equal(count(first.rows, "captured"), 8, first.lines.join("\n"));
-    assert.deepEqual(first.rows.filter((r) => r.status === "needs-review").map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png"], "the screens a recipe cannot check are kept for a person (the pretend site has no activity map; a citation is always checked by a person)");
+    assert.equal(count(first.rows, "captured"), 6, first.lines.join("\n"));
+    assert.deepEqual(first.rows.filter((r) => r.status === "needs-review").map((r) => r.filename), ["copilot-studio-home.png", "create-agent-describe.png", "activity-map-plan.png", "knowledge-answer-citation.png"], "the screens a recipe cannot check are kept for a person (the two outside the agent, which no content can prove; the pretend site has no activity map; a citation is always checked by a person)");
     assert.equal(scenario.site.practiceAgents().length, 1, "one practice agent");
     assert.match(scenario.site.practiceAgents()[0].name, /^(?:Lab screenshots|Classic shots|Copilot shots) - /);
     assert.ok(first.job.result.created.length >= 1, "the portal names what was created");
@@ -103,7 +105,7 @@ test("with consent and the flag a practice agent is created once, reused by the 
     const second = await scenario.runJob({ job: JOB(), runOptions: { allowPracticeWrites: true } });
     assertClean(second, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(scenario.site.practiceAgents().length, 1, "the practice agent was reused, not created again");
-    assert.equal(count(second.rows, "captured"), 8, "the same screens are captured, and the same two are kept for a person");
+    assert.equal(count(second.rows, "captured"), 6, "the same screens are captured, and the same four are kept for a person");
   } finally {
     await scenario.close();
   }
@@ -119,7 +121,7 @@ test("with no agent address given, the practice agent is created first and every
     assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(out.job.options.agentSource, "created", "the created agent is the default when no address is given");
     assert.equal(count(out.rows, "skipped"), 0, "nothing waited for an address");
-    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 6, out.lines.join("\n"));
     const made = scenario.site.practiceAgents();
     assert.equal(made.length, 1, "one practice agent");
     assert.deepEqual(botIdsOpened(out), [made[0].id], "the only agent page that was opened is the one the computer made");
@@ -134,7 +136,7 @@ test("with no agent address given, the practice agent is created first and every
     const second = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });
     assertClean(second, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(scenario.site.practiceAgents().length, 1, "reused, not created again");
-    assert.equal(count(second.rows, "captured"), 8);
+    assert.equal(count(second.rows, "captured"), 6);
   } finally {
     await scenario.close();
   }
@@ -152,7 +154,7 @@ test("when the practice agent cannot be created, the shots that show an agent wa
     assert.deepEqual(botIdsOpened(out), [], "no agent page was opened: the shots did not go to a guessed or saved agent");
     const waiting = out.rows.filter((r) => r.cause === "agent-unavailable");
     assert.ok(waiting.length >= 3, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
-    assert.ok(waiting.every((r) => r.status === "skipped" && /^The practice agent could not be created \(.+\), so this screenshot needs an agent address\.$/.test(r.reason)), waiting.map((r) => r.reason).join(" | "));
+    assert.ok(waiting.every((r) => r.status === "skipped" && /^The practice agent could not be created: the computer could not choose “Agent, uses Copilot Credits” in More create options \(.+\)\. Nothing was created, so this screenshot needs an agent address\.$/.test(r.reason)), waiting.map((r) => r.reason).join(" | "));
     assert.equal(out.job.causes.find((c) => c.code === "agent-unavailable")?.title, "Waiting for the agent");
     assert.equal(scenario.site.practiceAgents().length, 0);
   } finally {
@@ -179,7 +181,7 @@ test("a job from an older portal, with no agent source and no hand-off fields, b
     });
     assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(out.claimed.job.options.agentSource, undefined);
-    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 6, out.lines.join("\n"));
     assert.equal(scenario.site.practiceAgents().length, 1);
     assert.doesNotMatch(out.lines.join("\n"), /uses the practice agent created first|uses the agent whose address/, "the older way says nothing new");
   } finally {
@@ -202,8 +204,8 @@ for (const [name, site] of VARIANTS) {
       await scenario.call("PUT", "/api/capture/consent", READ_ONLY);
       const out = await scenario.runJob({ job: JOB() });
       assertClean(out);
-      assert.equal(count(out.rows, "captured"), 7, out.lines.join("\n"));
-      assert.equal(count(out.rows, "needs-review"), 3);
+      assert.equal(count(out.rows, "captured"), 5, out.lines.join("\n"));
+      assert.equal(count(out.rows, "needs-review"), 5);
     } finally {
       await scenario.close();
     }

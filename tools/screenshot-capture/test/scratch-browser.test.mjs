@@ -100,7 +100,7 @@ test("an account that cannot create agents ends every agent shot with one plain 
     const out = await run(scenario);
     assert.deepEqual(out.site.stats.writes, []);
     assert.ok(out.rows.every((r) => r.status === "needs-you" && r.cause === "agent-create-failed"), out.rows.map((r) => `${r.status}:${r.cause}`).join(", "));
-    assert.match(out.rows[0].reason, /could not find a way to create an agent/);
+    assert.match(out.rows[0].reason, /could not choose “Agent, uses Copilot Credits” in “More create options”/);
     const registryFile = path.join(out.home, ".practice-agents.json");
     if (fs.existsSync(registryFile)) {
       const registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
@@ -340,7 +340,8 @@ test("the older layout: the agent is made on its form, screens are looked at, an
     assert.deepEqual(out.site.stats.dangers, []);
     const create = out.rows.find((r) => /create-agent/.test(r.filename));
     // The pretend older layout does not show every label the lab names (they come from the newer layout), so the picture is saved for review rather than accepted.
-    assert.ok(["captured", "needs-review"].includes(create.status) && reviewReasons(create).every((c) => c === "labels-missing"), statusLine(out));
+    // The first shot is a screen outside the agent: what it shows cannot prove the harness, so it is saved for review for that reason too.
+    assert.ok(["captured", "needs-review"].includes(create.status) && reviewReasons(create).every((c) => c === "labels-missing" || c === "harness-unproven"), statusLine(out));
     assert.ok(out.rows.every((r) => r.status === "captured" || r.status === "needs-you" || r.status === "needs-review"), statusLine(out));
     assert.ok(!out.rows.some((r) => reviewReasons(r).some((c) => c === "duplicate-picture" || c === "signed-out-page")), statusLine(out));
   } finally {

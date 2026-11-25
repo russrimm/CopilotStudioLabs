@@ -510,7 +510,7 @@ test("the enlarged picture names the harness in its caption and in the same bloc
 });
 
 test("the review compares the picture with what the lab asks for, and says which harness accepting it records", async () => {
-  const review = slot("agent-home.png", "standard", "pending", { needsReview: true, verification: { level: "warn", state: "needs-review", reasons: [{ code: "harness-unproven", level: "warn", message: "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer." }] } });
+  const review = slot("agent-home.png", "standard", "pending", { needsReview: true, verification: { level: "warn", state: "needs-review", reasons: [{ code: "harness-unproven", level: "warn", message: "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.1 or newer." }] } });
   const h = await ready(labState([review]));
   await h.click(h.action("preview", h.card("agent-home.png")));
   const compare = h.host.querySelector("[data-sc-review]");
@@ -528,8 +528,8 @@ test("the review compares the picture with what the lab asks for, and says which
 test("the two harness reasons read well wherever reasons are listed", () => {
   const h = makeHarness();
   const text = (reason) => h.run("scReasonText")(reason);
-  assert.equal(text({ code: "harness-unproven", level: "warn", message: "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer." }), "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer.");
-  assert.equal(text({ code: "harness-unproven", level: "warn" }), "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer.", "even when the message is missing");
+  assert.equal(text({ code: "harness-unproven", level: "warn", message: "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.1 or newer." }), "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.1 or newer.");
+  assert.equal(text({ code: "harness-unproven", level: "warn" }), "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.1 or newer.", "even when the message is missing");
   assert.equal(text({ code: "wrong-harness", level: "fail", message: "This picture was taken in the Microsoft Copilot harness, but this screenshot needs the Standard (Classic) harness, so it was not saved." }), "This picture was taken in the Microsoft Copilot harness, but this screenshot needs the Standard (Classic) harness, so it was not saved.");
   assert.match(text({ code: "wrong-harness", level: "fail" }), /^This picture was taken in a different harness than this screenshot needs, so it was not saved\./);
   assert.match(text({ code: "harness-gap", level: "fail" }), /not written for the harness this lab is built for/);

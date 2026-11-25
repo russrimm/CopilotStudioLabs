@@ -175,9 +175,9 @@ document.addEventListener('click',function(e){
   else if(act==='n-new-agent'){location.href=location.origin+'/environments/'+(document.body.getAttribute('data-env')||'')+'/agents/new'}
   else if(act==='n-create-agent'){
     var nm2=$('agent-name'); var env2=document.body.getAttribute('data-env')||'';
-    post('/__write/create-agent',{env:env2,name:nm2?nm2.value:''}).then(function(d){
+    post('/__write/create-agent',{env:env2,name:nm2?nm2.value:'',host:location.hostname}).then(function(d){
       if(CFG.stayOnNew){var s2=document.createElement('p'); s2.textContent='Saved'; document.body.appendChild(s2); return}
-      if(d.id)location.href=location.origin+'/environments/'+env2+'/bots/'+d.id+'/overview';
+      if(d.url)location.href=d.url; else if(d.id)location.href=location.origin+'/environments/'+env2+'/bots/'+d.id+'/overview';
     });
   }
 });

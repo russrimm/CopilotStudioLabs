@@ -1070,12 +1070,21 @@ test("the real companion code drives a whole job against the real portal over HT
   const home = tmp("e2e-companion-home-");
   const lines = [];
   const result = await runJob({ client, claimed, home, playwright: fake.playwright, log: (m) => lines.push(m), heartbeatMs: 60_000 });
-  assert.equal(result.tally.captured, shots.length, lines.join("\n"));
+  assert.equal(result.tally.captured, 0, lines.join("\n"));
+  // Both pictures show a screen outside the agent (the Home page): no content proves which harness it was taken in, so each is saved for review and a person accepts it.
+  assert.equal(result.tally.needsReview, shots.length, lines.join("\n"));
 
   const job = (await call(base, "GET", `/api/capture/jobs/${claimed.job.id}`)).json.job;
   assert.equal(job.status, "done");
-  assert.ok(job.shots.every((s) => s.status === "captured" && s.verification.level === "pass" && s.verification.redaction.applied));
-  const status = (await call(base, "GET", `/api/lab-builder/generated/${labId}/screenshots`)).json;
+  assert.ok(job.shots.every((s) => s.status === "needs-review" && s.verification.redaction.applied && s.verification.reasons.some((r) => r.code === "harness-unproven")));
+  let status = (await call(base, "GET", `/api/lab-builder/generated/${labId}/screenshots`)).json;
+  assert.equal(status.summary.captured, 0, "nothing is silently good");
+  assert.equal(status.summary.needsReview, shots.length);
+  for (const shot of shots) {
+    const accepted = await call(base, "POST", `/api/lab-builder/generated/${labId}/screenshots/${shot.filename}/accept`);
+    assert.equal(accepted.status, 200, accepted.text);
+  }
+  status = (await call(base, "GET", `/api/lab-builder/generated/${labId}/screenshots`)).json;
   assert.equal(status.summary.captured, status.summary.total);
   assert.ok(status.shots.every((s) => s.captureSource === "companion" && s.verification.finalUrl.startsWith("https://")));
   assert.ok(existsSync(join(labDir, "screenshots", `${shots[0].filename.replace(/\.[^.]+$/, "")}.callouts.json`)) || claimed.shots.every((s) => !s.callouts.length), "callout positions are stored next to the lab's screenshots");

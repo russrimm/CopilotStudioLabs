@@ -16,30 +16,28 @@ import { makePng } from "./png.mjs";
  * @param {Error|((dir: string, options: object) => Error|null)|null} [options.launchError] make opening a profile fail (for a missing browser)
  * @param {((url: string, attempt: number) => Error|null)|null} [options.gotoFailure] make opening an address fail (an interrupted navigation, a closed window)
  */
-export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], rewriteUrl = (u) => u, screenshot = null, title = "Copilot Studio", pageLabels = ["Settings", "Memory", "Home", "Signed in as ada@contoso.com"], controlDetails = {}, launchError = null, gotoFailure = null, experience = "microsoft-copilot" } = {}) {
+export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], rewriteUrl = (u) => u, screenshot = null, title = "Copilot Studio", pageLabels = ["Settings", "Memory", "Home", "Signed in as ada@contoso.com"], controlDetails = {}, launchError = null, gotoFailure = null } = {}) {
   const log = { launched: [], goto: [], clicks: [], evaluations: [], screenshots: 0, closed: 0, order: [] };
   let requestedUrl = "about:blank";
 
-  // The experience the pretend product is in: the default one shows the tab strip (Build, Preview, Evaluate, Monitor) and a side bar menu in the lower left corner
-  // that offers "Open classic experience"; clicking that command shows the classic one (side navigation, and a menu without the command). `experience` is
-  // where the page starts, so a Microsoft Copilot picture passes at once and a Standard (Classic) picture goes through the switch, like a person would.
+  // The pretend product shows the tab strip of a Microsoft Copilot agent (Build, Preview, Evaluate, Monitor) and a "More options" button in the lower left corner.
+  // Its menu offers "Open classic experience" in every experience, as the real product does (observed 2026-11-24). This fake has one page only, so it cannot
+  // model what that command really does (it opens the classic experience in a NEW TAB on another host); the fake product site in the browser tests does.
   const MC_TABS = ["Build", "Preview", "Evaluate", "Monitor"];
-  const CLASSIC_NAV = ["Overview", "Knowledge", "Topics", "Tools", "Analytics", "Channels"];
   const ELLIPSIS = ["More", "More options", "...", "…", "Settings and more", "Options"];
-  const shown = { experience, menuOpen: false, changes: 0 };
+  const shown = { menuOpen: false, changes: 0 };
   const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-  // The control the experience adds for a role and a name, or null when it adds none.
+  // The control the pretend product adds for a role and a name, or null when it adds none.
   const experienceControl = (role, label) => {
-    if (role === "tab" && shown.experience !== "classic" && MC_TABS.some((t) => same(t, label))) return { kind: "tab", region: "nav" };
-    if (["link", "tab", "treeitem", "menuitem"].includes(role) && shown.experience === "classic" && CLASSIC_NAV.some((t) => same(t, label))) return { kind: "nav", region: "nav", selected: same(label, "Overview") };
+    if (role === "tab" && MC_TABS.some((t) => same(t, label))) return { kind: "tab", region: "nav" };
     if (role === "button" && ELLIPSIS.some((t) => same(t, label))) return { kind: "ellipsis", region: "nav", box: { x: 24, y: 840, width: 36, height: 36 } };
-    if (role === "menuitem" && shown.menuOpen && shown.experience !== "classic" && same(label, "Open classic experience")) return { kind: "classic-command", region: "other" };
+    if (role === "menuitem" && shown.menuOpen && same(label, "Open classic experience")) return { kind: "classic-command", region: "other" };
     return null;
   };
   // A name that a role-and-name pattern would match among the controls this fake knows.
   const nameFor = (role, raw) => {
     if (!(raw instanceof RegExp)) return raw ? String(raw) : "";
-    const known = [...MC_TABS, ...CLASSIC_NAV, ...ELLIPSIS, "Open classic experience"].find((n) => raw.test(n) && experienceControl(role, n));
+    const known = [...MC_TABS, ...ELLIPSIS, "Open classic experience"].find((n) => raw.test(n) && experienceControl(role, n));
     if (known) return known;
     // The runner matches names exactly with a regular expression; the fake wants the plain label back.
     return raw.source.replace(/^\^\\s\*/, "").replace(/\\s\*\$$/, "").replace(/\\(.)/g, "$1");
@@ -58,7 +56,6 @@ export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], 
           shown.menuOpen = !shown.menuOpen;
           shown.changes += 1;
         } else if (added?.kind === "classic-command") {
-          shown.experience = "classic";
           shown.menuOpen = false;
           shown.changes += 1;
         }
