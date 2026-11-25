@@ -15,6 +15,21 @@ param resourceGroupName string = ''
 @description('Disable bearer-token API gate for open demo/testing deployments')
 param portalAuthDisabled bool = true
 
+@allowed([
+  'off'
+  'per-user'
+  'byok'
+])
+@description('AI writing mode (AI_GENERATION). Off by default. See docs/ai-writing.md before turning it on.')
+param aiGeneration string = 'off'
+
+@description('Non-secret AI settings (AI_PUBLIC_URL, AI_GITHUB_CLIENT_ID, AI_BYOK_BASE_URL, AI_BYOK_MODELS) as app settings; used only when aiGeneration is not off')
+param aiSettings object = {}
+
+@secure()
+@description('Secret AI settings (AI_GITHUB_CLIENT_SECRET, AI_BYOK_API_KEY) stored as Container Apps secrets; used only when aiGeneration is not off')
+param aiSecrets object = {}
+
 @description('Container image for initial provisioning before azd deploy pushes the built image')
 param portalImageName string = ''
 
@@ -116,6 +131,9 @@ module portal './modules/container-app.bicep' = {
     containerRegistryLoginServer: containerRegistry.outputs.loginServer
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     portalAuthDisabled: portalAuthDisabled
+    aiGeneration: aiGeneration
+    aiSettings: aiSettings
+    aiSecrets: aiSecrets
     azureSubscriptionId: subscription().subscriptionId
     azureTenantId: tenant().tenantId
     blobEndpoint: storage.outputs.blobEndpoint

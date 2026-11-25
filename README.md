@@ -298,6 +298,8 @@ azd deploy
 
 `azd provision` outputs `SERVICE_PORTAL_URI` (your live `https://<app>.<region>.azurecontainerapps.io` endpoint). By default, `infra/main.bicep` sets `portalAuthDisabled = true` (`PORTAL_AUTH_DISABLED=true`) for frictionless evaluation and demos; for shared or production environments, configure Entra ID authentication ([`docs/app-registration-setup.md`](./docs/app-registration-setup.md)) and set `azd env set AZURE_PORTAL_AUTH_DISABLED false` before provisioning. Run `azd down` when you want to tear down the resource group.
 
+**AI writing is off in this deployment.** `infra/main.bicep` sets `AI_GENERATION=off` (`aiGeneration`), so the optional **Write with AI** control on the Review and build step never appears and no one can spend anyone's Copilot allowance. The GitHub Copilot SDK ships in the image as an optional dependency and is only loaded when AI is asked for. To turn on a mode, see [Deploying](./docs/ai-writing.md#deploying): the app then gets 1 vCPU and 2Gi, because the SDK runtime is about 200 MB.
+
 ---
 
 ### How to use these labs

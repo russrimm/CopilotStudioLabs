@@ -46,6 +46,36 @@ param blobEndpoint string
 @description('Azure Blob container name used for persistent portal state')
 param blobContainerName string = 'portalstate'
 
+@allowed([
+  'off'
+  'per-user'
+  'byok'
+])
+@description('AI writing mode (AI_GENERATION). Leave off unless the portal has real sign-in or per-user GitHub sign-in is set up; see docs/ai-writing.md. local-user is for a portal on your own PC and is not offered here.')
+param aiGeneration string = 'off'
+
+@description('Non-secret AI settings as an object of app settings, for example AI_PUBLIC_URL, AI_GITHUB_CLIENT_ID, AI_BYOK_BASE_URL, AI_BYOK_MODELS. Used only when aiGeneration is not off.')
+param aiSettings object = {}
+
+@secure()
+@description('Secret AI settings as an object, for example AI_GITHUB_CLIENT_SECRET or AI_BYOK_API_KEY. Stored as Container Apps secrets. Used only when aiGeneration is not off.')
+param aiSecrets object = {}
+
+// The Copilot SDK runtime is about 200 MB and starts a process per generation, so AI needs more room than the 0.5 CPU / 1Gi the portal runs on without it.
+var aiOn = aiGeneration != 'off'
+var aiEnv = [for item in items(aiOn ? aiSettings : {}): {
+  name: item.key
+  value: string(item.value)
+}]
+var aiSecretList = [for item in items(aiOn ? aiSecrets : {}): {
+  name: toLower(replace(item.key, '_', '-'))
+  value: string(item.value)
+}]
+var aiSecretEnv = [for item in items(aiOn ? aiSecrets : {}): {
+  name: item.key
+  secretRef: toLower(replace(item.key, '_', '-'))
+}]
+
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: logAnalyticsWorkspaceName
 }
@@ -82,6 +112,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     managedEnvironmentId: containerAppsEnvironment.id
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: aiSecretList
       registries: [
         {
           server: containerRegistryLoginServer
@@ -101,10 +132,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: serviceName
           image: containerImageName
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            cpu: json(aiOn ? '1.0' : '0.5')
+            memory: aiOn ? '2Gi' : '1Gi'
           }
-          env: [
+          env: concat([
             {
               name: 'NODE_ENV'
               value: 'production'
@@ -165,7 +196,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'PORTAL_UPLOADS_DIR'
               value: '/app/portal-storage/uploads'
             }
-          ]
+            {
+              name: 'AI_GENERATION'
+              value: aiGeneration
+            }
+          ], aiEnv, aiSecretEnv)
         }
       ]
       // Single replica: generated labs, capture jobs, and paired devices live on local disk and are
