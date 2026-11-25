@@ -12,12 +12,12 @@ import * as R from "./scratch-recipes.mjs";
 
 const MCP_FEATURE_RE = /(?:^|-)(?:tools-mcp|mcp-servers?)$/;
 
-/** A page of the classic layout, reached by its navigation item and proved by the item being the selected one. */
+/** A page of the classic layout, reached by its navigation item (an older build) or its tab (the Standard tab strip) and proved by that control being the selected one. */
 function classicNav(name, alt = []) {
   const id = name.toLowerCase();
   return [
     { id: `${id}-nav`, action: "open-nav", target: { name, alt, within: "nav" } },
-    { id: `${id}-nav-open`, action: "verify", target: { role: "link", name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 },
+    { id: `${id}-nav-open`, action: "verify", target: { name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 },
   ];
 }
 

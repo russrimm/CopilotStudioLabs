@@ -6,12 +6,12 @@
 
 import { FAMILIES, OBJECTS, REASONS, describeReasonCounts } from "../../../tools/screenshot-capture/automation.mjs";
 import { SCRATCH_CREATES_LIST } from "../../../tools/screenshot-capture/guard.mjs";
-import { CLASSIC_SWITCH, DEFAULT_EXPERIENCE_HOST, HARNESS_LABELS, STANDARD, MICROSOFT_COPILOT } from "../../../tools/screenshot-capture/harness.mjs";
+import { CLASSIC_EXPERIENCE_HOST, CLASSIC_SWITCH, CREATE_OPTIONS, DEFAULT_EXPERIENCE_HOST, ENVIRONMENT_SCREEN_RULE, HARNESS_LABELS, STANDARD, MICROSOFT_COPILOT } from "../../../tools/screenshot-capture/harness.mjs";
 
 /** The one practice agent a lab gets, and where it is created. A Standard (Classic) agent and a Microsoft Copilot agent are never reused for each other. */
 function practiceAgentNote(harness) {
-  if (harness === STANDARD) return `A ${HARNESS_LABELS[STANDARD]} practice agent, created inside the classic experience after the switch (${CLASSIC_SWITCH.path}). It is never used for a Microsoft Copilot picture.`;
-  if (harness === MICROSOFT_COPILOT) return `A ${HARNESS_LABELS[MICROSOFT_COPILOT]} practice agent, created in the default experience at ${DEFAULT_EXPERIENCE_HOST} (no switch). It is never used for a Standard (Classic) picture.`;
+  if (harness === STANDARD) return `A ${HARNESS_LABELS[STANDARD]} practice agent, made on the Agents list with More create options > ${CREATE_OPTIONS[STANDARD].names[0]} (not yet seen working on a real tenant: what the flow shows after that choice is unverified), in the classic experience tab on ${CLASSIC_EXPERIENCE_HOST} after the switch (${CLASSIC_SWITCH.path}). It is never used for a Microsoft Copilot picture.`;
+  if (harness === MICROSOFT_COPILOT) return `A ${HARNESS_LABELS[MICROSOFT_COPILOT]} practice agent, made on the Agents list with More create options > ${CREATE_OPTIONS[MICROSOFT_COPILOT].names[0]} (not yet seen working on a real tenant: what the flow shows after that choice is unverified), in the default experience at ${DEFAULT_EXPERIENCE_HOST} (no switch). It is never used for a Standard (Classic) picture.`;
   return `A ${HARNESS_LABELS[harness] || "practice"} agent, created on its own harness. It is never used for a picture of another harness.`;
 }
 
@@ -89,6 +89,8 @@ export function buildDryPlan(plan) {
     practiceAgentHarness: practiceAgents.map((a) => a.note).join(" "),
     practiceAgents,
     experienceChanges: lab ? experienceChanges : 0,
+    // The rule for a screen outside any agent (Home, the Agents list): it cannot be proven by what it shows, so it goes to review.
+    environmentRule: sequence.length ? ENVIRONMENT_SCREEN_RULE : "",
     totals: { total: automatic.length + manual.length, automatic: automatic.length, needYou: manual.length, unverified, harnessGaps: gaps.length },
     // What the computer builds first for a from-scratch capture: the practice agent, then the objects below for the shots that need them.
     practiceAgent: [...SCRATCH_CREATES_LIST],
@@ -108,6 +110,7 @@ export function formatDryPlan(dry) {
   if (dry.labHarness) lines.push(dry.labHarness.statement || `This lab: ${dry.labHarness.label}.`);
   lines.push(`${dry.totals.automatic} of ${dry.totals.total} screenshots run automatically (${dry.totals.unverified} with a recipe that was not seen on a real tenant yet). ${dry.summary}`);
   if (dry.labHarness?.mode === "both") lines.push(`The computer takes one harness at a time and changes experience ${dry.experienceChanges} time${dry.experienceChanges === 1 ? "" : "s"}.`);
+  if (dry.environmentRule) lines.push(dry.environmentRule);
   lines.push("", "The computer builds first (from scratch, in the practice environment):");
   for (const agent of dry.practiceAgents || []) lines.push(`  - ${agent.note}`);
   for (const line of dry.practiceAgent) lines.push(`  - ${line}`);

@@ -562,6 +562,14 @@ const SC_HARNESS_BOTH_SOURCE_TEXT = Object.freeze({
   chosen: "Both harnesses were chosen when the lab was built.",
   saved: "Both harnesses are saved with the lab.",
 });
+// How the computer gets to each harness (observed on a real tenant, 2026-11-24): the click opens the classic experience in a NEW TAB on the preview address.
+const SC_HARNESS_HOW = Object.freeze({
+  standard: "Standard (Classic) pictures: the computer clicks More options (the ellipsis in the lower left corner), Open classic experience, and Skip feedback. That opens the classic experience in a new tab on copilotstudio.preview.microsoft.com, and the picture is taken in that tab, where Standard agents open.",
+  "microsoft-copilot": "Microsoft Copilot pictures: taken on copilotstudio.microsoft.com (the default experience), with an agent whose Agent harness column says Microsoft Copilot. A classic tab from an earlier picture is closed first.",
+  "customer-conversation": "Customer Conversation pictures: taken on copilotstudio.microsoft.com, with a Customer Conversation agent that you choose (the computer does not build one).",
+});
+// A screen outside any agent looks the same in every harness, so nothing on it proves the harness: it goes to review, and a person accepts it.
+const SC_HARNESS_ENVIRONMENT_RULE = "A screen outside the agent (Home, the Agents list) cannot be proven by what it shows. It is taken in the experience that matches its harness and saved for review, so you accept it.";
 const SC_HARNESS_SHARED_PARTS = Object.freeze(["shared", "shared-late"]);
 const SC_HARNESS_FLAG_SHORT = Object.freeze({
   HARNESS_MISMATCH: "Taken in the other harness",
@@ -682,6 +690,7 @@ function scHarnessLabModel(state) {
       label: scText(info?.label || state?.harnessLabel, 160) || `Both harnesses: ${order.map((id) => SC_HARNESS_LABELS[id]).join(", then ")}`,
       statement: scText(info?.statement || summary?.statement, 500) || "This lab covers both harnesses, one after another. Each picture is taken in the harness of the part it sits in.",
       source: SC_HARNESS_BOTH_SOURCE_TEXT[info?.source] || "",
+      how: `${order.map((id) => SC_HARNESS_HOW[id]).filter(Boolean).join(" ")} ${SC_HARNESS_ENVIRONMENT_RULE}`.trim(),
       // Both harnesses are expected here, each in its own part: pictures are checked against the part they sit in, never against "the lab's harness".
       mixed: false,
       mixedMessage: "",
@@ -699,6 +708,7 @@ function scHarnessLabModel(state) {
     label,
     statement: scText(info?.statement || summary?.statement, 300) || `This lab: ${label}.`,
     source: SC_HARNESS_SOURCE_TEXT[info?.source] || "",
+    how: `${SC_HARNESS_HOW[id] || ""} ${SC_HARNESS_ENVIRONMENT_RULE}`.trim(),
     mixed: Boolean(summary?.mixed),
     mixedMessage: scText(summary?.mixedMessage, 400) || "This lab has pictures from more than one harness. A lab must only show pictures from its own harness.",
     ...common,
@@ -1001,7 +1011,7 @@ function scReasonText(reason, verification = null, limits = SC_DEFAULT_LIMITS) {
       return "This image came without page details, so it was checked as a picture only.";
     // The server names both harnesses in these; the sentences below are only used when its message is missing.
     case "harness-unproven":
-      return scText(reason.message, 300) || "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.0 or newer.";
+      return scText(reason.message, 300) || "The companion did not prove which harness this picture was taken in, so it is saved for review. Update your Local Capture Companion to 1.8.1 or newer.";
     case "wrong-harness":
       return scText(reason.message, 300) || "This picture was taken in a different harness than this screenshot needs, so it was not saved. Retake it in the harness this lab is built for.";
     case "harness-gap":

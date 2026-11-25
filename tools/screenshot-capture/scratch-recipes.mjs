@@ -7,6 +7,9 @@
 // Two kinds of steps: `prepare` steps change the practice agent (create it, set its instructions, add knowledge, publish)
 // and run once, then are remembered; `show` steps only put a screen into the state a picture needs and run for every shot.
 
+import { CREATE_OPTIONS, MICROSOFT_COPILOT, STANDARD } from "./harness.mjs";
+import { sanitizeSteps } from "./setup-steps.mjs";
+
 const T = (role, name, alt = [], within = "any") => ({ ...(role ? { role } : {}), name, ...(alt.length ? { alt } : {}), within });
 const TEST_INPUT = ["Chat message input", "Type your message", "Ask a question or describe what you need", "Type a message", "Ask a question", "Send a message", "Message", "Ask anything"];
 const CHAT_INPUT = T("textbox", TEST_INPUT[0], TEST_INPUT.slice(1), "chat");
@@ -38,6 +41,53 @@ export const LAYOUT_PROBE = Object.freeze({ newer: T("tab", "Build", ["Design", 
 export const CREATE_AGENT_OPEN = Object.freeze([
   { id: "create-open", action: "create", intent: "open", say: "Opening the new agent page", target: T("button", "New agent", ["Create agent", "Create an agent", "Create new agent", "Create blank agent"], "any"), timeoutMs: 20_000, retries: 0 },
 ]);
+
+/**
+ * How the new-agent flow is started for a harness. The Agents list has a "More create options" button whose menu offers "Agent, uses Copilot Credits" (the
+ * Microsoft Copilot harness), "Customer conversation agent, uses Copilot Credits", and "Agent, Standard" (observed on a real tenant, 2026-11-24; nothing was
+ * created). A Standard practice agent starts from "Agent, Standard" and a Microsoft Copilot one from "Agent, uses Copilot Credits"; the computer never builds
+ * a Customer Conversation agent. NOT VERIFIED on a real tenant: what the flow shows after an option is chosen, so the steps after it are the existing ones
+ * (a Name field, then Save or Create), each of which stops with the exact step when its control is not there.
+ * `fallback` is the older single-button way (the Microsoft Copilot harness only: in the default experience that button makes a Microsoft Copilot agent).
+ */
+export function createAgentOpenPlan(harness) {
+  const option = harness === STANDARD || harness === MICROSOFT_COPILOT ? CREATE_OPTIONS[harness].names[0] : null;
+  if (!option) return { menu: null, option: null, fallback: CREATE_AGENT_OPEN };
+  return {
+    option,
+    menu: [
+      { id: "create-menu", action: "create", intent: "open", say: "Opening More create options", note: "Opened the create options on the Agents list", target: T("button", CREATE_OPTIONS.menu.names[0], [], "any"), timeoutMs: 20_000, retries: 0 },
+      { id: "create-option", action: "create", intent: "choose", say: `Choosing ${option}`, note: `Chose ${option} to create the practice agent`, target: T("menuitem", option, [], "any"), timeoutMs: 10_000, retries: 0 },
+    ],
+    fallback: harness === MICROSOFT_COPILOT ? CREATE_AGENT_OPEN : null,
+  };
+}
+
+/**
+ * Start the new-agent flow on the Agents list for a harness: "More create options", then the harness's option; a Microsoft Copilot agent falls back to the older
+ * New agent button only when the create menu itself is not there. Returns the executor's result with `via` ("create-option" or "new-agent-button"), and on a
+ * failure `stage` ("menu", "option", or "button") and the `option` that was looked for, so the reason names the exact step.
+ */
+export async function openCreateFlow({ executor, harness = null, trace = null, log = null, product = "copilot-studio" }) {
+  const plan = createAgentOpenPlan(harness);
+  if (plan.menu) {
+    const steps = sanitizeSteps(plan.menu, { product });
+    // A step the safety rules dropped must never be skipped quietly: the flow would look opened when it was not.
+    if (steps.length !== plan.menu.length) return { ok: false, steps: [], failed: { id: "create-option", why: "a safety rule did not allow the step" }, via: "create-option", stage: "option", option: plan.option };
+    const made = await executor.run(steps);
+    if (made.halted || made.ok) {
+      trace?.event("create-option", { harness, option: plan.option, ok: Boolean(made.ok) });
+      return { ...made, via: "create-option" };
+    }
+    const stage = made.failed?.id === "create-option" ? "option" : "menu";
+    trace?.event("create-option", { harness, option: plan.option, ok: false, stage });
+    await Promise.resolve(executor.cleanup?.()).catch(() => {});
+    if (stage !== "menu" || !plan.fallback) return { ...made, via: "create-option", stage, option: plan.option };
+    log?.("  More create options was not on the Agents list, so the older New agent button is used.");
+  }
+  const old = await executor.run(sanitizeSteps(plan.fallback, { product }));
+  return { ...old, via: "new-agent-button", stage: "button", option: plan.option };
+}
 
 export const CREATE_AGENT_FILL = Object.freeze([
   { id: "create-name", action: "type", intent: "type", say: "Naming the agent", note: "Named the practice agent", target: T("textbox", "Name", ["Agent name", "Name your agent", "Enter a name", "Give your agent a name"], "any"), text: { sample: "agentName" }, timeoutMs: 20_000 },

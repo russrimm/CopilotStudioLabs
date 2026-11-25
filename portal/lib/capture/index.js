@@ -51,7 +51,7 @@ export const OLD_COMPANION_NOTICE = "Update your Local Capture Companion. Older 
 /** The first companion that proves which harness (Standard (Classic) or Microsoft Copilot) a page is in before it takes a picture. An older one sends no proof, so what it captures of a Copilot Studio screen is saved for review. */
 export const HARNESS_MIN_COMPANION = HARNESS_MIN;
 /** What a person is told when the connected companion is older than `HARNESS_MIN_COMPANION`. */
-export const HARNESS_COMPANION_NOTICE = `Update your Local Capture Companion to ${HARNESS_MIN} or newer. Older versions cannot prove which harness a picture is taken in (Standard (Classic) or Microsoft Copilot), so their Copilot Studio pictures are saved for review.`;
+export const HARNESS_COMPANION_NOTICE = `Update your Local Capture Companion to ${HARNESS_MIN} or newer. Older versions do not follow the new tab that Open classic experience opens, so they cannot take a Standard (Classic) picture, and they cannot prove which harness a Copilot Studio picture is taken in, so those pictures are saved for review.`;
 const BROWSER_CACHE_MS = 60 * 1000;
 /** What a person is told when the lab they asked to capture already has a capture waiting or running. */
 const LAB_BUSY_MESSAGES = Object.freeze({
