@@ -1006,6 +1006,13 @@
     .btn[hidden] { display: none; }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
     .btn-primary:hover { background: var(--accent-hover); color: var(--accent-hover-contrast); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent); transform: translateY(-1px); }
+    /* Primary button text on a link. A link that also carries a rule meant only to drop its underline (such as .lb-download-link)
+       once painted the page text color over the accent fill, near black on blue in the light theme. Anchors keep the button's own
+       pair of colors here, at a higher specificity than any such rule, in every state (rest, focus, visited, hover, active). */
+    a.btn.btn-primary,
+    a.btn.btn-primary:visited { color: var(--accent-contrast); }
+    a.btn.btn-primary:hover,
+    a.btn.btn-primary:active { color: var(--accent-hover-contrast); }
     .btn-success { background: var(--success); border-color: var(--success); color: var(--success-contrast); }
     .btn-danger { background: var(--danger); border-color: var(--danger); color: var(--danger-contrast); }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
@@ -2956,7 +2963,6 @@
     }
     .lb-download-link {
       text-decoration: none;
-      color: var(--text);
     }
     .lb-result-utility-actions {
       display: inline-flex;
@@ -3247,7 +3253,7 @@
     .lb-training-item-title { font-size: 13.5px; color: var(--text); }
     .lb-training-time { font-size: 12.5px; color: var(--text-muted); }
     .lb-training-chip { font-size: 12px; }
-    .lb-training-item-btn { text-decoration: none; color: var(--text); }
+    .lb-training-item-btn { text-decoration: none; }
     .lb-gen-dialog { margin: auto; max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); }
     .lb-gen-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
     .lb-gen-dialog h4 { margin: 0 0 10px; font-size: 17px; }
