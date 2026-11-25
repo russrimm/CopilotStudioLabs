@@ -273,7 +273,7 @@ export function buildTopicDeck(plan, topic, { library = loadTrainingLibrary(), d
     id: "title",
     title: name,
     eyebrow: `${topic.isRecap ? "REFRESHER" : "TRAINING"} · ${(getProduct(topic.productId)?.shortName || "").toUpperCase()}`.replace(/ · $/, ""),
-    body: { subtitle: plan.labTitle, tags: [kindLabel, levelText, harnessTag, `about ${total} minutes`].filter(Boolean), outcomesHeading: "In this session you will learn", outcomes },
+    body: { subtitle: plan.labTitle, tags: [kindLabel, levelText, harnessTag, `about ${total} minutes`].filter(Boolean), harnessIds: combined && plan.combined && topic.harness ? [topic.harness] : [], outcomesHeading: "In this session you will learn", outcomes },
     texts: [name, plan.labTitle, ...outcomes],
   });
 
@@ -768,7 +768,7 @@ export function buildFoundationsDeck(plan, foundation, { library = loadTrainingL
       id: "where",
       title: `Where you will work: ${short}`,
       eyebrow: "WHERE YOU WILL WORK",
-      body: { sentence: where, harness: harnessLine, note: "You will not need to remember where things are. The lab guide shows you." },
+      body: { sentence: where, harness: harnessLine, harnessIds: plan.combined && foundation.productId === "copilot-studio" ? plan.combined.order : plan.harness && harnessLine ? [plan.harness] : [], note: "You will not need to remember where things are. The lab guide shows you." },
       texts: [where, harnessLine],
     });
   }
@@ -1047,6 +1047,13 @@ function chunk(list, size) {
   return out;
 }
 
+/** The small tag a slide of a combined deck carries: the harness its part is about, or that it works in both. The pooled wrap-up has none. */
+function partTagFor(section) {
+  if (section.harness) return { harness: section.harness, text: harnessShortName(section.harness) };
+  if (section.partId === "wrap-up") return null;
+  return { harness: null, text: "Both harnesses" };
+}
+
 const seriesTitle = (base, index, count) => (count > 1 ? `${base} (${index + 1} of ${count})` : base);
 
 /**
@@ -1237,6 +1244,7 @@ export function buildCombinedCompleteDeck(plan, { library = loadTrainingLibrary(
     body: {
       subtitle: `${harnessNames.join(" and ")} in one session. No lab steps.`,
       tags: [`${sections.length} parts`, `about ${totalMinutes} minutes`],
+      harnessIds: plan.combined.order,
       outcomesHeading: "Today",
       outcomes: ["Learn the ideas and the words you will use", "See what is the same in both harnesses, and what is different", "Then do the hands-on lab with confidence"],
     },
@@ -1251,7 +1259,7 @@ export function buildCombinedCompleteDeck(plan, { library = loadTrainingLibrary(
     words: [],
   };
 
-  const agendaRows = sections.map((s, i) => ({ n: i + 1, label: s.name, minutes: s.minutes, flag: s.unreviewed ? "unreviewed" : "" }));
+  const agendaRows = sections.map((s, i) => ({ n: i + 1, label: s.name, minutes: s.minutes, flag: s.unreviewed ? "unreviewed" : "", harness: s.harness || null }));
   const agendaSlide = {
     kind: "agenda",
     id: "agenda1",
@@ -1300,10 +1308,10 @@ export function buildCombinedCompleteDeck(plan, { library = loadTrainingLibrary(
       words: [],
       texts: [],
     });
-    for (const slide of section.slides) slides.push({ ...slide, section: i + 1 });
+    for (const slide of section.slides) slides.push({ ...slide, section: i + 1, partTag: partTagFor(section) });
   });
 
-  const labParts = plan.combined.parts.map((part) => ({ label: `${part.label}: ${part.topicOrders.length} topic${part.topicOrders.length === 1 ? "" : "s"}`, handsOn: part.handsOnMinutes }));
+  const labParts = plan.combined.parts.map((part) => ({ label: `${part.label}: ${part.topicOrders.length} topic${part.topicOrders.length === 1 ? "" : "s"}`, handsOn: part.handsOnMinutes, harness: part.harness || null }));
   slides.push({
     kind: "closing",
     id: "closing",
