@@ -29,7 +29,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const lib = (name) => import(pathToFileURL(path.join(REPO_ROOT, "portal", "lib", name)).href);
 
-const FLAGS = new Set(["lab", "root", "out", "topic", "help"]);
+const FLAGS = new Set(["lab", "root", "out", "topic", "ai-model", "help"]);
 const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 
 function parse(argv) {
@@ -63,6 +63,9 @@ Flags:
   --out <dir|file>    where to write (default: a "<Lab title> - Training decks" folder in the current folder;
                       with --topic, a .pptx file name or a folder)
   --topic <which>     one deck instead of all: a topic number, complete, foundations, or foundations-<product id>
+  --ai-model <id>     reword the deck text with the GitHub Copilot SDK, using this PC's own Copilot sign-in. The lab is not
+                      changed; an AI-NOTE.txt in the output folder says which model wrote what. (A lab built with AI
+                      already carries its deck wording, and exports it without this flag.)
   --help              show this message`;
 }
 
@@ -104,6 +107,31 @@ try {
   const markdown = fs.readFileSync(path.join(labDir, "index.md"), "utf8");
   const library = loadTrainingLibrary();
   const plan = buildTrainingPlan({ markdown, manifest, labId: path.basename(labDir), outputDir: labDir, library });
+
+  // Optional: reword the deck text now, for this export only (the lab itself is not changed).
+  let aiNote = null;
+  if (flags["ai-model"]) {
+    const { createAi, localRequest } = await lib("ai/index.js");
+    const { AiError } = await lib("ai/errors.js");
+    const { runDeckWriting } = await lib("ai/deck-run.js");
+    const { addPart, addRun, aiNoteLines } = await lib("ai/record.js");
+    const ai = createAi({ env: { ...process.env, AI_GENERATION: "local-user" }, bindHost: "127.0.0.1", authEnabled: false });
+    let writer = null;
+    try {
+      writer = await ai.service.authorize(localRequest(), { enabled: true, provider: "github-copilot", model: String(flags["ai-model"]), scope: ["training"] });
+      const run = await runDeckWriting({ outputDir: labDir, markdown, manifest, labId: path.basename(labDir), writer, library, onProgress: (p) => console.error(`  [ai] ${p.done} of ${p.total} passages`) });
+      plan.aiWriting = run.saved;
+      const record = writer.newRecord();
+      addPart(record, "training", run.summary);
+      addRun(record, run.summary);
+      aiNote = aiNoteLines(record).join("\n");
+    } catch (err) {
+      throw new Error(err instanceof AiError ? err.message : "AI writing could not be started.");
+    } finally {
+      writer?.release();
+      await ai.service.stop();
+    }
+  }
   const all = planDecks(plan, library);
   const summary = summarizePlan(plan, all.map((d) => d.descriptor));
   const brand = brandingFor(manifest);
@@ -132,6 +160,10 @@ try {
     console.error(`${path.relative(process.cwd(), file) || file}: ${descriptor.slideCount} slides, about ${descriptor.minutes} minutes${flag}${overflow.length ? `, ${overflow.length} text fit warning(s)` : ""}`);
   }
   console.error(`Wrote ${written} deck${written === 1 ? "" : "s"}. Training about ${plan.totalMinutes} minutes, then about ${plan.handsOnMinutes} minutes hands-on.`);
+  if (aiNote) {
+    fs.writeFileSync(path.join(folder, "AI-NOTE.txt"), `How these decks were written\n\n${aiNote}\n`, "utf8");
+    console.error("AI reworded the deck text; AI-NOTE.txt in the output folder says how.");
+  }
 } catch (err) {
   console.error(`Error: ${err.message}`);
   process.exit(1);

@@ -23,6 +23,7 @@ import { plainText, plainTextDeep } from "./plain-text.js";
 import { loadTrainingLibrary } from "./training-library.js";
 import { resolveExportBudget, trainingDeckFileName } from "../export-names.js";
 import { TRAINING_DECK_PREFIX, TRAINING_FOLDER, TRAINING_SCHEMA_VERSION, TRAINING_ZIP_FOLDER, buildTrainingPlan } from "./training-plan.js";
+import { applyDeckWriting } from "../ai/deck-blocks.js";
 import { renderTrainingDeck } from "./training-pptx.js";
 import { buildCompleteDeck, buildFoundationsDeck, buildTopicDeck } from "./training-slides.js";
 import { dropDuplicateSlides, findDuplicateSlides } from "./training-duplicates.js";
@@ -119,8 +120,10 @@ export function guardDeckSpec(spec, label) {
 export function planDecks(plan, library = loadTrainingLibrary()) {
   const decks = [];
   const combined = Boolean(plan.combined);
-  const push = (rawSpec, extra) => {
+  const push = (builtSpec, extra) => {
     const fileName = `${extra.fileBaseName}.pptx`;
+    // A lab built with AI writing: the saved rewordings replace the standard text on the slide model, before the guard and the drawing.
+    const rawSpec = plan.aiWriting ? applyDeckWriting(extra.key, builtSpec, plan.aiWriting) : builtSpec;
     const spec = combined ? guardDeckSpec(rawSpec, extra.title) : rawSpec;
     decks.push({
       descriptor: {

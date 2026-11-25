@@ -78,6 +78,9 @@ import {
   writePerLabScreenshotArtifacts,
 } from "./lab-screenshots.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
+import { applyLabResults, buildLabUnits } from "../ai/lab-writing.js";
+import { runDeckWriting } from "../ai/deck-run.js";
+import { addPart, addRun, countLabResults, sealRecord, usedAi, withAiNote } from "../ai/record.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -104,6 +107,12 @@ function quoteUntrusted(label, text) {
   if (!text) return "";
   const body = String(text).replace(/<\/?untrusted-documentation>/gi, "");
   return `\n<untrusted-documentation source="${label}">\n${body}\n</untrusted-documentation>`;
+}
+
+/** A module's training digest with the reworded concept points beside the originals (AI writing only; see topic-training.js). */
+function withAiConcepts(digest, pairs) {
+  if (digest && pairs?.length) digest.ai = { concepts: pairs };
+  return digest;
 }
 
 /**
@@ -528,6 +537,10 @@ export async function generateLab(request, opts = {}) {
   const maxConcurrency = concurrency(opts.maxConcurrency || process.env.LAB_BUILDER_CONCURRENCY, 4);
   const decisions = normalizeDecisions(opts.decisions);
   const decisionLog = [];
+  // Optional AI writing (portal/lib/ai): a writer the caller already authorized for this person and this model. Without one,
+  // nothing below changes, and a lab built with AI off is byte-for-byte the standard lab.
+  const aiWriter = opts.ai?.run ? opts.ai : null;
+  const aiPlanWarnings = [];
 
   const startedAt = Date.now();
   const nowMs = Number.isFinite(opts.now) ? opts.now : startedAt;
@@ -763,9 +776,10 @@ export async function generateLab(request, opts = {}) {
   // The model is created here rather than at the narrative stage because opt-in
   // step synthesis needs it first. Synthesis records its own request failures,
   // so they never count towards the narrative's partial-failure gate below.
-  const llm = useLlm
+  // When AI writing owns the lab text, the older environment-configured narrative stays out of its way, so one writer wrote each passage.
+  const llm = useLlm && !aiWriter?.scope.includes("lab")
     ? opts.llm || createLlm()
-    : { available: false, failures: [], provider: { kind: "none", reason: "Disabled for this run" } };
+    : { available: false, failures: [], provider: { kind: "none", reason: aiWriter ? "AI writing is used for this lab" : "Disabled for this run" } };
 
   const synthesisIds = synthesisTargets(opts.synthesizeSteps, plan.features);
   if (synthesisIds.size) {
@@ -1205,6 +1219,40 @@ export async function generateLab(request, opts = {}) {
     }
   }
 
+  // ── 3a. Optional AI writing of the lab text ───────────────────────────────
+  // The model rewords the passages the composer prints (overview, why it matters, steps, concepts, troubleshooting, "in your
+  // scenario"). Each reworded passage is checked against its standard text by portal/lib/ai/guard.js and replaced by it when
+  // the check fails. The accepted text is placed in `enrichment`, so it then goes through the same final steps as any text.
+  let aiRecord = null;
+  let aiLabWritten = null;
+  const aiConceptMaps = new Map();
+  if (plan.aiChoice && !aiWriter) {
+    plan.warnings.push("AI writing was requested, but it is not available for this build, so the standard text was used.");
+  }
+  if (aiWriter && (aiWriter.scope.includes("lab") || aiWriter.scope.includes("labday"))) {
+    try {
+      onProgress?.({ stage: "ai", message: "Writing the lab text with AI" });
+      const units = buildLabUnits({ plan, stepsByFeature, scope: aiWriter.scope });
+      const { results, summary } = await aiWriter.run({
+        units,
+        signal,
+        onProgress: (p) => opts.onAiProgress?.({ ...p, part: "lab" }),
+      });
+      aiRecord = aiWriter.newRecord();
+      const applied = applyLabResults({ plan, stepsByFeature, results, enrichment, scope: aiWriter.scope });
+      const counts = countLabResults(results, aiWriter.scope);
+      for (const part of ["lab", "labday"]) if (counts[part].total) addPart(aiRecord, part, counts[part]);
+      addRun(aiRecord, summary);
+      aiLabWritten = applied.written;
+      for (const [id, pairs] of applied.conceptMaps) aiConceptMaps.set(id, pairs);
+      for (const note of summary.notes) if (!plan.warnings.includes(note)) plan.warnings.push(note);
+    } catch (err) {
+      if (signal?.aborted) throw err;
+      plan.warnings.push("AI writing could not be used for the lab text, so the standard text was used.");
+      aiRecord = null;
+    }
+  }
+
   // ── 3b. Connector names ───────────────────────────────────────────────────
   // Microsoft Learn prints a connector's internal name (shared_<name>) in a few places. A learner reads the display
   // name instead, so every id carried by the material below is replaced before anything is composed from it.
@@ -1245,7 +1293,7 @@ export async function generateLab(request, opts = {}) {
   };
   await yieldToEventLoop();
   // Nothing the lab says carries an emoji, whatever the catalog, Microsoft Learn, or a person typed.
-  const markdown = plainText(connectorNames.rewrite(composeLab(
+  const composed = plainText(connectorNames.rewrite(composeLab(
     plan,
     groundingByFeature,
     screenshots.byFeature,
@@ -1254,6 +1302,8 @@ export async function generateLab(request, opts = {}) {
     stepsByFeature,
     vendorByFeature,
   )));
+  // A lab AI helped write says so, in the document itself (the HTML, Word and PDF are made from this text).
+  let markdown = aiRecord && usedAi(aiRecord) ? plainText(withAiNote(composed, aiRecord)) : composed;
   await yieldToEventLoop();
   // Advisory only: a low score is reported to the learner and never blocks the build.
   const qa = assessLab(markdown, {
@@ -1303,6 +1353,8 @@ export async function generateLab(request, opts = {}) {
       agentName: typeof request?.agentName === "string" && request.agentName.trim() ? request.agentName.trim() : null,
       useLearnMcp: useLearnMcp !== false,
       useLlm: useLlm !== false,
+      // The AI choice, so "Edit selections" can open this lab with the same choice. Only the choice: no prompt, token or name.
+      ...(plan.aiChoice ? { ai: { enabled: true, provider: plan.aiChoice.provider, model: plan.aiChoice.model, scope: plan.aiChoice.scope } } : {}),
     },
     industry: plan.industry?.id || null,
     roles: plan.roles.map((r) => r.id),
@@ -1409,14 +1461,17 @@ export async function generateLab(request, opts = {}) {
               }),
             }
           : {}),
-        trainingDigest: buildModuleTrainingDigest({
-          feature: f,
-          plan,
-          grounding: groundingByFeature.get(f.id),
-          stepsRecord: derived,
-          vendorSources: vendorByFeature.get(f.id) || [],
-          appliedNarrative: enrichment.byFeature?.get(f.id)?.applied || "",
-        }),
+        trainingDigest: withAiConcepts(
+          buildModuleTrainingDigest({
+            feature: f,
+            plan,
+            grounding: groundingByFeature.get(f.id),
+            stepsRecord: derived,
+            vendorSources: vendorByFeature.get(f.id) || [],
+            appliedNarrative: enrichment.byFeature?.get(f.id)?.applied || "",
+          }),
+          aiConceptMaps.get(f.id),
+        ),
         // What Microsoft Learn printed for this module (cautions, takeaways, page fingerprint), kept so the pre-lab
         // training decks can be rebuilt later from the manifest alone.
         training: buildModuleTrainingSources({
@@ -1539,6 +1594,40 @@ export async function generateLab(request, opts = {}) {
       manifest,
     });
     await yieldToEventLoop();
+
+    // ── AI writing of the training decks ────────────────────────────────────
+    // Done here because the decks are planned from the finished lab text and manifest. The accepted wording is saved in
+    // ai-writing.json next to the manifest; the decks are drawn by the normal code, which reads that file.
+    let aiDeckRun = null;
+    if (aiWriter && aiWriter.scope.includes("training")) {
+      try {
+        onProgress?.({ stage: "ai", message: "Writing the training decks with AI" });
+        aiDeckRun = await runDeckWriting({
+          outputDir,
+          markdown,
+          manifest,
+          labId: savedLabId,
+          writer: aiWriter,
+          signal,
+          onProgress: (p) => opts.onAiProgress?.({ ...p, part: "training" }),
+        });
+        aiRecord ||= aiWriter.newRecord();
+        addPart(aiRecord, "training", aiDeckRun.summary);
+        addRun(aiRecord, aiDeckRun.summary);
+        for (const note of aiDeckRun.summary.notes) if (!plan.warnings.includes(note)) plan.warnings.push(note);
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        aiDeckRun = null;
+        plan.warnings.push("AI writing could not be used for the training decks, so they use the standard text.");
+      }
+    }
+    if (aiRecord && usedAi(aiRecord)) {
+      sealRecord(aiRecord, [aiLabWritten, aiDeckRun?.written || null]);
+      manifest.aiWriting = aiRecord;
+      aiDeckRun?.writeSaved(aiRecord.fingerprint);
+      markdown = plainText(withAiNote(markdown, aiRecord));
+      result.markdown = markdown;
+    }
 
     result.html = renderStandaloneLabHtml(markdown, {
       title: plan.title,

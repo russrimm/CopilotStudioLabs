@@ -31,6 +31,8 @@ import { DEFAULT_PRODUCT, getProduct, productName, productOf } from "./products.
 import { capFilesystemSegment, formatModuleBaseName, sanitizeFilesystemTitle, splitGeneratedLabModules } from "./module-samples.js";
 import { loadTrainingLibrary, TRAINING_LIBRARY_DIR } from "./training-library.js";
 import { isConceptSentence } from "./training-guard.js";
+import { AI_WRITING_VERSION } from "../ai/config.js";
+import { loadAiWriting } from "../ai/saved.js";
 import { endWithPeriod, firstSentence, fleschKincaid, lowerFirst, plainText, splitSentences, wholeSentences } from "./training-text.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -508,6 +510,8 @@ export function buildTrainingPlan({ markdown, manifest = {}, labId = "", outputD
     totalMinutes: trainingMinutes,
     handsOnMinutes,
     completeFileBase: `${TRAINING_DECK_PREFIX} - Complete`,
+    // The words a model wrote for these decks (portal/lib/ai), when the lab was built with AI writing and its saved file still matches.
+    ...(manifest?.aiWriting ? { aiWriting: loadAiWriting(outputDir, manifest) } : {}),
   };
   plan.fingerprint = planFingerprint(plan, manifestModules);
   return plan;
@@ -535,6 +539,8 @@ export function planFingerprint(plan, manifestModules = []) {
   if (plan.combined) {
     body.combined = [TRAINING_COMBINED_VERSION, plan.combined.order, plan.topics.map((t) => [t.order, t.harnessPart, t.harness, t.coveredEarlier?.order ?? null, t.minutes])];
   }
+  // A lab built with AI writing keeps its own decks: its record enters the fingerprint (like the combined one above), so an AI deck and a plain one never share a cache entry.
+  if (plan.aiWriting) body.ai = [AI_WRITING_VERSION, plan.aiWriting.fingerprint];
   return crypto.createHash("sha1").update(JSON.stringify(body)).digest("hex").slice(0, 16);
 }
 

@@ -63,6 +63,9 @@ function expectedIssuers() {
  */
 const AUTH_EXEMPT_PREFIXES = [
   "/api/pp/approval-callback",
+  // GitHub sends a visitor back here after they approve AI writing sign-in. The request proves itself with a one-time
+  // `state` this server issued and the browser's own session cookie (portal/lib/ai/github-auth.js).
+  "/api/ai/auth/callback",
 ];
 
 function isExempt(path) {

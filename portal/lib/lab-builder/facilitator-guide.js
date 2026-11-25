@@ -14,6 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import { aiNoteLines } from "../ai/record.js";
 import { buildAdministratorSetupGuide } from "./admin-guide.js";
 import { ADMIN_GUIDE_TITLE } from "./learner-guide.js";
 import { PRODUCT_NAME, currentProductName } from "../product-name.js";
@@ -1024,6 +1025,8 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     industry: cleanText(manifest.industry || manifest?.request?.industry || "Enterprise"),
     learnerKnowledgeCheckEnabled,
     learnerKnowledgeCheckStatusText,
+    // A lab AI helped write says so here too (portal/lib/ai/record.js); a standard lab has no such block.
+    ...(manifest?.aiWriting ? { aiWriting: { lines: aiNoteLines(manifest.aiWriting) } } : {}),
     pacing,
     preLab,
     readinessRunbook: {
@@ -1074,6 +1077,9 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
     "",
     `> **Knowledge Check Delivery Note:** ${model.learnerKnowledgeCheckStatusText}`,
     "",
+    ...(model.aiWriting
+      ? ["### How This Lab Was Written", "", "Parts of this lab were reworded by an AI model. Read these facts before you present it.", "", ...model.aiWriting.lines.map((line) => `- ${line}`), ""]
+      : []),
     "### Pre-Lab Training Session (Deliver First)",
     "",
     `Deliver the training before anyone opens the lab guide. It takes about ${model.preLab.totalMinutes} minutes, it is for people who are new to this, and it has no lab steps. Use \`${model.preLab.completeDeck}\` to deliver it in one sitting, or the one-topic decks one at a time (all are in the \`${model.preLab.deckFolder}\` folder of the lab package). The hands-on times below come after it.`,

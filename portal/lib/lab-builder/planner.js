@@ -27,6 +27,7 @@ import { titleHeadline } from "./module-names.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics, getSubtopicIndex } from "./topic-store.js";
 import { normalizeExcludedSubtopics } from "./subtopics.js";
+import { normalizeAiChoice } from "../ai/choice.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
 import {
   adaptProfileForDeliverable,
@@ -317,6 +318,8 @@ export function normalizeLabRequest(request = {}) {
     sharepointSiteUrl,
     includeCore: request.includeCore,
     includeKnowledgeCheck: request.includeKnowledgeCheck,
+    // Optional AI writing (portal/lib/ai). Absent, or enabled: false, builds exactly as before.
+    ai: normalizeAiChoice(request.ai),
   };
 }
 
@@ -904,6 +907,7 @@ export function planLab(request = {}) {
     includeKnowledgeCheck,
     requiresSharepointSite,
     sharepointSite,
+    ...(request.ai ? { aiChoice: request.ai } : {}),
     title,
     slug: slugify(`${industry?.id || "custom"}-${finalAgentName}-${headline}`),
     industry,

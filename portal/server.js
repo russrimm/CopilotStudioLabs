@@ -79,6 +79,9 @@ import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
 import { createBuildQueue, BuildQueueError, isTicket } from "./lib/concurrency/build-queue.js";
 import { createVisitorCheck, readClientId, visitorKey } from "./lib/concurrency/visitor.js";
+import { createAi } from "./lib/ai/index.js";
+import { registerAiRoutes } from "./lib/ai/routes.js";
+import { AiError } from "./lib/ai/errors.js";
 import { writeFileAtomic } from "./lib/concurrency/atomic-file.js";
 import { createExportService } from "./lib/exports/export-service.js";
 import { sweepLabLibrary } from "./lib/lab-builder/lab-state.js";
@@ -570,6 +573,28 @@ const labBuilderRateCheck = createVisitorLimiter({
   max: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_MAX, 10),
 });
 
+// Optional AI writing (docs/ai-writing.md). Off unless AI_GENERATION says otherwise; the GitHub Copilot SDK is loaded only
+// when a person first asks for it, so the server starts and every other feature works without it. An open portal (sign-in off)
+// can never use the owner's Copilot account or a server key: see lib/ai/access.js.
+const authSummary = authConfigSummary();
+const ai = createAi({
+  env: process.env,
+  bindHost: HOST,
+  authEnabled: authSummary.enabled && authSummary.tenantConfigured && authSummary.audienceConfigured,
+  dataDir: dataRoot,
+  logger: (line) => console.info(line),
+});
+registerAiRoutes(app, {
+  service: ai.service,
+  github: ai.github,
+  config: ai.config,
+  visitorOf: visitorKey,
+  rateCheck: createVisitorLimiter({
+    windowMs: positiveIntFromEnv(process.env.AI_RATE_WINDOW_MS, 60000),
+    max: positiveIntFromEnv(process.env.AI_RATE_MAX, 60),
+  }),
+});
+
 // Where generated labs live. The override exists so tests and persistent volumes stay isolated.
 const GENERATED_LABS_DIR = resolveGeneratedLabsDir();
 const exportService = createExportService({ generatedRoot: GENERATED_LABS_DIR, tempDir: resolve(dataRoot, "tmp") });
@@ -804,7 +829,14 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   // Capturing needs a tenant sign-in, so it never runs inside this request:
   // a Local Capture Companion job is queued afterward when one is connected.
   const wantsCapture = Boolean(body.captureScreenshots);
+  let aiWriter = null;
   try {
+    // Optional AI writing: check the mode, the visitor, the model and the daily limits before anything is built. A refusal
+    // is a plain message, and the lab is not built, so nobody gets a lab they did not ask for.
+    if (generateRequest.ai && generateRequest.ai.enabled === true) {
+      aiWriter = await ai.service.authorize(req, generateRequest.ai);
+    }
+    const aiVisitor = visitorKey(req);
     const result = await generateLab({ ...generateRequest, captureScreenshots: false }, {
       outputRoot: GENERATED_LABS_DIR,
       useLearnMcp: body.useLearnMcp !== false,
@@ -814,7 +846,10 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       decisions,
       decisionSource: "portal",
       signal: controller.signal,
+      ai: aiWriter,
+      onAiProgress: (p) => ai.service.setProgress(aiVisitor, isTicket(ticketHeader) ? ticketHeader : null, { done: p.done, total: p.total, stage: p.part || "ai" }),
     });
+    if (isTicket(ticketHeader)) ai.service.setProgress(aiVisitor, ticketHeader, { finished: true });
 
     if (timedOut) return res.status(504).json({ error: buildTimeoutMessage });
 
@@ -894,11 +929,14 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   } catch (err) {
     if (timedOut) {
       if (!res.writableEnded) res.status(504).json({ error: buildTimeoutMessage });
+    } else if (err instanceof AiError) {
+      if (!res.writableEnded) res.status(err.status).json({ error: err.message, code: err.code });
     } else if (!res.writableEnded && !controller.signal.aborted) {
       res.status(400).json({ error: err.message });
     }
   } finally {
     clearTimeout(buildTimer);
+    aiWriter?.release();
     turn.release();
     req.off("aborted", cancel);
     res.off("close", cancel);
@@ -2535,7 +2573,7 @@ async function shutDown(signal) {
   server.close();
   server.closeIdleConnections?.();
   try {
-    await Promise.allSettled([blobPersistence.flushBlobSyncForShutdown?.({ timeoutMs: 15000 }), exportService.close()]);
+    await Promise.allSettled([blobPersistence.flushBlobSyncForShutdown?.({ timeoutMs: 15000 }), exportService.close(), ai.service.stop()]);
   } finally {
     process.exit(0);
   }
