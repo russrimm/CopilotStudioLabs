@@ -44,10 +44,10 @@ function fakeGithub() {
 }
 const json = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 
-async function startApp({ env = {}, authEnabled = false, bindHost = "127.0.0.1", backend = createFakeBackend(), rate = null } = {}) {
+async function startApp({ env = {}, authEnabled = false, bindHost = "127.0.0.1", backend = createFakeBackend(), rate = null, importSdk = null } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "ai-modes-"));
   const github = fakeGithub();
-  const ai = createAi({ env, bindHost, authEnabled, backend, dataDir: dir, fetchImpl: github.impl });
+  const ai = createAi({ env, bindHost, authEnabled, backend, dataDir: dir, fetchImpl: github.impl, ...(importSdk ? { importSdk } : {}) });
   const app = express();
   registerAiRoutes(app, { service: ai.service, github: ai.github, config: ai.config, visitorOf: visitorKey, ...(rate ? { rateCheck: rate } : {}) });
   const server = createServer(app);
@@ -277,7 +277,8 @@ test("byok needs real portal sign-in, so an open portal can never spend the serv
 });
 
 test("byok offers only the administrator's models, and never shows the key or the endpoint", async () => {
-  const app = await startApp({ env: BYOK, authEnabled: true, backend: null });
+  // A stand-in for the SDK package, so this test does not depend on the optional package being installed.
+  const app = await startApp({ env: BYOK, authEnabled: true, backend: null, importSdk: async () => ({ CopilotClient: class {} }) });
   // The default backend for byok builds its list from configuration, without the SDK.
   const models = await app.get("/api/ai/models");
   assert.equal(models.status, 200);
