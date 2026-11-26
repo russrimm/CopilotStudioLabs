@@ -15,6 +15,45 @@ param resourceGroupName string = ''
 @description('Disable bearer-token API gate for open demo/testing deployments')
 param portalAuthDisabled bool = true
 
+@allowed([
+  'off'
+  'per-user'
+  'byok'
+])
+@description('AI writing mode (AI_GENERATION). Off by default. See docs/ai-writing.md before turning it on.')
+param aiGeneration string = 'off'
+
+@description('Comma-separated model ids to offer (AI_ALLOWED_MODELS); empty offers every model the SDK reports')
+param aiAllowedModels string = ''
+
+@description('Address people use to reach the portal (AI_PUBLIC_URL), for per-user GitHub sign-in')
+param aiPublicUrl string = ''
+
+@description('GitHub App client id (AI_GITHUB_CLIENT_ID) for per-user sign-in')
+param aiGithubClientId string = ''
+
+@secure()
+@description('GitHub App client secret (AI_GITHUB_CLIENT_SECRET); stored as a Container Apps secret')
+param aiGithubClientSecret string = ''
+
+@allowed([
+  'openai'
+  'azure'
+  'anthropic'
+])
+@description('Model provider type for byok (AI_BYOK_TYPE)')
+param aiByokType string = 'openai'
+
+@description('https address of the model provider for byok (AI_BYOK_BASE_URL)')
+param aiByokBaseUrl string = ''
+
+@description('Models offered for byok (AI_BYOK_MODELS), as id or id=Display name, comma-separated')
+param aiByokModels string = ''
+
+@secure()
+@description('Model provider key for byok (AI_BYOK_API_KEY); stored as a Container Apps secret')
+param aiByokApiKey string = ''
+
 @description('Container image for initial provisioning before azd deploy pushes the built image')
 param portalImageName string = ''
 
@@ -116,6 +155,15 @@ module portal './modules/container-app.bicep' = {
     containerRegistryLoginServer: containerRegistry.outputs.loginServer
     applicationInsightsConnectionString: monitoring.outputs.applicationInsightsConnectionString
     portalAuthDisabled: portalAuthDisabled
+    aiGeneration: aiGeneration
+    aiAllowedModels: aiAllowedModels
+    aiPublicUrl: aiPublicUrl
+    aiGithubClientId: aiGithubClientId
+    aiGithubClientSecret: aiGithubClientSecret
+    aiByokType: aiByokType
+    aiByokBaseUrl: aiByokBaseUrl
+    aiByokModels: aiByokModels
+    aiByokApiKey: aiByokApiKey
     azureSubscriptionId: subscription().subscriptionId
     azureTenantId: tenant().tenantId
     blobEndpoint: storage.outputs.blobEndpoint

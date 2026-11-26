@@ -3433,6 +3433,7 @@ function lbGoToStep(step) {
     lbSyncCustomizeSummary();
     lbPreview();
     if (typeof scSyncCaptureOnBuild === "function") void scSyncCaptureOnBuild();
+    if (typeof lbAiRefresh === "function") void lbAiRefresh();
   }
 }
 
@@ -3579,6 +3580,7 @@ function lbResetAnswers() {
     lbSetFormValue(id, value);
   }
   lbSyncSharepointSiteUi();
+  if (typeof lbAiReset === "function") lbAiReset();
   // A fresh start is no longer the draft that was open, and there is nothing left to autosave.
   if (typeof lbDraftsOnReset === "function") lbDraftsOnReset();
 }
@@ -3704,6 +3706,7 @@ function lbApplySavedSelections(saved, draft = null) {
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
   lbSetFormValue("lb-use-llm", saved.useLlm !== false);
   lbSetFormValue("lb-include-knowledge-check", Boolean(saved.includeKnowledgeCheck));
+  if (typeof lbAiApplySaved === "function") lbAiApplySaved(saved.ai);
   labBuilder.brand.profileId = typeof saved.brandProfileId === "string" ? saved.brandProfileId : null;
   labBuilder.brand.overrides = saved.brandOverrides && typeof saved.brandOverrides === "object" ? { ...saved.brandOverrides } : {};
   labBuilder.brand.prefilled = { name: "", url: "" };
@@ -3820,6 +3823,8 @@ function lbRequest() {
     useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
     useLlm: document.getElementById("lb-use-llm")?.checked !== false,
     includeKnowledgeCheck: lbIncludeKnowledgeCheck(),
+    // Optional AI writing (ai-writing.js): present only when the person turned it on and the server can do it.
+    ...(typeof lbAiRequestField === "function" ? lbAiRequestField() : {}),
     // A harness, and the notes comparing harnesses, only exist for a product that has harnesses. A lab that covers both
     // harnesses names them in order and carries no comparison notes: it teaches the other harness itself.
     ...(lbHasHarnessProduct()
@@ -4306,9 +4311,11 @@ async function lbPreview(options = {}) {
       lbLevelName(data.level),
       ...(subtopicTotal ? [`${subtopicIncluded} of ${plural(subtopicTotal, "sub-topic", "sub-topics")} included`] : []),
     ];
+    // The AI choice changes without the outline being rebuilt, so it sits in a span of its own that ai-writing.js keeps current.
+    const aiFact = typeof lbAiFactText === "function" ? `<span id="lb-outline-ai-fact">${escapeHtml(lbAiFactText() ? ` · ${lbAiFactText()}` : "")}</span>` : "";
     el.innerHTML = `
       <div class="lb-outline-title">${escapeHtml(data.title)}</div>
-      <p class="lb-outline-facts">${escapeHtml(facts.join(" · "))}. Times are estimates, not limits.</p>
+      <p class="lb-outline-facts">${escapeHtml(facts.join(" · "))}${aiFact}. Times are estimates, not limits.</p>
       <div class="lb-outline-tools">
         ${lbRenderOutlineOrderToolbar()}
         <button type="button" class="lb-link-btn" data-outline-action="toggle-edit" aria-expanded="${edit}">${edit ? "Done" : "Edit order"}</button>

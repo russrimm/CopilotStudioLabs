@@ -653,12 +653,14 @@ export function resolveTopicTrainingDigest(parsedTopic, hints = {}) {
   const conceptName = persisted?.conceptName || concept?.name || "";
 
   // Partition conceptual bullets into Core Mechanics, Best Practices, and Cautions/Guardrails
+  // A lab built with AI writing keeps its reworded concept points beside the originals (portal/lib/ai); the reworded one replaces the original, so a point is never listed twice.
+  const reworded = new Map((persisted?.ai?.concepts || []).map((pair) => [pair.from, pair.to]));
   const rawConcepts = dedupeStrings([
     ...(persisted?.concepts || []),
     ...(feature?.concepts || []),
     ...(parsedTopic?.concepts || []),
     ...(parsedTopic?.otherBullets || []),
-  ]);
+  ].map((item) => reworded.get(item) ?? item));
 
   const coreConcepts = [];
   const bestPractices = [];

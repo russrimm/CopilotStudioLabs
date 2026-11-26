@@ -19,13 +19,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { writeFileAtomic } from "../concurrency/atomic-file.js";
 import { clientOwnerKey, signedInIdentity } from "../concurrency/visitor.js";
+import { AI_SCOPES, isModelId } from "../ai/config.js";
 
 /** The shared space the portal used before each browser had its own. Its drafts go to the first browser that asks. */
 export const LOCAL_OWNER = "local";
 const CLAIM_FILE = ".claimed.json";
 
 /** The version written into every file. Bump it, and add a step to MIGRATIONS, when the saved shape changes. */
-export const DRAFT_SCHEMA_VERSION = 3;
+export const DRAFT_SCHEMA_VERSION = 4;
 export const MAX_DRAFTS = 50;
 export const MAX_DRAFT_BYTES = 256 * 1024;
 export const MAX_NAME_LENGTH = 80;
@@ -91,7 +92,17 @@ function migrateV2ToV3(record) {
 }
 
 /** Steps that upgrade a file saved by an older version, keyed by the version they upgrade from. */
-const MIGRATIONS = Object.freeze({ 1: migrateV1ToV2, 2: migrateV2ToV3 });
+const MIGRATIONS = Object.freeze({ 1: migrateV1ToV2, 2: migrateV2ToV3, 3: migrateV3ToV4 });
+
+/**
+ * Version 4 adds the optional AI writing choice: `selections.ai` = { enabled, model, scope }. A draft saved before it never
+ * chose AI, so it gets AI off, and its other choices are untouched. Only the choice is saved, never a token or a prompt.
+ */
+function migrateV3ToV4(record) {
+  const selections = record?.content?.selections;
+  if (!selections || typeof selections !== "object" || Array.isArray(selections)) return record;
+  return { ...record, content: { ...record.content, selections: { ai: { enabled: false, model: null, scope: [...AI_SCOPES] }, ...selections } } };
+}
 
 export function isDraftId(value) {
   return typeof value === "string" && DRAFT_ID.test(value);
@@ -169,6 +180,16 @@ function flag(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+/** The AI writing choice of a draft: off unless the draft says otherwise; a model id and the parts of the lab AI writes. */
+function aiChoice(value) {
+  if (value === undefined || value === null) return { enabled: false, model: null, scope: [...AI_SCOPES] };
+  if (typeof value !== "object" || Array.isArray(value)) throw new DraftError("The AI writing choice in this draft is not valid, so it was not saved.");
+  if (value.model !== undefined && value.model !== null && !isModelId(value.model)) throw new DraftError("The AI model in this draft is not valid, so it was not saved.");
+  const scope = value.scope === undefined || value.scope === null ? [...AI_SCOPES] : value.scope;
+  if (!Array.isArray(scope) || scope.some((item) => !AI_SCOPES.includes(item))) throw new DraftError("The parts of the lab AI writes in this draft are not valid, so it was not saved.");
+  return { enabled: flag(value.enabled, false), model: value.model ?? null, scope: AI_SCOPES.filter((item) => scope.includes(item)) };
+}
+
 /** "Both, one after another": the mode, and the two harnesses in teaching order. A draft that says nothing is a single-harness draft. */
 function harnessChoice(sel) {
   const mode = sel.harnessMode === undefined || sel.harnessMode === null ? "single" : sel.harnessMode;
@@ -220,6 +241,7 @@ export function normalizeDraftContent(raw) {
     useLearnMcp: flag(sel.useLearnMcp, true),
     useLlm: flag(sel.useLlm, true),
     includeKnowledgeCheck: flag(sel.includeKnowledgeCheck, false),
+    ai: aiChoice(sel.ai),
     brandProfileId: optionalId(sel.brandProfileId, "brand profile"),
     brandOverrides: overrides,
   };

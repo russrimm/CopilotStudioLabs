@@ -8,6 +8,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 - **Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 2, Tailor it)
 - **Generated Lab Management & Multi-Format Exports** — Open, preview as interactive paged HTML (with `localStorage` checkable task lists and Knowledge Check mini-quizzes), export as `.zip` (`formats=all|docx|pptx|pdf|html`, with the pre-lab training decks in a top-level `1 - Training decks (deliver first)/` folder), `.html`, `.docx`, `.pdf`, `.pptx`, `.md`, per-topic `.docx`/`.pptx` files (`<Lab Name> - Step NN - <Topic Name>`, the hands-on deck for the lab day), the **training decks to deliver first** (a complete deck, a foundations deck per product, and one concepts-only deck per topic, for people who are new to this), or the prerequisites checklist by itself (`.docx`, `.pdf`, `.html`, `.md`) to send to the customer hosting the workshop, print/save as PDF, run structural validation, rename, delete, or re-open saved selections
 - **Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
+- **AI writing (optional)** — On **Review and build**, a person can turn on **Write with AI** and pick from the models available to them through the GitHub Copilot SDK. The model only rewords the lab text, training decks and lab-day decks for the audience and scenario; steps, interface names, numbers and product names are checked against the source and fall back to the standard text if anything changed. Off by default, never on for an anonymous visitor, and a lab built without it is byte-identical to before. See [`docs/ai-writing.md`](../docs/ai-writing.md)
 - **Lab Dependency Map** — View a structured dependency and sequence map showing recommended lab order and independent tracks
 - **Customization** — Replace organization names, industry context, compliance terms, agent names, end-user roles, and branding
 - **Use Case Builder** — Pick an industry, departments, goals, the data you already have, a platform, and a skill level, and get a live, ranked list of Copilot Studio and Agent Builder use cases (each with starter instructions, knowledge, tools, a product-fit rationale, lab topics, and Microsoft Learn links). Shortlist them, export Markdown or CSV, or pre-fill the lab builder wizard from your shortlist. The scenario setup for the provisioning labs is kept in a secondary section ([`docs/lab-builder.md`](../docs/lab-builder.md#use-case-builder))
@@ -135,6 +136,12 @@ All configuration is provided through environment variables (see `.env.template`
 | `EMAIL_RECIPIENT_ALLOWLIST` | Optional | Comma-separated extra recipients: exact addresses or `@domain` suffixes. Signed-in users can always email themselves |
 | `EMAIL_RATE_WINDOW_MS` | No | Email rate-limit window (default: `3600000`) |
 | `EMAIL_RATE_MAX` | No | Emails allowed per window (default: `10`) |
+| **AI writing (optional)** | | |
+| `AI_GENERATION` | No | `off` (default), `local-user` (this PC's own Copilot sign-in, loopback only), `per-user` (each visitor signs in with their own GitHub account) or `byok` (the server's own model provider). An unknown value is `off`. See [`docs/ai-writing.md`](../docs/ai-writing.md) |
+| `AI_ALLOWED_MODELS` | No | Comma-separated model ids to offer (default: every model the SDK reports) |
+| `AI_PUBLIC_URL`, `AI_GITHUB_CLIENT_ID`, `AI_GITHUB_CLIENT_SECRET` | For `per-user` | The address people use and the GitHub App that signs them in. Keep the secret in Key Vault or a Container Apps secret |
+| `AI_BYOK_TYPE`, `AI_BYOK_BASE_URL`, `AI_BYOK_API_KEY`, `AI_BYOK_MODELS` | For `byok` | The provider (`openai`, `azure` or `anthropic`), its `https` address, its key, and the allowed models (`id` or `id=Display name`) |
+| `AI_MAX_PARALLEL`, `AI_MAX_CONCURRENT_LABS`, `AI_DAILY_LABS_PER_VISITOR`, `AI_DAILY_BLOCKS_PER_VISITOR`, `AI_DAILY_TOKENS_PER_VISITOR` | No | Concurrency and per-visitor daily limits (defaults `2`, `2`, `6`, `800`, `600000`). More in [`docs/ai-writing.md`](../docs/ai-writing.md#settings-reference) |
 | **Deployment / Hosting** | | |
 | `AZURE_WEBAPP_NAME` | Optional | Azure App Service name |
 | `AZURE_RESOURCE_GROUP` | Optional | Resource group used by deployment |
@@ -367,6 +374,17 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | `POST` | `/api/lab-builder/drafts/:id/built` | Mark a draft as built into a lab (`{ labId }`); the draft stays listed |
 
 Request and response shapes are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#api).
+
+### AI writing
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/ai/status` | Whether AI writing is possible for this visitor, who is signed in, the provider, and what is sent to the model. Never returns a key or token |
+| `GET` | `/api/ai/models` | The models this visitor can use, each with its name and plain-words cost (403 when AI is not available for the request) |
+| `GET` | `/api/ai/progress/:ticket` | Passages done of total for a running build |
+| `POST` / `GET` / `POST` | `/api/ai/auth/start`, `/api/ai/auth/callback`, `/api/ai/auth/signout` | Per-user GitHub sign-in (only with `AI_GENERATION=per-user`) |
+
+`POST /api/lab-builder/generate` accepts `ai: { enabled, provider, model, scope }`; see [`docs/ai-writing.md`](../docs/ai-writing.md#routes).
 
 ## Architecture
 

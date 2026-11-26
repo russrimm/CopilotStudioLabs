@@ -78,6 +78,10 @@ node tools/lab-builder/build.mjs \
 
 # Or answer prompts instead
 node tools/lab-builder/build.mjs --interactive
+
+# Optional: have an AI model reword the lab and decks, using this PC's own Copilot sign-in.
+# Off unless you pass --ai-model. See docs/ai-writing.md.
+node tools/lab-builder/build.mjs --ai-list-models
 ```
 
 Useful flags:
@@ -4065,6 +4069,14 @@ user per hour (`LAB_BUILDER_TOPICS_EXPORT_RATE_MAX`, `LAB_BUILDER_TOPICS_EXPORT_
 
 ---
 
+## AI writing (optional)
+
+A person can ask an AI model, chosen from the models available to them, to reword the lab text, the training decks and the lab-day decks for the audience and scenario they typed. It is off by default and chosen per lab on the **Review and build** step. The model only rewords: steps, interface names, numbers, product and connector names, URLs and code stay as written, and a per-passage guard sends any passage that changed them back to the standard text. Every AI passage then goes through the same final pipeline as the standard text (no emoji, US English, connector display names, the training guard, slide fit, the lab gate). A lab with AI-written parts carries a **How This Lab Was Written** note and `manifest.aiWriting`. A lab built with AI off is byte-identical to one built before AI existed.
+
+Modes, identity and cost, what is sent, every guard, the manifest note, per-user GitHub sign-in, BYOK, settings, the command-line flags (`--ai-model`, `--ai-scope`, `--ai-list-models`) and the deployment settings are in [AI writing](ai-writing.md).
+
+---
+
 ## API
 
 All routes sit under `/api/lab-builder` and follow the portal's normal auth rules:
@@ -4094,7 +4106,7 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/topics/export` | Every topic and sub-topic for the chosen products at every level, as `csv`, `markdown`, or `json` (a file) or `dataset` (rows). Body `{ products, harness?, industry?, departments?, format, selectedIds?, requiredIds?, excludedSubtopics? }`, at most 64 KB; 400 for invalid input, 429 after 60 per user per hour. See [Export All Topics](#export-all-topics). |
 | `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded?, excludedSubtopics? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, `related` (`requires` and `requiredBy`, each with where it shows up), `reasons`, and, for a Microsoft Learn topic, its complete `learn.subtopics` (with `included`; see [Sub-topics](#sub-topics)). Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`, `subtopicCount`, `subtopicTotal`), plus `selectedSubtopicIds`. A `selected` list that names other levels is filtered, not trusted. An unknown `excludedSubtopics` id is HTTP 400. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. Accepts `excludedSubtopics`; each module with sub-topics returns all of them under `subtopics` with `included`, and the response echoes `excludedSubtopics`. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Accepts `excludedSubtopics` (saved in the manifest, see [Sub-topics](#sub-topics)). Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. Optional `brandProfileId` and `overrides` snapshot a [brand profile](#brand-profiles-and-lab-customization) into `manifest.customization` so the lab is born customized. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Accepts `excludedSubtopics` (saved in the manifest, see [Sub-topics](#sub-topics)). Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. Optional `brandProfileId` and `overrides` snapshot a [brand profile](#brand-profiles-and-lab-customization) into `manifest.customization` so the lab is born customized. Optional `ai` (`{ enabled, provider, model, scope }`) asks an AI model to reword parts of the lab and its decks; see [AI writing](#ai-writing-optional). It is refused (403, `code: "off"`) on a server where AI is off, and an unknown `model` is HTTP 400. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, products, vertical, level, harness, estimated minutes, topic count, `topicDocumentCount`, validation counts, `screenshots`, `learnDrift` (`status`, `lastCheckedAt`, `driftedModuleCount`, `driftedModules`, `missingScreenshotCount`, `moduleCount`), and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/learn-drift` | Return cached fleet-wide Microsoft Learn drift posture across all saved generated labs (`lastBulkScanAt`, `counts`, and per-lab `learnDrift` summaries) without making network requests. Also mounted at `/api/generated-labs/learn-drift`. |
 | `POST` | `/api/lab-builder/learn-drift/scan` | Bulk scan saved generated labs (all labs or an explicit `labIds` subset) against live Microsoft Learn documentation with bounded concurrency (`concurrency = 3`), optionally refreshing drifted steps, standalone HTML, and per-topic `.docx`/`.pptx` files when `autoUpdate: true`, and persisting `learn-drift-fleet.json`. Also mounted at `/api/generated-labs/learn-drift/scan`. |
@@ -4207,6 +4219,18 @@ Resuming is stateless: the client re-POSTs the same body with the accumulated
 `decisions`. The server holds nothing between requests, so there is no pending
 session to expire and no capability token to leak. An unknown blocker code or
 option id is rejected with HTTP 400.
+
+### AI writing routes
+
+These routes sit under `/api/ai`, not `/api/lab-builder`. They follow the portal's auth rules, except
+`/api/ai/auth/callback`, which GitHub redirects the browser to. See [AI writing](#ai-writing-optional).
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/ai/status` | `{ mode, state, possible, available, reason, message, signedIn, signedInAs, needsSignIn, provider, sends }`. `possible` is true when AI could work for this visitor (the wizard shows its card only then, or shows one calm line when the server turned AI off). Never carries a key or token. |
+| `GET` | `/api/ai/models` | `{ provider, models: [{ id, name, cost, warning }] }`, where `cost` is plain words ("Uses 3 premium requests for each prompt", or that the cost is not reported). 403 with a `code` when AI is not available for the request. |
+| `GET` | `/api/ai/progress/:ticket` | `{ done, total, stage, finished }` for a running build. |
+| `POST` / `GET` / `POST` | `/api/ai/auth/start`, `/api/ai/auth/callback`, `/api/ai/auth/signout` | Per-user GitHub sign-in, only when `AI_GENERATION=per-user` is configured; 404 otherwise. |
 
 ---
 

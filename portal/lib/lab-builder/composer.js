@@ -247,13 +247,10 @@ function sharepointModuleCalloutLines(feature, plan) {
   ];
 }
 
-function overviewSection(plan, enrichment) {
+/** The introduction the overview opens with when no model wrote one. Also the source text an AI rewording starts from. */
+export function defaultOverviewIntro(plan) {
   const profile = plan.profile;
   const d = describeDeliverable(plan);
-  const roleLine = plan.roles.length
-    ? ` It is written for ${sentenceList(plan.roles.map((r) => r.name))}.`
-    : "";
-
   const leadClause =
     !isCopilotStudioOnly(plan) && d.mode === DELIVERABLE_MODES.COPILOT_STUDIO_AGENT
       ? `In this lab you build **${escapeMarkdown(profile.agentName)}**, a solution with ${productsPhrase(plan.products)}`
@@ -263,9 +260,17 @@ function overviewSection(plan, enrichment) {
     profile.domain && !String(profile.outcome || "").toLowerCase().includes(String(profile.domain).toLowerCase())
       ? ` for ${profile.domain}`
       : "";
-  const intro =
-    enrichment?.overview ||
-    `${profile.problem} ${leadClause}${domainClause}, ending with ${profile.outcome}.`;
+  return `${profile.problem} ${leadClause}${domainClause}, ending with ${profile.outcome}.`;
+}
+
+function overviewSection(plan, enrichment) {
+  const profile = plan.profile;
+  const d = describeDeliverable(plan);
+  const roleLine = plan.roles.length
+    ? ` It is written for ${sentenceList(plan.roles.map((r) => r.name))}.`
+    : "";
+
+  const intro = enrichment?.overview || defaultOverviewIntro(plan);
 
   const mainModules = plan.features.filter((f) => !f.prerequisite);
   const recaps = plan.features.filter((f) => f.prerequisite);
@@ -819,6 +824,21 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
 const LEARN_SUMMARY_CONCEPT = /^Microsoft Learn describes this topic as:/;
 
 /**
+ * The deterministic text of every passage of one module that an AI model may reword, exactly as the composer would print
+ * it without AI. `steps` is null when the module's steps live in sub-topic sections. Used by portal/lib/ai/lab-writing.js.
+ */
+export function featureAiSources(feature, plan, stepsRecord) {
+  const source = stepsRecord?.stepsInSubtopics ? null : stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
+  return {
+    why: feature.whyItMatters ? scrubForbidden(feature.whyItMatters) : "",
+    scenario: buildFeatureScenarioNote(feature, plan, TEACH) || "",
+    steps: source ? source.map((step) => scrubForbidden(step)) : null,
+    concepts: (feature.concepts || []).filter((concept) => !LEARN_SUMMARY_CONCEPT.test(concept)).map(scrubForbidden),
+    troubleshooting: (feature.troubleshooting || []).filter((entry) => entry?.symptom && entry?.fix).map((entry) => ({ symptom: entry.symptom, fix: entry.fix })),
+  };
+}
+
+/**
  * Check-your-work items. A topic found only on Learn has no reviewed check, so it would say "follow the article". When its
  * steps were read from the article, the article's own last step is a better, specific thing to confirm.
  */
@@ -907,9 +927,14 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     : stepsRecord?.steps?.length
     ? stepsRecord.steps
     : feature.steps;
-  const steps = source.map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
+  // An AI rewording of the steps is used only when it kept every step (portal/lib/ai/guard.js checks that before it gets here).
+  const reworded = Array.isArray(enrichment?.steps) && enrichment.steps.length === source.length && !stepsRecord?.stepsInSubtopics ? enrichment.steps : null;
+  const steps = (reworded || source).map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
   const stepNum = feature.stepOrder ?? feature.order;
   const harnessLabel = harnessPartLabel(feature, plan);
+  const conceptList = feature.concepts.filter((concept) => !LEARN_SUMMARY_CONCEPT.test(concept)).map(scrubForbidden);
+  const conceptsShown = Array.isArray(enrichment?.concepts) && enrichment.concepts.length === conceptList.length ? enrichment.concepts.map(scrubForbidden) : conceptList;
+  const troubleshootingFeature = Array.isArray(enrichment?.troubleshooting) ? { ...feature, troubleshooting: enrichment.troubleshooting } : feature;
 
   return [
     `### Step ${stepNum} - ${feature.name}`,
@@ -920,12 +945,12 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     ...scopeNoteLines(feature, plan),
     "",
     // The second harness's version of an idea points back to the first instead of explaining the idea again.
-    ...(pointerLines?.length ? pointerLines : [`**Why it matters.** ${scrubForbidden(feature.whyItMatters)}`]),
+    ...(pointerLines?.length ? pointerLines : [`**Why it matters.** ${scrubForbidden(enrichment?.why || feature.whyItMatters)}`]),
     ...groundedInsight(grounding, feature.summary),
     "",
     "**Concepts before you click**",
     "",
-    bullets(feature.concepts.filter((concept) => !LEARN_SUMMARY_CONCEPT.test(concept)).map(scrubForbidden)),
+    bullets(conceptsShown),
     "",
     "**Do this**",
     ...stepProvenance(stepsRecord, feature),
@@ -943,7 +968,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "**Check your work**",
     "",
     bullets(checkItems(feature, stepsRecord).map((v) => `[ ] ${scrubForbidden(v)}`)),
-    ...onceTroubleshooting(troubleshootingBlock(feature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []), echo, stepNum),
+    ...onceTroubleshooting(troubleshootingBlock(troubleshootingFeature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []), echo, stepNum),
     ...knowledgeCheckBlock(feature, plan, TEACH, grounding),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),

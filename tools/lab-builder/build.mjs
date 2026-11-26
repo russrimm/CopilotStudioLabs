@@ -180,6 +180,12 @@ Flags:
   --no-learn                Skip Microsoft Learn grounding and vendor documentation
                             reads (offline mode).
   --no-llm                  Skip LLM enrichment even if credentials are present.
+  --ai-model <id>           Optional AI writing with the GitHub Copilot SDK, using this PC's own Copilot sign-in.
+                            The model rewords the lab text and decks for your audience; steps, interface names and
+                            facts stay as written, and every reworded passage is checked against the original.
+                            Run --ai-list-models to see the ids you can use. Nothing is sent without this flag.
+  --ai-scope <a,b>          What AI writes: lab, training, labday (default: all three).
+  --ai-list-models          Print the models available to you and exit (uses your Copilot sign-in).
   --synthesize-steps <a,b>  Opt in: have the language model write these modules'
                             steps from their Learn pages ("all" for every module).
                             Steps are kept only if each one verifies against the
@@ -471,6 +477,38 @@ const canPrompt = Boolean(stdin.isTTY && stdout.isTTY) && !args["non-interactive
 let prompted = false;
 let result;
 
+// Optional AI writing. The command line always runs on this PC, so it uses the local Copilot sign-in and nothing else.
+let aiWriter = null;
+let aiService = null;
+if (args["ai-model"] || args["ai-list-models"]) {
+  const { createAi, localRequest } = await import(pathToFileURL(path.join(LIB, "ai", "index.js")).href);
+  const { AiError } = await import(pathToFileURL(path.join(LIB, "ai", "errors.js")).href);
+  if (process.env.AI_GENERATION && process.env.AI_GENERATION !== "local-user") {
+    console.error(`Error: the command line uses local mode, but AI_GENERATION is "${process.env.AI_GENERATION}". Unset it or set it to local-user.`);
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+  const ai = createAi({ env: { ...process.env, AI_GENERATION: "local-user" }, bindHost: "127.0.0.1", authEnabled: false });
+  aiService = ai.service;
+  try {
+    if (args["ai-list-models"]) {
+      const { models } = await ai.service.models(localRequest());
+      console.log("Models you can use with --ai-model:\n");
+      for (const m of models) console.log(`  ${m.id.padEnd(28)} ${m.name}  (${m.cost})`);
+      console.log("");
+      await ai.service.stop();
+      process.exit(EXIT.OK);
+    }
+    const scope = args["ai-scope"] === undefined || args["ai-scope"] === true ? undefined : list(args["ai-scope"]);
+    const choice = { enabled: true, provider: "github-copilot", model: String(args["ai-model"]), ...(scope ? { scope } : {}) };
+    aiWriter = await ai.service.authorize(localRequest(), choice);
+    request = { ...request, ai: { ...choice, scope: aiWriter.scope } };
+  } catch (err) {
+    await ai.service.stop();
+    console.error(`Error: ${err instanceof AiError ? err.message : "AI writing could not be started."}`);
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+}
+
 try {
   for (;;) {
     result = await generateLab(request, {
@@ -481,6 +519,8 @@ try {
       synthesizeSteps,
       decisions,
       decisionSource: prompted ? "cli-interactive" : "cli-flag",
+      ai: aiWriter,
+      onAiProgress: (p) => process.stdout.write(`  [ai] ${p.part}: ${p.done} of ${p.total} passages\n`),
       onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
     });
 
@@ -497,6 +537,9 @@ try {
 } catch (err) {
   console.error(`Error: ${err.message}`);
   process.exit(EXIT.VALIDATION_FAILED);
+} finally {
+  aiWriter?.release();
+  await aiService?.stop();
 }
 
 if (result.status === "cancelled") {

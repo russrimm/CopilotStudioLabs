@@ -1098,7 +1098,7 @@ test("work started while the unsaved-work banner is open keeps the offered work 
   await page.until(() => drafts.store.list("local").drafts.length === 1 && page.byId("lb-unsaved-banner").hidden, "the offered work to be kept");
   const kept = drafts.store.list("local").drafts[0];
   assert.match(kept.name, /^Recovered work, today at .+$/);
-  assert.deepEqual(drafts.store.get("local", kept.id).content.selections, offered.selections, "the older work is saved as it was");
+  assert.deepEqual(drafts.store.get("local", kept.id).content.selections, { ...offered.selections, ai: { enabled: false, model: null, scope: ["lab", "training", "labday"] } }, "the older work is saved as it was, with AI writing off");
   assert.equal(drafts.store.getUnsaved("local"), null, "the autosave slot was cleared");
   assert.equal(page.state("lbDraft.bannerOpen"), false);
   assert.equal(page.state("lbDraft.rescueFailed"), false);
@@ -1306,7 +1306,7 @@ test("a draft keeps 'Both, one after another' and its order through Save and fin
   assert.equal(saved[0].harnessMode, "both", "the Saved drafts list knows");
   assert.deepEqual(saved[0].harnesses, ["microsoft-copilot", "standard"]);
   const onDisk = JSON.parse(readFileSync(join(drafts.folder, `${saved[0].id}.json`), "utf8"));
-  assert.equal(onDisk.schemaVersion, 3);
+  assert.equal(onDisk.schemaVersion, 4);
   assert.equal(onDisk.content.selections.harnessMode, "both");
 
   const page = await makePage(t, drafts);

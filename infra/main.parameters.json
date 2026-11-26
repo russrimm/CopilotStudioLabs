@@ -11,6 +11,9 @@
     "portalAuthDisabled": {
       "value": true
     },
+    "aiGeneration": {
+      "value": "off"
+    },
     "portalImageName": {
       "value": "${SERVICE_PORTAL_IMAGE_NAME}"
     }
