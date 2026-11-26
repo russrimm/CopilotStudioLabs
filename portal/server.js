@@ -847,7 +847,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       decisionSource: "portal",
       signal: controller.signal,
       ai: aiWriter,
-      onAiProgress: (p) => ai.service.setProgress(aiVisitor, isTicket(ticketHeader) ? ticketHeader : null, { done: p.done, total: p.total, stage: p.part || "ai" }),
+      onAiProgress: (p) => ai.service.setProgress(aiVisitor, isTicket(ticketHeader) ? ticketHeader : null, { done: p.done, total: p.total, stage: p.part || "ai", prompts: p.requests || 0 }),
     });
     if (isTicket(ticketHeader)) ai.service.setProgress(aiVisitor, ticketHeader, { finished: true });
 

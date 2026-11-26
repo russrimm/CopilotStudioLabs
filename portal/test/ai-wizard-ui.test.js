@@ -40,6 +40,7 @@ function page({ status, models = MODELS, modelsOk = true, authStart } = {}) {
   const context = vm.createContext({
     console,
     document,
+    labBuilder: { previewModules: [] },
     escapeHtml: (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
     setInterval,
     clearInterval,
@@ -50,11 +51,11 @@ function page({ status, models = MODELS, modelsOk = true, authStart } = {}) {
       if (url === "/api/ai/status") return reply(true, current);
       if (url === "/api/ai/models") return modelsOk ? reply(true, { models }) : reply(false, { error: "The model list could not be read." });
       if (url === "/api/ai/auth/start") return reply(true, authStart || { url: "https://github.com/login/oauth/authorize?x=1" });
-      if (String(url).startsWith("/api/ai/progress/")) return reply(true, { done: 12, total: 40, stage: "training", finished: false });
+      if (String(url).startsWith("/api/ai/progress/")) return reply(true, { done: 12, total: 40, stage: "training", finished: false, prompts: 7 });
       throw new Error(`Unexpected fetch ${url}`);
     },
   });
-  vm.runInContext(`${SCRIPT}\nglobalThis.__ai = { labBuilderAi, lbAiRefresh, lbAiRequestField, lbAiDraftChoice, lbAiApplySaved, lbAiReset, lbAiCheckBeforeBuild, lbAiSummaryText, lbAiFactText, lbAiOnBuildStart, lbAiOnBuildEnd, lbAiProgressText, lbAiSetEnabled, lbAiSetModel, lbAiSetScope, lbAiSignIn };`, context);
+  vm.runInContext(`${SCRIPT}\nglobalThis.__ai = { labBuilderAi, lbAiRefresh, lbAiRender, lbAiRequestField, lbAiDraftChoice, lbAiApplySaved, lbAiReset, lbAiCheckBeforeBuild, lbAiSummaryText, lbAiFactText, lbAiOnBuildStart, lbAiOnBuildEnd, lbAiProgressText, lbAiSetEnabled, lbAiSetModel, lbAiSetScope, lbAiSignIn, lbAiEstimateText, lbAiEstimatePrompts, lbAiModelLabel };`, context);
   // Values made inside the vm have another Object prototype, so they are copied before they are compared.
   const copy = (fn) => (...args) => {
     const out = fn(...args);
@@ -67,7 +68,7 @@ function page({ status, models = MODELS, modelsOk = true, authStart } = {}) {
     Object.assign(el, props);
     el.dispatchEvent(new FakeEvent("change"));
   };
-  return { ai, byId, change, fetches, opened, setStatus: (s) => (current = s), document, FakeEvent, tick: () => new Promise((r) => setTimeout(r, 5)) };
+  return { ai, byId, change, fetches, opened, setStatus: (s) => (current = s), setModules: (n) => (context.labBuilder.previewModules = Array.from({ length: n }, (_, i) => ({ id: `m${i}` }))), document, FakeEvent, tick: () => new Promise((r) => setTimeout(r, 5)) };
 }
 
 const visible = (el) => Boolean(el) && !el.hidden;
@@ -217,8 +218,8 @@ test("while the lab builds the page shows blocks done of total, and stops asking
   assert.equal(p.ai.lbAiProgressText(), "");
   p.ai.lbAiOnBuildStart("b0123456789abcdef01234567");
   await new Promise((r) => setTimeout(r, 1700));
-  assert.equal(p.ai.lbAiProgressText(), "Writing the training decks with AI: 12 of 40 passages.");
-  assert.equal(p.byId("lb-status").textContent, "Writing the training decks with AI: 12 of 40 passages.");
+  assert.equal(p.ai.lbAiProgressText(), "Writing the training decks with AI: 12 of 40 passages done. 7 prompts used so far.");
+  assert.equal(p.byId("lb-status").textContent, "Writing the training decks with AI: 12 of 40 passages done. 7 prompts used so far.");
   p.ai.lbAiOnBuildEnd();
   assert.equal(p.ai.lbAiProgressText(), "");
   const asked = p.fetches.length;
@@ -272,4 +273,79 @@ test("the control is plain: US English, no emoji, labelled, keyboard reachable, 
   assert.doesNotMatch(css, /border-(left|right)\s*:\s*([2-9]|\d{2,})px/, "no side stripe");
   assert.doesNotMatch(css, /border-(left|right)-width\s*:\s*([2-9]|\d{2,})px/);
   assert.match(css, /var\(--border-strong\)/, "uses the theme variables, so light and dark both work");
+});
+
+test("the recommended model is listed first with a marker and its plain reason, and is ready to use; a saved choice is never replaced", async () => {
+  const models = [
+    { id: "gpt-fast", name: "GPT Fast", cost: "Cost not reported by GitHub; each prompt counts against your Copilot allowance", multiplier: null, recommended: true, recommendedWhy: "Fast and careful at rewording." },
+    { id: "auto", name: "Auto", cost: "Cost not reported by GitHub; each prompt counts against your Copilot allowance", multiplier: null, recommended: false },
+    { id: "other", name: "Other", cost: "Uses 0.33 of a premium request for each prompt", multiplier: 0.33, recommended: false },
+  ];
+  const p = page({ status: READY, models });
+  await p.ai.lbAiRefresh();
+  p.change("lb-ai-enabled", { checked: true });
+  await p.tick();
+  const options = [...p.byId("lb-ai-model").querySelectorAll("option")].map((o) => o.textContent);
+  assert.deepEqual(options, ["Choose a model", "GPT Fast (recommended)", "Auto", "Other"], "the recommended model is first and marked; auto stays");
+  assert.equal(p.ai.labBuilderAi.model, "gpt-fast", "it is chosen for a person who has not chosen");
+  assert.equal(p.byId("lb-ai-model-why").textContent, "Recommended: Fast and careful at rewording.");
+  assert.match(p.byId("lb-ai-model-cost").textContent, /Cost not reported by GitHub; each prompt counts against your Copilot allowance/);
+  p.change("lb-ai-model", { value: "other" });
+  assert.equal(p.byId("lb-ai-model-why").textContent, "", "the reason shows only beside the recommended model");
+
+  const saved = page({ status: READY, models });
+  saved.ai.lbAiApplySaved({ enabled: true, model: "other", scope: ["lab"] });
+  await saved.ai.lbAiRefresh();
+  assert.equal(saved.ai.labBuilderAi.model, "other", "a saved choice stays");
+});
+
+test("the estimate before building: about how many prompts, from the modules in the outline and the parts ticked, with the honest cost words", async () => {
+  const p = page({ status: { ...READY, estimate: { lab: { base: 1, perModule: 0.5 }, labday: { base: 0.5, perModule: 0.25 }, training: { base: 3, perModule: 3 }, retryShare: 0 } }, models: [{ id: "m", name: "M", cost: "Cost not reported by GitHub; each prompt counts against your Copilot allowance", multiplier: null }] });
+  await p.ai.lbAiRefresh();
+  p.change("lb-ai-enabled", { checked: true });
+  await p.tick();
+  p.change("lb-ai-model", { value: "m" });
+  assert.equal(p.byId("lb-ai-estimate").textContent, "", "nothing to say until the outline has its modules");
+  p.setModules(4);
+  p.ai.lbAiRender();
+  // lab: 1 + 0.5 * 4 = 3; training: 3 + 3 * 4 = 15; the lab-day decks ride with the lab text.
+  assert.equal(p.byId("lb-ai-estimate").textContent, "About 18 prompts for this lab with the parts ticked above. Cost is not reported by GitHub; each prompt counts against your Copilot allowance.");
+  p.change("lb-ai-scope-training", { checked: false });
+  assert.match(p.byId("lb-ai-estimate").textContent, /^About 3 prompts /, "untick the decks and the estimate drops");
+  p.change("lb-ai-scope-lab", { checked: false });
+  p.change("lb-ai-scope-labday", { checked: true });
+  assert.match(p.byId("lb-ai-estimate").textContent, /^About 2 prompts /, "the lab-day decks alone: 0.5 + 0.25 * 4 = 1.5, rounded up");
+  p.change("lb-ai-scope-labday", { checked: false });
+  assert.equal(p.byId("lb-ai-estimate").textContent, "", "nothing chosen, nothing to count");
+});
+
+test("when GitHub does report a cost, the estimate says how many premium requests that is", async () => {
+  const p = page({ status: READY, models: [{ id: "m", name: "M", cost: "Uses 0.33 of a premium request for each prompt", multiplier: 0.33 }] });
+  await p.ai.lbAiRefresh();
+  p.change("lb-ai-enabled", { checked: true });
+  await p.tick();
+  p.change("lb-ai-model", { value: "m" });
+  p.setModules(2);
+  p.ai.lbAiRender();
+  assert.match(p.byId("lb-ai-estimate").textContent, /^About \d+ prompts for this lab with the parts ticked above\. At 0\.33 of a premium request each, that is about [\d.]+ premium requests\.$/);
+});
+
+test("the page's estimate and the server's agree for every lab size and every choice of parts", async () => {
+  const { estimatePrompts, ESTIMATE_PARAMS } = await import("../lib/ai/estimate.js");
+  const p = page({ status: { ...READY, estimate: ESTIMATE_PARAMS } });
+  await p.ai.lbAiRefresh();
+  const scopes = [["lab"], ["training"], ["labday"], ["lab", "training"], ["lab", "training", "labday"], ["training", "labday"], []];
+  for (const modules of [1, 2, 3, 6, 9, 15, 40]) {
+    for (const scope of scopes) assert.equal(p.ai.lbAiEstimatePrompts(modules, scope, ESTIMATE_PARAMS), estimatePrompts({ modules, scope }).prompts, `${modules} modules, ${scope.join("+") || "nothing"}`);
+  }
+});
+
+test("the build shows passages done of total and the prompts used so far", async () => {
+  const p = page({ status: READY, models: MODELS });
+  p.ai.lbAiApplySaved({ enabled: true, model: "fake-fast", scope: ["lab", "training"] });
+  await p.ai.lbAiRefresh();
+  p.ai.lbAiOnBuildStart("a1234567890abcdef12345678");
+  await new Promise((r) => setTimeout(r, 1700));
+  assert.equal(p.byId("lb-status").textContent, "Writing the training decks with AI: 12 of 40 passages done. 7 prompts used so far.");
+  p.ai.lbAiOnBuildEnd();
 });

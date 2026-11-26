@@ -9,6 +9,7 @@
  */
 
 import { defaultOverviewIntro, featureAiSources } from "../lab-builder/composer.js";
+import { levelName } from "../lab-builder/levels.js";
 import { knownNames } from "./names.js";
 
 export { knownNames, resetKnownNames } from "./names.js";
@@ -22,13 +23,15 @@ function contextOf(plan, feature) {
     domain: profile.domain || "",
     problem: profile.problem || "",
     outcome: profile.outcome || "",
-    level: String(plan.level ?? ""),
+    level: plan.level ? levelName(plan.level) : "",
     ...(feature ? { module: feature.name, moduleSummary: feature.summary || "" } : {}),
   };
 }
 
 function allowedText(context) {
-  return Object.values(context).join(" ");
+  // The level is context for the writer, not a fact it may quote.
+  const { level, ...rest } = context;
+  return Object.values(rest).join(" ");
 }
 
 function textBlock(id, kind, source, extra = {}) {

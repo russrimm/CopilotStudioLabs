@@ -20,7 +20,7 @@ import { renderFacilitatorGuideMarkdown } from "../lib/lab-builder/facilitator-g
 import { ensureGeneratedLabTrainingDecks, trainingDeckOutline } from "../lib/lab-builder/training-decks.js";
 import { listGeneratedLabs, selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
 import { checkDocxPackage, checkPptxPackage, readZipStrict } from "../../tools/lab-builder/lib/ooxml-strict.mjs";
-import { createFakeBackend } from "./fixtures/fake-ai.js";
+import { createFakeBackend, passagesOf } from "./fixtures/fake-ai.js";
 
 const cleanups = [];
 after(() => {
@@ -63,8 +63,8 @@ test("a lab built with AI is reworded where the model was faithful, and says so 
   assert.match(result.markdown, /## How This Lab Was Written/);
   assert.match(result.markdown, /\*\*Model:\*\* Fake Fast \(fake-fast\), from GitHub Copilot\./);
   assert.match(result.markdown, /\*\*Written on:\*\* \d{4}-\d{2}-\d{2}\./);
-  assert.match(result.markdown, /\*\*Prompt version:\*\* 1\./);
-  assert.match(result.markdown, /\*\*Lab text:\*\* \d+ of \d+ passages reworded by AI, 0 kept as written\./);
+  assert.match(result.markdown, /\*\*Prompt version:\*\* 2\./);
+  assert.match(result.markdown, /\*\*Lab text:\*\* \d+ of \d+ passages reworded by AI, 0 kept as written(?:; \d+ short passages? had nothing to reword)?\./);
   assert.match(result.markdown, /\*\*Training decks:\*\* \d+ of \d+ passages reworded by AI/);
   assert.match(result.markdown, /\*\*Lab-day decks:\*\* \d+ of \d+ passages reworded by AI/);
   assert.match(result.html, /How This Lab Was Written/);
@@ -103,7 +103,7 @@ test("the manifest records how it was written, never a prompt, a token, a model 
   assert.equal(record.model, "fake-fast");
   assert.equal(record.modelName, "Fake Fast");
   assert.equal(record.provider, "GitHub Copilot");
-  assert.equal(record.promptVersion, "1");
+  assert.equal(record.promptVersion, "2");
   assert.deepEqual(record.scope, SCOPE_ALL);
   assert.match(record.date, /^\d{4}-\d{2}-\d{2}$/);
   assert.ok(record.parts.lab.total > 0 && record.parts.training.total > 0 && record.parts.labday.total > 0);
@@ -113,7 +113,7 @@ test("the manifest records how it was written, never a prompt, a token, a model 
   assert.equal(result.manifest.request.ai, undefined, "the choice is not part of the lab's plan request");
 
   const onDisk = readFileSync(join(result.outputDir, "manifest.json"), "utf8");
-  for (const forbidden of [SYSTEM_PROMPT.slice(0, 40), "quoted data", "gho_", "SHOULD_NEVER", "Reword these blocks", "responseSchema", "fake-user"]) {
+  for (const forbidden of [SYSTEM_PROMPT.slice(0, 40), "quoted data", "gho_", "SHOULD_NEVER", "Reword these passages", "responseSchema", "fake-user"]) {
     assert.equal(onDisk.includes(forbidden), false, `the manifest must not contain "${forbidden}"`);
   }
   const selections = selectionsFromManifest(JSON.parse(onDisk));
@@ -124,11 +124,15 @@ test("the manifest records how it was written, never a prompt, a token, a model 
 
 test("a rebuild of an unchanged lab calls the model only for what it could not write before", async () => {
   const dir = tmp("ai-cache-shared-");
-  const first = await build({ sharedCacheDir: dir, root: tmp("ai-lab-a-") });
+  // Calls finish in any order, as they do on the real service; the saved wording must not depend on that order.
+  const first = await build({ sharedCacheDir: dir, root: tmp("ai-lab-a-"), backend: createFakeBackend({ jitterMs: 12 }) });
   const calls = first.backend.calls.filter((c) => c.type === "complete").length;
   assert.ok(calls > 0);
   const second = await build({ sharedCacheDir: dir, root: tmp("ai-lab-b-") });
-  const requested = (backend) => backend.calls.filter((c) => c.type === "complete").reduce((sum, c) => sum + JSON.parse(c.prompt.slice(c.prompt.indexOf("{"))).blocks.length, 0);
+  assert.equal(second.result.manifest.aiWriting.fingerprint, first.result.manifest.aiWriting.fingerprint, "the same wording has the same fingerprint, however the calls finished");
+  assert.equal(readFileSync(join(second.result.outputDir, AI_WRITING_FILE), "utf8"), readFileSync(join(first.result.outputDir, AI_WRITING_FILE), "utf8"), "and the same saved file, byte for byte");
+  assert.equal(second.result.manifest.aiWriting.requests, 0, "the note says this build used no prompts");
+  const requested = (backend) => backend.calls.filter((c) => c.type === "complete").reduce((sum, c) => sum + passagesOf(c.prompt).length, 0);
   const keptFirst = Object.values(first.result.manifest.aiWriting.parts).reduce((sum, p) => sum + p.kept, 0);
   assert.equal(requested(second.backend), keptFirst, "only the blocks that kept the standard text are asked again");
   assert.equal(keptFirst, 0, "the fake model was faithful, so nothing is asked again");

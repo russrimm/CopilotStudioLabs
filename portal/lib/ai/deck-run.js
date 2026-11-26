@@ -13,14 +13,16 @@ import { AI_PROMPT_VERSION, AI_WRITING_VERSION } from "./config.js";
 import { extractDeckBlocks, savedEntry } from "./deck-blocks.js";
 import { writeAiWriting } from "./saved.js";
 
-function deckContext(plan, descriptor) {
+function deckContext(plan, descriptor, manifest) {
   const scenario = plan.scenario || {};
+  const roles = Array.isArray(manifest?.roles) ? manifest.roles.filter(Boolean).join(", ") : "";
   return {
     lab: plan.labTitle,
     deck: descriptor.title,
-    audience: scenario.audience || "",
+    audience: [scenario.audience || "", roles].filter(Boolean).join("; "),
     agentName: scenario.agentName || "",
     industry: scenario.industryId || "",
+    level: manifest?.levelName || "",
     problem: scenario.problem || "",
     outcome: scenario.outcome || "",
   };
@@ -45,16 +47,24 @@ export async function runDeckWriting({ outputDir, markdown, manifest, labId, wri
   for (const { descriptor, spec } of decks) {
     const blocks = extractDeckBlocks(descriptor.key, spec);
     for (const block of blocks) blockIndex.set(block.id, { deck: descriptor.key, block });
-    if (blocks.length) units.push({ id: `deck.${descriptor.key}`, context: deckContext(plan, descriptor), blocks: blocks.map((b) => ({ ...b, allowed: Object.values(deckContext(plan, descriptor)).join(" ") })) });
+    if (blocks.length) {
+      const context = deckContext(plan, descriptor, manifest);
+      // The level is context for the writer, not a fact it may quote, so it is not among the terms a passage may add.
+      const { level, ...scenarioFields } = context;
+      const allowed = Object.values(scenarioFields).join(" ");
+      units.push({ id: `deck.${descriptor.key}`, context, blocks: blocks.map((b) => ({ ...b, allowed })) });
+    }
   }
 
   const { results, summary } = await writer.run({ units, signal, onProgress });
 
   const saved = { version: 1, promptVersion: AI_PROMPT_VERSION, writingVersion: AI_WRITING_VERSION, fingerprint: "", decks: {} };
   const written = {};
-  for (const [id, result] of results) {
-    if ((result.status !== "ai" && result.status !== "cached") || !result.items) continue;
-    const { deck, block } = blockIndex.get(id);
+  // In deck order, not in the order answers arrived: parallel calls finish in any order, and the fingerprint and the saved file
+  // must be the same for the same wording.
+  for (const [id, { deck, block }] of blockIndex) {
+    const result = results.get(id);
+    if (!result || (result.status !== "ai" && result.status !== "cached") || !result.items) continue;
     (saved.decks[deck] ||= {})[id] = savedEntry(block, result.items);
     written[id] = result.items;
   }

@@ -141,7 +141,7 @@ All configuration is provided through environment variables (see `.env.template`
 | `AI_ALLOWED_MODELS` | No | Comma-separated model ids to offer (default: every model the SDK reports) |
 | `AI_PUBLIC_URL`, `AI_GITHUB_CLIENT_ID`, `AI_GITHUB_CLIENT_SECRET` | For `per-user` | The address people use and the GitHub App that signs them in. Keep the secret in Key Vault or a Container Apps secret |
 | `AI_BYOK_TYPE`, `AI_BYOK_BASE_URL`, `AI_BYOK_API_KEY`, `AI_BYOK_MODELS` | For `byok` | The provider (`openai`, `azure` or `anthropic`), its `https` address, its key, and the allowed models (`id` or `id=Display name`) |
-| `AI_MAX_PARALLEL`, `AI_MAX_CONCURRENT_LABS`, `AI_DAILY_LABS_PER_VISITOR`, `AI_DAILY_BLOCKS_PER_VISITOR`, `AI_DAILY_TOKENS_PER_VISITOR` | No | Concurrency and per-visitor daily limits (defaults `2`, `2`, `6`, `800`, `600000`). More in [`docs/ai-writing.md`](../docs/ai-writing.md#settings-reference) |
+| `AI_MAX_PARALLEL`, `AI_MAX_CONCURRENT_LABS`, `AI_DAILY_LABS_PER_VISITOR`, `AI_DAILY_BLOCKS_PER_VISITOR`, `AI_DAILY_TOKENS_PER_VISITOR` | No | Concurrency and per-visitor daily limits (defaults `4`, `2`, `6`, `800`, `600000`). Batch size, time limits, retries and reasoning are tuned with `AI_MAX_CHARS_PER_REQUEST`, `AI_TIMEOUT_MS`, `AI_RETRIES`, `AI_BACKOFF_MS`, `AI_MAX_CALLS_IN_FLIGHT`, `AI_REJECT_CACHE_MS` and `AI_REASONING_EFFORT`. More in [`docs/ai-writing.md`](../docs/ai-writing.md#settings-reference) |
 | **Deployment / Hosting** | | |
 | `AZURE_WEBAPP_NAME` | Optional | Azure App Service name |
 | `AZURE_RESOURCE_GROUP` | Optional | Resource group used by deployment |

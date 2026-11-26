@@ -34,7 +34,8 @@ export function createAi({ env = process.env, bindHost = "127.0.0.1", authEnable
   const config = readAiConfig(env);
   for (const problem of config.problems) logger?.(`[ai] ${problem}`);
   const limiter = createUsageLimiter({ config, ...(now ? { now } : {}) });
-  const cache = createAiCache({ file: dataDir ? path.join(dataDir, "ai-cache.json") : null });
+  const cacheDir = dataDir || String(env.AI_CACHE_DIR || "").trim() || null;
+  const cache = createAiCache({ file: cacheDir ? path.join(cacheDir, "ai-cache.json") : null, rejectTtlMs: config.rejectCacheMs, ...(now ? { now } : {}) });
   const theBackend = backend || createCopilotBackend({ config, env, logger, tmpRoot: os.tmpdir(), ...(importSdk ? { importSdk } : {}) });
   const github = config.mode === "per-user" ? createGithubAuth({ config, ...(fetchImpl ? { fetchImpl } : {}), ...(now ? { now } : {}) }) : null;
   const service = createAiService({ config, backend: theBackend, github, limiter, cache, authEnabled, bindHost, logger, ...(now ? { now } : {}) });

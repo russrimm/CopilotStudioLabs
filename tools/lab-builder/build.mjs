@@ -184,8 +184,12 @@ Flags:
                             The model rewords the lab text and decks for your audience; steps, interface names and
                             facts stay as written, and every reworded passage is checked against the original.
                             Run --ai-list-models to see the ids you can use. Nothing is sent without this flag.
+                            Each prompt counts against your Copilot allowance; the build prints how many it used.
+                            Set AI_CACHE_DIR to a folder to keep reworded passages between builds, so a rebuild of the
+                            same lab with the same model makes no new calls.
   --ai-scope <a,b>          What AI writes: lab, training, labday (default: all three).
-  --ai-list-models          Print the models available to you and exit (uses your Copilot sign-in).
+  --ai-list-models          Print the models available to you and exit (uses your Copilot sign-in). The
+                            recommended model is listed first.
   --synthesize-steps <a,b>  Opt in: have the language model write these modules'
                             steps from their Learn pages ("all" for every module).
                             Steps are kept only if each one verifies against the
@@ -493,7 +497,9 @@ if (args["ai-model"] || args["ai-list-models"]) {
     if (args["ai-list-models"]) {
       const { models } = await ai.service.models(localRequest());
       console.log("Models you can use with --ai-model:\n");
-      for (const m of models) console.log(`  ${m.id.padEnd(28)} ${m.name}  (${m.cost})`);
+      for (const m of models) console.log(`  ${m.id.padEnd(28)} ${m.name}${m.recommended ? "  [recommended]" : ""}  (${m.cost})`);
+      const pick = models.find((m) => m.recommended);
+      if (pick) console.log(`\nRecommended: ${pick.name}. ${pick.recommendedWhy}`);
       console.log("");
       await ai.service.stop();
       process.exit(EXIT.OK);
@@ -520,7 +526,7 @@ try {
       decisions,
       decisionSource: prompted ? "cli-interactive" : "cli-flag",
       ai: aiWriter,
-      onAiProgress: (p) => process.stdout.write(`  [ai] ${p.part}: ${p.done} of ${p.total} passages\n`),
+      onAiProgress: (p) => process.stdout.write(`  [ai] ${p.part}: ${p.done} of ${p.total} passages done, ${p.requests || 0} prompts used\n`),
       onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
     });
 
@@ -588,6 +594,11 @@ for (const decision of result.decisionLog) {
   console.log(`Decision    ${decision.code} → ${decision.chosen.label}`);
 }
 for (const warning of result.plan.warnings) console.log(`Note        ${warning}`);
+if (result.manifest.aiWriting) {
+  const ai = result.manifest.aiWriting;
+  const parts = Object.entries(ai.parts).map(([part, c]) => `${part} ${c.ai}/${c.total}`).join(", ");
+  console.log(`AI writing  ${ai.requests} prompts used with ${ai.modelName}; passages reworded: ${parts}`);
+}
 
 if (args["dry-run"]) {
   console.log("\nDry run — nothing was written.\n");

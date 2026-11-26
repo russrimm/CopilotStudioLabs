@@ -7,7 +7,7 @@
  */
 
 /** Bump when a prompt or the response schema changes: it is part of every cache key and of the lab's own note. */
-export const AI_PROMPT_VERSION = "1";
+export const AI_PROMPT_VERSION = "2";
 
 /** Enters the training and lab fingerprints (like TRAINING_COMBINED_VERSION) so an AI build never shares an entry with a plain one. */
 export const AI_WRITING_VERSION = 1;
@@ -21,19 +21,26 @@ export const AI_SCOPE_LABELS = Object.freeze({
 });
 
 const DEFAULTS = Object.freeze({
-  maxParallel: 2,
+  maxParallel: 4,
+  maxCallsInFlight: 8,
   timeoutMs: 120000,
   maxOutputChars: 12000,
-  maxBlocksPerRequest: 24,
+  maxBlocksPerRequest: 16,
+  maxCharsPerRequest: 3500,
   maxBlocksPerLab: 400,
   dailyBlocksPerVisitor: 800,
   dailyLabsPerVisitor: 6,
   dailyTokensPerVisitor: 600000,
   maxConcurrentLabs: 2,
   modelCacheMs: 5 * 60 * 1000,
-  retries: 1,
+  retries: 2,
+  backoffMs: 2000,
+  rejectCacheMs: 60 * 60 * 1000,
   sessionTtlMs: 8 * 60 * 60 * 1000,
 });
+
+/** The least time one model call is given, however small its batch: the service's own delay varies a lot (a three-passage call has taken 25 seconds). */
+export const MIN_CALL_TIMEOUT_MS = 60000;
 
 function intFrom(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
   const parsed = Number.parseInt(String(value ?? "").trim(), 10);
@@ -111,17 +118,23 @@ export function readAiConfig(env = process.env) {
     byok,
     github,
     copilotHome: String(env.AI_COPILOT_HOME || "").trim() || null,
-    maxParallel: intFrom(env.AI_MAX_PARALLEL, DEFAULTS.maxParallel, { max: 4 }),
+    maxParallel: intFrom(env.AI_MAX_PARALLEL, DEFAULTS.maxParallel, { max: 6 }),
+    maxCallsInFlight: intFrom(env.AI_MAX_CALLS_IN_FLIGHT, DEFAULTS.maxCallsInFlight, { max: 16 }),
     timeoutMs: intFrom(env.AI_TIMEOUT_MS, DEFAULTS.timeoutMs, { min: 5000, max: 600000 }),
     maxOutputChars: intFrom(env.AI_MAX_OUTPUT_CHARS, DEFAULTS.maxOutputChars, { min: 500, max: 100000 }),
     maxBlocksPerRequest: intFrom(env.AI_MAX_BLOCKS_PER_REQUEST, DEFAULTS.maxBlocksPerRequest, { max: 60 }),
+    maxCharsPerRequest: intFrom(env.AI_MAX_CHARS_PER_REQUEST, DEFAULTS.maxCharsPerRequest, { min: 500, max: 20000 }),
     maxBlocksPerLab: intFrom(env.AI_MAX_BLOCKS_PER_LAB, DEFAULTS.maxBlocksPerLab, { max: 5000 }),
     dailyBlocksPerVisitor: intFrom(env.AI_DAILY_BLOCKS_PER_VISITOR, DEFAULTS.dailyBlocksPerVisitor),
     dailyLabsPerVisitor: intFrom(env.AI_DAILY_LABS_PER_VISITOR, DEFAULTS.dailyLabsPerVisitor),
     dailyTokensPerVisitor: intFrom(env.AI_DAILY_TOKENS_PER_VISITOR, DEFAULTS.dailyTokensPerVisitor),
     maxConcurrentLabs: intFrom(env.AI_MAX_CONCURRENT_LABS, DEFAULTS.maxConcurrentLabs, { max: 8 }),
     modelCacheMs: intFrom(env.AI_MODEL_CACHE_MS, DEFAULTS.modelCacheMs, { min: 1000 }),
-    retries: intFrom(env.AI_RETRIES, DEFAULTS.retries, { min: 0, max: 2 }),
+    retries: intFrom(env.AI_RETRIES, DEFAULTS.retries, { min: 0, max: 4 }),
+    // "auto" asks a model that supports it for its least reasoning (rewording needs none); "off" never sets it; or name one.
+    reasoningEffort: ["auto", "off", "none", "low", "medium", "high"].includes(String(env.AI_REASONING_EFFORT || "").trim().toLowerCase()) ? String(env.AI_REASONING_EFFORT).trim().toLowerCase() : "auto",
+    backoffMs: intFrom(env.AI_BACKOFF_MS, DEFAULTS.backoffMs, { min: 0, max: 30000 }),
+    rejectCacheMs: intFrom(env.AI_REJECT_CACHE_MS, DEFAULTS.rejectCacheMs, { min: 0, max: 7 * 24 * 60 * 60 * 1000 }),
     sessionTtlMs: intFrom(env.AI_SESSION_TTL_MS, DEFAULTS.sessionTtlMs, { min: 60000 }),
   };
 }

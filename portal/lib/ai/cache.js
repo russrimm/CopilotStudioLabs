@@ -32,9 +32,13 @@ export function blockCacheKey(block, { model, provider, context = "" }) {
   return createHash("sha256").update(body).digest("hex");
 }
 
-export function createAiCache({ file = null, maxEntries = 3000 } = {}) {
+export function createAiCache({ file = null, maxEntries = 3000, rejectTtlMs = 60 * 60 * 1000, now = Date.now } = {}) {
   /** @type {Map<string, {text?: string, items?: string[]}>} */
   const entries = new Map();
+  /** Blocks the guard refused, by key, for a short time: a rebuild straight away does not pay for the same refusal again. */
+  /** @type {Map<string, {reason: string, at: number}>} */
+  const rejects = new Map();
+  const maxRejects = 2000;
   let dirty = false;
 
   if (file) {
@@ -43,6 +47,11 @@ export function createAiCache({ file = null, maxEntries = 3000 } = {}) {
       if (saved?.version === 1 && saved.entries && typeof saved.entries === "object") {
         for (const [key, value] of Object.entries(saved.entries)) {
           if (/^[0-9a-f]{64}$/.test(key) && value && (typeof value.text === "string" || Array.isArray(value.items))) entries.set(key, value);
+        }
+      }
+      if (saved?.rejects && typeof saved.rejects === "object") {
+        for (const [key, value] of Object.entries(saved.rejects)) {
+          if (/^[0-9a-f]{64}$/.test(key) && typeof value?.reason === "string" && Number.isFinite(value.at)) rejects.set(key, { reason: value.reason.slice(0, 40), at: value.at });
         }
       }
     } catch {
@@ -61,7 +70,26 @@ export function createAiCache({ file = null, maxEntries = 3000 } = {}) {
     set(key, value) {
       entries.delete(key);
       entries.set(key, value.items ? { items: [...value.items] } : { text: value.text });
+      rejects.delete(key);
       while (entries.size > maxEntries) entries.delete(entries.keys().next().value);
+      dirty = true;
+    },
+    /** Why the guard refused this block a moment ago, or null (never refused, or long enough ago to try again). */
+    getReject(key) {
+      if (!(rejectTtlMs > 0)) return null;
+      const hit = rejects.get(key);
+      if (!hit) return null;
+      if (now() - hit.at > rejectTtlMs) {
+        rejects.delete(key);
+        return null;
+      }
+      return hit.reason;
+    },
+    setReject(key, reason) {
+      if (!(rejectTtlMs > 0)) return;
+      rejects.delete(key);
+      rejects.set(key, { reason: String(reason).slice(0, 40), at: now() });
+      while (rejects.size > maxRejects) rejects.delete(rejects.keys().next().value);
       dirty = true;
     },
     get size() {
@@ -73,7 +101,7 @@ export function createAiCache({ file = null, maxEntries = 3000 } = {}) {
       try {
         fs.mkdirSync(path.dirname(file), { recursive: true });
         const tmp = `${file}.${process.pid}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify({ version: 1, entries: Object.fromEntries(entries) }), "utf8");
+        fs.writeFileSync(tmp, JSON.stringify({ version: 1, entries: Object.fromEntries(entries), rejects: Object.fromEntries(rejects) }), "utf8");
         fs.renameSync(tmp, file);
         dirty = false;
         return true;

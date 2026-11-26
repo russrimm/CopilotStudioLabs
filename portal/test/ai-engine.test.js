@@ -9,14 +9,17 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { readAiConfig } from "../lib/ai/config.js";
-import { createAiCache } from "../lib/ai/cache.js";
+import { readAiConfig, AI_PROMPT_VERSION, AI_WRITING_VERSION, MIN_CALL_TIMEOUT_MS } from "../lib/ai/config.js";
+import { createHash } from "node:crypto";
+import { createAiCache, blockCacheKey } from "../lib/ai/cache.js";
 import { createEngine } from "../lib/ai/engine.js";
-import { createUsageLimiter } from "../lib/ai/limits.js";
+import { createCallGate, createUsageLimiter } from "../lib/ai/limits.js";
 import { logAi } from "../lib/ai/errors.js";
+import { GUARD_VERSION } from "../lib/ai/guard.js";
 import { SYSTEM_PROMPT } from "../lib/ai/prompts.js";
+import { newRecord, sealRecord } from "../lib/ai/record.js";
 import { knownNames } from "../lib/ai/names.js";
-import { createFakeBackend } from "./fixtures/fake-ai.js";
+import { createFakeBackend, passagesOf } from "./fixtures/fake-ai.js";
 
 const NAMES = knownNames();
 
@@ -78,18 +81,27 @@ test("each way a model can break the rules makes that block keep the standard te
     assert.match(reasons, new RegExp(reasonPrefix), `${behavior}: ${reasons}`);
     assert.equal(results.get("u0.why").status, "kept");
   }
-  // A step list that gains or loses a step is refused; the text block next to it is judged on its own.
-  for (const behavior of ["drop-step", "add-step"]) {
-    const { engine } = build(createFakeBackend({ behavior }));
+  // A list the model leaves an item out of is asked for once more, then kept as written; the text block next to it is judged on its own.
+  {
+    const backend = createFakeBackend({ behavior: "drop-step" });
+    const { engine } = build(backend);
     const { results, summary } = await run(engine);
-    assert.equal(results.get("u0.steps").status, "kept", behavior);
-    assert.equal(summary.rejected["count-changed"], 1, behavior);
-    assert.equal(results.get("u0.why").status, "ai", behavior);
+    assert.equal(results.get("u0.steps").status, "kept");
+    assert.equal(summary.rejected.missing, 1);
+    assert.equal(results.get("u0.why").status, "ai");
+    assert.equal(backend.calls.filter((c) => c.type === "complete").length, 2, "one request, then one for the missing passage");
+  }
+  // An entry the request never had is ignored, and every passage that was asked for is still checked.
+  {
+    const { engine } = build(createFakeBackend({ behavior: "extra-passage" }));
+    const { results } = await run(engine);
+    assert.equal(results.get("u0.steps").items.length, 3);
+    assert.equal(results.get("u0.why").status, "ai");
   }
 });
 
-test("a reordered list is refused and the steps keep their order", async () => {
-  const { engine } = build(createFakeBackend({ behavior: "reorder" }));
+test("steps that trade places are refused and the steps keep their order", async () => {
+  const { engine } = build(createFakeBackend({ behavior: "swap-first-two" }));
   const { results } = await run(engine);
   assert.equal(results.get("u0.steps").status, "kept");
 });

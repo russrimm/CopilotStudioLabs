@@ -54,7 +54,7 @@ try {
   if (flag("models") || flag("say")) {
     console.log("\nContacting GitHub Copilot with this PC's own sign-in...");
     const models = await backend.listModels();
-    for (const m of models) console.log(`  ${m.id.padEnd(28)} ${m.name}  (${m.cost})`);
+    for (const m of models) console.log(`  ${m.id.padEnd(28)} ${m.name}${m.recommended ? "  [recommended]" : ""}  (${m.cost})`);
   }
   if (flag("say")) {
     const model = value("model");

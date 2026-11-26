@@ -234,6 +234,46 @@ for (const view of VIEWS) {
       await context.close();
     }
   });
+  test(`the recommended model leads and says why; the estimate counts prompts and the cost words are honest (${label})`, async () => {
+    const recommended = {
+      provider: "GitHub Copilot",
+      models: [
+        { id: "gpt-lite", name: "GPT Lite", cost: "Cost not reported by GitHub; each prompt counts against your Copilot allowance", multiplier: null, warning: null, recommended: true, recommendedWhy: "Fast and careful at rewording: a whole one-topic lab in under a minute in our tests." },
+        { id: "auto", name: "Auto", cost: "Cost not reported by GitHub; each prompt counts against your Copilot allowance", multiplier: null, warning: null, recommended: false, recommendedWhy: null },
+        { id: "gpt-smart", name: "GPT Smart", cost: "Uses 1 premium request for each prompt", multiplier: 1, warning: null, recommended: false, recommendedWhy: null },
+      ],
+    };
+    const { context, page, errors } = await openReview({ ...view, status: { ...READY, estimate: { lab: { base: 1, perModule: 0.55 }, labday: { base: 0.5, perModule: 0.3 }, training: { base: 3, perModule: 3.5 }, retryShare: 0.1 } }, models: recommended });
+    try {
+      await page.locator("label[for=lb-ai-enabled]").click();
+      await page.waitForFunction(() => document.querySelectorAll("#lb-ai-model option").length === 4);
+      assert.deepEqual(await page.locator("#lb-ai-model option").allInnerTexts(), ["Choose a model", "GPT Lite (recommended)", "Auto", "GPT Smart"]);
+      assert.equal(await page.locator("#lb-ai-model").inputValue(), "gpt-lite", "the recommended model is chosen for a person who has not chosen");
+      assert.match(await page.locator("#lb-ai-model-why").innerText(), /^Recommended: Fast and careful at rewording/);
+      assert.match(await page.locator("#lb-ai-model-cost").innerText(), /Cost not reported by GitHub; each prompt counts against your Copilot allowance/);
+      await page.waitForFunction(() => /About \d+ prompts for this lab/.test(document.getElementById("lb-ai-estimate")?.textContent || ""));
+      assert.match(await page.locator("#lb-ai-estimate").innerText(), /^About \d+ prompts for this lab with the parts ticked above\. Cost is not reported by GitHub; each prompt counts against your Copilot allowance\.$/);
+      await page.locator("#lb-ai-model").selectOption("gpt-smart");
+      assert.match(await page.locator("#lb-ai-estimate").innerText(), /At 1 of a premium request each, that is about \d+(\.\d)? premium requests\./);
+      await page.locator("label[for=lb-ai-scope-training]").click();
+      await page.locator("label[for=lb-ai-scope-labday]").click();
+      await shot(page, `ai-control-recommended-${view.theme}-${view.width}`);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, "no sideways scroll");
+      const card = await page.locator("#lb-ai-card").boundingBox();
+      assert.ok(card.x >= 0 && card.x + card.width <= view.width + 1, "the card stays inside the page");
+      const inside = await page.evaluate(() => ["lb-ai-model-why", "lb-ai-model-cost", "lb-ai-estimate"].every((id) => {
+        const el = document.getElementById(id);
+        if (!el.textContent.trim()) return true;
+        const box = el.getBoundingClientRect();
+        const card = document.getElementById("lb-ai-card").getBoundingClientRect();
+        return box.right <= card.right + 1 && box.left >= card.left - 1;
+      }));
+      assert.equal(inside, true, "the new lines wrap inside the card");
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  });
 }
 
 test("signing in: the prompt is plain, the model picker waits for the sign-in, and a build is refused until then", async () => {

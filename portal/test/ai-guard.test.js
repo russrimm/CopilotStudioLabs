@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { checkList, checkText, protectedTokens, toUsEnglish } from "../lib/ai/guard.js";
+import { checkList, checkText, protectedTokens, rejectionKind, toUsEnglish } from "../lib/ai/guard.js";
 import { parseAnswer } from "../lib/ai/prompts.js";
 import { knownNames } from "../lib/ai/names.js";
 
@@ -111,10 +111,90 @@ test("protectedTokens finds each kind", () => {
 });
 
 test("parseAnswer accepts only the schema, even inside a code fence, and never throws", () => {
-  const good = parseAnswer('```json\n{"blocks":[{"id":"a","text":"x","items":[]}]}\n```');
+  const good = parseAnswer('```json\n{"passages":[{"id":"a","text":"x"}]}\n```');
   assert.equal(good.ok, true);
-  assert.equal(good.byId.get("a").text, "x");
-  for (const bad of ["", "nope", "[]", '{"blocks":"x"}', '{"blocks":[{"text":"x"}]}', '{"blocks":[{"id":"a","items":[1]}]}', '{"blocks":[{"id":"a"},{"id":"a"}]}']) {
+  assert.equal(good.byId.get("a"), "x");
+  for (const bad of ["", "nope", "[]", '{"passages":"x"}', '{"passages":[{"text":"x"}]}', '{"passages":[{"id":"a","text":1}]}', '{"passages":[{"id":"a"}]}', '{"passages":[{"id":"a","text":"x"},{"id":"a","text":"y"}]}', '{"blocks":[{"id":"a","text":"x","items":[]}]}']) {
     assert.equal(parseAnswer(bad).ok, false, bad);
   }
+});
+
+// ── Matching that was too strict for ordinary wording. Each case below was a real refusal of a faithful rewording on the real
+// service; none of them lets an invented fact through (the opposite cases sit beside them).
+
+test("a presenter's own line may open with 'Here's' or 'Here are'; only talk about the text itself is chatter", () => {
+  const source = "This is how the lesson goes. Tell it like a short story.";
+  const note = (output, over = {}) => checkText({ kind: "note", source, names: NAMES, deck: true, ...over }, output);
+  for (const opening of ["Here's how the lesson goes. Tell it like a short story.", "Here are the ideas for today. Tell it like a short story.", "Below is how the lesson goes. Tell it like a short story."]) {
+    assert.equal(note(opening).ok, true, opening);
+  }
+  for (const chatter of ["Here is the reworded text: This is how the lesson goes.", "Here's the revised version. This is how the lesson goes.", "Here are the rewritten passages. This is how the lesson goes.", "Sure, this is how the lesson goes. Tell it like a short story.", "Certainly. This is how the lesson goes.", "Below is the updated note. This is how the lesson goes.", "Here's a quick rewrite: this is how the lesson goes."]) {
+    assert.equal(note(chatter).reason, "structure:chatter", chatter);
+  }
+  // A source that itself opens that way is not chatter.
+  assert.equal(checkText({ kind: "note", source: "Here is how the lesson goes. Tell it like a short story.", names: NAMES, deck: true }, "Here is how the lesson works. Tell it like a short story.").ok, true);
+});
+
+test("'Teams' opening a sentence is the plain noun, but the product named anywhere else is still protected", () => {
+  const source = "People ask for the same help again and again from many different places.";
+  const slide = (output, over = {}) => checkText({ kind: "slide", source, names: NAMES, deck: true, ...over }, output);
+  assert.equal(slide("Teams ask for the same help again and again from many different places.").ok, true);
+  assert.equal(slide("Excel users ask for the same help again and again from many different places.").ok, false, "a product word after a sentence-start name is still the product");
+  assert.match(slide("People ask for the same help again and again in Teams from many different places.").reason, /invented:names/);
+  assert.match(slide("Teams channel messages ask for the same help again and again from many different places.").reason, /invented:names/);
+  assert.match(slide("People ask for the same help. Teams app chats hold it from many different places.").reason, /invented:names/);
+  // The product named in the source must stay, wherever it is.
+  const withTeams = "Share the answers in Teams so people can find them in one place.";
+  assert.match(checkText({ kind: "slide", source: withTeams, names: NAMES, deck: true }, "Share the answers so people can find them in one place.").reason, /dropped:names/);
+  assert.equal(checkText({ kind: "slide", source: withTeams, names: NAMES, deck: true }, "Post the answers in Teams so people can find them in one place.").ok, true);
+  assert.deepEqual([...protectedTokens("Teams ask for help.", { names: NAMES }).names], []);
+  assert.deepEqual([...protectedTokens("Ask in Teams.", { names: NAMES }).names], ["Teams"]);
+});
+
+test("a slide may swap the source's own 'pick' for 'choose'; a step verb the source never had is still refused", () => {
+  const source = "You want a quick answer with no setup: pick the simple option.";
+  const slide = (output, over = {}) => checkText({ kind: "slide", source, names: NAMES, deck: true, ...over }, output);
+  assert.equal(slide("Choose the simple option when you want a quick answer with no setup.").ok, true);
+  assert.equal(slide("A good fit. Choose the simple option if you want a quick answer.").ok, true);
+  assert.equal(slide("Select the simple option when you want a quick answer with no setup.").reason, "reads-like-a-step", "Select is a lab verb");
+  assert.equal(slide("Open the simple option when you want a quick answer with no setup.").reason, "reads-like-a-step");
+  assert.equal(slide("Click **Create** to make the simple option for a quick answer with no setup.").ok, false);
+  const plain = { kind: "slide", source: "Agents help associates answer questions quickly.", names: NAMES, deck: true };
+  assert.equal(checkText(plain, "Choose an agent to help associates answer questions quickly.").reason, "reads-like-a-step", "the source gave no advice to choose");
+});
+
+test("rejections are sorted into plain kinds for counting", () => {
+  const cases = {
+    "invalid-json": "schema",
+    schema: "schema",
+    missing: "missing",
+    "dropped:ui": "dropped",
+    "dropped:numbers": "dropped",
+    "invented:names": "added",
+    "invented:urls": "added",
+    "too-short": "length",
+    "too-long": "length",
+    "does-not-fit": "length",
+    "count-changed": "step-order",
+    "lines-changed": "step-order",
+    "duplicate-items": "step-order",
+    "structure:injection": "injection",
+    "structure:chatter": "chatter",
+    "structure:refusal": "chatter",
+    "structure:heading": "markup",
+    "structure:html": "markup",
+    "reads-like-a-step": "step-voice",
+    whatever: "other",
+  };
+  for (const [reason, kind] of Object.entries(cases)) assert.equal(rejectionKind(reason), kind, reason);
+});
+
+test("a rejection names the protected term at fault, for tuning, and nothing else", () => {
+  const result = checkText({ kind: "step", source: "Open **Settings** and select **Knowledge**.", names: NAMES }, "Open Settings and select **Knowledge**.");
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, "dropped:ui");
+  assert.equal(result.token, "**Settings**");
+  const list = checkList({ kind: "step", sources: ["Open **Settings** now.", "Select **Add** next."], names: NAMES }, ["Open **Settings** now.", "Press the button next."]);
+  assert.equal(list.index, 1);
+  assert.equal(list.token, "**Add**");
 });

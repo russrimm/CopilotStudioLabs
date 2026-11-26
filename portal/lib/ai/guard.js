@@ -27,7 +27,10 @@ const IMAGE_RE = /!\[[^\]]*\]\([^)]*\)/;
 const LINK_RE = /\[[^\]]+\]\([^)]*\)/g;
 const SCRIPT_RE = /javascript:|data:text\/html/i;
 const PLACEHOLDER_WORD_RE = /\b(?:TODO|TBD|FIXME|XXX|lorem ipsum)\b/i;
-const CHATTER_RE = /^\s*(?:sure|certainly|of course|okay|ok|here(?:'s| is| are)|below is|as requested)\b/i;
+// Meta-talk about the task ("Sure, here is the reworded text:"). A presenter's own line may open with "Here's what happens"
+// or "Here are the words you'll hear", so "here" and "below" count as chatter only when they point at the text itself.
+const CHATTER_RE = /^\s*(?:sure|certainly|of course|okay|ok|as requested)\b/i;
+const CHATTER_HERE_RE = /^\s*(?:here(?:'s| is| are)|below (?:is|are))\s+(?:the |your |a |an |my |these |those |some |one )?(?:(?:quick|short|simple|clean|clear|plain|better|improved|polished)\s+)?(?:(?:re)?word(?:ed|ing)|rewrit(?:e|ten)|re-?written|rework(?:ed)?|revis(?:ed|ion)|updated|improved|edited|polished|rephrased|simplified|clearer|new|final|draft|json|text|version|passages?|slides?|notes?|answers?|output|result|response|reply)\b/i;
 const REFUSAL_RE = /\b(?:as an ai|language model|i(?:'m| am) (?:sorry|unable)|i can(?:'|no)t (?:help|assist|comply)|i cannot (?:help|assist|comply|provide))\b/i;
 const INJECTION_RE = /\b(?:ignore (?:all |any |the )?(?:previous|prior|above|earlier) (?:instructions|rules|messages)|disregard (?:the )?(?:previous|above|system)|system prompt|developer message|new instructions|you are now|jailbreak|<\/?untrusted)/i;
 
@@ -113,11 +116,24 @@ export function protectedTokens(text, { ui = [], names = [] } = {}) {
   for (const term of ui) if (term && source.includes(term)) interfaceTerms.add(term);
   const nameSet = new Set();
   const nameRe = nameRegex(names);
-  if (nameRe) for (const m of source.matchAll(nameRe)) nameSet.add(m[0]);
+  if (nameRe) for (const m of source.matchAll(nameRe)) if (!isPlainWordUse(source, m)) nameSet.add(m[0]);
   return { urls, code, numbers, ui: interfaceTerms, names: nameSet };
 }
 
 const NAME_RE_CACHE = new WeakMap();
+
+// Product names that are also ordinary English words. At the start of a sentence a capital letter says nothing, so "Teams keep
+// answering the same questions" is the plain noun. The name counts there only when a word that belongs to the product follows
+// ("Teams channel", "Excel workbook"); anywhere else in a sentence, a capital means the product.
+const AMBIGUOUS_NAMES = new Set(["Teams", "Excel", "Outlook"]);
+const PRODUCT_CONTEXT_RE = /^\s+(?:app|apps|application|channel|channels|chat|chats|message|messages|meeting|meetings|bot|bots|connector|connectors|tab|tabs|post|posts|notification|notifications|integration|integrations|admin|users?|team\b|workbook|workbooks|spreadsheet|spreadsheets|sheet|sheets|file|files|add-in|add-ins|calendar|inbox|mailbox|email|emails|mail|rule|rules|for\s+(?:web|mobile|desktop|Microsoft)|on\s+(?:the\s+)?(?:web|mobile|desktop))/i;
+const SENTENCE_START_RE = /(?:^|[.!?]["'\u201d)\]]*\s+|\n\s*(?:[-*\u2022]\s+|\d{1,2}[.)]\s+)?)$/;
+
+function isPlainWordUse(text, match) {
+  if (!AMBIGUOUS_NAMES.has(match[0])) return false;
+  if (!SENTENCE_START_RE.test(text.slice(0, match.index))) return false;
+  return !PRODUCT_CONTEXT_RE.test(text.slice(match.index + match[0].length, match.index + match[0].length + 40));
+}
 
 /** One regular expression for a whole list of names, longest first, so "Power Automate" wins over "Power". */
 function nameRegex(names) {
@@ -173,6 +189,7 @@ function structuralProblem(source, output) {
     [SCRIPT_RE, "script link"],
     [PLACEHOLDER_WORD_RE, "placeholder word"],
     [CHATTER_RE, "chatter"],
+    [CHATTER_HERE_RE, "chatter"],
     [REFUSAL_RE, "refusal"],
     [INJECTION_RE, "injection"],
   ];
@@ -252,10 +269,36 @@ export function checkText(block, output, { maxOutputChars = 12000 } = {}) {
   }
 
   const difference = compare(source, text, { ui: block.ui || [], names: block.names || [], allowed: block.allowed || "" });
-  if (difference) return { ok: false, reason: `${difference.problem}:${difference.kind}` };
+  if (difference) return { ok: false, reason: `${difference.problem}:${difference.kind}`, token: difference.token };
 
-  if (block.deck && findLabStepLeaks(text).length && !findLabStepLeaks(source).length) return { ok: false, reason: "reads-like-a-step" };
+  // A slide that says "pick a prompt agent" may say "Choose a prompt agent": the source already gave that advice, and "choose" and
+  // "pick" mean the same thing here. Any other opening verb, and "Choose" where the source never advised choosing, still reads like
+  // a lab step.
+  const advises = /\b(?:pick|choose)\b/i.test(source);
+  const forLeaks = advises ? text.replace(/(^|[.!?:]\s+)Choose\b/g, "$1Pick") : text;
+  if (block.deck && findLabStepLeaks(forLeaks).length && !findLabStepLeaks(source).length) return { ok: false, reason: "reads-like-a-step" };
   return { ok: true, text };
+}
+
+/**
+ * The plain kind of a guard reason, for counting rejections: schema (the answer was not the JSON asked for), missing (a
+ * passage was not answered), dropped (a protected term was lost), added (one was invented), length, step-order (a list lost
+ * its count, order or line structure), injection, chatter, markup (headings, lists, links, HTML), step-voice (a slide that read
+ * like a lab step) or other.
+ */
+export function rejectionKind(reason) {
+  const text = String(reason || "");
+  if (/^(?:invalid-json|schema|not-text)$/.test(text)) return "schema";
+  if (text === "missing") return "missing";
+  if (text.startsWith("dropped")) return "dropped";
+  if (text.startsWith("invented")) return "added";
+  if (/^(?:too-short|too-long|does-not-fit|empty)$/.test(text)) return "length";
+  if (/^(?:count-changed|lines-changed|duplicate-items|not-a-list)$/.test(text)) return "step-order";
+  if (text === "structure:injection") return "injection";
+  if (text === "structure:chatter" || text === "structure:refusal") return "chatter";
+  if (text.startsWith("structure")) return "markup";
+  if (text === "reads-like-a-step") return "step-voice";
+  return "other";
 }
 
 /**
@@ -270,7 +313,7 @@ export function checkList(block, outputs, options) {
   const items = [];
   for (let i = 0; i < sources.length; i += 1) {
     const result = checkText({ ...block, kind: block.itemKind || block.kind, source: sources[i], limits: block.limits }, outputs[i], options);
-    if (!result.ok) return { ok: false, reason: result.reason, index: i };
+    if (!result.ok) return { ok: false, reason: result.reason, index: i, token: result.token };
     items.push(result.text);
   }
   const seen = new Set();

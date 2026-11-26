@@ -10,7 +10,7 @@ import { isModelId } from "./config.js";
 
 /** "Costs" in the words a trainer uses, from a billing multiplier. */
 export function costLabel(multiplier) {
-  if (multiplier === undefined || multiplier === null || !Number.isFinite(Number(multiplier))) return "Cost not reported by GitHub";
+  if (multiplier === undefined || multiplier === null || !Number.isFinite(Number(multiplier))) return "Cost not reported by GitHub; each prompt counts against your Copilot allowance";
   const value = Number(multiplier);
   if (value === 0) return "Included with your plan, no premium requests";
   if (value === 1) return "Uses 1 premium request for each prompt";
@@ -20,6 +20,25 @@ export function costLabel(multiplier) {
 
 function cleanText(value, max = 80) {
   return String(value ?? "").replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+/**
+ * The model the portal recommends, in order of preference: the first one this account offers is marked and listed first. The
+ * reason is shown beside it, in plain words. The choice comes from measuring a one-topic lab with all three outputs on the real
+ * service (docs/ai-writing.md, "Measured on the real service"). `auto` and every other model stay in the list.
+ */
+export const RECOMMENDED_MODELS = Object.freeze([
+  {
+    id: "gpt-5.6-luna",
+    why: "Fast and careful at rewording: it rewrote a whole one-topic lab, the training decks and the lab-day decks in under a minute in our tests, and the check against the original kept almost every passage.",
+  },
+]);
+
+function applyRecommendation(models) {
+  const pick = RECOMMENDED_MODELS.find((candidate) => models.some((model) => model.id === candidate.id));
+  const marked = models.map((model) => ({ ...model, recommended: pick?.id === model.id, recommendedWhy: pick?.id === model.id ? pick.why : null }));
+  const first = marked.findIndex((model) => model.recommended);
+  return first > 0 ? [marked[first], ...marked.filter((_, index) => index !== first)] : marked;
 }
 
 /**
@@ -50,7 +69,19 @@ export function normalizeModels(raw, { allowed = [] } = {}) {
       defaultReasoningEffort: cleanText(entry?.defaultReasoningEffort || "", 12) || null,
     });
   }
-  return models;
+  return applyRecommendation(models);
+}
+
+/**
+ * The reasoning effort to ask for, or undefined. Rewording needs no chain of thought, and thinking time is most of what a call
+ * costs on a model that does it, so "auto" picks the lowest level the model lists ("none", else "low"). A model that lists no
+ * levels gets none set.
+ */
+export function pickReasoningEffort(model, setting = "auto") {
+  const levels = Array.isArray(model?.reasoningEfforts) ? model.reasoningEfforts : [];
+  if (!levels.length || setting === "off") return undefined;
+  if (setting !== "auto") return levels.includes(setting) ? setting : undefined;
+  return levels.includes("none") ? "none" : levels.includes("low") ? "low" : levels[0];
 }
 
 /** The models a "bring your own key" server offers, from AI_BYOK_MODELS, with a cost the owner pays elsewhere. */

@@ -14,6 +14,13 @@ const LB_AI_SCOPES = [
 ];
 const LB_AI_ALL_SCOPES = LB_AI_SCOPES.map(([id]) => id);
 const LB_AI_PART_WORDS = { lab: "the lab text", training: "the training decks", labday: "the lab-day decks" };
+// Used only until /api/ai/status delivers the measured numbers (lib/ai/estimate.js); the same formula lives there.
+const LB_AI_ESTIMATE_FALLBACK = {
+  lab: { base: 1, perModule: 0.55 },
+  labday: { base: 0.5, perModule: 0.3 },
+  training: { base: 3, perModule: 3.5 },
+  retryShare: 0.1,
+};
 
 const labBuilderAi = {
   status: null,
@@ -62,6 +69,46 @@ function lbAiFactText() {
   return model ? `Written with AI (${model.name})` : "";
 }
 
+/** How many modules the lab has, refreshers included, from the outline the wizard already planned; 0 until it is ready. */
+function lbAiModuleCount() {
+  const modules = typeof labBuilder !== "undefined" && Array.isArray(labBuilder?.previewModules) ? labBuilder.previewModules : [];
+  return modules.length;
+}
+
+/** The same formula as lib/ai/estimate.js: prompts for this lab with the parts chosen, or 0 when there is nothing to count. */
+function lbAiEstimatePrompts(modules, scope, params) {
+  const p = params || labBuilderAi.status?.estimate || LB_AI_ESTIMATE_FALLBACK;
+  const count = Math.max(1, Math.floor(Number(modules) || 0));
+  const chosen = new Set(scope);
+  const part = (x) => x.base + x.perModule * count;
+  const lab = chosen.has("lab") ? part(p.lab) : 0;
+  const labday = chosen.has("labday") && !chosen.has("lab") ? part(p.labday) : 0;
+  const training = chosen.has("training") ? part(p.training) : 0;
+  const raw = lab + labday + training;
+  return raw ? Math.ceil(raw * (1 + p.retryShare)) : 0;
+}
+
+/** "About 13 prompts for this lab...", in plain words, with the honest note about cost. Empty until there is something to say. */
+function lbAiEstimateText() {
+  if (!labBuilderAi.enabled || !labBuilderAi.scope.length) return "";
+  const modules = lbAiModuleCount();
+  if (!modules) return "";
+  const prompts = lbAiEstimatePrompts(modules, labBuilderAi.scope);
+  if (!prompts) return "";
+  const model = labBuilderAi.models.find((m) => m.id === labBuilderAi.model);
+  const about = `About ${prompts} ${prompts === 1 ? "prompt" : "prompts"} for this lab with the parts ticked above.`;
+  if (model && Number.isFinite(model.multiplier)) {
+    const premium = Math.round(prompts * model.multiplier * 10) / 10;
+    return `${about} At ${model.multiplier} of a premium request each, that is about ${premium} premium ${premium === 1 ? "request" : "requests"}.`;
+  }
+  return `${about} Cost is not reported by GitHub; each prompt counts against your Copilot allowance.`;
+}
+
+/** The model's name for the picker: the recommended one says so. */
+function lbAiModelLabel(model) {
+  return model.recommended ? `${model.name} (recommended)` : model.name;
+}
+
 function lbAiRender() {
   const status = labBuilderAi.status;
   const card = lbAiEl("lb-ai-card");
@@ -89,12 +136,14 @@ function lbAiRender() {
 
   const select = lbAiEl("lb-ai-model");
   if (select && !needsSignIn) {
-    const options = labBuilderAi.models.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`);
+    const options = labBuilderAi.models.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(lbAiModelLabel(m))}</option>`);
     select.innerHTML = [`<option value="">Choose a model</option>`, ...options].join("");
     select.value = labBuilderAi.models.some((m) => m.id === labBuilderAi.model) ? labBuilderAi.model : "";
   }
   const chosen = labBuilderAi.models.find((m) => m.id === labBuilderAi.model);
   lbAiSetText("lb-ai-model-cost", chosen ? [chosen.cost, chosen.warning].filter(Boolean).join(". ") : labBuilderAi.loading ? "Loading the models available to you." : "");
+  lbAiSetText("lb-ai-model-why", chosen?.recommended && chosen.recommendedWhy ? `Recommended: ${chosen.recommendedWhy}` : "");
+  lbAiSetText("lb-ai-estimate", lbAiEstimateText());
   for (const [id] of LB_AI_SCOPES) {
     const input = lbAiEl(`lb-ai-scope-${id}`);
     if (input) input.checked = labBuilderAi.scope.includes(id);
@@ -143,6 +192,11 @@ async function lbAiLoadModels() {
       labBuilderAi.model = "";
     }
     if (!labBuilderAi.model && labBuilderAi.models.length === 1) labBuilderAi.model = labBuilderAi.models[0].id;
+    // The recommended model is ready to use: one less thing to decide. A saved choice is never replaced.
+    if (!labBuilderAi.model) {
+      const recommended = labBuilderAi.models.find((m) => m.recommended);
+      if (recommended) labBuilderAi.model = recommended.id;
+    }
   } catch (err) {
     labBuilderAi.models = [];
     labBuilderAi.error = err.message || "The model list could not be read.";
@@ -278,7 +332,8 @@ function lbAiProgressText() {
   const p = labBuilderAi.progress;
   if (!p || !(p.total > 0) || p.finished) return "";
   const part = LB_AI_PART_WORDS[p.stage] || "the lab";
-  return `Writing ${part} with AI: ${p.done} of ${p.total} passages.`;
+  const prompts = Number(p.prompts) > 0 ? ` ${p.prompts} ${Number(p.prompts) === 1 ? "prompt" : "prompts"} used so far.` : "";
+  return `Writing ${part} with AI: ${p.done} of ${p.total} passages done.${prompts}`;
 }
 
 function lbAiOnBuildStart(ticket) {

@@ -55,7 +55,7 @@ export function registerAiRoutes(app, { service, github, config, rateCheck = () 
   app.get("/api/ai/progress/:ticket", (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const found = service.getProgress(visitorOf(req), String(req.params.ticket || ""));
-    return res.json(found || { done: 0, total: 0, stage: "none", finished: false });
+    return res.json(found || { done: 0, total: 0, stage: "none", finished: false, prompts: 0 });
   });
 
   app.post("/api/ai/auth/start", (req, res) => {
