@@ -80,7 +80,7 @@ import {
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { applyLabResults, buildLabUnits } from "../ai/lab-writing.js";
 import { runDeckWriting } from "../ai/deck-run.js";
-import { addPart, addRun, countLabResults, sealRecord, usedAi, withAiNote } from "../ai/record.js";
+import { addPart, addRun, countLabResults, fallbackSummary, sealRecord, usedAi, withAiNote } from "../ai/record.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -1602,6 +1602,7 @@ export async function generateLab(request, opts = {}) {
     if (aiWriter && aiWriter.scope.includes("training")) {
       try {
         onProgress?.({ stage: "ai", message: "Writing the training decks with AI" });
+        const promptsBefore = aiRecord?.requests || 0;
         aiDeckRun = await runDeckWriting({
           outputDir,
           markdown,
@@ -1609,7 +1610,7 @@ export async function generateLab(request, opts = {}) {
           labId: savedLabId,
           writer: aiWriter,
           signal,
-          onProgress: (p) => opts.onAiProgress?.({ ...p, part: "training" }),
+          onProgress: (p) => opts.onAiProgress?.({ ...p, part: "training", requests: promptsBefore + (p.requests || 0) }),
         });
         aiRecord ||= aiWriter.newRecord();
         addPart(aiRecord, "training", aiDeckRun.summary);
@@ -1627,6 +1628,9 @@ export async function generateLab(request, opts = {}) {
       aiDeckRun?.writeSaved(aiRecord.fingerprint);
       markdown = plainText(withAiNote(markdown, aiRecord));
       result.markdown = markdown;
+      // Say exactly how many passages kept the standard text and why, in the build result (counts only).
+      const fallback = fallbackSummary(aiRecord);
+      if (fallback && !plan.warnings.includes(fallback)) plan.warnings.push(fallback);
     } else if (aiWriter && !plan.warnings.some((w) => /AI writing/.test(w))) {
       plan.warnings.push("AI writing was on, but none of the model's rewordings passed the checks against the original, so the lab uses the standard text.");
     }

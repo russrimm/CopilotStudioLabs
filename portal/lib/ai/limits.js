@@ -8,6 +8,58 @@
 
 import { AiError } from "./errors.js";
 
+/**
+ * A limit on model calls in flight across the whole server, shared by every lab being written. Each lab also limits its own
+ * parallel calls; this is the ceiling over all of them, so two or three labs together cannot flood the service.
+ */
+export function createCallGate({ max = 6 } = {}) {
+  let active = 0;
+  /** @type {Array<{resolve: Function, reject: Function, signal?: AbortSignal, onAbort?: Function}>} */
+  const waiters = [];
+
+  const grant = () => {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      active -= 1;
+      pump();
+    };
+  };
+  function pump() {
+    while (waiters.length && active < max) {
+      const waiter = waiters.shift();
+      waiter.signal?.removeEventListener("abort", waiter.onAbort);
+      active += 1;
+      waiter.resolve(grant());
+    }
+  }
+
+  return {
+    /** Resolves with a release function when a slot is free; rejects with an AbortError if the signal fires while waiting. */
+    acquire(signal) {
+      if (signal?.aborted) return Promise.reject(Object.assign(new Error("Cancelled"), { name: "AbortError" }));
+      if (active < max && !waiters.length) {
+        active += 1;
+        return Promise.resolve(grant());
+      }
+      return new Promise((resolve, reject) => {
+        const waiter = { resolve, reject, signal };
+        waiter.onAbort = () => {
+          const at = waiters.indexOf(waiter);
+          if (at > -1) waiters.splice(at, 1);
+          reject(Object.assign(new Error("Cancelled"), { name: "AbortError" }));
+        };
+        signal?.addEventListener("abort", waiter.onAbort, { once: true });
+        waiters.push(waiter);
+      });
+    },
+    snapshot() {
+      return { active, waiting: waiters.length, max };
+    },
+  };
+}
+
 export function createUsageLimiter({ config, now = Date.now } = {}) {
   /** @type {Map<string, {day: string, labs: number, blocks: number, tokens: number}>} */
   const usage = new Map();

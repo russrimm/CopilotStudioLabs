@@ -4272,6 +4272,8 @@ async function lbPreview(options = {}) {
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
 
     labBuilder.previewModules = Array.isArray(data.modules) ? data.modules : [];
+    // The AI card's prompt estimate counts these modules.
+    if (typeof lbAiRender === "function") lbAiRender();
     labBuilder.previewRequiresSharepointSite =
       typeof data.requiresSharepointSite === "boolean" ? data.requiresSharepointSite : null;
     lbSyncSharepointSiteUi();

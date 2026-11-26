@@ -11,11 +11,13 @@
 
 import { decideAccess, requireAccess } from "./access.js";
 import { AI_SCOPE_LABELS, isModelId, normalizeScope } from "./config.js";
-import { createModelCache } from "./models.js";
+import { createModelCache, pickReasoningEffort } from "./models.js";
 import { AiError } from "./errors.js";
 import { createEngine } from "./engine.js";
+import { createCallGate } from "./limits.js";
 import { readCookie, sessionCookieName } from "./github-auth.js";
 import { newRecord, providerLabel } from "./record.js";
+import { ESTIMATE_PARAMS } from "./estimate.js";
 import { visitorKey } from "../concurrency/visitor.js";
 
 const SENDS =
@@ -27,7 +29,7 @@ function plainScopes() {
 
 export function createAiService({ config, backend, github = null, limiter, cache, authEnabled = false, bindHost = "127.0.0.1", logger, now = Date.now, ticketTtlMs = 15 * 60 * 1000 }) {
   const modelCache = createModelCache({ ttlMs: config.modelCacheMs, now });
-  const engine = createEngine({ backend, config, cache, limiter, logger });
+  const engine = createEngine({ backend, config, cache, limiter, gate: createCallGate({ max: config.maxCallsInFlight }), logger });
   const progress = new Map();
   let authCache = { at: 0, value: null };
 
@@ -51,6 +53,7 @@ export function createAiService({ config, backend, github = null, limiter, cache
       provider: null,
       scopes: plainScopes(),
       sends: SENDS,
+      estimate: ESTIMATE_PARAMS,
     };
   }
 
@@ -167,6 +170,7 @@ export function createAiService({ config, backend, github = null, limiter, cache
     const visitor = visitorKey(req);
     const lease = limiter.reserveLab(visitor);
     const providerName = providerLabel(config);
+    const effort = pickReasoningEffort(found, config.reasoningEffort);
     return {
       mode: config.mode,
       model: found.id,
@@ -174,8 +178,8 @@ export function createAiService({ config, backend, github = null, limiter, cache
       provider: providerName,
       scope,
       newRecord: () => newRecord({ mode: config.mode, providerName, model: found.id, modelName: found.name, scope, now: new Date(now()) }),
-      run: ({ units, signal, onProgress, reasoningEffort }) =>
-        engine.run({ units, model: found.id, provider: providerName, token: session?.token, visitor, signal, onProgress, reasoningEffort }),
+      run: ({ units, signal, onProgress, reasoningEffort = effort, diagnostics }) =>
+        engine.run({ units, model: found.id, provider: providerName, token: session?.token, visitor, signal, onProgress, reasoningEffort, diagnostics }),
       release: () => lease.release(),
       visitor,
     };
@@ -199,8 +203,8 @@ export function createAiService({ config, backend, github = null, limiter, cache
     getProgress(visitor, ticket) {
       const row = progress.get(ticket);
       if (!row || row.visitor !== visitor) return null;
-      const { done = 0, total = 0, stage = "ai", finished = false } = row;
-      return { done, total, stage, finished };
+      const { done = 0, total = 0, stage = "ai", finished = false, prompts = 0 } = row;
+      return { done, total, stage, finished, prompts };
     },
     clearProgress(ticket) {
       progress.delete(ticket);

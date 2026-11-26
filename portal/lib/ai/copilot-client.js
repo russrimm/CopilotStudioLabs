@@ -76,6 +76,16 @@ function removeDir(dir) {
   }
 }
 
+/** Wait for a cleanup step, but never longer than `ms`: a runtime that is slow to answer must not hold up a cancel. */
+function bounded(promise, ms) {
+  let timer;
+  const limit = new Promise((resolve) => {
+    timer = setTimeout(resolve, ms);
+    timer.unref?.();
+  });
+  return Promise.race([Promise.resolve(promise).catch(() => {}), limit]).finally(() => clearTimeout(timer));
+}
+
 /**
  * @param {object} options
  * @param {ReturnType<import("./config.js").readAiConfig>} options.config
@@ -91,7 +101,9 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
   let clientFailedAt = 0;
   let homeDir = null;
   let workDir = null;
-  const tally = { denied: 0, sessions: 0, toolsOffered: 0 };
+  // `sessions` counts sessions opened, `disconnected` those closed again, `prompts` the messages sent.
+  const tally = { denied: 0, sessions: 0, disconnected: 0, prompts: 0, toolsOffered: 0 };
+  const openSessions = new Set();
 
   async function loadSdk() {
     if (sdk) return sdk;
@@ -210,26 +222,39 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
   }
 
   /**
-   * One generation in a fresh session. Resolves `{ text, usage }`; throws an Error that classifyError() can sort.
+   * One generation in a fresh session. Resolves `{ text, usage, prompts }`; throws an Error that classifyError() can sort.
+   * `prompts` counts the messages sent (a runtime without structured output is asked a second time, which is a second prompt),
+   * and a thrown error carries the same count, so a caller can add up what a run really used.
+   *
+   * The time limit is the SDK's second argument to sendAndWait: a `timeout` inside the message is ignored, and the SDK then
+   * waits only its own default of 60 seconds.
    */
   async function complete({ model, system, prompt, schema, token, signal, timeoutMs = config.timeoutMs, reasoningEffort }) {
     if (config.mode === "per-user" && !token) throw new AiError("sign-in-required", "Sign in with GitHub to use AI writing.", 401);
     const client = await ensureClient();
     const cwd = makeTempDir(tmpRoot, "ai-run-");
     let session = null;
-    const usage = { inputTokens: 0, outputTokens: 0 };
+    const usage = { inputTokens: 0, outputTokens: 0, reasoningTokens: 0, apiCalls: 0, apiMs: 0, firstTokenMs: 0 };
+    let prompts = 0;
     try {
       session = await client.createSession(sessionOptions({ model, system, token, reasoningEffort, cwd }));
       tally.sessions += 1;
+      openSessions.add(session);
       const unsubscribe = session.on?.((event) => {
         if (event?.type === "assistant.usage") {
           usage.inputTokens += Number(event.data?.inputTokens) || 0;
           usage.outputTokens += Number(event.data?.outputTokens) || 0;
+          usage.reasoningTokens += Number(event.data?.reasoningTokens) || 0;
+          usage.apiCalls += 1;
+          usage.apiMs += Number(event.data?.duration) || 0;
+          usage.firstTokenMs = Math.max(usage.firstTokenMs, Number(event.data?.outputTtftMs) || 0);
         }
       });
       const run = async (useSchema) => {
-        const message = { prompt, timeout: timeoutMs, ...(useSchema && schema ? { responseSchema: schema } : {}) };
-        const reply = await session.sendAndWait(message);
+        const message = { prompt, ...(useSchema && schema ? { responseSchema: schema } : {}) };
+        prompts += 1;
+        tally.prompts += 1;
+        const reply = await session.sendAndWait(message, timeoutMs);
         const text = reply?.data?.content;
         if (typeof text !== "string" || !text.trim()) throw new Error("The model returned no answer.");
         return text;
@@ -239,9 +264,10 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
         if (schema && /response ?schema|responseFormat|structured/i.test(String(err?.message))) return run(false);
         throw err;
       });
+      let onAbort = null;
       const aborted = new Promise((_, reject) => {
         if (!signal) return;
-        const onAbort = () => reject(Object.assign(new Error("Cancelled"), { name: "AbortError" }));
+        onAbort = () => reject(Object.assign(new Error("Cancelled"), { name: "AbortError" }));
         if (signal.aborted) onAbort();
         else signal.addEventListener("abort", onAbort, { once: true });
       });
@@ -252,21 +278,32 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
       });
       try {
         const text = await Promise.race([work, aborted, timed]);
-        return { text, usage };
+        return { text, usage, prompts };
       } catch (err) {
-        await session.abort?.().catch(() => {});
+        await bounded(session.abort?.(), 2000);
+        if (err && typeof err === "object") err.prompts = prompts;
         throw err;
       } finally {
         clearTimeout(timer);
+        if (onAbort) signal.removeEventListener("abort", onAbort);
         unsubscribe?.();
         work.catch(() => {});
+        aborted.catch(() => {});
       }
     } finally {
-      const id = session?.sessionId;
-      await session?.disconnect?.().catch(() => {});
-      if (id) await client.deleteSession?.(id).catch(() => {});
+      await closeSession(client, session);
       removeDir(cwd);
     }
+  }
+
+  /** Disconnect a session and delete its stored history. Bounded, so a cancel returns quickly even if the runtime is slow. */
+  async function closeSession(client, session) {
+    if (!session) return;
+    const id = session.sessionId;
+    openSessions.delete(session);
+    await bounded(session.disconnect?.(), 3000);
+    tally.disconnected += 1;
+    if (id) await bounded(client.deleteSession?.(id), 2000);
   }
 
   async function stop() {
@@ -275,6 +312,8 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
     if (pending) {
       try {
         const client = await pending;
+        // A session still open at shutdown (a cancelled lab, a call that never returned) is closed before the runtime is.
+        await Promise.all([...openSessions].map((session) => closeSession(client, session)));
         const stopping = client.stop();
         const timeout = new Promise((resolve) => setTimeout(resolve, 5000).unref?.());
         await Promise.race([stopping, timeout]);
@@ -289,5 +328,5 @@ export function createCopilotBackend({ config, env = process.env, importSdk = de
     workDir = null;
   }
 
-  return { mode: config.mode, availability, listModels, authStatus, complete, stop, tally, classifyError };
+  return { mode: config.mode, availability, listModels, authStatus, complete, stop, tally, openSessions: () => openSessions.size, classifyError };
 }

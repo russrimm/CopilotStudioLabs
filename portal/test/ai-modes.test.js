@@ -337,9 +337,9 @@ test("the AI routes share the portal's per-visitor rate limit", async () => {
 test("progress is private to the visitor who started the build", async () => {
   const app = await startApp({ env: { AI_GENERATION: "local-user" } });
   const mine = visitorKey({ socket: { remoteAddress: "127.0.0.1" }, headers: {}, get: () => undefined, ip: "127.0.0.1" });
-  app.ai.service.setProgress(mine, "b1234567890abcdef12345678", { done: 3, total: 9, stage: "lab" });
+  app.ai.service.setProgress(mine, "b1234567890abcdef12345678", { done: 3, total: 9, stage: "lab", prompts: 2 });
   const own = await app.get("/api/ai/progress/b1234567890abcdef12345678");
-  assert.deepEqual(own.body, { done: 3, total: 9, stage: "lab", finished: false });
+  assert.deepEqual(own.body, { done: 3, total: 9, stage: "lab", finished: false, prompts: 2 });
   app.ai.service.setProgress("someone-else", "bffffffffffffffffffffffff", { done: 1, total: 2, stage: "lab" });
   assert.equal((await app.get("/api/ai/progress/bffffffffffffffffffffffff")).body.total, 0);
 });

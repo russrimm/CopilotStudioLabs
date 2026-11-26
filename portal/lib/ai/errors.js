@@ -26,10 +26,19 @@ export function classifyError(err) {
   if (/premium request|quota|exceeded your|usage limit|allowance|billing|payment|402/.test(text)) return { kind: "quota", transient: false, stop: true };
   if (/401|403|unauthori[sz]ed|forbidden|not authenticated|no github|sign in|expired token|bad credentials|access denied|not enabled|policy/.test(text)) return { kind: "auth", transient: false, stop: true };
   if (/timed out|timeout|etimedout/.test(text)) return { kind: "timeout", transient: true, stop: false };
-  if (/429|rate limit|too many requests|503|502|504|temporar|overloaded|econnreset|socket hang up|eai_again|enotfound|server error|500/.test(text)) {
-    return { kind: "transient", transient: true, stop: false };
+  if (/429|rate limit|too many requests/.test(text)) return { kind: "rate", transient: true, stop: false, retryAfterMs: retryAfterOf(err, text) };
+  if (/503|502|504|temporar|overloaded|econnreset|socket hang up|eai_again|enotfound|server error|500/.test(text)) {
+    return { kind: "transient", transient: true, stop: false, retryAfterMs: retryAfterOf(err, text) };
   }
   return { kind: "failed", transient: false, stop: false };
+}
+
+/** How long the service asked us to wait, in milliseconds, when it said so ("retry after 12", a retryAfter field). Capped at a minute. */
+function retryAfterOf(err, text) {
+  const field = Number(err?.retryAfterMs ?? (Number(err?.retryAfter) * 1000));
+  const named = /retry[- ]after[^0-9]{0,6}(\d{1,4})/.exec(text);
+  const ms = Number.isFinite(field) && field > 0 ? field : named ? Number(named[1]) * 1000 : 0;
+  return Math.min(60000, Math.max(0, ms));
 }
 
 /** A sentence a person can act on, for a failure of the given kind. */
@@ -43,6 +52,8 @@ export function describeFailure(kind) {
       return "The model took too long, so those parts keep the standard text.";
     case "aborted":
       return "AI writing was cancelled, so the rest of the lab keeps the standard text.";
+    case "rate":
+      return "The model service asked us to slow down and did not recover in time, so those parts keep the standard text.";
     case "transient":
       return "The model service was busy, so those parts keep the standard text.";
     default:
@@ -50,7 +61,10 @@ export function describeFailure(kind) {
   }
 }
 
-const SAFE_FIELDS = new Set(["event", "mode", "provider", "model", "durationMs", "outcome", "blocks", "ai", "kept", "cached", "rejected", "requests", "failed", "tokens", "kind", "scope", "status"]);
+const SAFE_FIELDS = new Set([
+  "event", "mode", "provider", "model", "durationMs", "outcome", "blocks", "ai", "kept", "cached", "rejected", "requests", "failed", "tokens", "kind", "scope", "status",
+  "items", "chars", "ms", "depth", "attempt", "inflight", "skipped", "splits", "backoffs", "tokensIn", "tokensOut", "timeoutMs", "prompts", "reasoning", "apiCalls", "apiMs", "firstTokenMs",
+]);
 
 /**
  * Write one line to the server log. Only counts, model ids, durations and outcomes get through: any other key is

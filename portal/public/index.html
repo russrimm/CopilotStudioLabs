@@ -4377,11 +4377,27 @@
     .lb-ai-card .lb-ai-note,
     .lb-ai-card .lb-ai-sends,
     .lb-ai-card .lb-ai-small,
+    .lb-ai-card .lb-ai-estimate,
     .lb-ai-card .lb-ai-status {
       font-size: 13px;
       line-height: 1.5;
       color: var(--text-muted);
       margin: 0;
+    }
+    .lb-ai-card .lb-ai-small {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+    .lb-ai-card .lb-ai-small:empty,
+    .lb-ai-card .lb-ai-estimate:empty {
+      display: none;
+    }
+    .lb-ai-card .lb-ai-why {
+      color: var(--text);
+    }
+    .lb-ai-card .lb-ai-estimate {
+      color: var(--text);
+      overflow-wrap: anywhere;
     }
     .lb-ai-card .lb-ai-options {
       display: flex;
@@ -6502,7 +6518,8 @@
                     <button type="button" class="btn lb-ai-signin" id="lb-ai-signin" hidden>Sign in with GitHub</button>
                     <div class="form-group" id="lb-ai-model-group">
                       <label for="lb-ai-model">AI model</label>
-                      <select id="lb-ai-model" autocomplete="off" aria-describedby="lb-ai-model-cost"></select>
+                      <select id="lb-ai-model" autocomplete="off" aria-describedby="lb-ai-model-why lb-ai-model-cost lb-ai-estimate"></select>
+                      <small id="lb-ai-model-why" class="lb-ai-small lb-ai-why"></small>
                       <small id="lb-ai-model-cost" class="lb-ai-small"></small>
                     </div>
                     <fieldset class="lb-ai-scope" id="lb-ai-scope">
@@ -6511,6 +6528,7 @@
                       <label class="lb-ai-scope-item" for="lb-ai-scope-training"><input type="checkbox" id="lb-ai-scope-training" value="training" autocomplete="off" checked> The training decks</label>
                       <label class="lb-ai-scope-item" for="lb-ai-scope-labday"><input type="checkbox" id="lb-ai-scope-labday" value="labday" autocomplete="off" checked> The lab-day decks</label>
                     </fieldset>
+                    <p id="lb-ai-estimate" class="lb-ai-estimate" role="status" aria-live="polite"></p>
                     <p id="lb-ai-sends" class="lb-ai-sends"></p>
                     <p id="lb-ai-summary" class="lb-ai-summary" aria-live="polite"></p>
                     <p id="lb-ai-error" class="lb-error" role="alert"></p>

@@ -29,7 +29,7 @@ const OWNER_ENV = {
 };
 
 function fakeSdk({ models = [{ id: "m1", name: "Model One", billing: { multiplier: 1 }, policy: { state: "enabled" } }, { id: "m2", name: "Two", policy: { state: "disabled" } }] } = {}) {
-  const record = { clients: [], connections: [], sessions: [], messages: [], verdicts: [], deleted: [], disconnected: 0, started: 0, stopped: 0, rpcList: [], cwdsAtCreate: [] };
+  const record = { clients: [], connections: [], sessions: [], messages: [], timeouts: [], verdicts: [], deleted: [], disconnected: 0, started: 0, stopped: 0, rpcList: [], cwdsAtCreate: [] };
   class CopilotClient {
     constructor(options) {
       record.clients.push(options);
@@ -54,8 +54,9 @@ function fakeSdk({ models = [{ id: "m1", name: "Model One", billing: { multiplie
           handlers.push(handler);
           return () => {};
         },
-        async sendAndWait(message) {
+        async sendAndWait(message, timeout) {
           record.messages.push(message);
+          record.timeouts.push(timeout);
           record.verdicts.push(await options.permissions.onRequest({ kind: "shell", fullCommandText: "rm -rf /" }, {}));
           record.verdicts.push(await options.permissions.onRequest({ kind: "url", url: "https://evil.example" }, {}));
           for (const handler of handlers) handler({ type: "assistant.usage", data: { inputTokens: 120, outputTokens: 30 } });
@@ -151,7 +152,9 @@ test("every generation: no tools, every permission refused, a replacement system
   const { backend, cleanup, root } = make("local-user", sdk);
   const out = await backend.complete(REQUEST);
   assert.deepEqual(JSON.parse(out.text).blocks[0].id, "a");
-  assert.deepEqual(out.usage, { inputTokens: 120, outputTokens: 30 });
+  assert.equal(out.usage.inputTokens, 120);
+  assert.equal(out.usage.outputTokens, 30);
+  assert.equal(out.prompts, 1, "one message sent, one prompt used");
   const [session] = sdk.record.sessions;
   assert.deepEqual(session.tools.availableTools, [], "an empty allow-list means no tool at all");
   assert.deepEqual(session.tools.definitions, []);
@@ -239,13 +242,101 @@ test("a cancelled generation rejects as a cancel and still cleans up its session
   await assert.rejects(pending, (err) => classifyError(err).kind === "aborted");
   assert.equal(sdk.record.disconnected, 1);
   assert.equal(sdk.record.deleted.length, 1);
+  assert.equal(backend.tally.disconnected, 1);
+  assert.equal(backend.openSessions(), 0, "no session is left running");
   await backend.stop();
   cleanup();
 });
 
+test("a cancel returns quickly even when the runtime is slow to abort and disconnect", async () => {
+  const sdk = fakeSdk();
+  const original = sdk.module.CopilotClient.prototype.createSession;
+  sdk.module.CopilotClient.prototype.createSession = async function (options) {
+    const session = await original.call(this, options);
+    session.sendAndWait = () => new Promise(() => {});
+    session.abort = () => new Promise(() => {});
+    session.disconnect = () => new Promise(() => {});
+    return session;
+  };
+  const { backend, cleanup } = make("local-user", sdk);
+  const controller = new AbortController();
+  const started = Date.now();
+  const pending = backend.complete({ ...REQUEST, signal: controller.signal });
+  setTimeout(() => controller.abort(), 10);
+  await assert.rejects(pending, (err) => classifyError(err).kind === "aborted");
+  assert.ok(Date.now() - started < 9000, "a runtime that never answers abort or disconnect holds a cancel for seconds, not forever");
+  assert.equal(backend.openSessions(), 0);
+  await backend.stop();
+  cleanup();
+});
+
+test("the time limit is the second argument of sendAndWait: a limit inside the message is ignored by the SDK, which waits 60 seconds", async () => {
+  const sdk = fakeSdk();
+  const { backend, cleanup } = make("local-user", sdk);
+  await backend.complete({ ...REQUEST, timeoutMs: 95000 });
+  assert.deepEqual(sdk.record.timeouts, [95000]);
+  assert.equal("timeout" in sdk.record.messages[0], false, "nothing the SDK would ignore is put in the message");
+  await backend.stop();
+  cleanup();
+});
+
+test("a reasoning effort, when one is asked for, goes on the session; none is set otherwise", async () => {
+  const sdk = fakeSdk();
+  const { backend, cleanup } = make("local-user", sdk);
+  await backend.complete({ ...REQUEST, reasoningEffort: "low" });
+  await backend.complete(REQUEST);
+  assert.deepEqual(sdk.record.sessions[0].inference, { reasoningEffort: "low" });
+  assert.equal("inference" in sdk.record.sessions[1], false);
+  await backend.stop();
+  cleanup();
+});
+
+test("a runtime without structured output is asked again, and both messages count as prompts", async () => {
+  const sdk = fakeSdk();
+  const original = sdk.module.CopilotClient.prototype.createSession;
+  sdk.module.CopilotClient.prototype.createSession = async function (options) {
+    const session = await original.call(this, options);
+    const send = session.sendAndWait;
+    session.sendAndWait = async (message, timeout) => {
+      if (message.responseSchema) throw new Error("responseSchema is not supported by this runtime");
+      return send(message, timeout);
+    };
+    return session;
+  };
+  const { backend, cleanup } = make("local-user", sdk);
+  const out = await backend.complete(REQUEST);
+  assert.equal(out.prompts, 2);
+  assert.equal(backend.tally.prompts, 2);
+  await backend.stop();
+  cleanup();
+});
+
+test("stopping the backend disconnects a session that is still open", async () => {
+  const sdk = fakeSdk();
+  const original = sdk.module.CopilotClient.prototype.createSession;
+  sdk.module.CopilotClient.prototype.createSession = async function (options) {
+    const session = await original.call(this, options);
+    session.sendAndWait = () => new Promise(() => {});
+    return session;
+  };
+  const { backend, cleanup } = make("local-user", sdk);
+  void backend.complete(REQUEST).catch(() => {});
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(backend.openSessions(), 1);
+  await backend.stop();
+  assert.equal(backend.openSessions(), 0);
+  assert.equal(sdk.record.disconnected, 1);
+  cleanup();
+});
+
 test("errors are sorted so only temporary trouble is retried and an allowance or sign-in problem stops the run", () => {
-  assert.deepEqual(classifyError(new Error("429 Too Many Requests")), { kind: "transient", transient: true, stop: false });
+  assert.deepEqual(classifyError(new Error("429 Too Many Requests")), { kind: "rate", transient: true, stop: false, retryAfterMs: 0 });
+  assert.equal(classifyError(new Error("429 rate limit, retry after 7")).retryAfterMs, 7000);
+  assert.equal(classifyError(Object.assign(new Error("429"), { retryAfter: 3 })).retryAfterMs, 3000);
+  assert.equal(classifyError(new Error("429 retry after 9999")).retryAfterMs, 60000, "a service's wait is capped at a minute");
+  assert.deepEqual(classifyError(new Error("503 service unavailable")), { kind: "transient", transient: true, stop: false, retryAfterMs: 0 });
   assert.equal(classifyError(new Error("The model timed out.")).transient, true);
+  assert.equal(classifyError(new Error("Timeout after 60000ms waiting for session.idle")).kind, "timeout");
   assert.deepEqual(classifyError(new Error("You have exceeded your premium request allowance")), { kind: "quota", transient: false, stop: true });
   assert.equal(classifyError(new Error("401 Unauthorized")).stop, true);
   assert.equal(classifyError(new Error("something odd")).kind, "failed");
