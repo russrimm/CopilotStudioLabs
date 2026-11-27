@@ -24,7 +24,7 @@
  */
 
 import { NEAR_DISTANCE, distance, isFingerprint } from "../../../tools/screenshot-capture/fingerprint.mjs";
-import { harnessLabel, isSpecificHarness, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
+import { harnessLabel, harnessReview, isSpecificHarness, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 import { parseCopilotStudioAddress } from "../../../tools/screenshot-capture/targets.mjs";
 
 export const FLAGS = Object.freeze({
@@ -303,11 +303,12 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
   }
 
   for (const item of items) {
-    // A picture recorded as taken in another harness than its slot needs is wrong for the slot, and a person's "Keep this one" does not change that.
+    // A picture taken in another harness than its slot needs is wrong for the slot, and a person's "Keep this one" does not change that.
     const needs = normalizeHarness(item.slot?.harness);
-    const has = normalizeHarness(item.harnessStamp);
-    if (isSpecificHarness(needs) && isSpecificHarness(has) && needs !== has) {
-      item.flags.push({ code: FLAGS.HARNESS_MISMATCH, level: "definite", message: `This picture was taken in the ${harnessLabel(has)}, but this screenshot needs the ${harnessLabel(needs)}.` });
+    const mismatch = harnessMismatch(item, needs);
+    if (mismatch) {
+      item.flags.push({ code: FLAGS.HARNESS_MISMATCH, level: "definite", message: mismatch.message });
+      item.harnessSeen = { id: mismatch.found, source: mismatch.source };
     }
     if (item.confirmed) continue;
     const record = item.effective;
@@ -367,8 +368,32 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
     // The most certain reason first: a definite one before a probable one, then the plainest kind.
     item.flags.sort((a, b) => (a.level === b.level ? 0 : a.level === "definite" ? -1 : 1) || FLAG_ORDER.indexOf(a.code) - FLAG_ORDER.indexOf(b.code));
     const level = item.flags.some((f) => f.level === "definite") ? "definite" : item.flags.length ? "probable" : null;
-    return { id: item.id, level, flags: item.flags, reach: item.reachInfo.reach, reachWhy: item.reachInfo.why, depth: item.depth, cluster: item.cluster || null };
+    return { id: item.id, level, flags: item.flags, reach: item.reachInfo.reach, reachWhy: item.reachInfo.why, depth: item.depth, cluster: item.cluster || null, harnessSeen: item.harnessSeen || null };
   });
+}
+
+/**
+ * Whether a picture was taken in another harness than its slot needs, and which one it shows. The harness a picture shows is read in this order:
+ *   1. the stamp, when it was proven by landmarks (the companion read the tabs of the page);
+ *   2. the harness the shape of the address in its saved check names (an agent page at /agents/<id> is Microsoft Copilot, at /bots/<id> Standard),
+ *      which can only contradict the slot, and which wins over a person's word: a person who accepted it in review did not see the address;
+ *   3. a stamp that a person (or the library) put on it.
+ * @returns {{found: string, source: "proof"|"address"|"person"|"library", message: string}|null}
+ */
+function harnessMismatch(item, needs) {
+  if (!isSpecificHarness(needs)) return null;
+  const stamp = normalizeHarness(item.harnessStamp);
+  const stamped = isSpecificHarness(stamp) ? stamp : null;
+  const proof = stamped && item.harnessProof === "landmarks" ? stamped : null;
+  const review = harnessReview({ slotHarness: needs, proof, finalUrl: item.effective?.finalUrl });
+  if (review.code === "wrong-harness") {
+    // What the companion read from the page keeps the plain sentence it always had; an address is named for what it is.
+    return { found: review.found, source: review.source, message: review.source === "proof" ? `This picture was taken in the ${harnessLabel(review.found)}, but this screenshot needs the ${harnessLabel(needs)}.` : review.message };
+  }
+  if (review.code === "harness-unproven" && stamped && stamped !== needs) {
+    return { found: stamped, source: item.harnessProof === "library" ? "library" : "person", message: `This picture was taken in the ${harnessLabel(stamped)}, but this screenshot needs the ${harnessLabel(needs)}.` };
+  }
+  return null;
 }
 
 /** A few words for each kind of finding, for a one-line report. */

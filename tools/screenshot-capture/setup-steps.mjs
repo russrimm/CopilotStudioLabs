@@ -41,8 +41,10 @@ export function sanitizeTarget(raw) {
   const within = TARGET_AREAS.includes(raw.within) ? raw.within : "any";
   const nth = Number.isInteger(raw.nth) && raw.nth >= 0 && raw.nth <= 5 ? raw.nth : undefined;
   const corner = TARGET_CORNERS.includes(raw.corner) ? raw.corner : undefined;
+  // The card or panel the control must sit in, named by its heading ("Instructions"): a control in another section (the Test your agent panel) is never the one.
+  const section = safeName(raw.section).slice(0, 60) || undefined;
   if (!name && !alt.length && !role) return null;
-  return { ...(role ? { role } : {}), ...(name ? { name } : {}), ...(alt.length ? { alt } : {}), within, ...(nth !== undefined ? { nth } : {}), ...(corner ? { corner } : {}) };
+  return { ...(role ? { role } : {}), ...(name ? { name } : {}), ...(alt.length ? { alt } : {}), within, ...(nth !== undefined ? { nth } : {}), ...(corner ? { corner } : {}), ...(section ? { section } : {}) };
 }
 
 function sanitizeExpect(raw) {
@@ -59,6 +61,8 @@ function sanitizeExpect(raw) {
   }
   if (raw.selected === true) out.selected = true;
   if (raw.disabled === true) out.disabled = true;
+  // The control is available (a Save button that stays off until the text changed): proves the change registered.
+  if (raw.enabled === true && !out.disabled) out.enabled = true;
   if (raw.noDialog === true) out.noDialog = true;
   if (raw.answer === true) out.answer = true;
   if (raw.panel === true) out.panel = true;
@@ -188,7 +192,8 @@ export function plannedTier(step, product = "") {
   let tier = base;
   for (const name of names) {
     const seen = classifyControl(
-      { name, role: step.target.role || "", inDialog: area === "dialog", dialogTitle: "", inTestPane: area === "chat", inNav: area === "nav", inHeader: area === "header", landmarks: [] },
+      // A step that leaves without saving is the answer to the unsaved-changes prompt: the executor checks the real dialog (its title or its buttons) again at the click.
+      { name, role: step.target.role || "", inDialog: area === "dialog", dialogTitle: step.action === "discard" ? "Unsaved changes" : "", inTestPane: area === "chat" || /\btest\b/i.test(step.target.section || ""), inNav: area === "nav", inHeader: area === "header", landmarks: [] },
       { action: step.action, intent: step.intent, product, expectsOverlay: Boolean(step.expect?.dialog || step.expect?.panel) },
     );
     tier = Math.max(tier, seen.tier);
@@ -229,10 +234,19 @@ export function sanitizeStep(raw, index = 0, product = "", { internal = false } 
   if (raw.soft === true) step.soft = true;
   if (raw.onlyIfOff === true) step.onlyIfOff = true;
   if (raw.onlyIfOn === true) step.onlyIfOn = true;
+  // The plain words for a target that is there but disabled ("the text did not register in the Instructions editor"), and the "saved" proof that is also met when the control is gone (an editor that closed itself).
+  const ifDisabled = safeName(clean(raw.ifDisabled, 120));
+  if (ifDisabled) step.ifDisabled = ifDisabled;
+  if (raw.orGone === true) step.orGone = true;
   // A click that is made once per practice agent, ever (publishing): the claim is written first and never undone.
   if (typeof raw.once === "string" && /^[a-z][a-z-]{1,19}$/.test(raw.once)) step.once = raw.once;
   const skipIfPresent = sanitizeTarget(raw.skipIfPresent);
   if (skipIfPresent) step.skipIfPresent = skipIfPresent;
+  // The opposite: the step is left out when this control is NOT on the page (a tab that sits in the overflow menu has its own steps).
+  const skipUnlessPresent = sanitizeTarget(raw.skipUnlessPresent);
+  if (skipUnlessPresent) step.skipUnlessPresent = skipUnlessPresent;
+  // How long a control that is not on the page yet is waited for (a page that draws its buttons several seconds after its tabs).
+  if (Number.isFinite(Number(raw.findMs))) step.findMs = Math.max(500, Math.min(60_000, Number(raw.findMs)));
   if (Number.isInteger(raw.retries) && raw.retries >= 0 && raw.retries <= 3) step.retries = raw.retries;
   if (Number.isFinite(Number(raw.timeoutMs))) step.timeoutMs = Math.max(500, Math.min(60_000, Number(raw.timeoutMs)));
   step.tier = plannedTier(step, product);

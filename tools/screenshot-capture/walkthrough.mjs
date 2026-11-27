@@ -27,6 +27,8 @@ export const STAGES = Object.freeze([
   { id: "knowledge", order: 30, label: "Add knowledge", tab: "Build", needs: ["agent", "instructions"], prepares: true },
   { id: "tools", order: 40, label: "Open the tools", tab: "Build", needs: ["agent"], prepares: false },
   { id: "model", order: 50, label: "Show the model list", tab: "Build", needs: ["agent"], prepares: false },
+  // Standard (Classic) only: the Topics tab (read on a real tenant on 2026-11-26: filter tabs All, Custom, System, and the table of topics). The authoring canvas is not part of it.
+  { id: "topics", order: 55, label: "Open the Topics tab", tab: "Topics", needs: ["agent"], prepares: false },
   { id: "preview", order: 60, label: "Test in the test pane", tab: "Preview", needs: ["agent", "instructions", "knowledge"], prepares: false },
   { id: "evaluate", order: 70, label: "Open Evaluate", tab: "Evaluate", needs: ["agent", "instructions", "knowledge"], prepares: false },
   { id: "testset", order: 75, label: "Add a sample test set", tab: "Evaluate", needs: ["agent", "instructions", "knowledge"], prepares: true },
@@ -112,6 +114,11 @@ export function classifyStage(shot, { labels = [] } = {}) {
   if (section === "solutions") return left("other-product");
   if (FEATURE_OTHER_AGENT.test(feature)) return left("other-agent");
   if (FEATURE_UNSEEN.test(feature)) return left("unseen");
+  // The plain Topics page of a Standard agent is a tab to open and show (its list and filters were read on a real tenant); a picture of the authoring canvas (a node, trigger phrases, a variable) is not.
+  if (feature === "topics" && section === "topics" && kind !== "error-state" && /\btopics page\b|\blist of topics\b/.test(picture) && !/\b(?:node|trigger|canvas|phrases?|question|variables?|entit(?:y|ies))\b/.test(picture)) {
+    const topics = stageById("topics");
+    return { stage: "topics", order: topics.order, scoped: true, blocker: null };
+  }
   let stage = null;
   for (const [pattern, id] of FEATURE_STAGE) {
     if (pattern.test(feature)) {

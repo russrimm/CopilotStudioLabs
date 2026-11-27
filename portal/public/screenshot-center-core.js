@@ -645,6 +645,30 @@ function scHarnessModel(shot, labHarness = null) {
   return { need, label, state, pictureLabel, message, gap, gapNote, shared, sharedNote, choices: state === "not-recorded" ? scHarnessTagChoices(need, labHarness) : [] };
 }
 
+/**
+ * What a picture waiting for review says about its harness, for the review panel and its buttons: the harness it shows and how that was read
+ * (`source`: "proof" = the companion read the tabs of the page, "address" = read from the shape of the picture's address, null = nothing known),
+ * the harness the screenshot needs, and whether the picture may be accepted. It reads the server's `harnessReview`, and falls back to the harness
+ * the companion proved in the saved check. Null for a screenshot that needs no harness (a product with none, or "either").
+ * @returns {{need: string, needLabel: string, found: string|null, foundLabel: string, source: "proof"|"address"|null, line: string, needsLine: string, wrong: boolean, message: string}|null}
+ */
+function scHarnessReviewModel(shot) {
+  const slot = scHarnessModel(shot);
+  if (!slot || slot.need === "either") return null;
+  const review = shot?.harnessReview && typeof shot.harnessReview === "object" ? shot.harnessReview : null;
+  const proven = scHarnessId(shot?.verification?.harnessSeen?.id ?? shot?.verification?.evidence?.harness?.id ?? shot?.verification?.harness?.id);
+  let found = review ? scHarnessId(review.found) : proven;
+  if (found === "either") found = null;
+  const source = found ? (review && review.source === "address" ? "address" : "proof") : null;
+  const foundLabel = found ? scHarnessLabelOf(found, review ? review.foundLabel : "") : "";
+  const wrong = Boolean(review && (review.code === "wrong-harness" || review.canAccept === false));
+  const line = found
+    ? `Picture: ${foundLabel} (${source === "address" ? "read from the picture's address" : "the companion read it from the page"})`
+    : `Picture: ${SC_HARNESS_NOT_RECORDED} yet. Accepting it records it as the ${slot.label}, so check that it shows that harness first.`;
+  const message = wrong ? scText(review.message, 400) || `This picture was taken in the ${foundLabel || "other harness"}, but this screenshot needs the ${slot.label}.` : "";
+  return { need: slot.need, needLabel: slot.label, found, foundLabel, source, line, needsLine: `This screenshot needs: ${slot.label}`, wrong, message };
+}
+
 /** What follows the harness label in a combined lab's part line: "part: 4 of 6 pictures taken in it, 1 taken in a different harness". */
 function scHarnessPartText(part) {
   const bits = [`${part.taken} of ${scPlural(part.shots, "picture")} taken in it`];

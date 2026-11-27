@@ -119,6 +119,66 @@ const contrast = (a, b) => {
 };
 
 for (const theme of ["light", "dark"]) {
+  test(`${theme} theme: a wrong-harness picture's message, its disabled Accept, and the reason beside it are readable and stay inside a 390 px screen`, async (t) => {
+    if (!ctx.browser) return t.skip("no browser");
+    const WRONG = "This picture was taken in the Microsoft Copilot harness (Build, Preview, Evaluate, Monitor); this lab needs the Standard (Classic) harness.";
+    const state = labState();
+    state.harness = "standard";
+    state.harnessLabel = "Standard (Classic) harness";
+    state.harnessInfo = { id: "standard", label: "Standard (Classic) harness", source: "chosen", statement: "This lab: Standard (Classic) harness. Every picture is taken in the Classic harness." };
+    state.harnessSummary = { labHarness: "standard", statement: state.harnessInfo.statement, notRecorded: 0, wrong: 0, gaps: 0, notRecordedFiles: [], wrongFiles: [], gapFiles: [], harnessesSeen: [], mixed: false, mixedMessage: "" };
+    state.summary = { total: 1, captured: 0, missing: 1, stale: 0, needsReview: 1, checkState: "up-to-date" };
+    state.shots = [
+      shot("wrong.png", {
+        harness: "standard",
+        harnessLabel: "Standard (Classic) harness",
+        needsReview: true,
+        harnessReview: { code: "wrong-harness", found: "microsoft-copilot", foundLabel: "Microsoft Copilot harness", source: "address", needed: "standard", neededLabel: "Standard (Classic) harness", message: WRONG, canAccept: false, addressAgrees: false },
+        verification: { level: "warn", state: "needs-review", stagedAt: "2026-06-01T10:00:00.000Z", reasons: [{ code: "wrong-harness", level: "warn", message: WRONG, derived: true }] },
+      }),
+    ];
+    const context = await ctx.browser.newContext({ viewport: { width: 390, height: 900 } });
+    try {
+      const page = await context.newPage();
+      await page.setContent(`<!doctype html><html lang="en" data-theme="${theme}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${STYLE}</style></head><body><main style="padding:12px"><section id="lb-result-screenshots"></section></main></body></html>`);
+      for (const content of SCRIPTS) await page.addScriptTag({ content });
+      await page.evaluate(({ labId, state: lab }) => scRenderCenter(document.getElementById("lb-result-screenshots"), labId, lab, null), { labId: LAB, state });
+      await page.locator('.sc-card[data-filename="wrong.png"] [data-sc-accept-why]').waitFor();
+
+      const card = await page.evaluate(() => {
+        const root = document.querySelector('.sc-card[data-filename="wrong.png"]');
+        const accept = root.querySelector('[data-sc-action="shot-accept"]');
+        const why = root.querySelector("[data-sc-accept-why]");
+        const box = why.getBoundingClientRect();
+        return { disabled: accept.disabled, describedBy: accept.getAttribute("aria-describedby"), whyId: why.id, whyText: why.textContent, whyHeight: box.height, whyRight: box.right, viewport: window.innerWidth, keep: Boolean(root.querySelector('[data-sc-action="shot-keep-wrong-harness"]')), scrollW: root.scrollWidth, clientW: root.clientWidth };
+      });
+      assert.equal(card.disabled, true, "Accept is off");
+      assert.equal(card.describedBy, card.whyId, "the visible reason is tied to the button");
+      assert.ok(card.whyHeight > 0 && card.whyRight <= card.viewport + 0.5, "the reason is drawn, on screen");
+      assert.ok(card.scrollW <= card.clientW + 1, "nothing is hidden to the side");
+      assert.ok(card.keep, "Keep in kept pictures is offered");
+      assert.match(card.whyText, /^Accept is off: this picture shows the Microsoft Copilot harness, and this screenshot needs the Standard \(Classic\) harness\./);
+
+      await page.locator('.sc-card[data-filename="wrong.png"] [data-sc-action="preview"]').first().click();
+      await page.locator(".sc-review-wrong-harness").waitFor();
+      const alert = await page.locator(".sc-review-wrong-harness").evaluate((el) => {
+        const style = getComputedStyle(el);
+        const box = el.getBoundingClientRect();
+        return { role: el.getAttribute("role"), text: el.textContent, color: style.color, background: style.backgroundColor, right: box.right, height: box.height, viewport: window.innerWidth, borderLeft: Number.parseFloat(style.borderLeftWidth), first: el.parentElement.firstElementChild === el };
+      });
+      assert.equal(alert.role, "alert");
+      assert.equal(alert.text, WRONG);
+      assert.ok(alert.first, "it comes first in the review");
+      assert.ok(alert.height > 0 && alert.right <= alert.viewport + 0.5, "it is drawn, inside the screen");
+      assert.ok(alert.borderLeft >= 4, "a visible edge, in addition to its words");
+      assert.ok(contrast(alert.color, alert.background) >= 4.5, `${theme}: the message is ${contrast(alert.color, alert.background).toFixed(2)}:1`);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
+for (const theme of ["light", "dark"]) {
   test(`${theme} theme: a very long harness label wraps inside a 390 px card and is never clipped, and everything harness-related stays on screen`, async (t) => {
     if (!ctx.browser) return t.skip("no browser");
     const { context, page } = await openLab(theme);

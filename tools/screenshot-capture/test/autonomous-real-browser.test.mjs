@@ -50,6 +50,10 @@ test("read-only automatic capture captures every browser-reachable shot and stop
     assert.deepEqual(review.map((r) => r.filename), ["copilot-studio-home.png", "create-agent-describe.png", "activity-map-plan.png", "knowledge-answer-citation.png", "publish-confirmation.png"]);
     assert.deepEqual(review.filter((r) => r.verification.reasons.some((x) => x.code === "harness-unproven")).map((r) => r.filename), ["copilot-studio-home.png", "create-agent-describe.png"], "a screen outside the agent is not proven by its content");
     assert.deepEqual(review.filter((r) => r.cause === "needs-practice-agent").map((r) => r.filename), ["knowledge-answer-citation.png", "publish-confirmation.png"], "the two screens that need a practice agent say so");
+    // How a Standard agent is started: the Agents list with More create options open. The menu is opened and Agent, Standard is read in it; nothing is chosen.
+    const start = out.rows.find((r) => r.filename === "create-agent-describe.png");
+    assert.deepEqual((start.raw.setup?.steps || []).map((s) => [s.id, s.status]), [["create-options-open", "ok"], ["create-options-shown", "ok"]], JSON.stringify(start.raw.setup?.steps));
+    assert.ok(!out.rows.find((r) => r.filename === "copilot-studio-home.png").raw.setup?.steps?.length, "a reused picture of the same feature does not open the menu");
     // A label the lab expects that the page does not show is now a reason on its own (companion pictures must prove the screen), next to the recipe's own review.
     assert.deepEqual(review.find((r) => r.filename === "activity-map-plan.png").verification.reasons.map((x) => x.code), ["labels-missing", "recipe-review"]);
     assert.deepEqual(out.site.stats.writes, [], "nothing was created, saved, or published");

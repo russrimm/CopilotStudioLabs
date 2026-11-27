@@ -15,7 +15,7 @@ import { readLabConfirmations, readLabVerification } from "../lab-builder/lab-sc
 import { withShotHarness } from "../lab-builder/lab-harness.js";
 import { harnessLabel, normalizeHarness } from "../../../tools/screenshot-capture/harness.mjs";
 import { classifyShot } from "./classify.js";
-import { sha256Hex, harnessStampOf, readRecordsFile, validConfirmation } from "./library-share.js";
+import { sha256Hex, harnessProofOf, harnessStampOf, readRecordsFile, validConfirmation } from "./library-share.js";
 import { libraryShotIndex } from "./plan.js";
 import { assessPictures, countFlags, hostFamily, noticeText, slotDepth } from "./picture-integrity.js";
 import { cleanText, readJson } from "./store-util.js";
@@ -136,6 +136,7 @@ export function createPictureScanner({ generatedRoot, captureDir, capturedDirs, 
             fingerprint: fingerprintOf(file, read, record),
             record,
             harnessStamp: harnessStampOf(record, read.sha256),
+            harnessProof: harnessProofOf(record, read.sha256),
             confirmed: Boolean(confirmations[name] && validConfirmation(confirmations[name], read.sha256)),
             slot: librarySlot(name),
           });
@@ -184,6 +185,7 @@ export function createPictureScanner({ generatedRoot, captureDir, capturedDirs, 
             fingerprint: fingerprintOf(file, read, record),
             record,
             harnessStamp: harnessStampOf(record, read.sha256),
+            harnessProof: harnessProofOf(record, read.sha256),
             confirmed: Boolean(confirmations[name] && validConfirmation(confirmations[name], read.sha256)),
             slot: shot ? describeSlot(shot, shot.product || plan?.product) : librarySlot(name),
             captureSource: shot?.captureSource || null,
@@ -204,7 +206,7 @@ export function createPictureScanner({ generatedRoot, captureDir, capturedDirs, 
     const byId = new Map(pictures.map((p) => [p.id, p]));
     const items = results.map((result) => {
       const p = byId.get(result.id);
-      return { ...result, scope: p.scope, labId: p.labId, labTitle: p.labTitle, filename: p.filename, file: p.file, writable: p.writable, bytes: p.bytes, sha256: p.sha256, fingerprint: p.fingerprint, confirmed: p.confirmed, label: p.slot?.label || p.filename, product: p.slot?.product || null, section: p.slot?.section || null, kind: p.slot?.kind || null, harness: p.slot?.harness || null, harnessLabel: p.slot?.harness ? harnessLabel(p.slot.harness) : null, pictureHarness: p.harnessStamp || null, record: p.record, captureSource: p.captureSource || null };
+      return { ...result, scope: p.scope, labId: p.labId, labTitle: p.labTitle, filename: p.filename, file: p.file, writable: p.writable, bytes: p.bytes, sha256: p.sha256, fingerprint: p.fingerprint, confirmed: p.confirmed, label: p.slot?.label || p.filename, product: p.slot?.product || null, section: p.slot?.section || null, kind: p.slot?.kind || null, harness: p.slot?.harness || null, harnessLabel: p.slot?.harness ? harnessLabel(p.slot.harness) : null, pictureHarness: result.harnessSeen?.id || p.harnessStamp || null, pictureHarnessSource: result.harnessSeen?.source || null, pictureHarnessProof: p.harnessProof || null, record: p.record, captureSource: p.captureSource || null };
     });
     const counts = countFlags(items);
     return { scannedAt: new Date().toISOString(), counts: { ...counts, pictures: items.length }, notice: noticeText(counts.total), items };

@@ -12,7 +12,7 @@ import * as R from "./scratch-recipes.mjs";
 
 const MCP_FEATURE_RE = /(?:^|-)(?:tools-mcp|mcp-servers?)$/;
 
-/** A page of the classic layout, reached by its navigation item (an older build) or its tab (the Standard tab strip) and proved by that control being the selected one. */
+/** A page of the classic layout, reached by its navigation item (an older build) and proved by that control being the selected one. */
 function classicNav(name, alt = []) {
   const id = name.toLowerCase();
   return [
@@ -21,28 +21,32 @@ function classicNav(name, alt = []) {
   ];
 }
 
-/** The page of a tab (newer layout) or a navigation item (classic) that holds the things a family opens. */
-function pageSteps(newer, tab, navName, navAlt = []) {
-  return newer ? R.tabSteps(tab) : classicNav(navName, navAlt);
+/**
+ * The page of a tab (newer layout) or of the classic layout that holds the things a family opens. A Standard (Classic) agent (`standard`) has a tab strip with an overflow menu
+ * (see classicTabSteps in scratch-recipes.mjs); only an agent with no harness recorded may still have the side navigation of an older classic build.
+ */
+function pageSteps(newer, tab, navName, navAlt = [], standard = false) {
+  if (newer) return R.tabSteps(tab);
+  return standard ? R.classicTabSteps(navName, { alt: navAlt }) : classicNav(navName, navAlt);
 }
 
-function conversation({ automation, newer }) {
+function conversation({ automation, newer, standard }) {
   const panel = automation.panel ? PANELS[automation.panel] : null;
-  const asked = newer ? [...R.tabSteps("Preview"), ...R.askSteps({ question: automation.question })] : R.askSteps({ question: automation.question, openTest: true });
+  const asked = newer ? [...R.tabSteps("Preview"), ...R.askSteps({ question: automation.question })] : R.askSteps({ question: automation.question, openTest: true, classic: standard });
   return { steps: [...asked, ...(panel ? R.panelSteps(panel.names, panel.label) : [])], landmarks: automation.landmarks, note: panel ? `Asked a question and showed the ${panel.label}` : "Asked a sample question" };
 }
 
-function dialog({ automation, newer, shot }) {
+function dialog({ automation, newer, shot, standard }) {
   const feature = String(shot?.featureId || shot?.feature || "").toLowerCase();
   const choices = automation.choices || [];
   const inner = choices.length ? R.innerTabSteps(choices, { required: false }) : [];
   let steps = null;
   switch (automation.opener) {
     case "knowledge":
-      steps = [...pageSteps(newer, "Build", "Knowledge"), ...R.OPEN_ADD_KNOWLEDGE, ...inner];
+      steps = [...pageSteps(newer, "Build", "Knowledge", [], standard), ...R.OPEN_ADD_KNOWLEDGE, ...inner];
       break;
     case "tool":
-      steps = [...pageSteps(newer, "Build", "Tools", ["Actions"]), ...R.OPEN_ADD_TOOL, ...(newer && MCP_FEATURE_RE.test(feature) ? R.innerTabSteps(["MCP"], { required: true }) : inner)];
+      steps = [...pageSteps(newer, "Build", "Tools", ["Actions"], standard), ...R.OPEN_ADD_TOOL, ...(newer && MCP_FEATURE_RE.test(feature) ? R.innerTabSteps(["MCP"], { required: true }) : inner)];
       break;
     case "skill":
       steps = newer ? [...R.tabSteps("Build"), ...R.OPEN_ADD_SKILL, ...inner] : null;
@@ -51,13 +55,15 @@ function dialog({ automation, newer, shot }) {
       steps = [...(newer ? R.tabSteps("Build") : []), ...R.OPEN_PUBLISH_DIALOG];
       break;
     case "model":
-      steps = newer ? [...R.tabSteps("Build"), ...R.OPEN_MODEL_LIST] : null;
+      steps = newer ? [...R.tabSteps("Build"), ...R.OPEN_MODEL_LIST] : standard ? [...R.classicTabSteps("Overview"), ...R.CLASSIC_OPEN_MODEL_LIST] : null;
       break;
     case "evaluation":
-      steps = [...pageSteps(newer, "Evaluate", "Evaluation", ["Evaluations"]), ...R.OPEN_NEW_EVALUATION, ...inner];
+      // The new evaluation form of a Standard agent was not seen yet: no recipe is written for it (see classicGapFor in scratch.mjs).
+      steps = standard ? null : [...pageSteps(newer, "Evaluate", "Evaluation", ["Evaluations"]), ...R.OPEN_NEW_EVALUATION, ...inner];
       break;
     case "settings":
-      steps = newer ? [...R.tabSteps("Build"), ...R.OPEN_AGENT_SETTINGS, ...inner] : null;
+      // A Standard agent's Settings is a full page reached from the top bar, with its own list of links on the left (not a dialog).
+      steps = newer ? [...R.tabSteps("Build"), ...R.OPEN_AGENT_SETTINGS, ...inner] : standard ? [...R.CLASSIC_OPEN_SETTINGS, ...R.classicSettingsLinkSteps(R.classicSettingsLinkFor(`${automation.label || ""} ${choices.join(" ")}`))] : null;
       break;
     case "generic":
       steps = automation.label
@@ -71,32 +77,33 @@ function dialog({ automation, newer, shot }) {
   return steps ? { steps, landmarks: automation.landmarks, note: `Opened ${automation.label || OPENERS[automation.opener]?.label || "the dialog"}${unproven ? " (not seen on a real tenant yet)" : ""}` } : null;
 }
 
-function item({ newer, stage }) {
-  const page = stage === "tools" ? pageSteps(newer, "Build", "Tools", ["Actions"]) : pageSteps(newer, "Build", "Knowledge");
+function item({ newer, stage, standard }) {
+  const page = stage === "tools" ? pageSteps(newer, "Build", "Tools", ["Actions"], standard) : pageSteps(newer, "Build", "Knowledge", [], standard);
   return { steps: [...page, ...R.OPEN_FIRST_ITEM], landmarks: [], note: "Opened the first item to show its details" };
 }
 
-function testset({ newer }) {
-  return { steps: pageSteps(newer, "Evaluate", "Evaluation", ["Evaluations"]), landmarks: [], note: "Showed the Evaluate tab with the sample test set" };
+function testset({ newer, standard }) {
+  return { steps: pageSteps(newer, "Evaluate", "Evaluation", ["Evaluations"], standard), landmarks: [], note: "Showed the Evaluate tab with the sample test set" };
 }
 
 /**
  * The steps that put the screen of a family shot into the state its picture needs. The harness decides them (the Standard (Classic) harness has the
- * side navigation; the Microsoft Copilot and Customer Conversation harnesses have the tab strip); `layout` is only for a caller with no harness.
+ * tab strip with an overflow menu; the Microsoft Copilot and Customer Conversation harnesses have the Build, Preview, Evaluate, and Monitor tabs); `layout` is only for a caller with no harness.
  * @param {{automation: object, shot: object, layout?: "newer"|"classic", harness?: string|null, stage: string}} input
  * @returns {{steps: object[], landmarks: string[], note: string}|null} null when the family has no steps for this layout (the shot is left to a person)
  */
 export function familyShowSteps({ automation, shot = {}, layout, harness = null, stage = "" }) {
   const newer = isSpecificHarness(harness) ? harness !== STANDARD : layout === "newer";
+  const standard = harness === STANDARD;
   switch (automation?.family) {
     case "conversation":
-      return conversation({ automation, newer });
+      return conversation({ automation, newer, standard });
     case "dialog":
-      return dialog({ automation, newer, shot });
+      return dialog({ automation, newer, shot, standard });
     case "item":
-      return item({ newer, stage });
+      return item({ newer, stage, standard });
     case "testset":
-      return testset({ newer });
+      return testset({ newer, standard });
     default:
       return null;
   }

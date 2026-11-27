@@ -13,7 +13,7 @@ import zlib from "node:zlib";
 import { cleanExpectedLabels, labelIsVisible, visibleWordSet } from "./labels.mjs";
 import { PLACEHOLDER_MESSAGE, detectPlaceholder } from "./placeholder-detect.mjs";
 import { assessLanding } from "./targets.mjs";
-import { HARNESS_LABELS, HARNESS_MIN_COMPANION, isSpecificHarness, normalizeHarness, sanitizeHarnessProof, sanitizeHarnessReached } from "./harness.mjs";
+import { HARNESS_LABELS, HARNESS_MIN_COMPANION, harnessReview, isSpecificHarness, normalizeHarness, sanitizeHarnessProof, sanitizeHarnessReached } from "./harness.mjs";
 
 export const IMAGE_LIMITS = Object.freeze({
   maxBytes: 8 * 1024 * 1024,
@@ -574,13 +574,13 @@ export function verifyImage(bytes, options = {}) {
     if (options.requireProof && evidence.version < EVIDENCE_VERSION) reasons.push(reason("old-companion", "warn", OLD_COMPANION_MESSAGE));
     // The harness the page was proven to be in. Only a companion's picture is judged (`requireProof`): the portal says which harness the slot
     // needs (`expectHarness`), an older companion proves none (saved for review), and a picture taken in the other harness is never saved.
+    // With no proof, the shape of the final address is the one thing that can still show the other harness (it can contradict, never prove).
     const wantedHarness = normalizeHarness(options.expectHarness);
     if (options.requireProof && isSpecificHarness(wantedHarness)) {
       if (!evidence.harness) {
-        const reached = evidence.harnessReached;
-        reasons.push(reason("harness-unproven", "warn", reached
-          ? `This screen is outside the agent (Home or the Agents list), so what it shows cannot prove which harness it was taken in. The companion took it on ${reached.host} (the ${HARNESS_LABELS[reached.id]} experience), reached by ${reached.via === "click-path" ? "the click path (More options, Open classic experience, Skip feedback)" : reached.via === "preview-address" ? "the preview address, opened directly" : "the default address"}, and it is saved for review. Check it shows the ${HARNESS_LABELS[wantedHarness]} before you accept it.`
-          : `The companion did not prove which harness this picture was taken in (companions older than ${HARNESS_MIN_COMPANION} never do, and a screen outside an agent cannot be proven), so it is saved for review. Check which harness it shows before you accept it.`));
+        const review = harnessReview({ slotHarness: wantedHarness, proof: null, finalUrl: evidence.finalUrl });
+        if (review.code === "wrong-harness") reasons.push(reason("wrong-harness", "fail", review.message));
+        else reasons.push(reason("harness-unproven", "warn", harnessUnprovenMessage({ wanted: wantedHarness, reached: evidence.harnessReached, addressAgrees: review.addressAgrees })));
       } else if (evidence.harness.id !== wantedHarness) {
         reasons.push(reason("wrong-harness", "fail", `This picture was taken in the ${HARNESS_LABELS[evidence.harness.id]}, but this screenshot needs the ${HARNESS_LABELS[wantedHarness]}, so it was not saved.`));
       }
@@ -589,11 +589,29 @@ export function verifyImage(bytes, options = {}) {
       reasons.push(reason("needs-practice-agent", "warn", "This shows the screen as far as the computer could take it without a practice agent. Allow a practice agent, then retake it, to capture the final state."));
     }
     if (evidence.setup?.review?.message) reasons.push(reason("recipe-review", "warn", evidence.setup.review.message));
-  } else if (options.requireEvidence) {
-    reasons.push(reason("no-evidence", "warn", options.requireProof ? OLD_COMPANION_MESSAGE : "The companion did not report what the page showed."));
+  } else {
+    if (options.requireEvidence) reasons.push(reason("no-evidence", "warn", options.requireProof ? OLD_COMPANION_MESSAGE : "The companion did not report what the page showed."));
+    // A picture that came with no evidence at all proves nothing about its harness either.
+    const wanted = normalizeHarness(options.expectHarness);
+    if (options.requireProof && isSpecificHarness(wanted)) reasons.push(reason("harness-unproven", "warn", harnessUnprovenMessage({ wanted, noEvidence: true })));
   }
 
   return finish();
+}
+
+/**
+ * The sentence for a picture whose harness nothing proves. `reached` is the record of a screen outside any agent (Home, the Agents list),
+ * `addressAgrees` says the shape of the final address is at least the slot's own harness (it still proves nothing), and `noEvidence` is a
+ * picture that came with nothing at all. Exported so the portal says the same words when it reads a picture that was saved earlier.
+ */
+export function harnessUnprovenMessage({ wanted, reached = null, addressAgrees = false, noEvidence = false } = {}) {
+  const need = HARNESS_LABELS[normalizeHarness(wanted)] || "right harness";
+  if (noEvidence) return `The companion did not report which harness this picture shows, so it is saved for review. Check that it shows the ${need} before you accept it.`;
+  if (reached) {
+    return `This screen is outside the agent (Home or the Agents list), so what it shows cannot prove which harness it was taken in. The companion took it on ${reached.host} (the ${HARNESS_LABELS[reached.id]} experience), reached by ${reached.via === "click-path" ? "the click path (More options, Open classic experience, Skip feedback)" : reached.via === "preview-address" ? "the preview address, opened directly" : "the default address"}, and it is saved for review. Check it shows the ${need} before you accept it. A Home page is the shared Home, which looks the same in every harness, and it does not show the Standard create flow.`;
+  }
+  const base = `The companion did not prove which harness this picture was taken in (companions older than ${HARNESS_MIN_COMPANION} never do, and a screen outside an agent cannot be proven), so it is saved for review. Check which harness it shows before you accept it.`;
+  return addressAgrees ? `${base} The shape of its address fits the ${need}, but an address alone does not prove it.` : base;
 }
 
 /** Whether the page offers a Sign in button and shows no account: the companion's own reading when it has one, the labels and masking count otherwise. */

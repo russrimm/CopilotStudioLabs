@@ -34,6 +34,7 @@ export function navHintFor(section, sectionSettings = {}, product = TOUR_PRODUCT
   if (sectionSettings.hint) return sectionSettings.hint;
   if (product !== TOUR_PRODUCT) return GENERIC_HINT;
   if (section === "home") return "Start on the Copilot Studio Home page.";
+  if (section === "agents") return "Open the Agents page (the list of agents).";
   if (section === "admin") return "Start in the Power Platform admin center.";
   if (section === "custom" || section === "solutions") return GENERIC_HINT;
   if (["build", "preview", "test", "evaluate", "monitor", "deploy"].includes(section)) {

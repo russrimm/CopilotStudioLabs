@@ -862,10 +862,32 @@ async function scAcceptShot(labId, filename) {
     else await scRefreshLab(labId);
     return true;
   }
-  const items = data.verification ? scVerificationSummary(data.verification, scLimits()).items : [{ level: "fail", text: String(data.error || `Could not accept it (${status}).`) }];
+  const items = data.verification ? scVerificationSummary(data.verification, scLimits()).items : [{ level: "fail", text: String(data.error || data.message || `Could not accept it (${status}).`) }];
   scSetFeedback(labId, filename, { variant: "bad", headline: "This screenshot could not be accepted.", items });
   scAnnounce("This screenshot could not be accepted.");
+  // A picture of the wrong harness is refused for good: the refusal changes nothing, so show the card as the server sees it now.
+  if (data.code === "wrong-harness") await scRefreshLabState(labId);
   return false;
+}
+
+/**
+ * "Keep in kept pictures": a picture waiting for review that was taken in another harness than its screenshot needs cannot be accepted. The server
+ * saves it in the kept pictures list, reads it back, and clears it from review; the screenshot stays as it was before the picture was staged.
+ */
+async function scKeepWrongHarnessShot(labId, filename) {
+  const { ok, data, status } = await scFetchJson(scScreenshotApi(labId, filename, "/keep-staged"), scJsonInit("POST", {}));
+  if (!ok || data.outcome !== "kept") {
+    scSetFeedback(labId, filename, { variant: "bad", headline: "This picture could not be kept.", items: [{ level: "fail", text: String(data.message || data.error || `Request failed (${status}).`) }] });
+    scAnnounce("This picture could not be kept.");
+    return false;
+  }
+  const message = scText(data.message, 400) || "The picture was moved to the kept pictures list.";
+  scSetFeedback(labId, filename, { variant: "warn", headline: message, items: [] });
+  scAnnounce(message);
+  if (data.state) await scApplyNewState(labId, data.state);
+  else await scRefreshLabState(labId);
+  if (typeof scLoadKept === "function" && typeof scKeep !== "undefined" && scKeep.loaded) await scLoadKept(true);
+  return true;
 }
 
 /** Discard a staged image, or reset a captured one to "Pending" so it can be retaken. */

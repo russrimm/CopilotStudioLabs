@@ -14,6 +14,7 @@ import path from "node:path";
 
 import { createCaptureSession, runCaptureShot } from "../capture-run.mjs";
 import { resolveAutonomy } from "../guard.mjs";
+import { workPageOf } from "../harness-run.mjs";
 import { detectBrowserAvailability, loadPlaywrightModule, verifyCapturedImageBuffer } from "../lab-runner.mjs";
 import { createPracticeRegistry } from "../practice.mjs";
 import { FAKE_PRACTICE_ENV_ID, FAKE_PRACTICE_ENV_URL, createFakeProductSite } from "./fixtures/fake-product-site.mjs";
@@ -79,7 +80,7 @@ async function withTenant(options, fn) {
     const session = createCaptureSession({ autonomy, registry, home, agentSource: "created", writeGapMs: 0, effectMs: 2500, findMs: 4000, landmarkMs: 4000, landmarkSettleMs: 150, promptMs: 1200, switchWaitMs: 4000, switchTabMs: 6000 });
     const shoot = (shot) =>
       runCaptureShot({
-        page,
+        page: workPageOf(session, page),
         shot,
         session,
         effectiveMode: "autonomous",
@@ -121,7 +122,7 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
     assert.equal(classic.harness.switched, true);
     assert.equal(classic.harness.host, "copilotstudio.preview.microsoft.com");
     assert.equal(classic.harness.via, "click-path");
-    assert.equal(context.pages().length, 2);
+    assert.equal(context.pages().length, 1, "one tab: the first tab was closed once the classic tab was open");
     const made = practiceAgents(site);
     assert.deepEqual(made, [
       { name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" },
@@ -142,7 +143,7 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
     assert.equal(site.practiceAgents().length, 2, "the Microsoft Copilot slot used its own agent, and made no third one");
     assert.equal(again.detail.practice.harness, "microsoft-copilot");
     assert.equal(site.stats.classicClicks, 1, "going back to a Microsoft Copilot picture did not switch anything");
-    assert.equal(context.pages().length, 1, "and the classic tab was closed");
+    assert.equal(context.pages().length, 1, "and it is still one tab: the single tab opened the default address again");
     assert.match(lines.join("\n"), /Switching to the classic experience: ellipsis in the lower left corner > Open classic experience > Skip feedback/);
     assert.deepEqual(site.stats.dangers, []);
   });
@@ -206,19 +207,19 @@ test("one job with both harnesses, one harness after the other: the classic swit
     assert.equal(site.stats.classicClicks, 1, "the switch to the classic experience was made once for both Standard shots");
     assert.equal(site.stats.popups, 1);
     assert.equal(first.harness.switched, true);
-    assert.equal(context.pages().length, 2, "the first tab and the classic tab");
-    assert.doesNotMatch(lines.join("\n"), /Closed the classic tab/, "the classic tab stays open for the whole Standard part");
+    assert.equal(context.pages().length, 1, "one tab: the first tab was closed, the classic tab is the only one");
+    assert.doesNotMatch(lines.join("\n"), /Changing experience/, "the classic tab stays the page in use for the whole Standard part");
 
     const third = await shoot(agentShot("c.copilot.png", "microsoft-copilot"));
     const fourth = await shoot(agentShot("d.copilot.png", "microsoft-copilot"));
     assert.deepEqual([third.status, fourth.status], ["captured", "captured"], third.error || fourth.error);
     assert.deepEqual([third.harness.id, fourth.harness.id], ["microsoft-copilot", "microsoft-copilot"]);
     assert.equal(third.harness.switched, false, "a Microsoft Copilot picture is never marked as switched");
-    assert.equal(context.pages().length, 1, "the classic tab was closed, and the first tab (on the default address) is the page in use");
+    assert.equal(context.pages().length, 1, "still one tab: the classic tab opened the default address again for the Microsoft Copilot part");
     assert.equal(site.stats.classicClicks, 1, "going back to the default experience clicked nothing in the classic one");
     const text = lines.join("\n");
     assert.equal((text.match(/Switching to the classic experience:/g) || []).length, 1);
-    assert.equal((text.match(/Closed the classic tab/g) || []).length, 1, "the classic tab was closed once");
+    assert.equal((text.match(/Changing experience: going back to the default experience/g) || []).length, 1, "the single tab went back to the default address once");
     assert.match(text, /Proved the Microsoft Copilot harness: Build, Preview, Evaluate, Monitor/);
 
     // Two practice agents inside the same job, each proven in its own experience and neither used for the other.

@@ -88,7 +88,7 @@ function verbReveals(shot) {
 export function buildSetupPlan(shot, { capture, allowPractice = false, sharedRecipes = null, labTitle = "" } = {}) {
   if (!capture || capture.mode === "manual") return null;
   const product = capture.product || shot.product || "copilot-studio";
-  const facts = { product, kind: shot.kind, section: shot.section || capture.section, caption: shot.caption, alt: shot.alt, instructions: shot.instructions, callouts: shot.callouts };
+  const facts = { product, filename: shot.filename, kind: shot.kind, section: shot.section || capture.section, caption: shot.caption, alt: shot.alt, instructions: shot.instructions, callouts: shot.callouts };
   const key = recipeKeyForShot({ ...shot, capture });
   let source = "derived";
   let rawSteps = [];

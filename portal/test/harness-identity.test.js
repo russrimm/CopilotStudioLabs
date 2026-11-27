@@ -234,6 +234,10 @@ test("the capture plan carries each shot's harness, the switch step and the proo
   const standard = await newLab(["create-agent"], "standard");
   const plan = buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: standard.labId, scope: { mode: "all", filenames: [], featureIds: [] }, capturedDir: [ctx.libDir], scratch: true, agentSource: "created" });
   assert.equal(plan.labHarness.id, "standard");
+  // Built from scratch, the Agents list picture still opens the More create options menu (a built-in recipe for that one slot); the walkthrough builds the agent screens and nothing opens the menu on the Home picture.
+  assert.equal(plan.shots.find((s) => s.filename === "create-agent-describe.png").capture.setup?.source, "builtin:cs.agents.create-options");
+  assert.ok(!plan.shots.find((s) => s.filename === "copilot-studio-home.png").capture.setup, "a reused picture of the same feature opens no menu");
+  assert.ok(!plan.shots.find((s) => s.filename === "agent-overview.png").capture.setup, "an agent screen is built by the walkthrough, not by a plan recipe");
   assert.equal(plan.shots.find((s) => s.filename === "copilot-studio-home.png").capture.harness.proof, "None by content: this screen is outside the agent (Home or the Agents list), so only the address host is checked, and the picture is saved for review so a person accepts it.", "Home cannot be proven by what it shows");
   assert.match(plan.shots.find((s) => s.filename === "agent-overview.png").capture.harness.proof, /^A tab strip with Overview/);
   for (const shot of plan.shots) {
@@ -244,7 +248,7 @@ test("the capture plan carries each shot's harness, the switch step and the proo
   }
   const dry = buildDryPlan(plan);
   assert.equal(dry.labHarness.id, "standard");
-  assert.match(dry.practiceAgentHarness, /Standard \(Classic\) harness practice agent, made on the Agents list with More create options > Agent, Standard \(not yet seen working on a real tenant/);
+  assert.match(dry.practiceAgentHarness, /Standard \(Classic\) harness practice agent, made on the Agents list with More create options > Agent, Standard \(it created a Standard agent on a real tenant on 2026-11-26/);
   assert.match(dry.practiceAgentHarness, /classic experience tab on copilotstudio\.preview\.microsoft\.com after the switch/);
   const text = formatDryPlan(dry);
   assert.match(text, /This lab: Standard \(Classic\) harness\. Every picture is taken in the Classic harness\./);

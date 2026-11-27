@@ -129,9 +129,9 @@
       ],
       "steps": [
         "Sign in to Copilot Studio.",
-        "Turn off **New experience** and select **Submit** to dismiss the **Feedback** panel so the **Home** page appears.",
+        "On the **Home** page, select the three dots at the bottom of the side bar (the **More options** button), and then select **Open classic experience**. The classic experience opens in a new browser tab; standard harness agents open there.",
         "Switch to the environment you want, and optionally change the primary language, solution, and schema name.",
-        "On the **Home** page or the **Agents** page, enter a brief description of what you want your agent to do.",
+        "On the **Agents** page, select **More create options**, and then select **Agent, Standard**.",
         "Review the suggestions, wait for provisioning, and configure the agent's basic features on the **Overview** page.",
         "Test your agent and improve it."
       ],
@@ -142,18 +142,19 @@
       "screenshots": [
         {
           "filename": "create-agent-describe.png",
-          "section": "home",
+          "section": "agents",
           "instructions": [
-            "Open the **Home** page or **Agents** page where the natural-language description box is visible.",
-            "Show the scenario description before the agent is created."
+            "Open the **Agents** page (the list of agents, not an agent).",
+            "Select **More create options**.",
+            "With the menu open, keep **Agent, Standard** in view, and take the picture. Do not select it yet."
           ]
         },
         {
           "filename": "agent-overview.png",
           "section": "overview",
           "instructions": [
-            "Open the new agent's **Overview** page.",
-            "Show the generated name, description, and instructions."
+            "Open the new agent, and select the **Overview** tab.",
+            "Show the Details card, the Instructions card, and the model selector (Select your agent's model); do not open any of them."
           ]
         }
       ],

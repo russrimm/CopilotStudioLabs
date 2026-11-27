@@ -235,7 +235,7 @@ test("the capture plan runs one harness at a time, one practice agent per harnes
   assert.deepEqual(dry.labHarness.order, ["standard", "microsoft-copilot"]);
   assert.equal(dry.experienceChanges, 1);
   assert.deepEqual(dry.practiceAgents.map((a) => a.harness), ["standard", "microsoft-copilot"]);
-  assert.match(dry.practiceAgents[0].note, /made on the Agents list with More create options > Agent, Standard \(not yet seen working on a real tenant.*in the classic experience tab on copilotstudio\.preview\.microsoft\.com after the switch \(ellipsis in the lower left corner > Open classic experience > Skip feedback\)/);
+  assert.match(dry.practiceAgents[0].note, /made on the Agents list with More create options > Agent, Standard \(it created a Standard agent on a real tenant on 2026-11-26.*in the classic experience tab on copilotstudio\.preview\.microsoft\.com after the switch \(ellipsis in the lower left corner > Open classic experience > Skip feedback\)/);
   assert.match(dry.practiceAgents[1].note, /made on the Agents list with More create options > Agent, uses Copilot Credits \(not yet seen working on a real tenant.*in the default experience at copilotstudio\.microsoft\.com \(no switch\)/);
   const standardShot = dry.automatic.find((s) => s.harness === "standard" && s.filename === "agent-overview.png");
   const copilotShot = dry.automatic.find((s) => s.harness === "microsoft-copilot");

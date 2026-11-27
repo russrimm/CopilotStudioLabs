@@ -479,11 +479,6 @@ function neutralKnowledgeAddress(labDir) {
 }
 
 /** A lab that lists no public website to add as knowledge: the practice agent keeps no knowledge source. */
-function withoutKnowledgeWebsite(labDir) {
-  const file = path.join(labDir, "manifest.json");
-  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/https:\/\/learn\.microsoft\.com/g, "https://docs.invalid"));
-}
-
 test("test conversations, dialogs, an item, and a sample test set are taken by their recipes; what the computer cannot check is saved for review; nothing above the allowed tier is touched", { skip }, async () => {
   const scenario = await scenarioFor({}, FAMILY_FEATURES);
   try {
@@ -580,21 +575,22 @@ test("a panel the screen does not show is never accepted blindly: the picture is
   }
 });
 
-test("in the older layout the same recipes work, and what the layout cannot do stops with a plain reason and changes nothing", { skip }, async () => {
-  const scenario = await scenarioFor({ layout: "classic", editableInstructions: true }, ["create-agent", "agent-instructions", "knowledge-sharepoint", "evaluations", "knowledge-files-web"], "standard");
+test("a Standard lab on a page with a side navigation instead of the Standard tab strip stops with a plain reason for every screen and changes nothing but the practice agent", { skip }, async () => {
+  const scenario = await scenarioFor({ layout: "classic" }, ["create-agent", "agent-instructions", "knowledge-sharepoint", "evaluations", "knowledge-files-web"], "standard");
   try {
-    // No public website, so no knowledge source is added; the first tool (listed on the Tools page) is the item to open.
-    withoutKnowledgeWebsite(scenario.lab.labDir);
-    editShot(scenario.lab.labDir, "knowledge-sources-list.png", { caption: "Details of the first tool", feature: "tools", featureId: "tools", section: "tools" });
     const out = await run(scenario);
-    assert.equal(rowOf(out, "test-pane-in-scope.png")?.status, "captured", statusLine(out));
-    assert.equal(rowOf(out, "knowledge-sharepoint-add.png")?.status, "captured", statusLine(out));
-    assert.equal(rowOf(out, "knowledge-sources-list.png")?.status, "captured", `${statusLine(out)} :: the first tool is opened in the classic Tools page and left without saving`);
-    assert.ok(out.site.stats.views.length === 0 || out.site.stats.views.every((v) => v === "activity-map"), "no panel was opened that the older layout does not have");
-    const testSet = rowOf(out, "eval-test-set.png");
-    assert.equal(testSet?.status, "needs-you", "the older layout has no Evaluation page in this product, so nothing is guessed");
-    assert.equal(writesOf(out, "create-evaluation:").length, 0);
-    assert.deepEqual(out.site.stats.writes.filter((w) => !/^(?:create-start|create-agent:|set-name:|set-instructions:)/.test(w)), [], "nothing but the practice agent and its instructions was changed");
+    const reasonOf = (name) => rowOf(out, name)?.reason || "";
+    // The Standard recipes select the tabs of the tab strip that was read on a real Standard agent: no side navigation is guessed, and the step that did not work is named.
+    assert.equal(rowOf(out, "agent-overview.png")?.status, "needs-you", statusLine(out));
+    assert.match(reasonOf("agent-overview.png"), /Selected the Overview tab/, statusLine(out));
+    // A screen whose control was never seen on a Standard agent is not tried at all.
+    for (const name of ["knowledge-sharepoint-add.png", "knowledge-answer-citation.png", "knowledge-sources-list.png", "eval-test-set.png"]) {
+      assert.equal(rowOf(out, name)?.status, "needs-you", `${name}: ${statusLine(out)}`);
+      assert.match(reasonOf(name), /has not been seen|were not|was seen, but/, `${name}: says what was never seen`);
+    }
+    assert.equal(rowOf(out, "eval-results.png")?.cause, "needs-credits");
+    assert.deepEqual(out.site.stats.writes.map((w) => w.split(":")[0]), ["create-start", "create-agent"], "nothing but the practice agent was made");
+    assert.deepEqual(out.site.stats.views, [], "no panel was opened");
     assert.deepEqual(out.site.stats.dangers, []);
   } finally {
     await scenario.close();
