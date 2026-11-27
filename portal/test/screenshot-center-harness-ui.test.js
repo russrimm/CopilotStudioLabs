@@ -522,7 +522,99 @@ test("the review compares the picture with what the lab asks for, and says which
   const proven = slot("agent-home.png", "standard", "pending", { needsReview: true, verification: { level: "pass", state: "needs-review", reasons: [], evidence: { harness: { id: "standard" } } } });
   const p = await ready(labState([proven]));
   await p.click(p.action("preview", p.card("agent-home.png")));
-  assert.equal(p.host.querySelector("[data-sc-review] .sc-review-col .sc-harness-picture").textContent, `Picture: ${STANDARD}. The companion read it from the page.`);
+  assert.equal(p.host.querySelector("[data-sc-review] .sc-review-col .sc-harness-picture").textContent, `Picture: ${STANDARD} (the companion read it from the page)`);
+  assert.equal(p.host.querySelector("[data-sc-review] .sc-review-col .sc-harness-needs").textContent, `This screenshot needs: ${STANDARD}`);
+});
+
+const WRONG = "This picture was taken in the Microsoft Copilot harness (Build, Preview, Evaluate, Monitor); this lab needs the Standard (Classic) harness.";
+const reviewOf = (extra = {}) => ({ code: "harness-unproven", found: null, foundLabel: NOT_RECORDED, source: null, needed: "standard", neededLabel: STANDARD, message: "The companion did not prove which harness this picture was taken in.", canAccept: true, addressAgrees: false, ...extra });
+const wrongReview = () => reviewOf({ code: "wrong-harness", found: "microsoft-copilot", foundLabel: COPILOT, source: "address", message: WRONG, canAccept: false });
+const waiting = (review, reasons, extra = {}) => slot("agent-home.png", "standard", "pending", { needsReview: true, harnessReview: review, verification: { level: "warn", state: "needs-review", reasons, stagedAt: "2026-06-01T10:00:00.000Z" }, ...extra });
+const WRONG_REASON = { code: "wrong-harness", level: "warn", message: WRONG, derived: true };
+
+test("the review says which harness the picture shows and how that was read, and which harness the screenshot needs", async () => {
+  // Read from the page by the companion: the proof.
+  const proof = await ready(labState([waiting(reviewOf({ code: "ok", found: "standard", foundLabel: STANDARD, source: "proof", message: "" }), [])]));
+  await proof.click(proof.action("preview", proof.card("agent-home.png")));
+  const lines = (h) => [h.host.querySelector("[data-sc-review] .sc-harness-picture"), h.host.querySelector("[data-sc-review] .sc-harness-needs")];
+  assert.deepEqual(lines(proof).map((el) => el.textContent), [`Picture: ${STANDARD} (the companion read it from the page)`, `This screenshot needs: ${STANDARD}`]);
+  assert.equal(lines(proof)[0].dataset.scHarnessSource, "proof");
+
+  // Read from the shape of the picture's address.
+  const address = await ready(labState([waiting(wrongReview(), [WRONG_REASON])]));
+  await address.click(address.action("preview", address.card("agent-home.png")));
+  assert.deepEqual(lines(address).map((el) => el.textContent), [`Picture: ${COPILOT} (read from the picture's address)`, `This screenshot needs: ${STANDARD}`]);
+  assert.equal(lines(address)[0].dataset.scHarnessSource, "address");
+
+  // Nothing is known: the 'Harness not recorded' wording, and no wrong-harness message.
+  const unknown = await ready(labState([waiting(reviewOf(), [])]));
+  await unknown.click(unknown.action("preview", unknown.card("agent-home.png")));
+  assert.equal(lines(unknown)[0].textContent, `Picture: ${NOT_RECORDED} yet. Accepting it records it as the ${STANDARD}, so check that it shows that harness first.`);
+  assert.equal(lines(unknown)[1].textContent, `This screenshot needs: ${STANDARD}`);
+  assert.ok(!unknown.host.querySelector("[data-sc-review-wrong-harness]"));
+  const accept = unknown.action("shot-accept", unknown.host.querySelector("dialog.sc-lightbox"));
+  assert.ok(accept && !accept.disabled, "a picture that is only unproven can be accepted after a look");
+  assert.ok(!unknown.action("shot-keep-wrong-harness", unknown.host.querySelector("dialog.sc-lightbox")), "and there is nothing to keep");
+
+  const site = await ready(labState([shot({ filename: "site.png", product: "sharepoint-ai", caption: "Site page", needsReview: true, verification: { level: "warn", state: "needs-review", reasons: [] } })], { harness: null }));
+  assert.ok(!/harness/i.test(words(site.card("site.png"))), "a product with no harnesses says nothing about harnesses");
+  await site.click(site.action("preview", site.card("site.png")));
+  assert.ok(!site.host.querySelector("[data-sc-review] .sc-harness-picture") && !site.host.querySelector("[data-sc-review] .sc-harness-needs"));
+});
+
+test("a wrong-harness picture shows the plain message first, turns Accept off with a visible reason, and offers to keep it in the kept pictures", async () => {
+  const state = labState([waiting(wrongReview(), [WRONG_REASON, { code: "labels-missing", level: "warn", message: "Only 0 of 4 expected labels are visible. Check that this is the screen the lab describes." }])]);
+  const h = await ready(state);
+
+  // The card: the message is the first reason, Accept is off, the reason is beside it, and Keep is offered.
+  const card = h.card("agent-home.png");
+  assert.ok(card.querySelector("[data-sc-note]").textContent.startsWith(WRONG), "the card's note starts with the harness reason");
+  const accept = h.action("shot-accept", card);
+  assert.equal(accept.disabled, true);
+  const why = card.querySelector("[data-sc-accept-why]");
+  assert.equal(accept.getAttribute("aria-describedby"), why.id, "the reason is tied to the button for a screen reader");
+  assert.equal(why.textContent, `Accept is off: this picture shows the ${COPILOT}, and this screenshot needs the ${STANDARD}. Keep it in the kept pictures, or retake it.`);
+  assert.ok(h.action("shot-keep-wrong-harness", card), "Keep in kept pictures");
+  assert.equal(h.action("shot-keep-wrong-harness", card).textContent, "Keep in kept pictures");
+  assert.ok(h.action("shot-retake", card) && h.action("shot-discard", card), "retake and discard stay");
+
+  // The enlarged review: the message is a visible alert before everything else.
+  await h.click(h.action("preview", card));
+  const dialog = h.host.querySelector("dialog.sc-lightbox");
+  const review = dialog.querySelector("[data-sc-review]");
+  assert.equal(review.children[0].dataset.scReviewWrongHarness, "1", "first in the review");
+  assert.equal(review.children[0].textContent, WRONG);
+  assert.equal(review.children[0].getAttribute("role"), "alert");
+  assert.ok(review.children[0].classList.contains("sc-review-wrong-harness"));
+  assert.equal(h.action("shot-accept", dialog).disabled, true);
+  assert.equal(h.action("shot-accept", dialog).getAttribute("aria-describedby"), dialog.querySelector("[data-sc-accept-why]").id);
+  assert.match(dialog.querySelector(".sc-lb-info").textContent, /this lab needs the Standard \(Classic\) harness/, "the reasons list says it too");
+
+  // Accepting is not even attempted; keeping calls the server, shows its message, and the screenshot is as it was.
+  await h.click(h.action("shot-accept", dialog));
+  assert.equal(h.callsTo("POST", /\/accept$/).length, 0);
+  const after = labState([slot("agent-home.png", "standard", "pending")]);
+  h.route("POST", /\/screenshots\/agent-home\.png\/keep-staged$/, { status: 200, body: { outcome: "kept", code: "wrong-harness", filename: "agent-home.png", message: `${WRONG} It was moved to the kept pictures list for 90 days. This screenshot is not changed.`, state: after } });
+  await h.click(h.action("shot-keep-wrong-harness", dialog));
+  assert.equal(h.callsTo("POST", /\/keep-staged$/).length, 1);
+  assert.equal(h.live(), `${WRONG} It was moved to the kept pictures list for 90 days. This screenshot is not changed.`);
+  const fresh = h.card("agent-home.png");
+  assert.ok(!h.action("shot-keep-wrong-harness", fresh) && !h.action("shot-accept", fresh), "nothing waits for review any more");
+  assert.ok(h.action("shot-capture", fresh), "it is pending again");
+});
+
+test("a keep or an accept the server refuses shows its plain message", async () => {
+  const h = await ready(labState([waiting(wrongReview(), [WRONG_REASON])]));
+  h.route("POST", /\/screenshots\/agent-home\.png\/keep-staged$/, { status: 500, body: { outcome: "rejected", code: "keep-failed", message: "The picture could not be kept first, so nothing was changed: disk full." } });
+  await h.click(h.action("shot-keep-wrong-harness", h.card("agent-home.png")));
+  assert.match(h.card("agent-home.png").querySelector(".sc-feedback").textContent, /could not be kept first, so nothing was changed: disk full/);
+  assert.ok(h.action("shot-keep-wrong-harness", h.card("agent-home.png")), "still there to try again");
+
+  // The older server's picture (no review field) can still be accepted, and a server that refuses says why.
+  const older = await ready(labState([waiting(null, [], { harnessReview: undefined })]));
+  older.route("POST", /\/screenshots\/agent-home\.png\/accept$/, { status: 409, body: { outcome: "rejected", code: "wrong-harness", message: `${WRONG} It cannot be accepted for this screenshot. Keep it in the kept pictures, or retake it.`, filename: "agent-home.png" } });
+  await older.click(older.action("shot-accept", older.card("agent-home.png")));
+  assert.match(older.card("agent-home.png").querySelector(".sc-feedback").textContent, /It cannot be accepted for this screenshot\. Keep it in the kept pictures, or retake it\./);
 });
 
 test("the two harness reasons read well wherever reasons are listed", () => {
@@ -1072,7 +1164,7 @@ test("the harness label tones meet WCAG AA in the dark and light themes", () => 
   };
   const token = (rule, property) => new RegExp(`(?:^|[\\s;])${property}:\\s*var\\((--[a-z0-9-]+)\\)`).exec(rule)?.[1] || null;
   const base = ruleOf(".sc-harness-label");
-  for (const [selector, fallback] of [[".sc-harness-label", null], [".sc-harness-label-standard", base], [".sc-harness-label-not-recorded", base], [".sc-harness-note", base], [".sc-harness-flag", base], [".sc-harness-mixed, .sc-harness-wrong", base]]) {
+  for (const [selector, fallback] of [[".sc-harness-label", null], [".sc-harness-label-standard", base], [".sc-harness-label-not-recorded", base], [".sc-harness-note", base], [".sc-harness-flag", base], [".sc-harness-mixed, .sc-harness-wrong", base], [".sc-review-wrong-harness", base]]) {
     const rule = ruleOf(selector);
     const fg = token(rule, "color") || token(fallback || "", "color");
     const bg = token(rule, "background") || token(fallback || "", "background");

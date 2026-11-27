@@ -2225,7 +2225,15 @@ function scCardActions(labId, shot, status, { idPrefix = "card" } = {}) {
     add("Retake guided", "shot-retake-guided", { primary: guidedFirst, disabled: jobActive || busyUpload, needsIdle: true });
   };
   if (status.key === "needs-review") {
-    add("Accept", "shot-accept", { primary: true, disabled: busyUpload });
+    // A picture taken in another harness cannot be accepted: Accept is off, the reason is shown beside it in words, and it can be kept instead.
+    const review = scHarnessReviewModel(shot);
+    const blocked = Boolean(review?.wrong);
+    const whyId = `sc-accept-why-${idPrefix}-${String(shot.filename).replace(/[^A-Za-z0-9_-]/g, "-")}`;
+    add("Accept", "shot-accept", { primary: !blocked, disabled: busyUpload || blocked, ...(blocked ? { aria: { "aria-label": `Accept: ${label}`, "aria-describedby": whyId } } : {}) });
+    if (blocked) {
+      add("Keep in kept pictures", "shot-keep-wrong-harness", { primary: true, disabled: busyUpload });
+      buttons.push(scEl("p", { id: whyId, class: "sc-accept-why", text: `Accept is off: this picture shows the ${review.foundLabel || "other harness"}, and this screenshot needs the ${review.needLabel}. Keep it in the kept pictures, or retake it.`, data: { scAcceptWhy: "1" } }));
+    }
     addRetakes(false);
     add("Discard", "shot-discard", { disabled: busyUpload });
   } else if (status.agentWait && !shot.captured) {
@@ -2692,6 +2700,10 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "shot-accept":
       await scAcceptShot(labId, filename);
       return;
+    case "shot-keep-wrong-harness":
+      scCloseLightboxFor(labId, control);
+      await scKeepWrongHarnessShot(labId, filename);
+      return;
     case "shot-discard":
       scAskDiscardShot(labId, filename);
       return;
@@ -2992,6 +3004,9 @@ function scLbInstructions(shot) {
 /** A picture waiting for review, side by side with what the lab asks for, and why they differ when the screen was wrong. */
 function scBuildReviewCompare(shot, label, url) {
   const wrap = scEl("div", { class: "sc-review", data: { scReview: "1" } });
+  const review = scHarnessReviewModel(shot);
+  // A picture taken in another harness cannot be accepted: it says so first, in words, before anything else.
+  if (review?.wrong) wrap.appendChild(scEl("p", { class: "sc-review-wrong-harness", text: review.message, attrs: { role: "alert" }, data: { scReviewWrongHarness: "1" } }));
   const mismatch = scLandingSentence(shot.verification);
   if (mismatch) wrap.appendChild(scEl("p", { class: "sc-review-mismatch", text: mismatch }));
   const grid = scEl("div", { class: "sc-review-grid" });
@@ -3000,11 +3015,10 @@ function scBuildReviewCompare(shot, label, url) {
   const captured = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-captured" } });
   captured.appendChild(scEl("h6", { id: "sc-review-captured", text: "What we captured" }));
   captured.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
-  if (harness && harness.need !== "either") {
-    // The harness the companion read from the page, or what accepting the picture will record when it could not.
-    const proven = scHarnessId(shot.verification?.harnessSeen?.id ?? shot.verification?.evidence?.harness?.id ?? shot.verification?.harness?.id);
-    const line = proven && proven !== "either" ? `Picture: ${scHarnessLabelOf(proven)}. The companion read it from the page.` : `Picture: ${SC_HARNESS_NOT_RECORDED} yet. Accepting it records it as the ${harness.label}, so check that it shows that harness first.`;
-    captured.appendChild(scEl("p", { class: "sc-harness-picture sc-review-harness", text: line, data: { scHarnessPicture: "review" } }));
+  if (review) {
+    // The harness the picture shows and how that was read (the companion read the page, or the shape of the address), then the harness the screenshot needs.
+    captured.appendChild(scEl("p", { class: "sc-harness-picture sc-review-harness", text: review.line, data: { scHarnessPicture: "review", scHarnessSource: review.source || "none" } }));
+    captured.appendChild(scEl("p", { class: "sc-harness-needs", text: review.needsLine, data: { scHarnessNeeds: review.need } }));
   }
   grid.appendChild(captured);
 

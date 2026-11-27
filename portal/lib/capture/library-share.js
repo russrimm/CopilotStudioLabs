@@ -121,6 +121,17 @@ export function harnessStampOf(record, sha256) {
   return id;
 }
 
+/**
+ * How the harness stamp of `harnessStampOf` was proven: "landmarks" (the companion read the tabs of the page), "person" (a person said so),
+ * or "library" (it came with a library picture). Null when there is no stamp for these exact bytes.
+ * @returns {"landmarks"|"person"|"library"|null}
+ */
+export function harnessProofOf(record, sha256) {
+  if (!harnessStampOf(record, sha256)) return null;
+  const proof = String(record?.harness?.proof || "");
+  return ["landmarks", "person", "library"].includes(proof) ? proof : "person";
+}
+
 /** A harness stamp for a saved check: the harness, how it was proven, and when. `proof` is "landmarks" (the companion read the page), "person" (a person said so), or "library". */
 export function makeHarnessStamp(id, proof, at = new Date().toISOString()) {
   return { id: normalizeHarness(id), proof: ["landmarks", "person", "library"].includes(proof) ? proof : "person", at };

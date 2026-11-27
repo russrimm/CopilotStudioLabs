@@ -10,7 +10,7 @@ import path from "node:path";
 
 import { findProfile, getActiveProfileId, readCustomization, updateLabAgentSource, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
-import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider } from "../lab-builder/lab-screenshots.js";
+import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider, setStagedHarnessReviewProvider } from "../lab-builder/lab-screenshots.js";
 import { setLabPictureGuard, setReusePictureGuard } from "../lab-builder/picture-guard.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, describeCapturedScreenshotsLocation, getStorageDiagnostics, resolveKeptScreenshotsDir, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
@@ -32,6 +32,7 @@ import { buildDryPlan } from "./dry-plan.js";
 import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
 import { readLabScratchContext } from "./scratch-context.js";
 import { createScreenshotStore } from "./screenshot-store.js";
+import { withHarnessReasons } from "./harness-review.js";
 import { createSharedRecipeStore } from "./shared-recipes.js";
 import { readJson, writeJsonAtomic } from "./store-util.js";
 import { describeCaptureTargets, jobTargetsFrom, resolveCaptureTargets } from "./targets.js";
@@ -126,6 +127,12 @@ export function createCapturePlatform({
   const consent = createConsentStore({ dir: captureDir, now });
   const sharedRecipes = createSharedRecipeStore({ dir: captureDir, now });
   const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null, keptDir: () => resolveKeptScreenshotsDir(env), now });
+  // A lab picture waiting for review says which harness it was taken in (the companion's proof, else the shape of its address), read again
+  // from what was saved with it each time the lab's status is read; nothing is written back.
+  setStagedHarnessReviewProvider(({ labId, filename, slotHarness, verification }) => {
+    const waiting = screenshots.stagedHarnessReview({ kind: "lab", labId }, filename, slotHarness);
+    return waiting ? { harnessReview: waiting.harnessReview, verification: withHarnessReasons(verification, waiting.reasons) } : null;
+  });
   // Deleting or replacing a lab (or throwing away one that failed to build) keeps its real pictures first.
   setLabPictureGuard(generatedRoot, (request) => screenshots.guardLabRemoval(request));
   // A new lab copies a shared picture only when it is clean and does not look like the wrong screen, so one bad picture never spreads.

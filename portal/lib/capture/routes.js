@@ -511,6 +511,20 @@ export function registerCaptureRoutes(app, deps = {}) {
       }
     });
 
+    // "Keep in kept pictures": a staged picture taken in another harness than its screenshot needs cannot be accepted; it goes to the kept pictures list.
+    app.post(base("/keep-staged"), (req, res) => {
+      if (manageLimited(req, res)) return;
+      const target = resolveTarget(req, res);
+      if (!target) return;
+      syncAfter(res);
+      try {
+        const result = screenshots.keepStagedPicture(target, req.params.filename);
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        fail(res, err);
+      }
+    });
+
     app.delete(base(), (req, res) => {
       if (manageLimited(req, res)) return;
       const target = resolveTarget(req, res);

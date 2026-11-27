@@ -969,6 +969,24 @@ const DEFAULT_CAPTURE_CAPABILITIES = Object.freeze({
 let captureCapabilitiesProvider = null;
 let captureTargetsProvider = null;
 let sharedLibraryProvider = null;
+let stagedHarnessReviewProvider = null;
+
+/**
+ * The capture platform registers what a picture waiting for review says about its harness, read from what was saved with it:
+ * `({ labId, filename, slotHarness, verification }) => { harnessReview, verification } | null`, where `verification` is the saved check with the
+ * harness reasons in front. Nothing is written back; without it a lab's status carries no harness review.
+ */
+export function setStagedHarnessReviewProvider(provider) {
+  stagedHarnessReviewProvider = typeof provider === "function" ? provider : null;
+}
+
+function currentStagedHarnessReview(input) {
+  try {
+    return stagedHarnessReviewProvider?.(input) || null;
+  } catch {
+    return null;
+  }
+}
 
 /** The capture platform registers a callback so status payloads can say whether a companion is connected. */
 export function setCaptureCapabilitiesProvider(provider) {
@@ -1236,6 +1254,8 @@ export function getLabScreenshotsStatus(
     const docsUpdated = mState.status === "docs-updated" || Boolean(sState.stale);
     const hasScreenshot = Boolean(resolved);
     const verification = verificationRecords[shot.filename] || null;
+    // A picture waiting for review says which harness it was taken in, read again here from what was saved with it (never written back).
+    const waiting = verification?.state === "needs-review" ? currentStagedHarnessReview({ labId, filename: shot.filename, slotHarness: shot.harness, verification }) : null;
     const sharing = describePictureSharing({ shot, resolved, verification, learnShot: sState, labConfirmations, library, capturedDir });
     // Which harness this slot needs (the lab's), which one the picture was taken in, and whether they agree. A lab picture stamped with the
     // other harness is not used (the slot is pending), but it is still reported so a person can see why.
@@ -1293,8 +1313,10 @@ export function getLabScreenshotsStatus(
       captureSource: hasScreenshot ? sState.captureSource || null : null,
       lastAttemptStatus: sState.lastAttemptStatus || null,
       lastError: sState.lastError || null,
-      verification,
+      verification: waiting?.verification || verification,
       needsReview: verification?.state === "needs-review",
+      // What a picture waiting for review says about its harness: the harness it shows and how that was read, and whether it may be accepted.
+      ...(waiting?.harnessReview ? { harnessReview: waiting.harnessReview } : {}),
       ...sharing,
       learnBaseline: shot.learnBaseline || null,
       // How this shot is captured under the settings in effect, so the Screenshot Center can say why.

@@ -62,6 +62,7 @@ import { findLibrarySlot, isLibrarySlotName, labSlotFilenames, libraryShotIndex,
 import { cleanText, readJson, writeBytesAtomic, writeJsonAtomic } from "./store-util.js";
 import { summarizeVerification, verifyUpload } from "./verify-upload.js";
 import { HARNESS_SHORT, harnessGapMessage, harnessLabel, isSpecificHarness, libraryName, normalizeHarness, pictureFitsSlot, pictureHarnessLabel } from "../../../tools/screenshot-capture/harness.mjs";
+import { derivedHarnessReasons, reviewStagedHarness, withHarnessReasons, wrongHarnessRefusal } from "./harness-review.js";
 
 const REFRESH_DELAY_MS = 2500;
 const MAX_REFRESH_LABS = 50;
@@ -310,7 +311,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
           }
         }
         const confirmed = file && confirmations[s.filename] ? validConfirmation(confirmations[s.filename], fileSha256(file)) : null;
-        return { ...s, capturedAt, confirmed, verification: records[s.filename] || null, needsReview: records[s.filename]?.state === "needs-review" };
+        // A picture waiting for review says which harness it was taken in (read again here, never written back), so a wrong one is plain to see.
+        const waiting = records[s.filename]?.state === "needs-review" ? stagedHarnessReview({ kind: "library" }, s.filename, s.harness) : null;
+        return { ...s, capturedAt, confirmed, verification: waiting ? withHarnessReasons(records[s.filename], waiting.reasons) : records[s.filename] || null, needsReview: records[s.filename]?.state === "needs-review", ...(waiting ? { harnessReview: waiting.harnessReview } : {}) };
       });
     const unrecorded = listUnrecordedLibraryPictures({ manifestDir, capturedDir: dirs().search })
       .filter((p) => !productSet || productSet.has(p.product))
@@ -426,6 +429,21 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     } catch {
       return null;
     }
+  }
+
+  /**
+   * What a picture waiting for review says about its harness, read again from what was saved with it every time (nothing is written back):
+   * `{ harnessReview, reasons }` with the reasons to show in front of the saved ones, or null when the slot needs no harness or nothing waits.
+   * `scope` is `{ kind: "lab", labId }` or `{ kind: "library" }`; `filename` is the slot's name there.
+   */
+  function stagedHarnessReview(scope, filename, slotHarness) {
+    if (!isSpecificHarness(normalizeHarness(slotHarness))) return null;
+    const stagedDir = scope.kind === "library" ? path.join(stagedRoot, "library") : /^[a-z0-9][a-z0-9-]{0,99}$/i.test(String(scope.labId)) ? path.join(stagedRoot, `lab-${scope.labId}`) : null;
+    if (!stagedDir || !isKeptPictureName(String(filename))) return null;
+    const meta = readJson(path.join(stagedDir, `${filename}.meta.json`), null);
+    if (!meta || typeof meta !== "object") return null;
+    const review = reviewStagedHarness({ slotHarness, meta });
+    return review ? { harnessReview: review, reasons: derivedHarnessReasons(review, { source: meta.source, saved: meta.verification?.reasons }) } : null;
   }
 
   // ── Operations ───────────────────────────────────────────────────────────
@@ -595,7 +613,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const candidate = { id: "candidate", scope: "library", labId: null, filename, sha256: sha, fingerprint, record: record || null, confirmed: false, slot: scanner.slotOf(filename) };
     const result = assessPictures([...others, candidate]).find((r) => r.id === "candidate");
     if (!result?.level || (result.level === "probable" && intent === "share")) return null;
-    return `${result.flags[0].message} It stays where it is. If it is right, mark it Keep this one first.`;
+    // A picture of the wrong harness cannot be saved by marking it Keep this one: that mark never silences it.
+    const first = result.flags[0];
+    return first.code === "HARNESS_MISMATCH" ? `${first.message} It stays where it is.` : `${first.message} It stays where it is. If it is right, mark it Keep this one first.`;
   }
 
   /**
@@ -627,7 +647,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     });
     if (verification.level === "fail") {
       const failed = summarizeVerification(verification);
-      return { status: 422, body: { outcome: "rejected", filename, verification: failed, message: verification.reasons[0]?.message || "The image failed verification." } };
+      return { status: 422, body: { outcome: "rejected", filename, verification: failed, message: (verification.reasons.find((r) => r.level === "fail") || verification.reasons[0])?.message || "The image failed verification." } };
     }
     // What the picture looks like (kept with its check) and what it looks like to the other slots' pictures.
     const fingerprint = verification.format === "png" ? fingerprintPicture(bytes) : null;
@@ -664,6 +684,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const staged = readStaged(target, filename);
     if (!staged) return { status: 404, body: { error: "Nothing is waiting for review for this screenshot.", filename } };
     const slot = target.slot(filename);
+    // A picture taken in another harness than its slot needs is never accepted for the slot, whatever else is said about it. Nothing is written.
+    const harnessCheck = reviewStagedHarness({ slotHarness: slot.harness, meta: staged.meta });
+    if (harnessCheck?.code === "wrong-harness") return { status: 409, body: wrongHarnessRefusal(harnessCheck, filename) };
     const verification = verifyUpload({ bytes: staged.bytes, filename, evidence: staged.meta?.evidence || null, expectedLabels: staged.meta?.expectedLabels || slot.expectedLabels, expect: staged.meta?.expect || null });
     if (verification.level === "fail") {
       clearStaged(target, filename);
@@ -714,6 +737,172 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       if (hadOwn || target.kind === "lab") target.resetImage(filename);
     });
     return { status: 200, body: { outcome: "reset", filename, discardedStaged: false, removedImage: hadOwn, state: target.state() } };
+  }
+
+  /**
+   * Save one staged picture of the wrong harness in the kept pictures archive (its check, with the harness it shows, and its callouts), read it
+   * back and compare it with the staged bytes, and only then clear the staged file and put back the record the slot had before staging, exactly
+   * like `reset` does for a staged picture. Throws, changing nothing, when the picture could not be kept and verified.
+   */
+  function keepStagedWrongHarness(target, filename, staged, review) {
+    const sha = sha256Hex(staged.bytes);
+    const saved = staged.meta?.verification && typeof staged.meta.verification === "object" ? staged.meta.verification : {};
+    // The harness the picture shows, so it can be put back into a slot of that harness later (never into the slot it was refused for).
+    const stamp = review.found ? makeHarnessStamp(review.found, review.source === "proof" ? "landmarks" : "person") : null;
+    const ownerId = target.kind === "library" ? LIBRARY_ENTRY_ID : target.labId;
+    const archived = kept().archive({
+      labId: ownerId,
+      labTitle: target.kind === "library" ? "Shared library" : labTitleOf(target.labDir),
+      reason: "wrong-harness",
+      pictures: [{ filename, bytes: staged.bytes, why: "wrong-harness", message: review.message, record: { ...saved, sha256: sha, state: "accepted", source: staged.meta?.source || null, ...(stamp ? { harness: stamp } : {}) }, confirmation: null, callouts: cleanCallouts(staged.meta?.callouts) }],
+    });
+    // A picture of the same slot with the same bytes that is already kept needs no second copy; any other must read back identical.
+    if (archived.entryId) {
+      const back = kept().read(archived.entryId, filename);
+      if (!back || sha256Hex(back.bytes) !== sha) throw new Error("The kept copy could not be read back identical to the picture.");
+    }
+    withSlotLock(target, filename, () => {
+      const record = target.readRecords()[filename];
+      clearStaged(target, filename);
+      target.writeRecord(filename, record?.priorRecord || null);
+    });
+    return archived;
+  }
+
+  /**
+   * "Keep in kept pictures": move a staged picture that was taken in another harness than its slot needs to the kept pictures list. The slot is
+   * left as it was before the picture was staged. Only such a picture can be kept this way (any other can be accepted, retaken, or discarded).
+   *
+   * @returns {{status: number, body: object}}
+   */
+  function keepStagedPicture(target, filename) {
+    const slot = target.slot(filename);
+    if (!slot) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
+    const staged = readStaged(target, filename);
+    if (!staged) return { status: 404, body: { error: "Nothing is waiting for review for this screenshot.", filename } };
+    const review = reviewStagedHarness({ slotHarness: slot.harness, meta: staged.meta });
+    if (review?.code !== "wrong-harness") {
+      return { status: 409, body: { outcome: "rejected", code: "not-wrong-harness", message: "Only a picture that was taken in another harness than this screenshot needs can be kept this way. Accept it, retake it, or discard it.", filename } };
+    }
+    try {
+      keepStagedWrongHarness(target, filename, staged, review);
+    } catch (err) {
+      return { status: 500, body: { outcome: "rejected", code: "keep-failed", message: `The picture could not be kept first, so nothing was changed: ${err.message}`, filename } };
+    }
+    return {
+      status: 200,
+      body: { outcome: "kept", code: "wrong-harness", filename, message: `${review.message} It was moved to the kept pictures list for ${kept().retentionDays} days. This screenshot is not changed.`, state: target.state() },
+    };
+  }
+
+  // ── Staged pictures of the wrong harness ─────────────────────────────────
+
+  /**
+   * Every staged (waiting for review) picture whose slot needs a harness and that was taken in another one: the shared library's and every
+   * lab's (`labId` limits the labs to one). Reads only. Each item says where it is, what it shows, and why.
+   */
+  function findWrongHarnessStaged({ labId = null } = {}) {
+    const scopes = [];
+    let names = [];
+    try {
+      names = fs.readdirSync(stagedRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.isSymbolicLink()).map((d) => d.name).sort();
+    } catch {
+      names = [];
+    }
+    for (const name of names) {
+      const lab = /^lab-(.+)$/.exec(name);
+      if (name === "library") scopes.push({ kind: "library" });
+      else if (lab && labFolder(lab[1]) && (!labId || lab[1] === labId)) scopes.push({ kind: "lab", labId: lab[1] });
+    }
+    const items = [];
+    const notMoved = [];
+    for (const scope of scopes) {
+      const target = scope.kind === "library" ? libraryTarget() : labTarget(scope.labId);
+      if (target.error) {
+        notMoved.push({ scope: scope.kind, labId: scope.labId || null, why: target.error.body.error });
+        continue;
+      }
+      let files = [];
+      try {
+        files = fs.readdirSync(target.stagedDir).filter((n) => !/\.meta\.json$/i.test(n) && isKeptPictureName(n)).sort();
+      } catch {
+        files = [];
+      }
+      for (const filename of files) {
+        const slot = target.slot(filename);
+        const staged = slot ? readStaged(target, filename) : null;
+        const review = staged ? reviewStagedHarness({ slotHarness: slot.harness, meta: staged.meta }) : null;
+        if (review?.code !== "wrong-harness") continue;
+        items.push({
+          target,
+          staged,
+          review,
+          scope: scope.kind,
+          labId: scope.labId || null,
+          labTitle: scope.kind === "lab" ? labTitleOf(target.labDir) : "Shared library",
+          filename,
+          label: scanner.slotOf(filename, { labId: scope.labId || null })?.label || filename,
+        });
+      }
+    }
+    return { items, notMoved };
+  }
+
+  /**
+   * "Move wrong-harness pictures that wait for review to the kept pictures list". Every staged picture that was taken in another harness than its
+   * slot needs (by the companion's proof, or by the shape of its address) is first saved in the kept pictures archive and read back, and only then
+   * cleared from the staging folder; its slot goes back to what it was before the picture was staged. A picture that only lacks a proof
+   * (harness-unproven) is never moved. A dry run (the default) changes nothing and says what would happen.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.dryRun] default true
+   * @param {string|null} [options.labId] limit the labs to this one (the shared library is always included)
+   * @returns {{status: number, body: object}}
+   */
+  function quarantineWrongHarnessStaged({ dryRun = true, labId = null } = {}) {
+    if (labId && !labFolder(labId)) return { status: 404, body: { error: "Generated lab not found" } };
+    const { items, notMoved } = findWrongHarnessStaged({ labId });
+    const view = (item) => ({ scope: item.scope, labId: item.labId, labTitle: item.labTitle, filename: item.filename, label: item.label, harness: item.review.needed, harnessLabel: item.review.neededLabel, pictureHarness: item.review.found, pictureHarnessLabel: item.review.foundLabel, harnessSource: item.review.source, reason: item.review.message });
+    const labs = new Set(items.filter((i) => i.scope === "lab").map((i) => i.labId));
+    const plan = { dryRun, counts: { pictures: items.length, library: items.filter((i) => i.scope === "library").length, lab: items.filter((i) => i.scope === "lab").length, labs: labs.size }, pictures: items.map(view), notMoved, retentionDays: kept().retentionDays };
+    if (dryRun || !items.length) return { status: 200, body: { ...plan, moved: [], failed: [], report: wrongHarnessReport(plan, { moved: [], failed: [] }) } };
+
+    const moved = [];
+    const failed = [];
+    for (const item of items) {
+      const sha = sha256Hex(item.staged.bytes);
+      // The picture that was judged must be the one moved: a retake in between leaves the new one alone.
+      const again = readStaged(item.target, item.filename);
+      if (!again || sha256Hex(again.bytes) !== sha) {
+        failed.push({ scope: item.scope, labId: item.labId, filename: item.filename, why: "The picture changed while this ran, so it was left where it is." });
+        continue;
+      }
+      try {
+        keepStagedWrongHarness(item.target, item.filename, again, item.review);
+        moved.push(view(item));
+      } catch (err) {
+        failed.push({ scope: item.scope, labId: item.labId, filename: item.filename, why: `The picture could not be kept first, so nothing was moved: ${err.message}` });
+      }
+    }
+    if (moved.some((m) => m.scope === "library")) libraryChanged();
+    return { status: 200, body: { ...plan, dryRun: false, moved, failed, report: wrongHarnessReport(plan, { moved, failed }) } };
+  }
+
+  /** The plain report of a wrong-harness run, as lines of text. */
+  function wrongHarnessReport(plan, { moved = [], failed = [] } = {}) {
+    const lines = [];
+    const count = (n, noun) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+    if (plan.dryRun) {
+      lines.push(plan.counts.pictures ? `${count(plan.counts.pictures, "staged picture")} taken in the wrong harness would move to the kept pictures list (${plan.counts.library} in the shared library, ${plan.counts.lab} in ${count(plan.counts.labs, "lab")}). Nothing was changed.` : "No staged picture was taken in the wrong harness. Nothing needs to move.");
+      if (plan.counts.pictures) lines.push(`Each screenshot stays as it was before the picture was staged. Moved pictures are kept for ${plan.retentionDays} days.`);
+    } else {
+      lines.push(moved.length ? `Moved ${count(moved.length, "staged picture")} to the kept pictures list. Each screenshot is as it was before the picture was staged. They are kept for ${plan.retentionDays} days.` : "No pictures were moved.");
+      if (failed.length) lines.push(`${count(failed.length, "picture")} could not be moved and ${failed.length === 1 ? "was" : "were"} left where ${failed.length === 1 ? "it was" : "they were"}.`);
+    }
+    for (const item of plan.dryRun ? plan.pictures : moved) lines.push(`- ${item.scope === "library" ? "Shared library" : `Lab ${item.labId}`}: ${item.filename} (${item.reason})`);
+    for (const item of failed) lines.push(`- Not moved: ${item.filename}: ${item.why}`);
+    for (const item of plan.notMoved || []) lines.push(`- Left alone: ${item.labId || item.scope}: ${item.why}`);
+    return lines.join("\n");
   }
 
   // ── Sharing a lab's pictures, and confirming them ────────────────────────
@@ -1365,6 +1554,8 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     harness: item.harness || null,
     harnessLabel: item.harnessLabel || null,
     pictureHarness: item.pictureHarness || null,
+    // How the picture's harness was read when it is wrong: the page's tabs ("proof"), the shape of its address ("address"), or a person's word.
+    pictureHarnessSource: item.pictureHarnessSource || null,
     pictureHarnessLabel: item.harness ? pictureHarnessLabel(item.pictureHarness) : null,
     level: item.level,
     reason: item.flags[0]?.message || "",
@@ -1582,6 +1773,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     submit,
     accept,
     reset,
+    keepStagedPicture,
+    quarantineWrongHarnessStaged,
+    stagedHarnessReview,
     confirm,
     unconfirm,
     tagPicture,
