@@ -53,7 +53,7 @@ const byName = (name) => Object.fromEntries(plans[name].plan.shots.map((s) => [s
 test("before and after: the planner still says how a shot is captured by address, and the automation says whether the computer takes it itself", () => {
   // [planner mode counts (unchanged), automatic, needs a person, reasons, recipe families]
   const expected = {
-    standard: [{ auto: 9, guided: 15 }, 15, 9, { admin: 2, "build-first": 3, connection: 2, credits: 1, unseen: 1 }, { conversation: 5, dialog: 2, testset: 1 }],
+    standard: [{ auto: 9, guided: 15 }, 16, 8, { admin: 2, "build-first": 2, connection: 2, credits: 1, unseen: 1 }, { conversation: 5, dialog: 2, testset: 1 }],
     "microsoft-copilot": [{ auto: 4, guided: 7 }, 6, 5, { "build-first": 1, credits: 1, "real-users": 2, unseen: 1 }, { conversation: 2, dialog: 2 }],
     "agent-builder": [{ guided: 8 }, 0, 8, { "other-product": 8 }, {}],
     "sharepoint-ai": [{ guided: 6 }, 0, 6, { "other-product": 6 }, {}],
@@ -67,10 +67,10 @@ test("before and after: the planner still says how a shot is captured by address
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.reason), (s) => s.capture.automation.reason), reasons, `${name}: the reasons`);
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.family), (s) => s.capture.automation.family), families, `${name}: the recipe families`);
   }
-  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 23 run automatically.
+  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 24 run automatically.
   // (One Foundry shot names navigation labels but no step reaches its screen, so it is left to a person instead of being photographed from the start page.)
   const all = Object.keys(expected).flatMap((name) => plans[name].plan.shots);
-  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 23]);
+  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 24]);
 });
 
 test("the shots that were conservative are now taken by a family, and each one says how it is judged", () => {
@@ -93,7 +93,7 @@ test("what stays with a person says one reason from the fixed set, in plain word
   const standard = byName("standard");
   assert.equal(standard["eval-results.png"].reason, "credits");
   assert.equal(standard["tool-test-result.png"].reason, "connection");
-  assert.equal(standard["topics-list.png"].reason, "build-first");
+  assert.equal(standard["trigger-phrases.png"].reason, "build-first", "a topic built on the authoring canvas is built by a person");
   assert.equal(byName("microsoft-copilot")["mc-monitor-sessions.png"].reason, "real-users", "sessions appear only after real people use a published agent");
   for (const name of Object.keys(SETS)) {
     for (const shot of plans[name].plan.shots.filter((s) => s.capture.automation.state === "person")) {
@@ -128,11 +128,11 @@ test("every slot of the shared library is either taken by the computer or left t
 
 test("the dry plan lists the order, the recipes, what is added to the practice agent, and what stays manual, and changes nothing", () => {
   const dry = buildDryPlan(plans.standard.plan);
-  assert.deepEqual([dry.totals.total, dry.totals.automatic, dry.totals.needYou], [24, 15, 9]);
+  assert.deepEqual([dry.totals.total, dry.totals.automatic, dry.totals.needYou], [24, 16, 8]);
   assert.ok(dry.automatic.every((s, i) => s.order === i + 1), "in the order the lab builds the agent");
   assert.deepEqual(dry.objects.map((o) => [o.id, o.shots]), [["evaluation-test-set", ["eval-test-set.png"]]], "the practice agent gets one test set, for the one screenshot that shows it");
   assert.equal(dry.totals.unverified, dry.automatic.filter((s) => s.family && !s.verified).length);
-  assert.match(dry.summary, /^9 need you: 2 admin screens, 2 connections, 1 Copilot Credits run, 3 screens that need something built first, 1 screen not seen in the product yet$/);
+  assert.match(dry.summary, /^8 need you: 2 admin screens, 2 connections, 1 Copilot Credits run, 2 screens that need something built first, 1 screen not seen in the product yet$/);
   assert.ok(dry.manual.every((m) => m.reasonLabel && m.steps.length));
   const text = formatDryPlan(dry);
   assert.match(text, /Runs automatically, in this order:/);
@@ -146,9 +146,9 @@ test("the dry plan command prints the same plan for a generated lab without a br
   const script = resolve(fileURLToPath(new URL("../../tools/lab-builder/dry-plan.mjs", import.meta.url)));
   const text = execFileSync(process.execPath, [script, root, labId, "--all"], { encoding: "utf8", env: { ...process.env, LAB_BUILDER_LLM: "off" } });
   assert.match(text, /^Dry plan: /);
-  assert.match(text, /15 of 24 screenshots run automatically/);
+  assert.match(text, /16 of 24 screenshots run automatically/);
   const json = JSON.parse(execFileSync(process.execPath, [script, root, labId, "--all", "--json"], { encoding: "utf8", env: { ...process.env, LAB_BUILDER_LLM: "off" } }));
-  assert.deepEqual([json.totals.automatic, json.totals.needYou], [15, 9]);
+  assert.deepEqual([json.totals.automatic, json.totals.needYou], [16, 8]);
 });
 
 test("the Screenshot Center's lab status carries the same reading as the plan, so each card shows its reason", () => {

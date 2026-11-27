@@ -248,7 +248,15 @@ const LEAVE_NAMES = new Set(["discard", "discard changes", "leave", "leave page"
 const SEND_NAMES = new Set(["send", "submit", "ask", "send message", "submit message", "enter"]);
 const CHAT_HOUSEKEEPING = new Set(["new chat", "new conversation", "start over", "reset", "reset conversation", "clear chat", "clear conversation", "refresh", "start a new chat", "new test conversation", "close", "minimize", "expand", "collapse"]);
 const HAZARD_DIALOG_TERMS = ["delete", "remove", "sign out", "disconnect", "permanently", "reset", "uninstall", "share", "invite", "publish to", "channel", "channels", "permissions", "manage access", "collaborators", "tenant", "license", "licence", "billing", "security", "data policy", "data policies", "dlp", "admin", "consent", "permissions requested", "credentials", "connection", "connections", "sign in", "install"];
-const UNSAVED_DIALOG_TERMS = ["unsaved", "leave", "discard changes", "are you sure you want to leave", "save changes", "exit", "changes you made"];
+const UNSAVED_DIALOG_TERMS = ["unsaved", "leave", "discard", "discard changes", "are you sure you want to leave", "save changes", "exit", "changes you made"];
+// OBSERVED on the real Standard Overview page (2026-11-26): Cancel in the Instructions editor, after a change, opens a confirmation with the buttons Close, Discard, and Cancel.
+// Its title was not read, so a dialog is also taken for the unsaved-changes prompt when it offers Discard and nothing but these (no other control means something else).
+const UNSAVED_PROMPT_BUTTONS = new Set(["close", "discard", "cancel", "keep editing", "don t save", "save", "keep"]);
+function isUnsavedPromptButtons(list) {
+  const names = (Array.isArray(list) ? list : []).map(normalizeControlName).filter(Boolean);
+  return names.includes("discard") && names.every((n) => UNSAVED_PROMPT_BUTTONS.has(n));
+}
+const isAgentInstructionsEditorName = wordMatcher(["describe what you want this agent to do"]);
 
 const isAccountName = wordMatcher(ACCOUNT_TERMS);
 const isDestructiveName = wordMatcher(DESTRUCTIVE_TERMS);
@@ -340,15 +348,32 @@ export function describeControlForGate(element) {
       if (label) landmarks.push(label.slice(0, 80));
     }
   }
+  // The heading of the card or panel the control sits in: the nearest ancestor that holds a heading names it (the Instructions card, the Test your agent panel).
+  let section = "";
+  for (let node = up(element); node && node !== document.body && node !== document.documentElement && !section; node = up(node)) {
+    const heading = node.querySelector ? node.querySelector("h1, h2, h3, h4, h5, h6, [role=heading]") : null;
+    if (heading && !heading.contains(element)) section = textOf(heading).slice(0, 80);
+  }
   const chatPattern = /\btest\s+(?:your\s+)?(?:agent|copilot|bot|chat)\b|\btest[-_ ]?(?:pane|panel)\b|\bplayground\b/i;
   // In the newer agent layout the test pane is a whole tab: Preview. A control on that tab, outside a dialog and the navigation, is in it.
   const selectedTab = document.querySelector('[role=tab][aria-selected=true]');
   const previewTab = Boolean(selectedTab && /^\s*(?:preview|test)\b/i.test(String(selectedTab.getAttribute("aria-label") || selectedTab.innerText || selectedTab.textContent || "")));
   const onPreviewTab = previewTab && !dialog && !closest("nav, [role=navigation], [role=tablist], [role=menu], header, [role=banner]");
-  const inTestPane = landmarks.some((label) => chatPattern.test(label)) || chatPattern.test(String(closest("[data-testid],[id],[class]")?.getAttribute?.("data-testid") || "")) || onPreviewTab;
+  // The Standard agent's Test panel is a card with the heading "Test your agent" (observed 2026-11-26): a control whose nearest heading says so is in it, whatever its markup.
+  const inTestPane = landmarks.some((label) => chatPattern.test(label)) || chatPattern.test(String(closest("[data-testid],[id],[class]")?.getAttribute?.("data-testid") || "")) || onPreviewTab || (!dialog && chatPattern.test(section));
   const name = labelOf(element) || (tag === "input" || tag === "textarea" ? "" : textOf(element)) || String(element.getAttribute?.("title") || "") || String(element.getAttribute?.("alt") || "") || String(element.getAttribute?.("placeholder") || "") || String(element.getAttribute?.("value") || "");
   const link = closest("a, [href]");
+  // The names of the buttons of the dialog the control is in: how an unsaved-changes prompt is told apart from every other dialog (it offers Close, Discard, and Cancel and nothing else).
+  const dialogButtons = [];
+  if (dialog && dialog.querySelectorAll) {
+    for (const button of dialog.querySelectorAll("button, [role=button]")) {
+      const label = labelOf(button) || textOf(button);
+      if (label && dialogButtons.length < 8) dialogButtons.push(label.slice(0, 40));
+    }
+  }
   return {
+    section,
+    dialogButtons,
     name: name.slice(0, 160),
     text: textOf(element),
     aria: String(element.getAttribute?.("aria-label") || "").slice(0, 160),
@@ -418,7 +443,7 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   // A way out is always allowed first: "Don't delete" must not be mistaken for "Delete".
   if (cancel) return verdict(TIER.TRY, "cancel", "Closing or canceling is safe.");
   if (leave) {
-    const unsaved = inDialog && isUnsavedDialogTitle(dialogTitle) && !isDestructiveDialogTitle(dialogTitle);
+    const unsaved = inDialog && (isUnsavedDialogTitle(dialogTitle) || isUnsavedPromptButtons(desc.dialogButtons)) && !isDestructiveDialogTitle(dialogTitle);
     return unsaved ? verdict(TIER.TRY, "discard-unsaved", "Leaving an unsaved edit without saving it is safe.") : verdict(TIER.NEVER, "discard", "Discarding is only done from a leave-page prompt.");
   }
 
@@ -451,6 +476,8 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (isText) {
     if (role === "searchbox" || inputType === "search" || names.some((n) => /(?:^| )(?:search|filter|find)(?: |$)/.test(n))) return verdict(TIER.TRY, "search", "Typing in a search box is safe.");
     if (inDialog) return verdict(TIER.TRY, "dialog-field", "Filling a dialog field without confirming it is safe.");
+    // The Instructions editor of the Standard Overview page is named like a description box ("Describe what you want this agent to do, its tone, and rules") but it edits the agent.
+    if (names.some(isAgentInstructionsEditorName)) return verdict(TIER.PRACTICE, "edit-field", "Typing into the agent's instructions edits the agent, so it needs the practice agent.");
     if (names.some(isDraftFieldName)) return verdict(TIER.TRY, "draft-field", "Typing a description that is not submitted changes nothing.");
     return verdict(TIER.PRACTICE, "edit-field", "Typing into a field edits the agent, so it needs the practice agent.");
   }

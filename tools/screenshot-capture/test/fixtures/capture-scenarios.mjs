@@ -28,7 +28,7 @@ export const FIXTURE_FEATURES = ["create-agent", "agent-instructions", "knowledg
  */
 export const GROUND_TRUTH = Object.freeze({
   "copilot-studio-home.png": { sections: ["home", "agents"] },
-  "create-agent-describe.png": { sections: ["home"] },
+  "create-agent-describe.png": { sections: ["home", "agents"] },
   "agent-overview.png": { sections: ["overview"] },
   "agent-instructions.png": { sections: ["overview"] },
   "test-pane-in-scope.png": { sections: ["overview", "knowledge", "settings", "actions", "topics", "analytics"], needsState: "test conversation" },

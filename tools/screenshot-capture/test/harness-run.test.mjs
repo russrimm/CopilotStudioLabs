@@ -33,6 +33,7 @@ import {
   readLandmarks,
   unprovenMessage,
   wantedHarness,
+  workPageOf,
   wrongHarness,
 } from "../harness-run.mjs";
 import { verifyCapturedImageBuffer } from "../lab-runner.mjs";
@@ -193,8 +194,8 @@ test("the proof a picture carries is only what was proven, where it was, and how
   assert.equal(sanitizeHarnessProof({ ...retired, id: "standard", landmarks: ["Menu in the lower left corner", "No Open classic experience command"] }), null);
   // A 1.8.0 proof made of an agent page's own tabs is still good.
   assert.equal(sanitizeHarnessProof({ version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Build", "Preview", "Evaluate", "Monitor"], switched: false, wanted: "microsoft-copilot" })?.id, "microsoft-copilot");
-  assert.equal(HARNESS_MIN_COMPANION, COMPANION_VERSION, "the version that proves the harness is this one");
-  assert.equal(COMPANION_VERSION, "1.8.1");
+  assert.equal(HARNESS_MIN_COMPANION, "1.8.1", "the first version that proves the harness; its proofs of agent pages (the landmarks of the tab strip) stay valid in 1.8.2");
+  assert.equal(COMPANION_VERSION, "1.8.2");
   // A screen outside an agent has no proof, only where it was and how it was reached.
   assert.deepEqual(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" }), { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false });
   assert.equal(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com" }), null, "how it was reached is part of the record");
@@ -360,7 +361,7 @@ test("a switch that moves the same tab is followed too; a click that opens nothi
   const log = [];
   const direct = await run(t, directApp, planShot("standard"), { session: sessionWith(recorder(directApp, { opens: "nothing" }).deps), log });
   assert.equal(direct.status, "captured", direct.error);
-  assert.equal(directApp.context.pages().length, 2, "the preview address was opened in a new tab");
+  assert.equal(directApp.context.pages().length, 1, "the preview address was opened in a new tab, and the first tab was closed: one tab");
   assert.equal(direct.harness.via, "preview-address", "the proof records the way used");
   assert.match(log.join("\n"), /The click did not open the classic experience, so the computer opens its address directly \(copilotstudio\.preview\.microsoft\.com\)/);
 
@@ -394,7 +395,7 @@ test("a page in the wrong harness is never saved as a picture of the other: the 
   assert.match(blank.error, /could not tell which harness this agent is in/);
 });
 
-test("a Microsoft Copilot shot never switches; after a Standard shot the classic tab is closed and the first tab, on the default address, is used", async (t) => {
+test("a Microsoft Copilot shot never switches; after a Standard shot the first tab was closed (one tab), and the next Microsoft Copilot shot opens the default address again in that single tab", async (t) => {
   const app = appWith(STRIP, { [`${agent}/overview`]: { text: ["Overview"], controls: TABS } });
   const exec = recorder(app);
   const session = sessionWith(exec.deps);
@@ -410,15 +411,19 @@ test("a Microsoft Copilot shot never switches; after a Standard shot the classic
 
   const classic = await run(t, app, planShot("standard"), { session });
   assert.equal(classic.status, "captured", classic.error);
-  assert.equal(app.context.pages().length, 2);
+  assert.equal(app.context.pages().length, 1, "one tab: the first tab (the default address) was closed once the classic tab was open");
+  assert.ok(app.page.isClosed(), "the first tab is the one that was closed");
   const tab = classicPageOf(session);
+  assert.ok(tab && !tab.isClosed());
+  assert.equal(workPageOf(session, null), tab, "the classic tab is the page the job works in from now on");
 
   const back = await run(t, app, planShot("microsoft-copilot"), { session });
   assert.equal(back.status, "captured", back.error);
-  assert.equal(app.context.pages().length, 1, "the extra tab was closed when it was no longer needed");
-  assert.ok(tab.isClosed());
-  assert.equal(classicPageOf(session), null);
+  assert.equal(app.context.pages().length, 1, "still one tab");
+  assert.ok(!tab.isClosed(), "the single tab is reused: the default address is opened in it again");
+  assert.equal(classicPageOf(session), null, "and it is no longer the classic tab");
   assert.equal(back.harness.host, "copilotstudio.microsoft.com");
+  assert.ok(app.log.goto.includes("https://copilotstudio.microsoft.com/"), "the default experience address was opened in the one tab, and the harness was proven again");
   assert.deepEqual(exec.calls, ["switch-menu", "switch-item"], "nothing else was clicked to change the experience");
 
   // A page that is itself in the classic experience (the same tab moved) goes back to the default address in place.
@@ -668,17 +673,17 @@ test("an agent made for a harness is proven by its landmarks: a created agent th
   assert.equal(await ensurePracticeAgent({ page: tab, autonomy, registry, session, executorFor, go, harness: "standard", sleep: instant }).then((r) => r.error), result.error, "the answer is remembered for the rest of the job");
 });
 
-test("the recipes choose their steps from the harness, not from a probe: Standard has the side navigation steps, the others the tab steps", () => {
+test("the recipes choose their steps from the harness, not from a probe: Standard has the tab strip steps (with the overflow menu), the others the Build tab steps", () => {
   const shot = { kind: "ui-location", caption: "The agent", alt: "", instructions: [] };
   const ids = (list) => (list || []).map((s) => s.id);
-  assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, harness: "standard", layout: "newer" })), ["overview-nav", "overview-nav-open"], "the harness wins over a layout that was read");
+  assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, harness: "standard", layout: "newer" })), ["cl-overview-tab", "cl-overview-tab-open"], "the harness wins over a layout that was read");
   assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, harness: "microsoft-copilot", layout: "classic" })), ["build-tab", "build-tab-open"]);
   assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, harness: "customer-conversation" })), ["build-tab", "build-tab-open"]);
-  assert.equal(showStepsFor({ stage: "model", shot, harness: "standard" }), null, "the classic layout has no model list");
+  assert.deepEqual(ids(showStepsFor({ stage: "model", shot, harness: "standard" })), ["cl-overview-tab", "cl-overview-tab-open", "classic-model-open"], "a Standard agent has the model combobox on its Overview tab");
   assert.ok(showStepsFor({ stage: "model", shot, harness: "microsoft-copilot" }));
-  assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, layout: "classic" })), ["overview-nav", "overview-nav-open"], "a caller with no harness keeps the layout it read");
+  assert.deepEqual(ids(showStepsFor({ stage: "agent", shot, layout: "classic" })), ["overview-nav", "overview-nav-open"], "a caller with no harness keeps the layout it read (an older classic build with a side navigation)");
   const automation = { family: "testset" };
-  assert.ok(familyShowSteps({ automation, shot, harness: "standard", stage: "evaluate" }).steps.some((s) => s.id === "evaluation-nav"));
+  assert.ok(familyShowSteps({ automation, shot, harness: "standard", stage: "evaluate" }).steps.some((s) => s.id === "cl-evaluation-more"), "a Standard Evaluation tab is reached through the tab strip, with the overflow menu as the way when it is not on the strip");
   assert.ok(familyShowSteps({ automation, shot, harness: "microsoft-copilot", stage: "evaluate" }).steps.some((s) => s.id === "evaluate-tab"));
 });
 

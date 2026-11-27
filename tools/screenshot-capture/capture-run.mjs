@@ -26,7 +26,7 @@ import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 import { collectVisibleLabels, readPageSignals } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
 import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, STANDARD, harnessPlan, sanitizeHarnessReached } from "./harness.mjs";
-import { chooseAgentFix, ensureClassicExperience, ensureDefaultExperience, harnessEvidence, harnessGapMessage, harnessScopeOf, harnessState, hostAndVia, proveHarness, proveWithRecovery, provedLine, readAgentHarness, wantedHarness, wrongHarness } from "./harness-run.mjs";
+import { chooseAgentFix, ensureClassicExperience, ensureDefaultExperience, harnessEvidence, harnessGapMessage, harnessScopeOf, harnessState, hostAndVia, proveHarness, proveWithRecovery, provedLine, readAgentHarness, takingLine, wantedHarness, wrongHarness } from "./harness-run.mjs";
 import { CUSTOMER_AGENT_MESSAGE } from "./practice.mjs";
 import { normalizeAgentSource, resolveAutomation } from "./walkthrough.mjs";
 import {
@@ -689,6 +689,8 @@ export async function runCaptureShot({
       return stopForHarness(final, { ownAgent });
     }
     if (typeof page.evaluate === "function") await page.evaluate(() => { const active = document.activeElement; if (active && active !== document.body && typeof active.blur === "function") active.blur(); }).catch(() => {});
+    // One plain line before the picture: the harness, the host, the agent, and what proves it.
+    log?.(`  ${takingLine({ wanted, address: typeof page.url === "function" ? page.url() : "", agentName: practiceInfo?.name || "", landmarks: harnessProof?.landmarks || [], outsideAgent: Boolean(harnessReached) })}`);
   }
 
   let callouts = null;

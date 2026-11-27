@@ -10,7 +10,7 @@ import { CLASSIC_EXPERIENCE_HOST, CLASSIC_SWITCH, CREATE_OPTIONS, DEFAULT_EXPERI
 
 /** The one practice agent a lab gets, and where it is created. A Standard (Classic) agent and a Microsoft Copilot agent are never reused for each other. */
 function practiceAgentNote(harness) {
-  if (harness === STANDARD) return `A ${HARNESS_LABELS[STANDARD]} practice agent, made on the Agents list with More create options > ${CREATE_OPTIONS[STANDARD].names[0]} (not yet seen working on a real tenant: what the flow shows after that choice is unverified), in the classic experience tab on ${CLASSIC_EXPERIENCE_HOST} after the switch (${CLASSIC_SWITCH.path}). It is never used for a Microsoft Copilot picture.`;
+  if (harness === STANDARD) return `A ${HARNESS_LABELS[STANDARD]} practice agent, made on the Agents list with More create options > ${CREATE_OPTIONS[STANDARD].names[0]} (it created a Standard agent on a real tenant on 2026-11-26; what the flow shows after that choice is not listed screen by screen), in the classic experience tab on ${CLASSIC_EXPERIENCE_HOST} after the switch (${CLASSIC_SWITCH.path}). It is never used for a Microsoft Copilot picture.`;
   if (harness === MICROSOFT_COPILOT) return `A ${HARNESS_LABELS[MICROSOFT_COPILOT]} practice agent, made on the Agents list with More create options > ${CREATE_OPTIONS[MICROSOFT_COPILOT].names[0]} (not yet seen working on a real tenant: what the flow shows after that choice is unverified), in the default experience at ${DEFAULT_EXPERIENCE_HOST} (no switch). It is never used for a Standard (Classic) picture.`;
   return `A ${HARNESS_LABELS[harness] || "practice"} agent, created on its own harness. It is never used for a picture of another harness.`;
 }

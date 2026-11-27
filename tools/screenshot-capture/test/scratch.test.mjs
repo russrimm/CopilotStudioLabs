@@ -46,7 +46,7 @@ test("a shot belongs to the stage its feature names, and the stages are built in
   assert.equal(stageOf("analytics", "analytics"), "monitor");
   assert.equal(stageOf("mc-memory", "build", "settings"), "settings");
   assert.equal(stageOf("generative-orchestration", "settings", "settings"), "settings");
-  assert.deepEqual(STAGES.map((s) => s.id), ["agent", "instructions", "knowledge", "tools", "model", "preview", "evaluate", "testset", "publish", "monitor", "settings"]);
+  assert.deepEqual(STAGES.map((s) => s.id), ["agent", "instructions", "knowledge", "tools", "model", "topics", "preview", "evaluate", "testset", "publish", "monitor", "settings"]);
   assert.deepEqual(stagesBefore("preview").map((s) => s.id), ["agent", "instructions", "knowledge"], "a test needs the agent, its instructions, and its knowledge");
   assert.deepEqual(stagesBefore("agent"), []);
 });
@@ -166,19 +166,27 @@ test("only a public Microsoft documentation address can be typed as knowledge", 
 
 // ── Every step of every recipe is checked ───────────────────────────────────
 
-const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_ADD_SKILL: R.OPEN_ADD_SKILL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS };
+const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_ADD_SKILL: R.OPEN_ADD_SKILL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS, SET_INSTRUCTIONS_CLASSIC: R.SET_INSTRUCTIONS_CLASSIC, ABANDON_INSTRUCTIONS_EDIT: R.ABANDON_INSTRUCTIONS_EDIT, CLASSIC_OPEN_SETTINGS: R.CLASSIC_OPEN_SETTINGS, CLASSIC_OPEN_MODEL_LIST: R.CLASSIC_OPEN_MODEL_LIST, ...Object.fromEntries([...R.CLASSIC_DIRECT_TABS, ...R.CLASSIC_OVERFLOW_TABS].map((tab) => [`classicTabSteps(${tab})`, R.classicTabSteps(tab)])), ...Object.fromEntries(R.CLASSIC_SETTINGS_LINKS.map((link) => [`classicSettingsLinkSteps(${link})`, R.classicSettingsLinkSteps(link)])) };
 
 test("no step of any recipe is dropped by the safety rules, and only the steps that commit are tier 2", () => {
   // model-open and eval-new open a menu or a form behind a control that is not known to be safe, so they count as practice-agent steps.
-  const writes = new Set(["create-open", "create-name", "create-commit", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "knowledge-save", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
+  const writes = new Set(["create-open", "create-name", "create-commit", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "knowledge-save", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open", "instr-type", "instr-save", "classic-model-open"]);
+  const seenIds = new Set();
   for (const [name, list] of Object.entries(ALL_RECIPES)) {
     const { steps, missing } = strictSteps(list);
     assert.deepEqual(missing, [], `${name}: a step was dropped (an alternate name probably sounds like something never done)`);
+    for (const raw of list) {
+      // A step id is cut at 24 characters when it is read: a longer one would no longer match the recipe it came from, and strictSteps would call it dropped.
+      assert.ok(raw.id.length <= 24, `${name}/${raw.id} is longer than 24 characters`);
+      assert.ok(steps.some((s) => s.id === raw.id), `${name}/${raw.id} keeps its id`);
+    }
     for (const step of steps) {
       assert.ok(step.tier < TIER.NEVER, `${name}/${step.id}`);
       if (step.tier >= TIER.PRACTICE) assert.ok(writes.has(step.id), `${name}/${step.id} is tier 2 and is not one of the known writes`);
     }
+    seenIds.add(name);
   }
+  assert.ok(seenIds.size > 30, "the Standard tab and link steps are checked too");
   for (const step of [...R.tabSteps("Build"), ...R.tabSteps("Preview"), ...R.askSteps({ openTest: true }), ...R.innerTabSteps(["Safety and access"])]) assert.ok(sanitizeSteps([step], { product: "copilot-studio" }).length === 1, step.id);
   const dropped = strictSteps([{ id: "bad", action: "confirm", intent: "confirm", target: { role: "button", name: "Add website", within: "dialog" } }]);
   assert.deepEqual(dropped.missing, ["bad"], "a recipe step that sounds like adding a channel is refused, and the caller is told");

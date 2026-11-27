@@ -77,6 +77,21 @@ export function unprovenMessage(wanted) {
 /** What a status line says once the harness is proven: "Proved the Standard (Classic) harness: Overview, Knowledge, Topics". */
 export const provedLine = (id, landmarks) => `Proved the ${HARNESS_LABELS[id]}: ${landmarks.join(", ")}`;
 
+/**
+ * The one plain line logged before every picture of a harness-specific slot, so a person watching sees exactly what is about to be taken and where:
+ * "Taking this picture in the Standard (Classic) harness: copilotstudio.preview.microsoft.com, agent Classic shots - Team, proof: Overview, Knowledge, Topics".
+ * A screen outside the agent has no proof by content: the line says so, and that the picture is saved for review.
+ */
+export function takingLine({ wanted, address = "", agentName = "", landmarks = [], outsideAgent = false }) {
+  const id = normalizeHarness(wanted);
+  if (!id || id === EITHER) return "";
+  const host = copilotHostOf(address) || "a Copilot Studio page";
+  const agent = outsideAgent ? "no agent (a screen outside the agent)" : `agent ${String(agentName || "").trim() || "(your own agent)"}`;
+  const seen = (Array.isArray(landmarks) ? landmarks : []).filter(Boolean);
+  const proof = outsideAgent ? "none by content, so the picture is saved for review" : seen.length ? seen.join(", ") : "not read";
+  return `Taking this picture in the ${HARNESS_LABELS[id]}: ${host}, ${agent}, proof: ${proof}`;
+}
+
 /** The host name of a page when it is one of the two Copilot Studio hosts, else "" (nothing else is ever kept). */
 export function copilotHostOf(address) {
   try {
@@ -125,7 +140,7 @@ export function orderByHarness(items, pick = (item) => item) {
  * the click opened, where every Standard picture is taken), the page the switch started from, and how the classic page was reached.
  */
 export function harnessState(session, page) {
-  if (!session.harness) session.harness = { pages: new WeakMap(), loose: { classic: false, switches: 0 }, classicPage: null, classicVia: "", origin: null };
+  if (!session.harness) session.harness = { pages: new WeakMap(), loose: { classic: false, switches: 0 }, classicPage: null, classicVia: "", origin: null, workPage: null };
   const memo = session.harness;
   if (!page || (typeof page !== "object" && typeof page !== "function")) return memo.loose;
   if (!memo.pages.has(page)) memo.pages.set(page, { classic: false, switches: 0 });
@@ -169,6 +184,15 @@ export function classicPageOf(session) {
   harnessState(session, null);
   const page = session.harness.classicPage;
   return page && !isClosed(page) ? page : null;
+}
+
+/**
+ * The page the job works in. After the switch to the classic experience the first tab is closed (one tab), so the page a caller opened at the start of the job is gone:
+ * the page in use is the one the experience functions last settled on. `fallback` is returned when none is remembered, or the remembered one was closed.
+ */
+export function workPageOf(session, fallback = null) {
+  const page = session?.harness?.workPage;
+  return page && !isClosed(page) ? page : fallback;
 }
 
 /** How the classic page of this session was reached: "click-path", "preview-address", or "" when there is none. */
@@ -523,8 +547,17 @@ export async function ensureClassicExperience({ page, session, go, trace = null,
   harnessState(session, null);
   const memo = session.harness;
   const known = classicPageOf(session);
+  // The first tab was closed by the earlier switch (one tab): a page in hand that is gone is replaced by the one open tab.
+  if (isClosed(page)) {
+    const open = known || workPageOf(session, null);
+    if (open) {
+      page = open;
+      setPage?.(open);
+    }
+  }
   if (known && !force) {
     if (known !== page) setPage?.(known);
+    memo.workPage = known;
     return { ok: true, switched: false, reused: true, page: known, via: memo.classicVia };
   }
   if (!force && harnessState(session, page).classic) return { ok: true, switched: false, reused: true, page, via: memo.classicVia };
@@ -609,6 +642,16 @@ export async function ensureClassicExperience({ page, session, go, trace = null,
   await waitUntilReady(classic, { budgets: readinessBudgets(readiness), sleep, trace, shot: "switch-classic" });
   memo.classicPage = classic;
   memo.classicVia = via;
+  memo.workPage = classic;
+  // ONE TAB: the click left the first tab on the default address (a Microsoft Copilot Home page) beside the classic tab. A person watching the window must see only
+  // the Standard page, so the first tab is closed and the classic tab is the single page from here on. A Microsoft Copilot picture later opens the default address in
+  // this one tab (ensureDefaultExperience) and proves it again.
+  if (found.how === "new-tab" && classic !== from && !isClosed(from) && !isClosed(classic)) {
+    await closeTab(from);
+    if (memo.origin === from) memo.origin = null;
+    trace?.event("origin-tab-closed", { reason: "one-tab" });
+    log?.("  Closed the first tab (the default address): only the classic tab stays open, so the window shows one Standard page.");
+  }
   const state = harnessState(session, classic);
   state.classic = true;
   state.switches += 1;
@@ -630,7 +673,15 @@ export async function ensureDefaultExperience({ page, session, go, trace = null,
   const classic = classicPageOf(session);
   let closedTab = false;
   let use = page;
-  if (classic && classic !== page) {
+  if (isClosed(use)) {
+    // The page in hand is gone: the switch closed the first tab (one tab), so the one open tab (the classic one, or the page the job last worked in) is the page to use.
+    const open = classic || workPageOf(session, null) || (memo.origin && !isClosed(memo.origin) ? memo.origin : null);
+    if (open) {
+      use = open;
+      setPage?.(use);
+    }
+  }
+  if (classic && classic !== use) {
     // The page in hand is the other tab: when it is the classic tab's opener it is on the default address already; the classic tab is closed.
     closedTab = await closeTab(classic);
     memo.classicPage = null;
@@ -638,16 +689,9 @@ export async function ensureDefaultExperience({ page, session, go, trace = null,
     log?.("  Closed the classic tab: this picture is taken in the default experience.");
     trace?.event("classic-tab-closed", { reason: "microsoft-copilot-picture" });
   }
-  if (isClosed(use)) {
-    // The page in hand was the classic tab (closed with it): the page the switch started from is the default-experience page.
-    const origin = memo.origin && !isClosed(memo.origin) ? memo.origin : null;
-    if (origin) {
-      use = origin;
-      setPage?.(use);
-    }
-  }
   const state = harnessState(session, use);
   const onClassicHost = experienceHostKind(addressOf(use)) === "classic";
+  memo.workPage = use;
   if (!state.classic && !force && !onClassicHost) return { ok: true, returned: false, closedTab, page: use };
   log?.(`  Changing experience: going back to the default experience for the Microsoft Copilot harness (${DEFAULT_EXPERIENCE_URL}).`);
   const opened = await go(DEFAULT_EXPERIENCE_URL, "Copilot Studio", { on: use, exact: true });

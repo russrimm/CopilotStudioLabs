@@ -6,6 +6,7 @@
 // Steps marked `practiceOnly` (and every step that creates or saves something) run only inside a practice agent
 // after the person opted in. Without that, the recipe stops at the closest screen that needs no practice agent.
 
+import { splitTaggedName } from "./harness.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 
 const TEST_INPUT_NAMES = ["Type your message", "Ask a question or describe what you need", "Type a message", "Ask a question", "Send a message", "Message"];
@@ -95,6 +96,19 @@ export const BUILTIN_RECIPES = Object.freeze(
       steps: [{ id: "tool-open", action: "open", intent: "open", target: { role: "button", name: "Add a tool", alt: ["Add tool", "Add tools", "Add an action", "Add action"], within: "main" }, expect: { dialog: true } }],
     },
     {
+      id: "cs.agents.create-options",
+      title: "Open More create options on the Agents list (how a Standard agent is started) without choosing anything",
+      products: ["copilot-studio"],
+      // By its file name, not by words: a reused picture of the same feature (the Home or Agents list picture) carries the same lab step text, and must not open the menu.
+      when: { files: ["create-agent-describe.png"], onlySections: ["agents"] },
+      // OBSERVED on a real tenant (2026-11-24 and 2026-11-26): the Agents list has a "More create options" button whose menu offers "Agent, uses Copilot Credits", "Customer conversation agent,
+      // uses Copilot Credits", and "Agent, Standard". The menu is opened and shown; nothing is chosen, so nothing is created.
+      steps: [
+        { id: "create-options-open", action: "open", intent: "open", say: "Opening More create options", target: { role: "button", name: "More create options", within: "any" }, expect: { dialog: true } },
+        { id: "create-options-shown", action: "verify", say: "Checking that the menu offers Agent, Standard", target: { role: "menuitem", name: "Agent, Standard", within: "any" }, timeoutMs: 6000 },
+      ],
+    },
+    {
       id: "cs.home.describe",
       title: "Type the scenario into the describe box without submitting it",
       products: ["copilot-studio"],
@@ -139,11 +153,13 @@ function shotFacts(shot) {
   const kind = String(shot.kind || "").toLowerCase();
   const section = String(shot.section || "").toLowerCase();
   const words = [shot.caption, shot.alt, ...(shot.instructions || []), ...(shot.callouts || []).map((c) => c.text || c.label)].map((t) => String(t || "").replace(/\*\*/g, "")).join(" ").toLowerCase();
-  return { product: shot.product || "copilot-studio", kind, section, words };
+  const file = splitTaggedName(String(shot.filename || "").toLowerCase()).base;
+  return { product: shot.product || "copilot-studio", kind, section, words, file };
 }
 
 function whenMatches(when, facts) {
   if (!when) return true;
+  if (when.files?.length && !when.files.includes(facts.file)) return false;
   if (when.onlySections?.length && !when.onlySections.includes(facts.section)) return false;
   const hasRules = (when.kinds?.length || 0) + (when.sections?.length || 0) + (when.words ? 1 : 0) > 0;
   if (!hasRules) return true;

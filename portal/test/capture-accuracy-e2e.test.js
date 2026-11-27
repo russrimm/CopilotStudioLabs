@@ -39,7 +39,10 @@ test("e2e: with the agent address, every automatic screenshot is accepted on the
   for (const filename of ["copilot-studio-home.png", "create-agent-describe.png"]) {
     const row = out.rows.find((r) => r.filename === filename);
     assert.equal(row.status, "needs-review", filename);
-    assert.deepEqual(row.verification.reasons.map((r) => r.code), ["harness-unproven"], `${filename}: on the right screen, kept for a person only because nothing proves its harness`);
+    // In this mode the computer sets nothing up, so the Agents list shows without its menu open: the labels of the menu are reported as missing, which is true and is why a person looks.
+    const codes = row.verification.reasons.map((r) => r.code);
+    assert.ok(codes.includes("harness-unproven"), `${filename}: kept for a person because nothing proves its harness`);
+    assert.deepEqual(codes.filter((c) => c !== "harness-unproven" && c !== "labels-missing"), [], `${filename}: no other reason than the missing labels of the lab's later steps`);
     assert.equal(judge(row).right, true, filename);
   }
   assert.deepEqual(out.site.stats.writes, [], "no publish, no create, nothing");

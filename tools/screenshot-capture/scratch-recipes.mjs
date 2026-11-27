@@ -7,12 +7,16 @@
 // Two kinds of steps: `prepare` steps change the practice agent (create it, set its instructions, add knowledge, publish)
 // and run once, then are remembered; `show` steps only put a screen into the state a picture needs and run for every shot.
 
-import { CREATE_OPTIONS, MICROSOFT_COPILOT, STANDARD } from "./harness.mjs";
+import { CREATE_OPTIONS, MICROSOFT_COPILOT, STANDARD, splitTaggedName } from "./harness.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 
-const T = (role, name, alt = [], within = "any") => ({ ...(role ? { role } : {}), name, ...(alt.length ? { alt } : {}), within });
+const T = (role, name, alt = [], within = "any", section = "") => ({ ...(role ? { role } : {}), name, ...(alt.length ? { alt } : {}), within, ...(section ? { section } : {}) });
 const TEST_INPUT = ["Chat message input", "Type your message", "Ask a question or describe what you need", "Type a message", "Ask a question", "Send a message", "Message", "Ask anything"];
 const CHAT_INPUT = T("textbox", TEST_INPUT[0], TEST_INPUT.slice(1), "chat");
+// The Standard agent's Test panel (observed 2026-11-26): a panel headed "Test your agent" on every tab, with a text box named "Ask a question or describe what you need, <agent name>"
+// and a Send button. The panel is told apart from the Instructions editor (also a "describe" box) by its heading, never by a loose name.
+export const CLASSIC_TEST_SECTION = "Test your agent";
+const CLASSIC_CHAT_INPUT = T("textbox", "Ask a question or describe what you need", [], "any", CLASSIC_TEST_SECTION);
 
 const tabNames = Object.freeze({ Build: ["Build", "Design", "Configure"], Preview: ["Preview", "Test"], Evaluate: ["Evaluate", "Evaluation"], Monitor: ["Monitor", "Analytics"] });
 
@@ -112,6 +116,140 @@ export const SET_INSTRUCTIONS = Object.freeze([
   { id: "instructions-saved", action: "verify", say: "Checking that the instructions were saved", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), expect: { disabled: true }, timeoutMs: 8000 },
 ]);
 
+// ── The Standard (Classic) agent page, as OBSERVED on a real tenant on 2026-11-26 (read only) ─────────────────────────────────────────────
+//
+// The agent page has a TAB STRIP across the top (Overview, Knowledge, Tools, Agents, Topics, and an overflow tab named "N more options" whose menu holds Activity, Evaluation,
+// Monitor, and Channels; at 1440 pixels wide Activity and Evaluation are tabs of their own and the overflow says "+2 more options"), the top bar buttons Search your agent, Publish,
+// Settings, Options, and Test, and the Test your agent panel on the right of every tab. There is no side navigation. Every name below was read from the real page.
+
+/** The tabs a Standard agent shows at every width. */
+export const CLASSIC_DIRECT_TABS = Object.freeze(["Overview", "Knowledge", "Tools", "Agents", "Topics"]);
+/** The tabs that can sit in the overflow menu: Activity and Evaluation fall into it at a narrower window, Monitor and Channels are in it at every width seen. */
+export const CLASSIC_OVERFLOW_TABS = Object.freeze(["Activity", "Evaluation", "Monitor", "Channels"]);
+/** The overflow control is named by how many tabs it holds ("4 more options", "+2 more options"); a plain "More options" is the lower left menu and is never this control. */
+export const CLASSIC_OVERFLOW_NAMES = Object.freeze(["2 more options", "3 more options", "4 more options", "5 more options", "6 more options", "1 more option"]);
+
+const slug = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/**
+ * Open a tab of a Standard agent by its name. A tab that is on the strip is clicked; one that is not (it is in the overflow menu at this window width) is reached by opening the
+ * overflow control and choosing the item, so the same steps work at every width. The tab strip being drawn is waited for first (it takes about six seconds after the agent opens).
+ * Overview, Knowledge, Tools, Agents, and Topics are always on the strip and are clicked directly.
+ */
+export function classicTabSteps(tab, { alt = [] } = {}) {
+  const name = String(tab);
+  const id = `cl-${slug(name)}`;
+  const names = [name, ...alt];
+  const onStrip = T("tab", name, alt, "tablist");
+  if (!CLASSIC_OVERFLOW_TABS.includes(name)) {
+    return [
+      { id: `${id}-tab`, action: "select-tab", say: `Opening the ${name} tab`, target: onStrip, findMs: 20_000 },
+      { id: `${id}-tab-open`, action: "verify", target: onStrip, expect: { selected: true }, timeoutMs: 8000 },
+    ];
+  }
+  const [more, ...moreAlt] = CLASSIC_OVERFLOW_NAMES;
+  return [
+    { id: `${id}-tabs`, action: "verify", say: "Waiting for the tab strip to be drawn", target: T("tab", "Overview", [], "tablist"), timeoutMs: 20_000 },
+    // On the strip: click it. Not on the strip: these steps are left out, and the overflow steps below run instead.
+    { id: `${id}-tab`, action: "select-tab", say: `Opening the ${name} tab`, target: onStrip, skipUnlessPresent: onStrip, findMs: 1500 },
+    { id: `${id}-more`, action: "reveal", intent: "open", say: `Opening the more options menu to reach ${name}`, note: `Opened the more options menu to reach ${name}`, target: T(undefined, more, moreAlt, "any"), expect: { dialog: true }, skipIfPresent: onStrip, findMs: 8000, timeoutMs: 5000 },
+    { id: `${id}-item`, action: "open-nav", say: `Choosing ${name} in the menu`, target: { role: "menuitem", name: names[0], ...(names.length > 1 ? { alt: names.slice(1) } : {}), within: "any" }, skipIfPresent: onStrip, timeoutMs: 6000 },
+    // The chosen item may or may not be drawn as a tab afterwards: it is checked only when it is a tab.
+    { id: `${id}-tab-open`, action: "verify", target: onStrip, expect: { selected: true }, skipUnlessPresent: onStrip, timeoutMs: 8000 },
+  ];
+}
+
+const CLASSIC_EDITOR_NAME = "Describe what you want this agent to do, its tone, and rules";
+const CLASSIC_EDITOR = T("textbox", CLASSIC_EDITOR_NAME, [], "main", "Instructions");
+const CLASSIC_SAVE = T("button", "Save", [], "main", "Instructions");
+
+/**
+ * Set the instructions of a Standard agent (observed 2026-11-26). The Overview tab's Instructions card has a button named "Edit Instructions". It opens an inline editor: a text box
+ * (a contenteditable box with the role textbox) named "Describe what you want this agent to do, its tone, and rules", and the buttons Cancel and Save. Save is DISABLED until the text
+ * changes (typing or filling enables it; clearing the text disables it again). The Test panel has a second box that also says "describe", so the editor is named by its full name and by
+ * the Instructions card, and the text is read back from it before anything is saved.
+ *   1. click Edit Instructions (the page draws its buttons several seconds after its tabs, so it is waited for);
+ *   2. check that the editor is open, type the lab's instructions into it, and read the text back;
+ *   3. check that Save became available, and if it did not say so plainly ("Save is disabled: the text did not register in the Instructions editor");
+ *   4. click Save;
+ *   5. check that Save is disabled again (or the editor closed): the product's own proof that the change was saved.
+ */
+export const SET_INSTRUCTIONS_CLASSIC = Object.freeze([
+  { id: "instr-edit", action: "open", intent: "open", say: "Opening the Instructions editor", note: "Opened the Instructions editor", target: T("button", "Edit Instructions", [], "main"), skipIfPresent: CLASSIC_EDITOR, findMs: 25_000, timeoutMs: 8000 },
+  { id: "instr-editor", action: "verify", say: "Checking that the Instructions editor is open", target: CLASSIC_EDITOR, timeoutMs: 10_000 },
+  { id: "instr-type", action: "type", intent: "type", say: "Setting the instructions", note: "Set the agent's instructions from the lab", target: CLASSIC_EDITOR, text: { sample: "instructions" } },
+  { id: "instr-enabled", action: "verify", say: "Checking that the text registered (Save is available)", target: CLASSIC_SAVE, expect: { enabled: true }, ifDisabled: "the text did not register in the Instructions editor", timeoutMs: 6000 },
+  { id: "instr-save", action: "confirm", intent: "confirm", say: "Saving the instructions", note: "Saved the agent", target: CLASSIC_SAVE, soft: true, ifDisabled: "the text did not register in the Instructions editor" },
+  { id: "instr-saved", action: "verify", say: "Checking that the instructions were saved", target: CLASSIC_SAVE, expect: { disabled: true }, orGone: true, timeoutMs: 10_000 },
+]);
+
+/**
+ * Leave the Instructions editor without saving, after a step failed with text in it: Cancel, then Discard on the confirmation that follows (a dialog with Close, Discard, and Cancel,
+ * observed 2026-11-26). Both are optional (a closed editor, or no confirmation, is fine), so this never fails a run.
+ */
+export const ABANDON_INSTRUCTIONS_EDIT = Object.freeze([
+  { id: "instr-cancel", action: "click", intent: "close", say: "Closing the Instructions editor without saving", note: "Closed the Instructions editor", target: T("button", "Cancel", [], "main", "Instructions"), skipUnlessPresent: CLASSIC_EDITOR, optional: true, retries: 0 },
+  { id: "instr-discard", action: "discard", intent: "close", say: "Leaving without saving", note: "Left the unsaved Instructions text", target: T("button", "Discard", [], "dialog"), optional: true, retries: 0 },
+]);
+
+/** The top bar's Settings button opens a full page (.../manage/advancedSettings) with a list of links on the left; the page has its own Close and Save. */
+export const CLASSIC_SETTINGS_LINKS = Object.freeze(["Generative AI", "Agent details", "Security", "Connected Agents", "Connection Settings", "Authoring Canvas", "Entities", "Skills", "Voice", "Languages", "Language understanding", "Component collections", "Advanced"]);
+export const CLASSIC_OPEN_SETTINGS = Object.freeze([
+  { id: "classic-settings-open", action: "open-nav", say: "Opening Settings", note: "Opened the agent's Settings page", target: T("button", "Settings", [], "any"), expect: { urlPath: "advancedSettings" }, findMs: 20_000, timeoutMs: 8000 },
+]);
+
+/** The link of the Settings page a picture is about, from the words of the picture (null: the page opens on its first link and is shown as it is). */
+export function classicSettingsLinkFor(words) {
+  const text = String(words || "").toLowerCase();
+  const table = [
+    [/\b(?:generative|orchestration|moderation|model|web search)\b/, "Generative AI"],
+    [/\b(?:authentication|security|access|sharing|privacy|data loss)\b/, "Security"],
+    [/\bconnected agents?\b/, "Connected Agents"],
+    [/\bconnection settings?\b/, "Connection Settings"],
+    [/\bauthoring canvas\b/, "Authoring Canvas"],
+    [/\bentities\b/, "Entities"],
+    [/\bskills?\b/, "Skills"],
+    [/\bvoice\b/, "Voice"],
+    [/\blanguage understanding\b/, "Language understanding"],
+    [/\blanguages?\b/, "Languages"],
+    [/\bcomponent collections?\b/, "Component collections"],
+    [/\b(?:advanced|solution|schema)\b/, "Advanced"],
+    [/\b(?:agent details|agent name)\b/, "Agent details"],
+  ];
+  for (const [re, link] of table) if (re.test(text)) return link;
+  return null;
+}
+
+/** Open one link of the Standard Settings page (the page is already open). */
+export function classicSettingsLinkSteps(link) {
+  if (!link) return [];
+  return [{ id: "classic-settings-link", action: "open-nav", say: `Opening ${link} in Settings`, note: `Opened ${link} in Settings`, target: T(undefined, link, [], "any"), findMs: 10_000, timeoutMs: 6000 }];
+}
+
+/**
+ * The slots of a Standard (Classic) lab that the walkthrough would take by itself (it has a stage and a recipe family) but whose recipe cannot be written from what was seen on a real
+ * tenant. Each one ends as Needs you with its exact reason, and is listed in docs/standard-capture-slots.md with the read-only checks that would settle it. By file name.
+ */
+export const CLASSIC_UNSEEN_SLOTS = Object.freeze({
+  "publish-confirmation.png": "The top bar's Publish button of a Standard agent was never clicked, so whether it opens a dialog or publishes at once, and what its confirmation says, are unknown. A publish is not read-only, so the computer does not guess.",
+  "test-agent-panel.png": "This picture needs the Test panel's More menu showing Track between topics. The More button was seen, but its menu items were never read on a Standard agent.",
+  "activity-map-plan.png": "This picture needs the activity map. No control for it was seen among the Test panel's buttons (Chat mode, More, Expand test pane, Upload file, Send), so the computer does not guess one.",
+  "generative-orchestration-setting.png": "Settings has a Generative AI link on a Standard agent, but the orchestration choice (its control and its current value) was never read, and this picture shows it selected, which is a change. The computer does not guess it.",
+  "content-moderation-level.png": "Settings has a Generative AI link on a Standard agent, but the content moderation control inside it was never read, so the computer does not guess it.",
+  "grounding-general-knowledge-off.png": "Settings has a Generative AI link on a Standard agent, but its knowledge controls (allow ungrounded responses, use information from the web) were never read, and this picture turns them off and saves, which is a change.",
+  "security-authentication-page.png": "Settings has a Security link on a Standard agent, but its Authentication entry and its options were never read, so the computer does not guess them.",
+  "entra-auth-config.png": "This picture needs Authenticate manually selected (a change) and an app registration that a person prepares. The fields of that form were never read on a Standard agent.",
+  "knowledge-sharepoint-add.png": "The Add knowledge dialog of a Standard agent has not been seen yet (its tiles, fields, and buttons), so a recipe cannot pick a source or type an address. It also needs a SharePoint site that the practice agent may read.",
+  "knowledge-answer-citation.png": "This picture needs a SharePoint knowledge source on the practice agent, and the Add knowledge dialog that adds one has not been seen on a Standard agent yet. Without that source the answer has no citation.",
+  "knowledge-sources-list.png": "This picture needs documents and a public website already listed on the Knowledge tab. The computer never uploads files, and the Add knowledge dialog that adds a website has not been seen on a Standard agent yet.",
+  "tool-add-connector.png": "The Add a tool dialog of a Standard agent has not been seen yet (its categories, connector list, and buttons), so a recipe cannot pick a category or a tool.",
+  "analytics-dashboard.png": "Monitor is in the more options menu of a Standard agent's tab strip, but the Monitor page itself (its reporting period and its sections) was never read, and a practice agent that was only tested shows empty metrics.",
+  "eval-test-set.png": "The Evaluation tab of a Standard agent was seen, but its new-evaluation form, test methods, and test set list were not, and a test set has to be saved to appear, which is a write.",
+});
+
+/** The plain reason a Standard slot ends as Needs you, by its file name (null when it has a recipe or another reason). A harness-tagged library name (x.classic.png) counts as the plain one. */
+export const classicUnseenReason = (filename) => CLASSIC_UNSEEN_SLOTS[splitTaggedName(String(filename || "")).base] || null;
+
 /** Add a public website as a knowledge source: open Add knowledge, choose Public websites, type the address, Add, then Add to agent. */
 export const ADD_WEBSITE_KNOWLEDGE = Object.freeze([
   { id: "knowledge-open", action: "open", intent: "open", say: "Opening Add knowledge", target: T("button", "Add knowledge", ["Add knowledge source", "Add a knowledge source", "+ Add knowledge"], "main"), expect: { dialog: true } },
@@ -143,16 +281,22 @@ export const OPEN_PUBLISH_DIALOG = Object.freeze([{ id: "publish-open", action: 
 export const OPEN_ADD_KNOWLEDGE = Object.freeze([{ id: "knowledge-open", action: "open", intent: "open", say: "Opening Add knowledge", target: T("button", "Add knowledge", ["Add knowledge source", "Add a knowledge source", "+ Add knowledge"], "main"), expect: { dialog: true } }]);
 export const OPEN_ADD_TOOL = Object.freeze([{ id: "tool-open", action: "open", intent: "open", say: "Opening Add a tool", target: T("button", "Add tool", ["Add a tool", "Add tools", "Add an action", "Add action"], "main"), expect: { dialog: true } }]);
 export const OPEN_ADD_SKILL = Object.freeze([{ id: "skill-open", action: "open", intent: "open", say: "Opening Add a skill", target: T("button", "Add skill", ["Add a skill", "Add skills"], "main"), expect: { dialog: true } }]);
+/** The Standard Overview tab's model list is a combobox ("Select your agent's model", read as "Select a model" in an older read): opened to show the list, and left as it is. */
+export const CLASSIC_OPEN_MODEL_LIST = Object.freeze([{ id: "classic-model-open", action: "open", intent: "open", say: "Opening the model list", note: "Opened the model list", target: T("combobox", "Select your agent's model", ["Select a model"], "main"), findMs: 20_000 }]);
+
 // The model list is a menu that opens beside the button, so the button being open is the proof.
 export const OPEN_MODEL_LIST = Object.freeze([{ id: "model-open", action: "open", intent: "open", say: "Opening the model list", target: T("button", "Model: Auto", ["Model", "Select a model", "Choose a model", "Model selector", "Change model", "Agent model"], "main") }]);
 
 /** Ask the test pane a question (the lab's own, an out-of-scope one, or the plain request that shows a refusal) and wait for the finished answer. */
-export function askSteps({ outOfScope = false, openTest = false, question = null } = {}) {
+export function askSteps({ outOfScope = false, openTest = false, question = null, classic = false } = {}) {
   const sample = question === "guardrail" ? "guardrail" : question === "outOfScope" || outOfScope ? "outOfScope" : "question";
+  // The Standard agent's Test panel is told apart by its heading (it is on every tab), not by a loose name: the Instructions editor also says "describe".
+  const input = classic ? CLASSIC_CHAT_INPUT : CHAT_INPUT;
+  const send = classic ? T("button", "Send", ["Send message", "Submit", "Submit message"], "any", CLASSIC_TEST_SECTION) : T("button", "Send", ["Send message", "Submit", "Submit message", "Send (Enter)", "Ask", "Send prompt"], "chat");
   return [
-    ...(openTest ? [{ id: "test-open", action: "open", intent: "open", say: "Opening the test pane", optional: true, target: T("button", "Test", ["Test your agent", "Test agent", "Open test pane", "Test pane"], "any"), skipIfPresent: CHAT_INPUT }] : []),
-    { id: "ask-type", action: "type", intent: "type", say: "Typing a sample question in the test pane", target: CHAT_INPUT, text: { sample } },
-    { id: "ask-send", action: "send", intent: "send", say: "Asking the test pane a sample question", target: T("button", "Send", ["Send message", "Submit", "Submit message", "Send (Enter)", "Ask", "Send prompt"], "chat") },
+    ...(openTest ? [{ id: "test-open", action: "open", intent: "open", say: "Opening the test pane", optional: true, target: T("button", "Test", ["Test your agent", "Test agent", "Open test pane", "Test pane"], "any"), skipIfPresent: input }] : []),
+    { id: "ask-type", action: "type", intent: "type", say: "Typing a sample question in the test pane", target: input, text: { sample } },
+    { id: "ask-send", action: "send", intent: "send", say: "Asking the test pane a sample question", target: send },
     { id: "ask-wait", action: "wait-answer", say: "Waiting for the answer to finish" },
   ];
 }

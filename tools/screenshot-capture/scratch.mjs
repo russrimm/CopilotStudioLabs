@@ -383,7 +383,16 @@ export async function openPracticeAgent({ page, session, go, sleep = sleepDefaul
   const harness = isSpecificHarness(agent.harness) ? agent.harness : null;
   const insideAgent = () => {
     const here = parseCopilotStudioAddress(page.url());
-    return Boolean(here.botId && here.botId.toLowerCase() === String(agent.botId).toLowerCase());
+    if (!(here.botId && here.botId.toLowerCase() === String(agent.botId).toLowerCase())) return false;
+    // A Standard agent's Settings page (/manage/...) is a full page with its own links and no tab strip: it is not the agent's page the steps start from, so it is left by opening the agent again.
+    if (harness === STANDARD) {
+      try {
+        if (/\/manage(?:\/|$)/i.test(new URL(page.url()).pathname)) return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
   };
   const target = agent.openUrl || `${agent.agentBase}/overview`;
   // A page that was just opened gets the whole wait to draw; a page that is already drawn answers at once.
@@ -431,7 +440,12 @@ export async function openPracticeAgent({ page, session, go, sleep = sleepDefaul
 
 const STAGE_STEPS = {
   agent: (layout) => (layout === "newer" ? R.tabSteps("Build") : []),
-  instructions: (layout) => (layout === "newer" ? [...R.tabSteps("Build"), ...R.SET_INSTRUCTIONS] : [{ id: "overview-nav", action: "open-nav", target: { name: "Overview", within: "nav" } }, ...R.SET_INSTRUCTIONS]),
+  instructions: (layout, scratch) => {
+    if (layout === "newer") return [...R.tabSteps("Build"), ...R.SET_INSTRUCTIONS];
+    // A Standard (Classic) agent: the Overview tab, Edit Instructions, the editor, Save (observed on a real tenant on 2026-11-26).
+    if (scratch.agent?.harness === STANDARD) return [...R.classicTabSteps("Overview"), ...R.SET_INSTRUCTIONS_CLASSIC];
+    return [{ id: "overview-nav", action: "open-nav", target: { name: "Overview", within: "nav" } }, ...R.SET_INSTRUCTIONS];
+  },
   knowledge: (layout, scratch) => {
     if (!scratch.context.website) return null;
     return layout === "newer" ? [...R.tabSteps("Build"), ...R.ADD_WEBSITE_KNOWLEDGE] : [{ id: "knowledge-nav", action: "open-nav", target: { name: "Knowledge", within: "nav" } }, ...R.ADD_WEBSITE_KNOWLEDGE];
@@ -466,6 +480,11 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
     scratch.stageFailures = { ...(scratch.stageFailures || {}), [stage]: failure };
     return failure;
   };
+  // A write on a Standard (Classic) agent whose dialog or form has not been seen on a real tenant is not guessed: the stage ends as Needs you with the exact reason.
+  if (agent.harness === STANDARD) {
+    const gap = classicGapFor({ stage });
+    if (gap) return remember({ ok: false, cause: "needs-you", error: `${info.label}: ${gap}` });
+  }
   const opened = await openPracticeAgent({ page, session, go, sleep, trace });
   if (!opened.ok) return opened;
   const raw = build(layoutOf(scratch), scratch);
@@ -514,6 +533,8 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
   const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE && r.effect !== "already there");
   for (const r of changed) session.registry.recordChange({ botId: agent.botId, what: r.summary || `${r.action} in the practice agent`, shot });
   if (!result.ok) {
+    // A Standard Instructions editor left open with text in it is closed without saving (Cancel, then Discard on the confirmation), so the next screen starts clean.
+    if (stage === "instructions" && agent.harness === STANDARD && !result.halted) await executor.run(sanitizeSteps(R.ABANDON_INSTRUCTIONS_EDIT, { product: "copilot-studio" })).catch(() => {});
     await executor.cleanup().catch(() => {});
     const failure = stepFailure(info.label, result);
     if (failure.halted) scratch.halted = { kind: result.haltKind, message: result.halted };
@@ -536,13 +557,17 @@ export function showStepsFor({ stage, shot, layout, harness = null, website = ""
   const words = wordsOf(shot);
   const dialog = kind === "dialog" || /\bdialog\b/.test(words);
   const newer = isSpecificHarness(harness) ? harness !== STANDARD : layout === "newer";
-  const nav = (name, alt = []) => [{ id: `${name.toLowerCase()}-nav`, action: "open-nav", target: { name, alt, within: "nav" } }, { id: `${name.toLowerCase()}-nav-open`, action: "verify", target: { name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 }];
+  // A Standard (Classic) agent has the tab strip (Overview, Knowledge, Tools, Agents, Topics, and Activity, Evaluation, Monitor, Channels behind the overflow at a narrower window);
+  // only an agent with no harness recorded (an older plan) may still have the side navigation of an older classic build.
+  const standard = harness === STANDARD;
+  const nav = (name, alt = []) => (standard ? R.classicTabSteps(name, { alt }) : [{ id: `${name.toLowerCase()}-nav`, action: "open-nav", target: { name, alt, within: "nav" } }, { id: `${name.toLowerCase()}-nav-open`, action: "verify", target: { name, alt, within: "nav" }, expect: { selected: true }, timeoutMs: 8000 }]);
   const outOfScope = /\b(?:out-of-scope|out of scope|decline|declin|redirect|refus)/.test(words);
+  const ask = (openTest) => R.askSteps({ outOfScope, openTest, classic: standard });
   switch (stage) {
     case "agent":
       return newer ? R.tabSteps("Build") : nav("Overview");
     case "instructions":
-      if (kind === "test-result" || /\b(?:preview tab|ask|question|answer|response)\b/.test(words)) return newer ? [...R.tabSteps("Preview"), ...R.askSteps({ outOfScope })] : R.askSteps({ outOfScope, openTest: true });
+      if (kind === "test-result" || /\b(?:preview tab|ask|question|answer|response)\b/.test(words)) return newer ? [...R.tabSteps("Preview"), ...R.askSteps({ outOfScope })] : ask(true);
       return newer ? R.tabSteps("Build") : nav("Overview");
     case "knowledge":
       return [...(newer ? R.tabSteps("Build") : nav("Knowledge")), ...(dialog ? R.OPEN_ADD_KNOWLEDGE : [])];
@@ -556,9 +581,14 @@ export function showStepsFor({ stage, shot, layout, harness = null, website = ""
       return [...base, ...R.OPEN_ADD_TOOL];
     }
     case "model":
+      // The newer layout has a model button on its Build tab; the Standard Overview tab has a combobox ("Select your agent's model"), opened and left as it is.
+      if (standard) return [...nav("Overview"), ...R.CLASSIC_OPEN_MODEL_LIST];
       return newer ? [...R.tabSteps("Build"), ...R.OPEN_MODEL_LIST] : null;
     case "preview":
-      return newer ? [...R.tabSteps("Preview"), ...R.askSteps({ outOfScope })] : R.askSteps({ outOfScope, openTest: true });
+      return newer ? [...R.tabSteps("Preview"), ...R.askSteps({ outOfScope })] : ask(true);
+    case "topics":
+      // The Standard Topics tab: opened and shown as it is (the filter tabs and the table are read, nothing is changed).
+      return standard ? nav("Topics") : null;
     case "evaluate":
       return [...(newer ? R.tabSteps("Evaluate") : nav("Evaluation", ["Evaluations"])), ...(newer && /\b(?:new evaluation|create (?:an? |your first )?evaluation|data set|dataset|test set|evaluation name)\b/.test(words) ? R.OPEN_NEW_EVALUATION : [])];
     case "publish":
@@ -566,9 +596,11 @@ export function showStepsFor({ stage, shot, layout, harness = null, website = ""
       // Just before the one publish click, the agent must still look built: a knowledge source is listed and the instructions are not the empty placeholder.
       return [...(newer ? R.tabSteps("Build") : []), ...(newer ? [{ id: "publish-built", action: "wait-for", say: "Checking that the agent is built before publishing it", expect: { ...(website ? { removable: true } : {}), absent: ["Instructions guide how your agent responds"] }, timeoutMs: 8000, retries: 0 }] : []), ...R.PUBLISH_AGENT];
     case "monitor":
-      return [...(newer ? R.tabSteps("Monitor") : nav("Analytics")), ...(/\b(?:session|transcript|conversation)\b/.test(words) ? R.MONITOR_SESSIONS : [])];
+      return [...(newer ? R.tabSteps("Monitor") : nav("Monitor", ["Analytics"])), ...(!standard && /\b(?:session|transcript|conversation)\b/.test(words) ? R.MONITOR_SESSIONS : [])];
     case "settings":
-      if (/\bmemory\b/.test(words)) return [...(newer ? R.tabSteps("Build") : []), ...R.MEMORY_ON];
+      if (/\bmemory\b/.test(words)) return standard ? null : [...(newer ? R.tabSteps("Build") : []), ...R.MEMORY_ON];
+      // The Standard Settings page is a full page reached from the top bar; its left links are opened by name, and nothing on it is changed.
+      if (standard) return [...R.CLASSIC_OPEN_SETTINGS, ...R.classicSettingsLinkSteps(R.classicSettingsLinkFor(words))];
       if (!newer) return [...nav("Settings"), ...(/\b(?:generative|orchestration)\b/.test(words) ? R.CLASSIC_ORCHESTRATION : [])];
       // The dialog opens on Agent details; a picture of any other setting must name its tab, or it is not guessed.
       if (!R.settingsTabFor(words) && !/\b(?:agent details|identity|schema name|agent settings|settings dialog)\b/.test(words)) return null;
@@ -578,11 +610,40 @@ export function showStepsFor({ stage, shot, layout, harness = null, website = ""
   }
 }
 
-/** The stages to bring into place before this shot's own screen. A dialog or the publish step itself leaves its own stage for the shot to show. */
-export function stagesToPrepare(stage, shot) {
+/**
+ * The plain reason a screen of a Standard (Classic) agent is NOT taken: a control or page of it that has not been seen on a real tenant (so no recipe is written, and nothing is guessed),
+ * or a screen that belongs to another harness. Null when the screen has a recipe. The lists of what is unseen are in docs/lab-builder.md ("Standard (Classic) capture recipes").
+ * @param {{stage: string, shot?: object, family?: object|null}} input
+ */
+export function classicGapFor({ stage, shot = {}, family = null }) {
+  const words = wordsOf(shot);
+  const kind = String(shot?.kind || "").toLowerCase();
+  const dialog = kind === "dialog" || /\bdialog\b/.test(words);
+  // A slot whose recipe cannot be written from what was seen (docs/standard-capture-slots.md): its own exact reason comes first.
+  const unseen = R.classicUnseenReason(shot?.filename);
+  if (unseen) return `${unseen} Use “Retake guided”, or upload the picture.`;
+  if (/\b(?:build tab|preview tab|evaluate tab|monitor tab)\b/.test(words)) return "This screenshot is written for the Build, Preview, Evaluate, and Monitor tabs of the Microsoft Copilot harness, which a Standard (Classic) agent does not have. It is a catalog harness-tag error, so it is not taken in a Standard lab.";
+  if (family?.family === "testset" || stage === "testset" || (stage === "evaluate" && /\b(?:new evaluation|create (?:an? |your first )?evaluation|data set|dataset|test set|evaluation name)\b/.test(words)) || (family?.family === "dialog" && family.opener === "evaluation")) {
+    return "The new evaluation form of a Standard (Classic) agent has not been seen yet, so the computer does not guess its buttons. Use “Retake guided”, or upload the picture.";
+  }
+  if (stage === "knowledge" && !dialog) return "The Add knowledge dialog of a Standard (Classic) agent has not been seen yet, so the computer does not guess which controls add a knowledge source. Use “Retake guided”, or upload the picture.";
+  if (stage === "monitor" && /\b(?:session|transcript|conversation)\b/.test(words)) return "The sessions list of a Standard (Classic) agent's Monitor page has not been seen yet, so the computer does not guess its controls. Use “Retake guided”, or upload the picture.";
+  if (stage === "settings" && /\bmemory\b/.test(words)) return "Memory is a feature of the Microsoft Copilot harness, which a Standard (Classic) agent does not have. It is a catalog harness-tag error, so it is not taken in a Standard lab.";
+  if (family?.family === "dialog" && family.opener === "skill") return "The Add skill dialog belongs to the Microsoft Copilot harness. A Standard (Classic) agent's skills are on its Settings page (Skills), which has not been seen yet, so the computer does not guess.";
+  return null;
+}
+
+/**
+ * The stages to bring into place before this shot's own screen. A dialog or the publish step itself leaves its own stage for the shot to show.
+ * On a Standard (Classic) agent the Add knowledge stage has no recipe yet (its dialog was never seen), so a picture that does not show knowledge is not held back by it:
+ * the test panel, the settings pages, and the tabs are taken without it, and a picture about knowledge ends as Needs you with the exact reason.
+ */
+export function stagesToPrepare(stage, shot, harness = null) {
   const info = stageById(stage);
   if (!info) return [];
-  const before = stagesBefore(stage).filter((s) => s.prepares).map((s) => s.id);
+  const standard = harness === STANDARD;
+  const showsKnowledge = stage === "knowledge" || /\b(?:knowledge|citations?|cited|sources?)\b/.test(wordsOf(shot));
+  const before = stagesBefore(stage).filter((s) => s.prepares).filter((s) => !(standard && s.id === "knowledge" && !showsKnowledge)).map((s) => s.id);
   const kind = String(shot?.kind || "").toLowerCase();
   const own = info.prepares && kind !== "dialog" && stage !== "publish" ? [stage] : [];
   return [...before, ...own];
@@ -630,6 +691,10 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
 
   // The computer builds a Classic agent (after the switch) and a Microsoft Copilot agent, and nothing else: a Customer Conversation agent is the person's.
   if (harness === CUSTOMER_CONVERSATION) return needsYou("needs-you", CUSTOMER_AGENT_MESSAGE);
+  // A screen of a Standard (Classic) agent that has no recipe (a control that was never seen on a real tenant) or that belongs to another harness ends here with its exact reason,
+  // before anything is built or clicked. A person who sets the screen up (guided) is not stopped.
+  const gap = harness === STANDARD && !guided ? classicGapFor({ stage: found.stage, shot, family }) : null;
+  if (gap) return needsYou("needs-you", gap, { reason: "standard-unseen" });
   const ensured = await ensureScratchAgent({ page, session, go, trace, log, sleep, terms, home, companion, readiness, harness });
   if (ensured.signIn) return { ok: false, signIn: ensured.signIn };
   if (!ensured.ok) {
@@ -637,7 +702,7 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
     return ensured;
   }
   if (scratch.halted && !guided) return needsYou("run-stopped", `The run stopped earlier: ${scratch.halted.message}`);
-  for (const stage of stagesToPrepare(stageId, shot)) {
+  for (const stage of stagesToPrepare(stageId, shot, scratch.agent?.harness || harness)) {
     const prepared = await prepareStage({ stage, page, session, go, trace, log, sleep, terms, home, companion, readiness, shot: shot.filename });
     if (prepared.signIn) return { ok: false, signIn: prepared.signIn };
     if (!prepared.ok) return needsYou(prepared.cause || "automation-failed", prepared.error, { diagnostic: prepared.diagnostic || null });
@@ -648,7 +713,7 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
     const opened = await openPracticeAgent({ page, session, go, sleep, trace });
     if (opened.signIn) return { ok: false, signIn: opened.signIn };
     const executor = makeExecutor({ page, session, practice: { agentId: scratch.agent.botId, envId: scratch.agent.envId }, trace, log, sleep, terms, home, shot: shot.filename, companion, readiness });
-    const ask = await executor.run(sanitizeSteps(layoutOf(scratch) === "newer" ? [...R.tabSteps("Preview"), ...R.askSteps({})] : R.askSteps({ openTest: true }), { product: "copilot-studio" }));
+    const ask = await executor.run(sanitizeSteps(layoutOf(scratch) === "newer" ? [...R.tabSteps("Preview"), ...R.askSteps({})] : R.askSteps({ openTest: true, classic: scratch.agent.harness === STANDARD }), { product: "copilot-studio" }));
     await executor.cleanup().catch(() => {});
     if (ask.ok) {
       scratch.asked = true;

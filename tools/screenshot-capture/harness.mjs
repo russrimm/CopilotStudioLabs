@@ -508,6 +508,76 @@ export function sanitizeHarnessReached(raw) {
   return { version: HARNESS_PROOF_VERSION, id, scope: "environment", host, via, proven: false };
 }
 
+// ── The address shape of an agent page (evidence for a picture with no proof) ──────────
+//
+// OBSERVED on a real tenant (2026-11-26, read only): an agent page of the Microsoft Copilot harness lives at /environments/<env>/agents/<id>[/preview|...]
+// and a Standard agent page at /environments/<env>/bots/<id>/<tab>, on EITHER Copilot Studio host. The Agents list (/agents, no id) and Home (/home) have
+// no agent id and say nothing about a harness. A picture taken before the companion proved harnesses (companion older than 1.8.1) carries no proof, but its
+// final address is kept in its saved check, so the address shape is the one thing that can still show it was taken in the other harness.
+// Only the path is read; nothing here proves a harness (the landmarks do), it can only CONTRADICT the harness a slot needs.
+
+const AGENT_ADDRESS = /^\/environments\/[^/]+\/(agents|bots)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
+
+/**
+ * The harness the shape of an agent page's address names, or null when the address is not an agent page (Home, the Agents list, the create form, another site).
+ * `/agents/<id>` is the Microsoft Copilot shape (a Customer Conversation agent has the same shape, so the answer lists it too) and `/bots/<id>` the Standard one.
+ * @returns {{id: string, shape: "agents"|"bots", host: string, alsoPossible: string[]}|null}
+ */
+export function harnessFromAddress(address) {
+  let url;
+  try {
+    url = new URL(String(address ?? "").trim());
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase();
+  if (!experienceHostKind(host)) return null;
+  const match = AGENT_ADDRESS.exec(url.pathname);
+  if (!match) return null;
+  const shape = match[1].toLowerCase();
+  return shape === "bots" ? { id: STANDARD, shape, host, alsoPossible: [] } : { id: MICROSOFT_COPILOT, shape, host, alsoPossible: [CUSTOMER_CONVERSATION] };
+}
+
+/** Plain words for what each harness's agent page shows, so a sentence can name it ("the Microsoft Copilot harness (Build, Preview, Evaluate, Monitor)"). */
+export const HARNESS_TABS_WORDS = Object.freeze({
+  [STANDARD]: "Overview, Knowledge, Tools, Topics",
+  [MICROSOFT_COPILOT]: "Build, Preview, Evaluate, Monitor",
+  [CUSTOMER_CONVERSATION]: "Build, Preview, Evaluate, Deploy, Monitor",
+});
+
+/** The sentence for a picture that was taken in another harness than its slot needs ("This picture was taken in the Microsoft Copilot harness (Build, Preview, Evaluate, Monitor); this lab needs the Standard (Classic) harness."). */
+export function wrongHarnessPictureMessage(found, needed) {
+  const have = normalizeHarness(found);
+  const need = normalizeHarness(needed);
+  if (!have || have === EITHER || !need || need === EITHER) return "";
+  const name = (id) => HARNESS_LABELS[id].replace(/ \(preview\)$/, "");
+  return `This picture was taken in the ${name(have)} (${HARNESS_TABS_WORDS[have]}); this lab needs the ${name(need)}.`;
+}
+
+/**
+ * Whether a picture may be taken as showing the harness a slot needs, from what it carries: the companion's proof (the landmarks it read from the page; companion
+ * 1.8.1 and later), else the shape of its final address. `proof` is a harness id (or a proof object with `id`), `finalUrl` the address kept with the picture.
+ *   ok                 the proof says the slot's harness (the proof wins over the address), or the slot needs no harness
+ *   wrong-harness      the proof names another harness, or (no proof) the address shape belongs to another harness
+ *   harness-unproven   nothing proves the harness; `addressAgrees` says the address shape is at least the slot's own
+ * @returns {{code: "ok"|"wrong-harness"|"harness-unproven", found: string|null, source: "proof"|"address"|null, addressAgrees: boolean, message: string}}
+ */
+export function harnessReview({ slotHarness, proof = null, finalUrl = "" } = {}) {
+  const need = normalizeHarness(slotHarness);
+  if (!need || need === EITHER) return { code: "ok", found: null, source: null, addressAgrees: false, message: "" };
+  const proven = normalizeHarness(proof && typeof proof === "object" ? proof.id : proof);
+  if (proven && proven !== EITHER) {
+    return proven === need ? { code: "ok", found: proven, source: "proof", addressAgrees: false, message: "" } : { code: "wrong-harness", found: proven, source: "proof", addressAgrees: false, message: wrongHarnessPictureMessage(proven, need) };
+  }
+  const shape = harnessFromAddress(finalUrl);
+  if (shape) {
+    const agrees = shape.id === need || shape.alsoPossible.includes(need);
+    if (!agrees) return { code: "wrong-harness", found: shape.id, source: "address", addressAgrees: false, message: wrongHarnessPictureMessage(shape.id, need) };
+    return { code: "harness-unproven", found: null, source: null, addressAgrees: true, message: "" };
+  }
+  return { code: "harness-unproven", found: null, source: null, addressAgrees: false, message: "" };
+}
+
 // ── Practice agent names (added by the companion) ──────────────────────────
 //
 // The computer builds one practice agent per harness (a Classic agent for Standard (Classic) pictures, a Microsoft Copilot agent for Microsoft

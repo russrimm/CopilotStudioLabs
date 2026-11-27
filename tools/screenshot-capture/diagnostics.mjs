@@ -34,6 +34,14 @@ export function interactiveControlsInPage(max) {
     return "generic";
   };
   const areaOf = (el) => (el.closest("dialog, [role=dialog], [role=alertdialog], [aria-modal=true]") ? "dialog" : el.closest("nav, [role=navigation], [role=tablist], [role=tree], [role=menu]") ? "nav" : el.closest("header, [role=banner]") ? "header" : el.closest("main, [role=main]") ? "main" : "other");
+  // The heading of the card or panel a control sits in (the nearest ancestor that holds one): which of two look-alike boxes it is.
+  const sectionOf = (el) => {
+    for (let node = el.parentElement; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+      const heading = node.querySelector("h1, h2, h3, h4, h5, h6, [role=heading]");
+      if (heading && !heading.contains(el)) return String(heading.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    }
+    return "";
+  };
   for (const el of document.querySelectorAll(selector)) {
     if (out.length >= max) break;
     if (el.closest("[data-capture-ui]")) continue;
@@ -46,6 +54,7 @@ export function interactiveControlsInPage(max) {
       role: roleOf(el),
       name: String(name).replace(/\s+/g, " ").trim().slice(0, 80),
       area: areaOf(el),
+      section: sectionOf(el),
       disabled: Boolean(el.disabled) || el.getAttribute("aria-disabled") === "true",
       selected: el.getAttribute("aria-selected") === "true" || el.getAttribute("aria-expanded") === "true" || (Boolean(el.getAttribute("aria-current")) && el.getAttribute("aria-current") !== "false"),
       x: Math.round(rect.left / 40),
@@ -101,7 +110,7 @@ export function buildDiagnosticBundle({ url = "", frames = [], step = null, atte
     for (const c of frame.controls || []) {
       if (controls.length >= MAX_CONTROLS) break;
       const name = cleanControlName(c.name, terms);
-      controls.push({ role: String(c.role || "").slice(0, 20), name, area: String(c.area || "").slice(0, 10), ...(c.disabled ? { disabled: true } : {}), ...(c.selected ? { selected: true } : {}), frame: frame.index || 0 });
+      controls.push({ role: String(c.role || "").slice(0, 20), name, area: String(c.area || "").slice(0, 10), ...(c.section ? { section: cleanControlName(c.section, terms) } : {}), ...(c.disabled ? { disabled: true } : {}), ...(c.selected ? { selected: true } : {}), frame: frame.index || 0 });
     }
     for (const title of frame.dialogs || []) {
       const clean = cleanControlName(title, terms);
@@ -121,11 +130,25 @@ export function buildDiagnosticBundle({ url = "", frames = [], step = null, atte
           id: String(step.id || "").slice(0, 24),
           action: String(step.action || "").slice(0, 24),
           tier: Number.isInteger(step.tier) ? step.tier : null,
-          target: step.target ? { role: step.target.role || null, name: cleanControlName(step.target.name, terms), alt: (step.target.alt || []).map((n) => cleanControlName(n, terms)).filter(Boolean), within: step.target.within || "any" } : null,
+          target: step.target ? { role: step.target.role || null, name: cleanControlName(step.target.name, terms), alt: (step.target.alt || []).map((n) => cleanControlName(n, terms)).filter(Boolean), within: step.target.within || "any", ...(step.target.section ? { section: cleanControlName(step.target.section, terms) } : {}) } : null,
           expect: step.expect ? Object.keys(step.expect) : [],
         }
       : null,
-    attempts: attempts.slice(0, 12).map((a) => ({ strategy: String(a.strategy || "").slice(0, 24), found: Number(a.found) || 0, tried: Number(a.tried) || 0, blocked: String(a.blocked || "").slice(0, 40), effect: typeof a.effect === "boolean" ? a.effect : null, note: redactTraceText(a.note || "", terms).slice(0, 80) })),
+    attempts: attempts.slice(0, 12).map((a) => ({
+      strategy: String(a.strategy || "").slice(0, 24),
+      found: Number(a.found) || 0,
+      tried: Number(a.tried) || 0,
+      blocked: String(a.blocked || "").slice(0, 40),
+      effect: typeof a.effect === "boolean" ? a.effect : null,
+      note: redactTraceText(a.note || "", terms).slice(0, 80),
+      // How many controls with the step's name were there but disabled, and how many sat in another card or panel than the step names.
+      ...(Number(a.disabled) ? { disabled: Number(a.disabled) } : {}),
+      ...(Number(a.skippedOtherSection) ? { skippedOtherSection: Number(a.skippedOtherSection) } : {}),
+      // Which text box received the typed text: its name, role, and card, whether it was in the Test panel, and whether the text read back from it.
+      ...(a.typedInto && typeof a.typedInto === "object"
+        ? { typedInto: { name: cleanControlName(a.typedInto.name, terms), role: String(a.typedInto.role || "").slice(0, 20), section: cleanControlName(a.typedInto.section, terms), inTestPane: a.typedInto.inTestPane === true, readback: ["ok", "mismatch", "pending"].includes(a.typedInto.readback) ? a.typedInto.readback : "pending", length: Number(a.typedInto.length) || 0 } }
+        : {}),
+    })),
     timings: Object.fromEntries(Object.entries(timings).slice(0, 12).map(([k, v]) => [String(k).slice(0, 24), Number(v) || 0])),
     dialogs: dialogs.slice(0, 4),
     controls,

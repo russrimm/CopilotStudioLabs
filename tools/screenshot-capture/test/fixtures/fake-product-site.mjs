@@ -154,9 +154,20 @@ export function createFakeProductSite(options = {}) {
     doubledTabText: true,
     // The preview address is not reachable: every page on it goes to the default host.
     previewUnavailable: false,
+    // The Standard agent page as OBSERVED on a real tenant on 2026-11-26 (read only), instead of the older pretend one: the top bar has Search your agent, Publish, Settings, Options, and Test;
+    // the tab strip has Overview, Knowledge, Tools, Agents, Topics, and an overflow tab named "N more options" (at 1400 pixels or wider Activity and Evaluation are tabs of their own and the
+    // overflow holds Monitor and Channels; narrower, all four are in the overflow menu); the Overview tab has the cards (Details, Instructions, Knowledge, Tools, ...), where Edit
+    // Instructions opens an inline editor (a contenteditable text box named "Describe what you want this agent to do, its tone, and rules", with Cancel and Save; Save is disabled until the text
+    // changes; Cancel after a change asks Close, Discard, or Cancel); the Test your agent panel (with a second "describe" text box) is on every tab; Settings opens a full page at
+    // /manage/advancedSettings with a list of links on the left. Needs `harnessMode`.
+    realStandard: false,
+    // (realStandard) the editor never registers typed text: Save stays disabled, as a page that ignores programmatic input would.
+    editorIgnoresInput: false,
+    // (realStandard) Save closes the editor instead of leaving it open with Save disabled.
+    saveClosesEditor: false,
     ...options,
   };
-  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0, classicClicks: 0, feedbackSkips: 0, feedbackSubmits: 0, rootVisits: 0, menuOpens: 0, popups: 0, createMenuOpens: 0, createPicks: [], redirects: 0 };
+  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0, classicClicks: 0, feedbackSkips: 0, feedbackSubmits: 0, rootVisits: 0, menuOpens: 0, popups: 0, createMenuOpens: 0, createPicks: [], redirects: 0, instructions: [] };
   let abortedOnce = false;
   let navClickPending = false;
   let nextId = 0;
@@ -278,6 +289,18 @@ function closeKnowledge(){
   if(CFG.shadowDialog){var shadowDialog=ensureShadowDialog(); if(shadowDialog) shadowDialog.hidden=true; return}
   var d=$('knowledge-dialog'); if(d&&d.open) d.close();
 }
+function layoutTabs(){
+  var wide=window.innerWidth>=1400;
+  document.querySelectorAll('[data-wide-tab]').forEach(function(el){el.style.display=wide?'':'none'});
+  document.querySelectorAll('[data-narrow-item]').forEach(function(el){el.style.display=wide?'none':''});
+  var more=$('r-overflow');
+  if(more){var count=wide?2:4; more.setAttribute('aria-label',count+' more options'); more.textContent='+'+count}
+}
+window.__layoutTabs=layoutTabs;
+window.addEventListener('resize',layoutTabs);
+function instrText(){var b=$('instr-box'); return b?String(b.innerText||'').trim():''}
+function instrChanged(){return instrText()!==String(window.__savedInstr||'').trim()}
+function closeEditor(){var e=$('instr-editor'); if(e) e.hidden=true; var b=$('r-edit-instr'); if(b) b.hidden=false; var p=$('instr-text'); if(p) p.hidden=false}
 document.addEventListener('click',function(e){
   var path=e.composedPath?e.composedPath():[e.target]; var t=path[0]; t=t&&t.closest?t.closest('button,a'):null; if(!t) return;
   var act=t.getAttribute('data-act'); var bot=document.body.getAttribute('data-bot')||''; var env=document.body.getAttribute('data-env')||'';
@@ -328,9 +351,28 @@ document.addEventListener('click',function(e){
   }
   else if(act==='x-fb-skip'){var fbd=$('x-feedback'); if(fbd) fbd.remove(); post('/__experience/feedback',{action:'skip'}).then(function(){ if(window.__openClassic) window.__openClassic() })}
   else if(act==='x-fb-submit'){post('/__experience/feedback',{action:'submit'})}
+  else if(act==='r-edit-instr'){
+    // The card shows the editor in place of the button; the text box is NOT focused (what the real page does on open was not observed).
+    var ed=$('instr-editor'); var box=$('instr-box'); if(!ed||!box) return;
+    window.__savedInstr=window.__savedInstr==null?(($('instr-text')||{}).getAttribute('data-saved')||''):window.__savedInstr;
+    box.innerText=window.__savedInstr; ed.hidden=false; t.hidden=true; var ip3=$('instr-text'); if(ip3) ip3.hidden=true; var sv=$('instr-save'); if(sv) sv.disabled=true;
+  }
+  else if(act==='r-instr-save'){
+    var cur=instrText();
+    post('/__write/set-instructions',{bot:bot,instructions:cur}).then(function(){window.__savedInstr=cur; var tx=$('instr-text'); if(tx) tx.textContent=cur; var sv2=$('instr-save'); if(sv2) sv2.disabled=true; if(CFG.saveClosesEditor) closeEditor()});
+  }
+  else if(act==='r-instr-cancel'){ if(instrChanged()){var cf=$('r-confirm'); if(cf) cf.hidden=false} else closeEditor() }
+  else if(act==='r-confirm-close'||act==='r-confirm-cancel'){var cf2=$('r-confirm'); if(cf2) cf2.hidden=true}
+  else if(act==='r-confirm-discard'){var cf3=$('r-confirm'); if(cf3) cf3.hidden=true; post('/__experience/discard',{}); closeEditor()}
+  else if(act==='r-overflow'){var rm=$('r-menu'); if(rm) rm.hidden=!rm.hidden}
+  else if(act==='r-go'){location.href=t.getAttribute('data-url')}
+  else if(act==='r-combo'){var lb=$('r-listbox'); if(lb){lb.hidden=!lb.hidden; t.setAttribute('aria-expanded',String(!lb.hidden))}}
+  else if(act==='tool-open'){var td=$('tool-dialog'); if(td) td.showModal()}
+  else if(act==='tool-close'){var td2=$('tool-dialog'); if(td2) td2.close()}
+  else if(act==='r-slink'){document.querySelectorAll('[data-act=r-slink]').forEach(function(x){x.removeAttribute('aria-current')}); t.setAttribute('aria-current','page'); var sp=$('r-settings-panel'); if(sp) sp.innerHTML='<h2>'+t.textContent+'</h2><p>Settings for '+t.textContent+'.</p>'}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true}});
-document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true; var rm2=$('r-menu'); if(rm2) rm2.hidden=true; var cm3=$('create-menu'); if(cm3) cm3.hidden=true}});
+document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false} if(t&&t.id==='instr-box'&&!CFG.editorIgnoresInput){var sb=$('instr-save'); if(sb) sb.disabled=!instrChanged()}});
 if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window.__dirty){e.preventDefault();e.returnValue=''}})}
 })();`;
 
@@ -344,7 +386,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     const lateJs = late ? `setTimeout(function(){${late}},${Number(config.lateTextMs) || 600});` : "";
     const cookieHtml = config.cookieBanner ? `<script>if(document.cookie.indexOf('cookies_ok=1')<0){document.body.insertAdjacentHTML('beforeend',${JSON.stringify(cookieBanner)})}</script>` : "";
     const data = ` data-bot="${esc(agent?.id || "")}" data-env="${esc(envId)}"`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback, harnessMode: config.harnessMode, classicOpens: config.classicOpens, previewHost: FAKE_HOSTS.previewStudio, defaultEnv: FAKE_ENV_ID })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback, harnessMode: config.harnessMode, classicOpens: config.classicOpens, previewHost: FAKE_HOSTS.previewStudio, defaultEnv: FAKE_ENV_ID, editorIgnoresInput: config.editorIgnoresInput, saveClosesEditor: config.saveClosesEditor })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};if(window.__layoutTabs)window.__layoutTabs();${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
   }
   function delayFor(name) {
     return Number.isFinite(config.delays[name]) ? config.delays[name] : config.defaultDelayMs;
@@ -355,6 +397,89 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
   const knowledgeButton = lv ? '<button type="button" id="add-knowledge" data-act="kn-open" aria-label="Add knowledge source">+ Add</button>' : '<button type="button" id="add-knowledge" data-act="kn-open">Add knowledge</button>';
   const knowledgeDialog = config.shadowDialog ? '<div id="kn-host"></div>' : `<dialog id="knowledge-dialog" aria-label="Add knowledge"><h2>Add knowledge</h2><button type="button" data-act="kn-source">SharePoint</button> <button type="button" id="add-to-agent" data-act="kn-add">Add to agent</button> <button type="button" data-act="kn-cancel">Cancel</button></dialog>`;
   const itemPanel = `<aside class="details" id="item-panel" hidden aria-label="Details"><h2 id="item-title">Details</h2><p>Name, description, and settings for this item.</p><button type="button" data-act="item-close">Close</button></aside>`;
+
+  const instructionsByBot = new Map();
+
+  /**
+   * The Standard agent page as observed on a real tenant (see `realStandard`): the facts of the Standard page (names only) that the recipes were written from.
+   * Overview, Knowledge, Tools (the /actions address), Agents, Topics, Activity, Evaluation, Monitor, Channels, and the Settings page at /manage/advancedSettings.
+   */
+  function realStandardPage({ envId, agent, segs }) {
+    const base = agentBase(agent, envId);
+    const section = segs[4] || "overview";
+    const onSettings = section === "manage" && segs[5] === "advancedSettings";
+    const label = (text) => (config.doubledTabText ? `<span>${text}</span><span aria-hidden="true" style="visibility:hidden;height:0;overflow:hidden;position:absolute">${text}</span>` : text);
+    const tab = (slug, text, extra = "") => `<a role="tab" ${extra} href="${base}/${slug}" aria-selected="${section === slug}">${label(text)}</a>`;
+    const tabs =
+      `<div role="tablist" aria-label="Agent sections" style="display:flex;gap:8px;align-items:center">${tab("overview", "Overview")}${tab("knowledge", "Knowledge")}${tab(toolsSegment(), "Tools")}${tab("agents", "Agents")}${tab("topics", "Topics")}` +
+      `${tab("activity", "Activity", 'data-wide-tab="1"')}${tab("evaluation", "Evaluation", 'data-wide-tab="1"')}` +
+      `<button type="button" role="tab" id="r-overflow" aria-selected="false" aria-haspopup="menu" aria-label="4 more options" data-act="r-overflow">+4</button></div>` +
+      `<div role="menu" id="r-menu" aria-label="More tabs" hidden style="position:absolute;right:340px;top:100px;background:#fff;border:1px solid #475569;padding:6px;z-index:30">` +
+      `<button type="button" role="menuitem" data-narrow-item="1" data-act="r-go" data-url="${base}/activity">Activity</button>` +
+      `<button type="button" role="menuitem" data-narrow-item="1" data-act="r-go" data-url="${base}/evaluation">Evaluation</button>` +
+      `<button type="button" role="menuitem" data-act="r-go" data-url="${base}/monitor">Monitor</button>` +
+      `<button type="button" role="menuitem" data-act="r-go" data-url="${base}/channels">Channels</button></div>`;
+    const top = `<header class="top"><b>Copilot Studio</b><span>${esc(agent.name)}</span><button type="button" data-act="danger" data-what="search-agent">Search your agent</button><button type="button" id="publish" data-act="publish-open">Publish</button><button type="button" data-act="r-go" data-url="${base}/manage/advancedSettings">Settings</button><button type="button" data-act="danger" data-what="options">Options</button><button type="button" id="test-toggle" data-act="test-toggle">Test</button><span style="margin-left:auto">Ada Lovelace ada@contoso.com</span><button type="button" aria-label="Open account menu for Ada Lovelace" data-act="danger" data-what="account-menu">AL</button></header>`;
+    // The Test your agent panel is on every tab: a heading, a text box named with the agent's name (it also says "describe"), and its buttons. It is a plain panel (no landmark label).
+    const testPanel = `<div class="test" id="test-pane" style="position:fixed;right:0;top:56px;width:300px;height:520px;background:#fff;border-left:1px solid #94a3b8;padding:12px;overflow:auto"><h2>Test your agent</h2><div><button type="button" data-act="danger" data-what="chat-mode">Chat mode</button> <button type="button" data-act="danger" data-what="test-more">More</button> <button type="button" data-act="danger" data-what="expand-test">Expand test pane</button></div><div id="chat" aria-live="polite"></div><textarea id="chat-input" rows="2" aria-label="Ask a question or describe what you need, ${esc(agent.name)}"></textarea><button type="button" data-act="danger" data-what="upload-file">Upload file</button><button type="button" id="chat-send" data-act="chat-send">Send</button></div>`;
+    const confirm = `<div id="r-confirm" role="dialog" hidden style="position:fixed;left:30%;top:30%;background:#fff;border:1px solid #475569;padding:16px;z-index:50"><p>You have changes that were not saved. They are lost if you leave now.</p><button type="button" data-act="r-confirm-close">Close</button> <button type="button" data-act="r-confirm-discard">Discard</button> <button type="button" data-act="r-confirm-cancel">Cancel</button></div>`;
+    const toolDialog = `<dialog id="tool-dialog" aria-label="Add a tool"><h2>Add a tool</h2><button type="button" data-act="tool-close">Cancel</button></dialog>`;
+    const card = (title, body) => `<section class="card"><h2>${title}</h2>${body}</section>`;
+    const saved = instructionsByBot.get(agent.id) || "";
+    const common = { agent, envId, sideNav: "", topHtml: top, testPane: false };
+    const extra = `${testPanel}${publishDialog}${itemPanel}${experienceMenu()}${confirm}${toolDialog}`;
+    if (onSettings) {
+      const links = ["Generative AI", "Agent details", "Security", "Connected Agents", "Connection Settings", "Authoring Canvas", "Entities", "Skills", "Voice", "Languages", "Language understanding", "Component collections", "Advanced"];
+      return shell({
+        ...common,
+        title: `${agent.name} - Settings`,
+        delay: delayFor("settings"),
+        content: `<h1>Settings</h1><nav aria-label="Settings sections">${links.map((l, i) => `<a href="#" data-act="r-slink"${i === 0 ? ' aria-current="page"' : ""}>${l}</a>`).join("<br>")}</nav><div id="r-settings-panel"><h2>Generative AI</h2><p>Settings for Generative AI.</p></div><p><button type="button" data-act="r-go" data-url="${base}/overview">Close</button> <button type="button" disabled>Save</button></p>`,
+        extraBody: `${experienceMenu()}`,
+      });
+    }
+    const known = ["overview", "knowledge", toolsSegment(), "agents", "topics", "activity", "evaluation", "monitor", "channels"];
+    const current = known.includes(section) ? section : "overview";
+    const delay = current === "overview" && config.overviewBlankMs ? config.overviewBlankMs : delayFor(current);
+    const boot = current === "overview" && config.overviewBlankMs > 0;
+    const make = (title, content) => shell({ ...common, title: `${agent.name} - ${title}`, delay, boot, tabsHtml: tabs, content, extraBody: extra });
+    if (current === "overview") {
+      return make(
+        "Overview",
+        `<h1>${esc(agent.name)}</h1>` +
+          card("Details", `<p>Name: ${esc(agent.name)}</p><p>Description:</p><p>Agent status: Draft</p><button type="button" data-act="danger" data-what="edit-details">Edit Details</button>`) +
+          card("Model", `<button type="button" role="combobox" aria-label="Select your agent's model" aria-haspopup="listbox" aria-expanded="false" data-act="r-combo">GPT-4.1</button><div role="listbox" id="r-listbox" aria-label="Models" hidden><div role="option" aria-selected="true">GPT-4.1</div><div role="option" aria-selected="false">GPT-5</div></div>`) +
+          card(
+            "Instructions",
+            `<p id="instr-text" data-saved="${esc(saved)}">${esc(saved) || "Add instructions to tell your agent how to respond."}</p><button type="button" id="r-edit-instr" data-act="r-edit-instr">Edit Instructions</button>` +
+              `<div id="instr-editor" hidden><div id="instr-box" contenteditable="true" role="textbox" aria-label="Describe what you want this agent to do, its tone, and rules" style="border:1px solid #475569;min-height:80px;padding:6px"></div>` +
+              `<button type="button">Undo</button> <button type="button">Redo</button> <button type="button">Add</button> <button type="button" id="instr-cancel" data-act="r-instr-cancel">Cancel</button> <button type="button" id="instr-save" data-act="r-instr-save" disabled>Save</button></div>`,
+          ) +
+          card("Knowledge", `<p>${knowledge.has(agent.id) ? "1 source: Policies.docx" : "No knowledge added yet."}</p><button type="button" data-act="kn-open">Add knowledge</button>`) +
+          card("Tools", `<button type="button">Add tool</button>`) +
+          card("Triggers", `<button type="button">Add trigger</button>`) +
+          card("Agents", `<button type="button">Add agent</button>`) +
+          card("Topics", `<button type="button">Add topic</button> <button type="button">Use this for topic tools</button> <button type="button">See all</button>`) +
+          card("Suggested prompts", `<button type="button">Add suggested prompts</button>`) +
+          knowledgeDialog,
+      );
+    }
+    if (current === "knowledge") {
+      const items = knowledge.has(agent.id) ? `<ul><li><a href="#" data-act="item" data-title="Policies.docx">Policies.docx</a></li></ul>` : "<p>No knowledge sources yet.</p>";
+      return make("Knowledge", `<h1>Knowledge</h1><button type="button" id="add-knowledge" data-act="kn-open">Add knowledge</button> <button type="button">See suggestions</button>${items}${knowledgeDialog}`);
+    }
+    if (current === toolsSegment()) return make("Tools", `<h1>Tools</h1><button type="button" data-act="tool-open">Add a tool</button><ul><li><a href="#" data-act="item" data-title="Weather lookup">Weather lookup</a></li></ul>`);
+    if (current === "agents") return make("Agents", `<h1>Agents</h1><button type="button">Add</button><p>Connected agents appear here.</p>`);
+    if (current === "topics") {
+      const rows = ["Goodbye", "Greeting", "Start Over", "Thank you"].map((n) => `<tr><td><a href="#" data-act="item" data-title="${n}">${n}</a></td><td>Phrases</td><td>today</td><td>0</td><td>No</td><td><button type="button" aria-label="More options for ${n}" data-act="danger" data-what="topic-options">&#8230;</button></td></tr>`).join("");
+      return make(
+        "Topics",
+        `<h1>Topics</h1><div role="tablist" aria-label="Topic filters"><button type="button" role="tab" aria-selected="true">All</button><button type="button" role="tab" aria-selected="false">Custom (0)</button><button type="button" role="tab" aria-selected="false">System (4)</button></div><p><button type="button">Add a topic</button> <button type="button">Refresh topics</button></p><table><thead><tr><th><button type="button">Name</button></th><th><button type="button">Trigger</button></th><th><button type="button">Last modified</button></th><th><button type="button">Errors</button></th><th><button type="button">Blocked</button></th><th></th></tr></thead><tbody>${rows}</tbody></table>`,
+      );
+    }
+    const titles = { activity: "Activity", evaluation: "Evaluation", monitor: "Monitor", channels: "Channels" };
+    return make(titles[current], `<h1>${titles[current]}</h1><p>${titles[current]} page of the pretend Standard agent.</p>`);
+  }
 
   function page(url, envId, agent, navClick = false) {
     const segs = url.pathname.split("/").filter(Boolean);
@@ -444,6 +569,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     }
     if ((area === "bots" || (config.harnessMode && area === "agents" && segs[3])) && agent) {
       // The newer layout: whatever the address says (/knowledge, /analytics...), the page opens on its Build tab and the tab strip decides what is shown.
+      if (config.realStandard && config.harnessMode && agentLayout(agent) === "tabstrip") return realStandardPage({ envId, agent, segs });
       if (agentLayout(agent) === "newer") {
         return shell({ title: `${agent.name} - Build`, agent, envId, sideNav: "", delay: delayFor("overview"), content: newerContent({ agent, envId, state: newer, config: { ...config, deployTab: agent.harness === "customer-conversation" } }), topHtml: newerTop(agent), extraBody: newerExtraBody({ config }), testPane: false });
       }
@@ -574,6 +700,10 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       else stats.feedbackSkips += 1;
       return json({});
     }
+    if (url.pathname === "/__experience/discard") {
+      stats.discards = (stats.discards || 0) + 1;
+      return json({});
+    }
     if (url.pathname === "/__builder") {
       stats.builderOpens += 1;
       return json({});
@@ -612,6 +742,10 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       }
       if (what === "add-knowledge") knowledge.add(data.bot);
       if (what === "publish") published.add(data.bot);
+      if (what === "set-instructions") {
+        stats.instructions.push(String(data.instructions || ""));
+        instructionsByBot.set(data.bot, String(data.instructions || ""));
+      }
       stats.writes.push(["add-knowledge", "publish", "set-instructions"].includes(what) ? `${what}:${data.bot}` : what);
       return json({});
     }

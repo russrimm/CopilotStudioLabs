@@ -16,7 +16,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { createCaptureSession, runCaptureShot } from "../capture-run.mjs";
-import { classicPageOf, harnessState } from "../harness-run.mjs";
+import { classicPageOf, harnessState, workPageOf } from "../harness-run.mjs";
 import { detectBrowserAvailability, loadPlaywrightModule, verifyCapturedImageBuffer } from "../lab-runner.mjs";
 import { sanitizeHarnessProof, sanitizeHarnessReached } from "../harness.mjs";
 import { FAKE_AGENT, FAKE_ENV_ID, FAKE_HOSTS, createFakeProductSite } from "./fixtures/fake-product-site.mjs";
@@ -131,11 +131,11 @@ test("THE REAL FAILURE: Open classic experience opens a NEW TAB, and the Standar
     assert.equal(ctx.site.stats.feedbackSkips, 1, "Skip feedback was clicked");
     assert.equal(ctx.site.stats.feedbackSubmits, 0, "feedback is never submitted");
     assert.equal(ctx.site.stats.popups, 1, "the product opened the classic experience in a new tab");
-    assert.equal(ctx.pages().length, 2, "two tabs are open");
-    // The first tab stayed on the default address; the picture was taken in the second one, on the preview host.
-    assert.ok(first.url().startsWith(`https://${DEFAULT_HOST}/`), `the first tab stays on the default address (${first.url()})`);
+    assert.equal(ctx.pages().length, 1, "one tab: the first tab was closed once the classic tab was open, so a person watching sees only the Standard page");
+    assert.ok(first.isClosed(), "the first tab, on the default address, is the one that was closed");
     const classic = classicPageOf(session);
     assert.ok(classic && classic !== first, "the new tab is the page the shot was taken in");
+    assert.equal(ctx.pages()[0], classic, "and it is the single tab");
     assert.ok(classic.url().startsWith(`https://${PREVIEW_HOST}/environments/${FAKE_ENV_ID}/bots/${FAKE_AGENT.id}/`), classic.url());
     assert.ok(result.finalUrl.startsWith(`https://${PREVIEW_HOST}/`), result.finalUrl);
     assert.equal(ctx.site.stats.pages[0], `${DEFAULT_HOST}/environments/${FAKE_ENV_ID}/home`, "the switch starts on the default address's home page");
@@ -235,7 +235,7 @@ test("an agent given by address is proven by the page: a Microsoft Copilot agent
   });
 });
 
-test("the classic tab is reused for later Standard pictures, closed before a Microsoft Copilot picture, and opened again by the next Standard one", { skip, timeout: 240_000 }, async () => {
+test("the classic tab is reused for later Standard pictures (the first tab is gone: one tab), the one tab opens the default address again for a Microsoft Copilot picture, and the next Standard picture switches again", { skip, timeout: 240_000 }, async () => {
   await withSite({}, async (ctx) => {
     const first = await ctx.newPage();
     const session = ctx.session({ name: STANDARD_NAME });
@@ -244,35 +244,36 @@ test("the classic tab is reused for later Standard pictures, closed before a Mic
     const classicOne = classicPageOf(session);
     assert.equal(ctx.site.stats.popups, 1);
     assert.equal(harnessState(session, classicOne).classic, true, "the classic tab remembers that it was switched");
+    assert.equal(ctx.pages().length, 1, "one tab: the first tab was closed");
 
-    // Another Standard picture in the same job: no second click, the same tab, the landmarks are read again.
-    const two = await ctx.shoot(first, session, planShot("two.classic.png", "overview", "standard"));
+    // Another Standard picture in the same job: no second click, the same tab, the landmarks are read again. The companion works in the page the harness settled on.
+    const two = await ctx.shoot(workPageOf(session, first), session, planShot("two.classic.png", "overview", "standard"));
     assert.equal(two.status, "captured", two.error);
     assert.equal(ctx.site.stats.popups, 1, "the switch is not repeated");
     assert.equal(ctx.site.stats.classicClicks, 1);
     assert.equal(classicPageOf(session), classicOne);
-    assert.equal(ctx.pages().length, 2);
+    assert.equal(ctx.pages().length, 1);
     assert.equal(two.harness.id, "standard");
 
-    // A Microsoft Copilot picture: the extra tab is closed, the first tab (on the default address) is used, and nothing is clicked.
+    // A Microsoft Copilot picture: the one tab opens the default address again, the harness is proven again, and nothing is clicked.
     pick(session, COPILOT_NAME);
-    const three = await ctx.shoot(first, session, planShot("three.copilot.png", "overview", "microsoft-copilot"));
+    const three = await ctx.shoot(workPageOf(session, first), session, planShot("three.copilot.png", "overview", "microsoft-copilot"));
     assert.equal(three.status, "captured", three.error);
-    assert.equal(ctx.pages().length, 1, "the classic tab was closed when it was no longer needed");
-    assert.ok(classicOne.isClosed());
-    assert.equal(classicPageOf(session), null);
+    assert.equal(ctx.pages().length, 1, "still one tab");
+    assert.ok(!classicOne.isClosed(), "the single tab is reused");
+    assert.equal(classicPageOf(session), null, "and it is no longer the classic tab");
     assert.equal(three.harness.id, "microsoft-copilot");
     assert.equal(three.harness.host, DEFAULT_HOST);
     assert.equal(ctx.site.stats.classicClicks, 1, "going back to the default experience clicked nothing in the classic one");
-    assert.match(ctx.lines.join("\n"), /Closed the classic tab/);
+    assert.match(ctx.lines.join("\n"), /Changing experience: going back to the default experience/);
 
-    // The next Standard picture opens the classic experience again, in a new tab.
+    // The next Standard picture opens the classic experience again, in a new tab, and the old one is closed again.
     pick(session, STANDARD_NAME);
-    const four = await ctx.shoot(first, session, planShot("four.classic.png", "overview", "standard"));
+    const four = await ctx.shoot(workPageOf(session, first), session, planShot("four.classic.png", "overview", "standard"));
     assert.equal(four.status, "captured", four.error);
     assert.equal(ctx.site.stats.classicClicks, 2);
     assert.equal(ctx.site.stats.popups, 2);
-    assert.equal(ctx.pages().length, 2);
+    assert.equal(ctx.pages().length, 1, "one tab again");
     assert.equal(four.harness.id, "standard");
   });
 });
@@ -301,7 +302,7 @@ test("a switch that moves the same tab to the preview host is followed too, and 
     assert.equal(result.status, "captured", result.error);
     assert.equal(ctx.site.stats.classicClicks, 1, "the click path was tried first");
     assert.equal(ctx.site.stats.popups, 0, "and it opened nothing");
-    assert.equal(ctx.pages().length, 2, "the preview address was opened in a new tab");
+    assert.equal(ctx.pages().length, 1, "the preview address was opened in a new tab, and the first tab was closed: one tab");
     assert.equal(result.harness.via, "preview-address", "the proof records the way used");
     assert.equal(result.harness.host, PREVIEW_HOST);
     assert.match(ctx.lines.join("\n"), /The click did not open the classic experience, so the computer opens its address directly \(copilotstudio\.preview\.microsoft\.com\)/);
@@ -363,7 +364,7 @@ test("when the More options menu is not there the preview address is the way in,
     assert.equal(result.harness.host, PREVIEW_HOST);
     assert.deepEqual(ctx.site.stats.dangers, []);
     assert.equal(ctx.site.stats.classicClicks, 0, "there was no menu to click");
-    assert.equal(ctx.pages().length, 2, "the preview address was opened in a new tab");
+    assert.equal(ctx.pages().length, 1, "the preview address was opened in a new tab, and the first tab was closed: one tab");
   });
   await withSite({ noExperienceMenu: true, previewUnavailable: true }, async (ctx) => {
     const page = await ctx.newPage();

@@ -121,9 +121,15 @@ function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, inst
   // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
   // A from-scratch capture of Copilot Studio builds its screens with the walkthrough instead; another product's screens are opened by the product's own navigation.
   const walkthroughBuilds = scratch && String(product ?? src.product ?? "copilot-studio") === "copilot-studio";
-  const setup = walkthroughBuilds ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
-  // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
+  const setupInput = { ...src, product: product ?? src.product, callouts, instructions };
+  let setup = walkthroughBuilds ? null : buildSetupPlan(setupInput, { capture, allowPractice, sharedRecipes, labTitle });
+  // Built from scratch, a screen outside the agent (the Agents list) is not built by the walkthrough: a built-in recipe for that one slot (the More create options menu) still runs on it.
   const stage = scratch ? scratchDescriptor({ ...full, product: product ?? src.product, callouts, instructions }) : null;
+  if (walkthroughBuilds && stage && !stage.scoped && !stage.blocker) {
+    const outside = buildSetupPlan(setupInput, { capture, allowPractice, sharedRecipes, labTitle });
+    if (String(outside?.source || "").startsWith("builtin:") && !outside.limited) setup = outside;
+  }
+  // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
   const agent = agentDescriptor(src, capture, { agentSource, agentFallback, stage });
   // Whether the computer takes this shot by itself (and how), or the one reason it needs a person. A library slot is read with its slot description (its kind), as a lab's own shot is.
   const readAs = meta ? classifyShot({ ...full, product: product ?? src.product, callouts, instructions }, { values }) : capture;

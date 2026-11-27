@@ -111,6 +111,31 @@ export function fitsArea(desc, within = "any") {
 const STRICT_AREAS = new Set(["dialog", "chat"]);
 
 /**
+ * The strategies that may find a text box to TYPE in. Only a name that matches (exactly, as whole words in order, or by its aria-label, title, or placeholder) counts: the
+ * visible-text and the fuzzy strategies find a control "near" a word, and typing into a different box than the one a step names changes the agent (observed on a real
+ * Standard agent: the Instructions editor and the Test panel both say "describe").
+ */
+export const TYPE_STRATEGIES = Object.freeze(["role-exact", "attribute", "role-name"]);
+
+/**
+ * Whether a described control sits in the card or panel a step names (`target.section`, by the card's heading, for example "Instructions"). The control's nearest
+ * heading (`desc.section`) or one of its landmark labels must name it; a control in the Test your agent panel is never in another section. A control whose card has no
+ * heading at all is accepted unless it is in the test pane (the real page's markup was not read), so a missing heading never silences a step that is otherwise exact.
+ */
+export function fitsSection(desc, section) {
+  const wanted = normalizeControlName(section);
+  if (!wanted) return true;
+  const here = normalizeControlName(desc?.section || "");
+  const landmarks = (desc?.landmarks || []).map((l) => normalizeControlName(l));
+  const names = (value) => value === wanted || value.includes(wanted);
+  if (here && names(here)) return true;
+  if (landmarks.some((l) => l && names(l))) return true;
+  const testPanel = /\btest\b/.test(wanted);
+  if (desc?.inTestPane && !testPanel) return false;
+  return !here;
+}
+
+/**
  * How far a described control is from the lower left corner of the viewport, in the units of `desc.box` (6 pixels), or null when it
  * is not in the lower left quarter of the page (or its place is not known). A control that must be "in the lower left corner" is only
  * a control that is there, and the one nearest the corner is tried first.
@@ -603,9 +628,12 @@ export function createExecutor(ctx) {
     const names = targetNames(step.target);
     const roles = step.target?.role ? [step.target.role] : ROLES_FOR[step.action] || ROLES_FOR.click;
     const within = step.target?.within || "any";
+    const section = step.target?.section || "";
+    // Typing goes only to a text box whose own name matches (see TYPE_STRATEGIES); every other action may fall back to a looser match.
+    const strategies = step.action === "type" ? TYPE_STRATEGIES : STRATEGIES;
     const seen = new Set();
     let produced = 0;
-    for (const strategy of STRATEGIES) {
+    for (const strategy of strategies) {
       if (!names.length) break;
       const attempt = { strategy, found: 0, tried: 0, blocked: "", effect: null, note: "" };
       record.attempts.push(attempt);
@@ -620,7 +648,17 @@ export function createExecutor(ctx) {
         }
         if (!visible) continue;
         const desc = await describeLocator(item.locator);
-        if (!desc || desc.disabled) continue;
+        if (!desc) continue;
+        if (section && !fitsSection(desc, section)) {
+          attempt.skippedOtherSection = (attempt.skippedOtherSection || 0) + 1;
+          continue;
+        }
+        // A control that is there but disabled is its own cause (a Save button that stays off until the text changed): it is remembered, never clicked, and named in the failure.
+        if (desc.disabled) {
+          record.disabled = record.disabled || { name: String(desc.name || "").slice(0, 60), strategy };
+          attempt.disabled = (attempt.disabled || 0) + 1;
+          continue;
+        }
         // A link goes to another page; it cannot be what opens a dialog or a panel, and following it would reset the page the step is working on.
         if ((step.expect?.dialog || step.expect?.panel) && step.target?.role !== "link" && (desc.role === "link" || desc.tag === "a")) continue;
         const key = `${desc.box}|${desc.tag}|${normalizeControlName(desc.name)}`;
@@ -765,27 +803,52 @@ export function createExecutor(ctx) {
         await locator.scrollIntoViewIfNeeded?.({ timeout: 1500 }).catch(() => {});
         await locator.click({ timeout: stepTimeoutMs }).catch(() => {});
         const plain = ["input", "textarea"].includes(candidate.desc.tag);
+        const normalize = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+        const wanted = normalize(text);
+        const readBack = async () => normalize((await locator.inputValue({ timeout: 1000 }).catch(() => null)) ?? (await locator.innerText({ timeout: 1000 }).catch(() => "")));
+        let lastRead = "";
         const holds = async (settleMs = 0) => {
           // A rich editor can drop text that was set behind its back a moment later: look again after it had time to.
           if (settleMs) await sleep(settleMs);
-          const typed = (await locator.inputValue({ timeout: 1000 }).catch(() => null)) ?? (await locator.innerText({ timeout: 1000 }).catch(() => ""));
-          return String(typed).includes(text.slice(0, 20));
+          lastRead = await readBack();
+          // The text is in the box, all of it, and nothing else with it (an old text that was not replaced is a wrong text).
+          return lastRead.includes(wanted.slice(0, 40)) && lastRead.length >= wanted.length * 0.8 && lastRead.length <= wanted.length * 1.25 + 20;
         };
-        if (plain) await locator.fill(text, { timeout: stepTimeoutMs });
-        else {
+        // Keys go to whatever has the cursor: they are sent only after the cursor is in THIS box, never blindly (the box next to it could be another one).
+        const cursorInBox = () => locator.evaluate((el) => el === document.activeElement || el.contains(document.activeElement), undefined, { timeout: 1000 }).catch(() => false);
+        const typedInto = { name: String(candidate.desc.name || "").slice(0, 80), role: candidate.desc.role || "", section: String(candidate.desc.section || "").slice(0, 60), inTestPane: candidate.desc.inTestPane === true, readback: "pending", length: wanted.length };
+        candidate.attempt.typedInto = typedInto;
+        record.typed = typedInto;
+        let typedOk = false;
+        if (plain) {
+          await locator.fill(text, { timeout: stepTimeoutMs });
+          typedOk = (await holds()) || (await holds(300));
+        } else {
           // A rich editor takes real input events: select what is there and insert the text as typing does.
-          await page.keyboard.press("Control+A").catch(() => {});
-          await page.keyboard.insertText(text).catch(() => {});
+          if (await cursorInBox()) {
+            await page.keyboard.press("Control+A").catch(() => {});
+            await page.keyboard.insertText(text).catch(() => {});
+            typedOk = await holds(500);
+          }
+          if (!typedOk) {
+            await locator.fill(text, { timeout: stepTimeoutMs }).catch(() => {});
+            typedOk = await holds(300);
+          }
         }
-        let typedOk = await holds(plain ? 0 : 500);
-        if (!typedOk && plain) typedOk = await holds(300);
         if (!typedOk) {
           await locator.click({ timeout: 1500 }).catch(() => {});
-          await page.keyboard.press("Control+A").catch(() => {});
-          await page.keyboard.type(text, { delay: 8 });
-          typedOk = await holds(plain ? 0 : 500);
+          if (await cursorInBox()) {
+            await page.keyboard.press("Control+A").catch(() => {});
+            await page.keyboard.type(text, { delay: 8 });
+            typedOk = await holds(plain ? 0 : 500);
+          }
         }
-        if (!typedOk) return { ok: false, why: "the text did not appear in the field" };
+        if (!typedOk) {
+          typedInto.readback = "mismatch";
+          typedInto.found = lastRead.length;
+          return { ok: false, why: `the text did not register in the box named “${typedInto.name || "(no name)"}”${typedInto.section ? ` (in ${typedInto.section})` : ""}` };
+        }
+        typedInto.readback = "ok";
         state.lastInput = locator;
         state.chatRoot = (await locator.evaluateHandle(chatRootInPage, undefined, { timeout: 1500 }).catch(() => null)) || state.chatRoot;
         return { ok: true, why: "the field holds the text" };
@@ -872,7 +935,14 @@ export function createExecutor(ctx) {
       if (!(await leaveIfOutside(record))) return false;
     }
     if (!tries && record.blocked) record.note = `blocked: ${record.blocked.reason}`;
+    else if (!tries && record.disabled) record.note = disabledNote(step, record.disabled);
     return false;
+  }
+
+  /** The plain cause for a target that was found but is disabled ("Save is disabled: the text did not register in the Instructions editor"). */
+  function disabledNote(step, disabled) {
+    const name = disabled?.name || step.target?.name || "The control";
+    return `${name} is disabled${step.ifDisabled ? `: ${step.ifDisabled}` : " (it is not available yet)"}`;
   }
 
   /**
@@ -915,7 +985,10 @@ export function createExecutor(ctx) {
     const deadline = now() + (step.timeoutMs ?? 6000);
     const names = targetNames(step.target);
     const roles = step.target?.role ? [step.target.role] : ROLES_FOR.verify;
+    const section = step.target?.section || "";
+    let sawDisabled = null;
     for (;;) {
+      let present = 0;
       for (const strategy of ["role-exact", "role-name"]) {
         const located = await locatorsForStrategy(page, strategy, { action: "verify" }, { names, roles });
         for (const item of located) {
@@ -928,15 +1001,27 @@ export function createExecutor(ctx) {
           if (!visible) continue;
           const desc = await describeLocator(item.locator);
           if (!desc || !fitsArea(desc, step.target?.within || "any")) continue;
+          if (section && !fitsSection(desc, section)) continue;
+          present += 1;
           if (step.expect?.selected && !desc.selected && !desc.expanded) continue;
           if (step.expect?.disabled && !desc.disabled) continue;
+          // A control that must be available but is disabled is named as such (a Save button that stays off: the change did not register).
+          if (step.expect?.enabled && desc.disabled) {
+            sawDisabled = sawDisabled || { name: String(desc.name || "").slice(0, 60) };
+            continue;
+          }
           record.strategy = strategy;
           record.effect = "it is showing";
           return true;
         }
       }
+      // A "saved" proof that the product also gives by closing the editor: the control being gone counts, as the control being disabled does.
+      if (step.orGone && step.expect?.disabled && present === 0) {
+        record.effect = "the control is gone (the editor closed)";
+        return true;
+      }
       if (now() >= deadline) {
-        record.note = step.expect?.selected ? "the expected tab is not the one open" : step.expect?.disabled ? "the control is still available, so nothing was saved yet" : "the expected control is not on the page";
+        record.note = sawDisabled ? disabledNote(step, sawDisabled) : step.expect?.selected ? "the expected tab is not the one open" : step.expect?.disabled ? "the control is still available, so nothing was saved yet" : "the expected control is not on the page";
         return false;
       }
       await sleep(250);
@@ -1050,7 +1135,7 @@ export function createExecutor(ctx) {
         }
         if (!visible) continue;
         const desc = await describeLocator(item.locator);
-        if (desc && fitsArea(desc, target.within || "any")) return true;
+        if (desc && fitsArea(desc, target.within || "any") && (!target.section || fitsSection(desc, target.section))) return true;
       }
     }
     return false;
@@ -1091,9 +1176,16 @@ export function createExecutor(ctx) {
       record.ms = now() - started;
       return record;
     }
+    // A step for a control that is not on the page is left out (the overflow menu steps when the tab is on the strip).
+    if (step.skipUnlessPresent && !(await presentNow(step.skipUnlessPresent))) {
+      record.status = "ok";
+      record.effect = "not needed";
+      record.ms = now() - started;
+      return record;
+    }
     const findBudgetMs = step.findMs ?? (step.optional ? 2500 : ctx.findMs ?? 7000);
     for (let attempt = 0; ; attempt += 1) {
-      await dismissInterruptions();
+      if (step.action !== "discard") await dismissInterruptions();
       let ok = false;
       const attemptsBefore = record.attempts.length;
       switch (step.action) {
