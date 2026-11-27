@@ -15,36 +15,43 @@
       "product": "copilot-studio",
       "harness": "standard",
       "filename": "create-agent-describe.png",
-      "section": "home",
-      "caption": "The Home page before the agent is created",
-      "alt": "The Copilot Studio Home page with the natural-language description box ready for you to describe the agent you want, shown before anything is created.",
-      "navHint": "Start on the Copilot Studio Home page.",
-      "url": "https://copilotstudio.microsoft.com/",
+      "section": "agents",
+      "caption": "Where a Standard agent is created",
+      "alt": "The Agents page with the More create options menu open and the Agent, Standard option listed, which is the start for creating a Standard harness agent.",
+      "navHint": "Open the Agents page (the list of agents).",
+      "navSection": "agents",
       "prerequisites": [],
       "setup": [
         "Sign in to Copilot Studio.",
-        "Turn off New experience and select Submit to dismiss the Feedback panel so the Home page appears.",
+        "On the Home page, select the three dots at the bottom of the side bar (the More options button), and then select Open classic experience. The classic experience opens in a new browser tab; standard harness agents open there.",
         "Switch to the environment you want, and optionally change the primary language, solution, and schema name.",
-        "On the Home page or the Agents page, enter a brief description of what you want your agent to do.",
+        "On the Agents page, select More create options, and then select Agent, Standard.",
         "Review the suggestions, wait for provisioning, and configure the agent's basic features on the Overview page.",
         "Test your agent and improve it."
       ],
       "instructions": [
-        "Open the Home page or Agents page where the natural-language description box is visible.",
-        "Show the scenario description before the agent is created."
+        "Open the Agents page (the list of agents, not an agent).",
+        "Select More create options.",
+        "With the menu open, keep Agent, Standard in view, and take the picture. Do not select it yet."
       ],
       "callouts": [
         {
           "n": 1,
-          "label": "Home",
-          "text": "Home",
-          "note": "Open the Home page or Agents page where the natural-language description box is visible."
+          "label": "Agents",
+          "text": "Agents",
+          "note": "Open the Agents page (the list of agents, not an agent)."
         },
         {
           "n": 2,
-          "label": "Agents",
-          "text": "Agents",
-          "note": "Open the Home page or Agents page where the natural-language description box is visible."
+          "label": "More create options",
+          "text": "More create options",
+          "note": "Select More create options."
+        },
+        {
+          "n": 3,
+          "label": "Agent, Standard",
+          "text": "Agent, Standard",
+          "note": "With the menu open, keep Agent, Standard in view, and take the picture. Do not select it yet."
         }
       ]
     },
@@ -57,27 +64,27 @@
       "filename": "agent-overview.png",
       "section": "overview",
       "caption": "The new agent's Overview page",
-      "alt": "The new agent's Overview page showing the generated name, description, and instructions, which confirms the agent was created.",
+      "alt": "The Overview page of the new Standard agent with the Details card (name, description, status), the Instructions card, and the model selector, on the tab strip Overview, Knowledge, Tools, Agents, and Topics.",
       "navHint": "Open your agent, then go to Agent Overview page.",
       "prerequisites": [],
       "setup": [
         "Sign in to Copilot Studio.",
-        "Turn off New experience and select Submit to dismiss the Feedback panel so the Home page appears.",
+        "On the Home page, select the three dots at the bottom of the side bar (the More options button), and then select Open classic experience. The classic experience opens in a new browser tab; standard harness agents open there.",
         "Switch to the environment you want, and optionally change the primary language, solution, and schema name.",
-        "On the Home page or the Agents page, enter a brief description of what you want your agent to do.",
+        "On the Agents page, select More create options, and then select Agent, Standard.",
         "Review the suggestions, wait for provisioning, and configure the agent's basic features on the Overview page.",
         "Test your agent and improve it."
       ],
       "instructions": [
-        "Open the new agent's Overview page.",
-        "Show the generated name, description, and instructions."
+        "Open the new agent, and select the Overview tab.",
+        "Show the Details card, the Instructions card, and the model selector (Select your agent's model); do not open any of them."
       ],
       "callouts": [
         {
           "n": 1,
           "label": "Overview",
           "text": "Overview",
-          "note": "Open the new agent's Overview page."
+          "note": "Open the new agent, and select the Overview tab."
         }
       ]
     },
@@ -2274,7 +2281,7 @@
       "section": "agents",
       "caption": "A connected agent's configuration",
       "alt": "The configuration of a connected Copilot Studio agent with its local description, which tells the main agent when to delegate.",
-      "navHint": "Open your agent, then go to Agents.",
+      "navHint": "Open the Agents page (the list of agents).",
       "navSection": "agents",
       "prerequisites": [
         "Generative orchestration"
@@ -2378,7 +2385,7 @@
       "section": "agents",
       "caption": "The A2A agent connection",
       "alt": "The A2A agent connection configuration, with private endpoint details and secret values masked.",
-      "navHint": "Open your agent, then go to Agents.",
+      "navHint": "Open the Agents page (the list of agents).",
       "navSection": "agents",
       "prerequisites": [
         "Connected agents"
@@ -2609,7 +2616,7 @@
       "section": "analytics",
       "caption": "The Monitor page",
       "alt": "The Monitor page with the selected reporting period visible and the agent's usage and outcome measures shown.",
-      "navHint": "Open your agent, then go to Analytics page.",
+      "navHint": "Open your agent, then go to Monitor page (under the more options menu of the tab strip).",
       "prerequisites": [
         "Publish the agent"
       ],
@@ -2642,7 +2649,7 @@
       "section": "evaluations",
       "caption": "An evaluation test set",
       "alt": "The Evaluation page showing a test set and the grading methods selected for it.",
-      "navHint": "Open your agent, then go to Evaluations page.",
+      "navHint": "Open your agent, then go to Evaluation page.",
       "navSection": "evaluations",
       "prerequisites": [
         "Agent instructions & persona"
@@ -2681,7 +2688,7 @@
       "section": "evaluations",
       "caption": "Evaluation results",
       "alt": "Recent results or a completed run on the Evaluation page with the outcome for each test case listed.",
-      "navHint": "Open your agent, then go to Evaluations page.",
+      "navHint": "Open your agent, then go to Evaluation page.",
       "navSection": "evaluations",
       "prerequisites": [
         "Agent instructions & persona"
@@ -2720,7 +2727,7 @@
       "section": "evaluations",
       "caption": "A multiturn test run",
       "alt": "A Conversation test set and its run result, showing whether each multi-message conversation passed.",
-      "navHint": "Open your agent, then go to Evaluations page.",
+      "navHint": "Open your agent, then go to Evaluation page.",
       "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
@@ -2841,7 +2848,7 @@
       "section": "evaluations",
       "caption": "Recent results with pass rate",
       "alt": "The Evaluation page with Recent results and the pass-rate evidence for one completed run, with agent and maker names masked.",
-      "navHint": "Open your agent, then go to Evaluations page.",
+      "navHint": "Open your agent, then go to Evaluation page.",
       "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
@@ -2895,7 +2902,7 @@
       "section": "evaluations",
       "caption": "A test case's details",
       "alt": "A test case details view or Evaluation summary pane that supports a release decision, with sensitive prompts and responses masked.",
-      "navHint": "Open your agent, then go to Evaluations page.",
+      "navHint": "Open your agent, then go to Evaluation page.",
       "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
@@ -4354,7 +4361,7 @@
       "section": "agents",
       "caption": "The Add a connected agent dialog",
       "alt": "The Add a connected agent dialog with a Copilot Studio agent selected and a description entered that tells the primary agent when to delegate.",
-      "navHint": "Open your agent, then go to Agents.",
+      "navHint": "Open the Agents page (the list of agents).",
       "navSection": "agents",
       "prerequisites": [
         "Create an agent (Microsoft Copilot harness)"
@@ -4616,7 +4623,7 @@
       "section": "analytics",
       "caption": "The Monitor overview",
       "alt": "The Monitor tab with the date filter, the Overview metrics for sessions and success rate, and the Total estimated credits used card visible.",
-      "navHint": "Open your agent, then go to Analytics page.",
+      "navHint": "Open your agent, then go to Monitor page (under the more options menu of the tab strip).",
       "prerequisites": [
         "Publish an agent (Microsoft Copilot harness)"
       ],
@@ -4663,7 +4670,7 @@
       "section": "analytics",
       "caption": "A session transcript on Monitor",
       "alt": "The Monitor sessions list filtered by status with one session open to its transcript, with user names and message content masked.",
-      "navHint": "Open your agent, then go to Analytics page.",
+      "navHint": "Open your agent, then go to Monitor page (under the more options menu of the tab strip).",
       "prerequisites": [
         "Publish an agent (Microsoft Copilot harness)"
       ],
@@ -4945,7 +4952,7 @@
       "section": "agents",
       "caption": "Connect to an SDK agent",
       "alt": "The step for connecting a Microsoft 365 Agents SDK agent with the messaging endpoint URL, name, description, and authentication choices filled in with a nonproduction endpoint.",
-      "navHint": "Open your agent, then go to Agents.",
+      "navHint": "Open the Agents page (the list of agents).",
       "navSection": "agents",
       "prerequisites": [
         "Connected agents (Microsoft Copilot harness)"
@@ -5001,7 +5008,7 @@
       "section": "agents",
       "caption": "Review and add the SDK agent",
       "alt": "The Review and add step listing the SDK agent's name, description, and messaging endpoint URL before you select Add to agent.",
-      "navHint": "Open your agent, then go to Agents.",
+      "navHint": "Open the Agents page (the list of agents).",
       "navSection": "agents",
       "prerequisites": [
         "Connected agents (Microsoft Copilot harness)"

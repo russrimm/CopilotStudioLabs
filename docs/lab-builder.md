@@ -2254,7 +2254,7 @@ in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints e
 After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
 
-**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard** since 1.8.1 and not verified on a real tenant after that choice, and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
+**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard** since 1.8.1 (it created a Standard agent on a real tenant on 2026-11-26; the form after that choice has not been listed screen by screen), and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
 address* is replaced by one choice per lab, **Which agent should these screenshots use?** (see *Capture settings* above): **The agent created earlier in this capture
 (recommended)** or **An agent I choose** (an address or a name, as before; a saved address counts as that choice). The created agent is the practice agent the
 computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
@@ -2370,7 +2370,7 @@ dialog, publishing the practice agent once to its default state (the dialog was 
 waited for), and photographing the Build tab, the Add knowledge and Add tool dialogs, the model menu, the Monitor tab, the Agent settings tabs *Safety & access* and
 *AI + behavior*, the Add skill menu, the MCP tab of the Add tool dialog, the Home page (greeting name covered), and the publish confirmation, each on the right screen (checked by looking at the pictures, not only by the address). A full run of a 39-shot Microsoft Copilot harness lab on this one practice agent captured 21 on the right screen at first and, after the fixes it showed were needed (wrong dialogs for skills, MCP, and hooks, an unmasked greeting name, the first two start pages), the rest ended as *needs you* on the real
 product, with a plain reason: an error-state picture, evaluation results (Copilot Credits), the Monitor sessions list (empty until people use a published agent in a channel),
-tools that need a connection, connected agents (other agents are never touched), screens the computer has not seen (hooks, triggers, the files an agent creates), another product (Foundry, the Agents SDK), and tenant or admin screens. Not verified on the real product: the older (classic) layout, SharePoint knowledge, and evaluation set creation.
+tools that need a connection, connected agents (other agents are never touched), screens the computer has not seen (hooks, triggers, the files an agent creates), another product (Foundry, the Agents SDK), and tenant or admin screens. Not verified on the real product: SharePoint knowledge and evaluation set creation. The Standard (Classic) agent page was read on 2026-11-26 and has its own recipes (see [Standard (Classic) capture recipes](#standard-classic-capture-recipes-companion-182-observed-2026-11-26)); what it still lacks is listed there.
 
 **An adaptive executor.** Each setup step is a tiny verified state machine (`action`, `target`, `expect`, `timeout`,
 `retries`). A control is found by ranked strategies: role plus exact accessible name inside the expected area, role plus a
@@ -2696,12 +2696,147 @@ pictures (reason *wrong-harness*) and the slot is pending again; a library pictu
 on its own. A **one-off migration** for an existing library is the same action done in bulk: for each name in `libraryState().unrecorded`, call
 `tagPicture` with the harness the person confirms (look at each picture first; the harness cannot be read from its bytes).
 
-**Not verified on a real tenant (as of 2026-11-24).** Creating a Standard practice agent (what the product shows after **More create options >
-Agent, Standard**, and the steps that follow); a content proof for the screens outside an agent (Home, the Agents list), which have only the host
-and how the page was reached, so they go to review; whether the tab strip's tabs carry a clean accessible name (a doubled name is handled); a
-complete capture run on the real tenant; and other browsers. Observed and no longer unverified: the switch path (the **More options** button,
-**Open classic experience**, **Skip feedback**, the new tab on the preview address), the **Agent harness** column text, the Standard agent
-tab strip, and the **More create options** menu.
+**Not verified on a real tenant (as of 2026-11-26).** What the product shows after **More create options > Agent, Standard**, and the steps that follow;
+a content proof for the screens outside an agent (Home, the Agents list), which have only the host and how the page was reached, so they go to review;
+whether the tab strip's tabs carry a clean accessible name (a doubled name is handled); a complete capture run on the real tenant after the Standard recipes
+of companion 1.8.2; and other browsers. Observed and no longer unverified: the switch path (the **More options** button, **Open classic experience**,
+**Skip feedback**, the new tab on the preview address), the **Agent harness** column text, the Standard agent tab strip and its overflow menu, the
+**More create options** menu, Standard practice agent creation (2026-11-26: the agent was created and its Overview page proved Standard), the Instructions
+editor, the Test panel, and the Settings page links; see [Standard (Classic) capture recipes](#standard-classic-capture-recipes-companion-182-observed-2026-11-26).
+
+#### Wrong-harness pictures: how a picture is judged
+
+A picture taken in the Microsoft Copilot harness must never end up in a Standard (Classic) lab, and the reverse. Companions older than 1.8.1
+sent no proof of the harness, so such a picture could wait for review in a Standard lab with only unrelated reasons (labels missing, recipe
+review, landing page) and nothing said it showed the wrong harness. The harness of a picture is now read from the best evidence it carries, in this order:
+
+1. **The companion's proof** (`evidence.harness`, companion 1.8.1 and newer): the tabs it read from the agent page. The proof always wins over the address.
+2. **The shape of the address** the picture was taken on (the `finalUrl` kept in its saved check). An agent page at
+   `/environments/<env>/agents/<id>` is the Microsoft Copilot shape (a Customer Conversation agent has the same shape, so it is never judged wrong by it);
+   `/environments/<env>/bots/<id>/...` is the Standard shape; both hold on either Copilot Studio host. Home, the Agents list, and the create form have
+   no agent id and say nothing. The address can only **contradict** the harness the slot needs; it never proves one.
+3. **Nothing.** The harness is not known, and a person decides.
+
+That gives two reasons, shown in the Screenshot Center in plain words:
+
+| Reason | When | What happens |
+|---|---|---|
+| `wrong-harness` | The proof, or (with no proof) the address shape, names another harness than the slot needs. The sentence is *This picture was taken in the Microsoft Copilot harness (Build, Preview, Evaluate, Monitor); this lab needs the Standard (Classic) harness.* | A fresh companion picture fails (`422`) and is not saved. A picture already waiting for review **cannot be accepted**: `POST .../screenshots/:filename/accept` answers `409` with `{ outcome: "rejected", code: "wrong-harness", message, filename }` and writes nothing. The person can **Retake** it, **Discard** it, or **Keep in kept pictures** (`POST .../screenshots/:filename/keep-staged`: the picture is saved in the kept pictures with reason `wrong-harness`, read back, and only then cleared from review; the slot goes back to what it was before the picture was staged). |
+| `harness-unproven` | Nothing proves the harness: an older companion, a screen outside the agent, or a picture that came with no evidence at all. | The picture is saved for review and can be **accepted after a look**. Accepting records the slot's harness on the person's word (`proof: "person"`). If the address shape fits the slot, the message says so, and says that an address alone does not prove it. |
+
+**What the review panel shows.** Next to the picture, two plain lines: *Picture: Microsoft Copilot harness (read from the picture's address)* (or
+*(the companion read it from the page)*, or *Picture: Harness not recorded yet. Accepting it records it as the ...* when nothing is known) and *This
+screenshot needs: Standard (Classic) harness*. For a wrong-harness picture the sentence above is also shown first, as an alert; **Accept** is off, a visible
+reason sits beside it (the button's `aria-describedby` points to it), and **Keep in kept pictures** is offered. No emoji, and never color alone. The lab's
+screenshot status carries the same reading for every picture waiting for review, as `shot.harnessReview` (`{ code, found, foundLabel, source, needed,
+neededLabel, message, canAccept }`; `source` is `proof`, `address`, or null; `canAccept` is false only for `wrong-harness`) and puts the derived reason first in
+`shot.verification.reasons`. The shared library's slots carry the same fields. **Nothing is rewritten on disk:** the reading is computed each time the
+status is read, from what was saved with the picture, so pictures staged by an older companion are covered without any migration.
+
+**Accepted pictures: Pictures that look wrong.** The harness an accepted picture shows is read in this order: the stamp when the companion proved it
+(`proof: "landmarks"`), else the harness its saved address names, else a stamp a person or the library put on it. An address that contradicts the slot is a
+**definite** finding (`HARNESS_MISMATCH`, *taken in the other harness*), even when a person's stamp says otherwise (a person who accepted it in review did
+not see the address). **Keep this one** never silences it. The scan carries the stamp's proof as `pictureHarnessProof`, and the harness it read as
+`pictureHarness` with `pictureHarnessSource` (`proof`, `address`, `person`, or `library`).
+
+#### Standard (Classic) capture recipes (companion 1.8.2, observed 2026-11-26)
+
+On 2026-11-26 the real Standard (Classic) pages of a practice agent were read, read only, at 1440 by 900 with the owner present. The companion recipes are
+written from those names, and nothing else. The slot-by-slot table (which of the 80 Standard slots have a recipe, which end as Needs you and why, which is
+a catalog error) and the numbered real-tenant reads for what is still unseen are in [standard-capture-slots.md](standard-capture-slots.md).
+
+**What was found.**
+
+- **The failing step was Set the instructions, not the switch.** The switch, the practice agent creation (More create options, Agent, Standard), and the
+  proof by landmarks all worked (the Overview picture was a real Standard page on `copilotstudio.preview.microsoft.com/environments/<env>/bots/<id>/overview`).
+  Then **Set the instructions** failed in every run and took about nine dependent pictures with it. The cause: the Instructions card has a button named
+  **Edit Instructions** (the Details card has **Edit Details**). It opens an inline editor: a `contenteditable` `div` with role `textbox` named *Describe
+  what you want this agent to do, its tone, and rules*, with **Cancel** and **Save**. **Save is disabled until the text changes.** The old recipe never
+  clicked **Edit Instructions** and looked for a text box named *Agent instructions*, which does not exist, so the executor's fuzzy fallback matched
+  something else, **Save** stayed disabled, and the disabled button timed out as a generic failure. There is a second text box on the page, the Test
+  panel's *Ask a question or describe what you need, <agent name>*, which also contains the word *describe*. **Cancel** after a change opens a confirm
+  dialog with **Close**, **Discard**, and **Cancel**.
+- **Page facts.** Top bar: **Search your agent**, **Publish** (never clicked), **Settings**, **Options**, **Test**; lower left: **More options**. Tab strip:
+  **Overview**, **Knowledge**, **Tools**, **Agents**, **Topics**, and a control named *N more options*. At 1440 pixels or wider **Activity** and **Evaluation**
+  are tabs of their own (*+2 more options*); at narrower widths **Activity**, **Evaluation**, **Monitor**, and **Channels** are all in the overflow menu. The Test panel
+  (*Test your agent*) is on the right of every tab. **Settings** is a full page at `.../manage/advancedSettings` with the left links Generative AI, Agent
+  details, Security, Connected Agents, Connection Settings, Authoring Canvas, Entities, Skills, Voice, Languages, Language understanding, Component
+  collections, and Advanced, and the buttons **Close** and **Save** (disabled). The Overview page needs about 6 seconds to draw its tab strip.
+- **The wrong-harness pictures.** About 20 pictures from companion 1.7.0 (2026-11-24, before harness proofs) waited for review in the owner's Standard lab with
+  no harness and with Microsoft Copilot addresses (`/agents/<id>`), and their review reasons said nothing about the harness. See the review rules above.
+- **Two tabs.** After the switch the original tab stayed open on the default address, so a person watching saw a Microsoft Copilot Home page in tab 1.
+
+**The corrected Set the instructions recipe** (Standard only; `SET_INSTRUCTIONS_CLASSIC` in `scratch-recipes.mjs`; the Microsoft Copilot recipe is unchanged):
+
+1. `instr-edit`: select **Edit Instructions** (skipped when the editor is already open).
+2. `instr-editor`: check the Instructions editor (the text box named *Describe what you want this agent to do, its tone, and rules*) is open.
+3. `instr-type`: set the lab's instruction text in **that** text box. The target is scoped to the Instructions card, so the Test panel's text box is never
+   typed into, and no fuzzy fallback can pick another text box. Before typing the executor checks the cursor is in the box, then reads the text back
+   (whitespace-normalized, 80 to 125 percent of the typed length) and records which box received it (`attempt.typedInto`: name, role, section, whether it
+   is in the Test panel, the read-back, and the length) in the diagnostic file.
+4. `instr-enabled`: check **Save** is now enabled. If it is disabled the step says so plainly: *Save is disabled: the text did not register in the
+   Instructions editor.* A disabled target is its own cause (`record.disabled`), never a generic timeout.
+5. `instr-save`: select **Save** (this writes the practice agent only).
+6. `instr-saved`: check **Save** is disabled again (or gone), which is the saved state.
+
+If a step cancels, the recipe leaves with **Cancel** and answers the unsaved-changes dialog with **Discard** (`ABANDON_INSTRUCTIONS_EDIT`). The guard allows
+**Discard** only in a dialog whose buttons are Close, Discard, and Cancel. On failure the instructions stage runs these steps so the practice agent is not left
+with an open editor.
+
+**Tabs and the overflow menu.** Every Standard recipe that opens a tab uses `classicTabSteps` (ids start with `cl-`): **Overview**, **Knowledge**, **Tools**,
+**Agents**, and **Topics** are always on the strip and are selected by name; **Activity**, **Evaluation**, **Monitor**, and **Channels** are selected by name when
+they are on the strip, and otherwise through the overflow control (named *N more options*; the lower-left **More options** is a different control) and then the
+menu item. No recipe asks for the Build, Preview, Evaluate, or Monitor tab of the Microsoft Copilot harness.
+
+**One tab.** After the switch produced the classic tab, the companion closes the original default-address tab and keeps exactly one tab, so the person
+watching sees only the Standard page. If a later Microsoft Copilot picture needs the default address (a lab that covers both harnesses), the single tab is
+navigated to it and the harness is proven again. The companion keeps the Standard tab in `memo.workPage` and returns it from `workPageOf`. The click path
+(**More options**, **Open classic experience**, **Skip feedback**) stays the primary switch.
+
+**One plain line per shot.** Before each harness-specific picture the run log says: *Taking this picture in the Standard (Classic) harness:
+copilotstudio.preview.microsoft.com, agent <practice agent name>, proof: <landmarks>*. For a screen outside an agent it says *no agent (a screen outside
+the agent), proof: none by content, so the picture is saved for review*.
+
+**Create an agent.** The Standard lab's Create an agent pictures are what a Standard author does: the Agents list with the **More create options** menu open and
+**Agent, Standard** in view (`create-agent-describe.png`, recipe `cs.agents.create-options`: open the menu, check the option is offered, choose nothing), and
+the new agent's Overview page. A Home picture shows the shared Home, which looks the same in every harness; its review message says so and the lab step text
+does not claim it shows the Standard create flow. What the creation flow asks after **Agent, Standard** is still unverified.
+
+**What is still unverified (labeled, not guessed).** The Add knowledge and Add a tool dialogs, the new evaluation form, the Monitor sessions list, the
+controls of the Settings pages (orchestration, moderation, grounding, Security, authentication), the Test panel's **More** menu and the activity map, the
+Publish dialog, the topic authoring canvas, and the Home **More options** menu items. Each slot that depends on one ends as **Needs you** with its own plain
+reason (`CLASSIC_UNSEEN_SLOTS`), and the read-only reads that would settle them are the numbered groups in [standard-capture-slots.md](standard-capture-slots.md).
+Also unverified: whether the real editor puts the cursor in the box when it opens (the recipe checks and clicks the box itself), the exact title of the
+Close, Discard, and Cancel dialog (the guard recognizes it by its buttons), and whether the overflow control is a tab or a button (the steps find it by name).
+
+**Proofs from companion 1.8.1 stay valid.** The proof of an agent page (the landmarks of the Standard tab strip) did not change in 1.8.2, so a 1.8.1 Standard
+proof of an agent page is still accepted, and `HARNESS_MIN_COMPANION` stays 1.8.1. Companion 1.8.2 adds the executor, the recipes, the one-tab behavior, and the
+log line; an older companion fails the same way as before only at the Set the instructions step, which is a companion fix, not a proof change.
+
+#### Command-line tools for wrong-harness pictures and older practice agents
+
+**Two command-line tools.** Both are a dry run by default and change nothing; `--apply` is a separate, deliberate step. Run the dry run first and read it.
+
+- **Move staged wrong-harness pictures to the kept pictures** (the shared library's and every lab's):
+
+  ```
+  node tools/lab-builder/quarantine-wrong-harness.mjs --dry-run --root=<generated-labs> --data=<portal data> --library-dir=<library>
+  ```
+
+  It takes the same options as `quarantine-screenshots.mjs` (`--apply`, `--lab=<id>`, `--report=<file>` outside the repository, `--json`). Each picture
+  is saved in the kept pictures with reason `wrong-harness`, read back, and only then cleared from review; the slot is as it was before the picture was
+  staged. A picture that only lacks a proof (`harness-unproven`) is never moved.
+- **Record the harness of the older practice agents** in the companion's `.practice-agents.json` (the agents named `Lab screenshots - ...` were made before
+  harnesses were recorded, so they have none and are never reused):
+
+  ```
+  node tools/screenshot-capture/tag-practice-agents.mjs --dry-run --home=<companion home>
+  ```
+
+  It prints the resolved file first and lists the entries it would tag. `--apply` also needs `--i-confirm-microsoft-copilot` (you confirm those agents
+  are Microsoft Copilot agents). It first copies the file to `.practice-agents.json.bak-<yyyymmddhhmmss>` (UTC) and stops if the copy cannot be read back
+  identical, then sets the harness to `microsoft-copilot` only on entries whose name starts with `--name-prefix` (default `Lab screenshots`) and that have no
+  harness recorded, and writes the file atomically. An entry that already has a harness is never touched. Close the companion first.
 
 #### Where the shared library lives
 
