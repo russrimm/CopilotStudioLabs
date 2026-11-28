@@ -183,41 +183,41 @@
       "product": "m365-copilot-agent-builder",
       "filename": "dca-new-agent-page.png",
       "section": "build",
-      "caption": "The New agent page",
-      "alt": "The New agent page in Microsoft 365 Copilot with the Describe chat box, the Skip to configure option, and the Start with a template list, shown before an agent exists.",
+      "caption": "The New agent start screen",
+      "alt": "The New agent start screen in Microsoft 365 Copilot with the heading Build your own specialist agent, the Message Agent Builder box, the Skip button, and the Templates and My agents tabs, shown before an agent exists.",
       "navHint": "Open Microsoft 365 Copilot, then follow the setup steps to reach Agent Builder. Agents Toolkit steps happen in Visual Studio Code: capture those with an OS screenshot tool and save the file at the planned filename.",
       "url": "https://m365.cloud.microsoft/chat",
       "prerequisites": [],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent (in Copilot chat it can be under Agents & Skills). Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
-        "On the Describe tab, describe in natural language what the agent should do and who it helps.",
-        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Use the plus sign (+) in the chat box to add knowledge sources.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, and then select New agent in the Agents menu that opens. Learn words this entry as New agent in the left pane, or as Agents & Skills then New agent; follow the name your side bar shows. Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
+        "On the Build your own specialist agent screen, type in the Message Agent Builder box what the agent should do and who it helps, and send it.",
+        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Select Add and manage sources in the chat box (Learn calls it the plus sign) to add knowledge sources.",
         "Open the Configure tab and review the prepopulated Name, Description, Instructions, Knowledge, and Starter Prompts.",
-        "Prefer manual setup? On New agent, select Skip to configure instead and fill in the fields yourself.",
+        "Prefer manual setup? Select Skip at the top right of the start screen instead (Learn calls it Skip to configure) and fill in the fields yourself.",
         "Open the Try it tab and send prompts. It is enabled after the agent has a name, description, and instructions.",
         "Select Create when the agent behaves as expected. A confirmation says the agent is private to you until you share it."
       ],
       "instructions": [
-        "Show the New agent page in Microsoft 365 Copilot with the Describe chat box and the Skip to configure option, before you type a description."
+        "Show the New agent start screen in Microsoft 365 Copilot with the heading Build your own specialist agent, the Skip button, and the Templates tab, before you type a description in the message box."
       ],
       "callouts": [
         {
           "n": 1,
-          "label": "New agent",
-          "text": "New agent",
-          "note": "Show the New agent page in Microsoft 365 Copilot with the Describe chat box and the Skip to configure option, before you type a description."
+          "label": "Build your own specialist agent",
+          "text": "Build your own specialist agent",
+          "note": "Show the New agent start screen in Microsoft 365 Copilot with the heading Build your own specialist agent, the Skip button, and the Templates tab, before you t…"
         },
         {
           "n": 2,
-          "label": "Describe",
-          "text": "Describe",
-          "note": "Show the New agent page in Microsoft 365 Copilot with the Describe chat box and the Skip to configure option, before you type a description."
+          "label": "Skip",
+          "text": "Skip",
+          "note": "Show the New agent start screen in Microsoft 365 Copilot with the heading Build your own specialist agent, the Skip button, and the Templates tab, before you t…"
         },
         {
           "n": 3,
-          "label": "Skip to configure",
-          "text": "Skip to configure",
-          "note": "Show the New agent page in Microsoft 365 Copilot with the Describe chat box and the Skip to configure option, before you type a description."
+          "label": "Templates",
+          "text": "Templates",
+          "note": "Show the New agent start screen in Microsoft 365 Copilot with the heading Build your own specialist agent, the Skip button, and the Templates tab, before you t…"
         }
       ]
     },
@@ -234,11 +234,11 @@
       "url": "https://m365.cloud.microsoft/chat",
       "prerequisites": [],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent (in Copilot chat it can be under Agents & Skills). Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
-        "On the Describe tab, describe in natural language what the agent should do and who it helps.",
-        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Use the plus sign (+) in the chat box to add knowledge sources.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, and then select New agent in the Agents menu that opens. Learn words this entry as New agent in the left pane, or as Agents & Skills then New agent; follow the name your side bar shows. Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
+        "On the Build your own specialist agent screen, type in the Message Agent Builder box what the agent should do and who it helps, and send it.",
+        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Select Add and manage sources in the chat box (Learn calls it the plus sign) to add knowledge sources.",
         "Open the Configure tab and review the prepopulated Name, Description, Instructions, Knowledge, and Starter Prompts.",
-        "Prefer manual setup? On New agent, select Skip to configure instead and fill in the fields yourself.",
+        "Prefer manual setup? Select Skip at the top right of the start screen instead (Learn calls it Skip to configure) and fill in the fields yourself.",
         "Open the Try it tab and send prompts. It is enabled after the agent has a name, description, and instructions.",
         "Select Create when the agent behaves as expected. A confirmation says the agent is private to you until you share it."
       ],
@@ -268,11 +268,11 @@
       "url": "https://m365.cloud.microsoft/chat",
       "prerequisites": [],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent (in Copilot chat it can be under Agents & Skills). Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
-        "On the Describe tab, describe in natural language what the agent should do and who it helps.",
-        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Use the plus sign (+) in the chat box to add knowledge sources.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, and then select New agent in the Agents menu that opens. Learn words this entry as New agent in the left pane, or as Agents & Skills then New agent; follow the name your side bar shows. Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
+        "On the Build your own specialist agent screen, type in the Message Agent Builder box what the agent should do and who it helps, and send it.",
+        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Select Add and manage sources in the chat box (Learn calls it the plus sign) to add knowledge sources.",
         "Open the Configure tab and review the prepopulated Name, Description, Instructions, Knowledge, and Starter Prompts.",
-        "Prefer manual setup? On New agent, select Skip to configure instead and fill in the fields yourself.",
+        "Prefer manual setup? Select Skip at the top right of the start screen instead (Learn calls it Skip to configure) and fill in the fields yourself.",
         "Open the Try it tab and send prompts. It is enabled after the agent has a name, description, and instructions.",
         "Select Create when the agent behaves as expected. A confirmation says the agent is private to you until you share it."
       ],
@@ -297,37 +297,31 @@
       "filename": "dca-template-gallery.png",
       "section": "build",
       "caption": "The template list",
-      "alt": "The Start with a template list on the New agent page, which is where you choose a prebuilt scaffold for a specific scenario.",
+      "alt": "The Templates tab on the New agent start screen with its template buttons, which is where you choose a prebuilt scaffold for a specific scenario.",
       "navHint": "Open Microsoft 365 Copilot, then follow the setup steps to reach Agent Builder. Agents Toolkit steps happen in Visual Studio Code: capture those with an OS screenshot tool and save the file at the planned filename.",
       "url": "https://m365.cloud.microsoft/chat",
       "prerequisites": [
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent.",
-        "Under Start with a template, choose a template that matches your scenario.",
-        "On the Describe tab, use natural language to refine the name, description, and instructions.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, and then New agent in the Agents menu.",
+        "On the start screen, select the Templates tab and choose a template that matches your scenario. Learn calls this list Start with a template.",
+        "Refine the name, description, and instructions in natural language (Learn calls this the Describe tab).",
         "Open the Configure tab. Select the pencil icon next to the icon, and choose Generate, Browse, or Upload.",
         "In the Model section, choose Auto, Quick response, or Think deeper as the default response mode.",
         "Add your own knowledge sources in the Knowledge section if the template needs them.",
         "Select Create, and test on the Try it tab."
       ],
       "instructions": [
-        "Show the Start with a template list on the New agent page.",
+        "Show the template list on the New agent start screen: the Templates tab and its template buttons.",
         "Capture before the step that selects a template."
       ],
       "callouts": [
         {
           "n": 1,
-          "label": "Start with a template",
-          "text": "Start with a template",
-          "note": "Show the Start with a template list on the New agent page."
-        },
-        {
-          "n": 2,
-          "label": "New agent",
-          "text": "New agent",
-          "note": "Show the Start with a template list on the New agent page."
+          "label": "Templates",
+          "text": "Templates",
+          "note": "Show the template list on the New agent start screen: the Templates tab and its template buttons."
         }
       ]
     },
@@ -346,9 +340,9 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent.",
-        "Under Start with a template, choose a template that matches your scenario.",
-        "On the Describe tab, use natural language to refine the name, description, and instructions.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, and then New agent in the Agents menu.",
+        "On the start screen, select the Templates tab and choose a template that matches your scenario. Learn calls this list Start with a template.",
+        "Refine the name, description, and instructions in natural language (Learn calls this the Describe tab).",
         "Open the Configure tab. Select the pencil icon next to the icon, and choose Generate, Browse, or Upload.",
         "In the Model section, choose Auto, Quick response, or Think deeper as the default response mode.",
         "Add your own knowledge sources in the Knowledge section if the template needs them.",
@@ -470,7 +464,7 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent, then Skip to configure.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, then New agent in the Agents menu, and then Skip (Learn calls it Skip to configure).",
         "In the Knowledge section, add sources with Search, Enter URL, Browse, or Upload.",
         "For a website, enter a public URL (up to four, two levels, no query parameters). To use any web data, turn on the toggle next to Search all websites.",
         "For SharePoint or OneDrive, enter a site, folder, file, or shareable link, or select Attach cloud files to browse. Never enter a local path.",
@@ -526,7 +520,7 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent, then Skip to configure.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, then New agent in the Agents menu, and then Skip (Learn calls it Skip to configure).",
         "In the Knowledge section, add sources with Search, Enter URL, Browse, or Upload.",
         "For a website, enter a public URL (up to four, two levels, no query parameters). To use any web data, turn on the toggle next to Search all websites.",
         "For SharePoint or OneDrive, enter a site, folder, file, or shareable link, or select Attach cloud files to browse. Never enter a local path.",
@@ -570,7 +564,7 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Microsoft 365 Copilot, select New agent, then Skip to configure.",
+        "In Microsoft 365 Copilot, select Agents in the side bar, then New agent in the Agents menu, and then Skip (Learn calls it Skip to configure).",
         "In the Knowledge section, add sources with Search, Enter URL, Browse, or Upload.",
         "For a website, enter a public URL (up to four, two levels, no query parameters). To use any web data, turn on the toggle next to Search all websites.",
         "For SharePoint or OneDrive, enter a site, folder, file, or shareable link, or select Attach cloud files to browse. Never enter a local path.",
@@ -690,7 +684,7 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Copilot chat, select Agents & Skills, then New agent.",
+        "In Microsoft 365 Copilot, select Agents in the side bar (Learn calls it Agents & Skills), then New agent in the Agents menu.",
         "In the Message Agent Builder text box, ask for a reusable workflow, for example an agent that writes release notes with a skill that groups changes into Features, Fixes, and Other and formats a Markdown changelog.",
         "On the Configure tab, confirm a skill was created, then select it to review its details.",
         "If no skill was added, package one as a .zip containing SKILL.md (with name and description in the front matter) and any resources or scripts.",
@@ -732,7 +726,7 @@
         "Build your first agent in Agent Builder"
       ],
       "setup": [
-        "In Copilot chat, select Agents & Skills, then New agent.",
+        "In Microsoft 365 Copilot, select Agents in the side bar (Learn calls it Agents & Skills), then New agent in the Agents menu.",
         "In the Message Agent Builder text box, ask for a reusable workflow, for example an agent that writes release notes with a skill that groups changes into Features, Fixes, and Other and formats a Markdown changelog.",
         "On the Configure tab, confirm a skill was created, then select it to review its details.",
         "If no skill was added, package one as a .zip containing SKILL.md (with name and description in the front matter) and any resources or scripts.",
