@@ -16,7 +16,7 @@ import express from "express";
 import { DELIVERABLE_MODES, resolveDeliverableMode } from "../lib/lab-builder/deliverable.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { getFeature } from "../lib/lab-builder/catalog.js";
-import { registerProductRoutes } from "../lib/lab-builder/product-api.js";
+import { readPicklist, registerProductRoutes, sortPicklist } from "../lib/lab-builder/product-api.js";
 import { buildUserProduct, readUserProducts } from "../lib/lab-builder/user-products.js";
 import { buildUserTopic, productForUrl } from "../lib/lab-builder/user-topic-build.js";
 import { listHash } from "../lib/lab-builder/topic-snapshot.js";
@@ -905,4 +905,110 @@ test("the Product step offers an Add another Microsoft product panel, labeled, w
   const wizard = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
   assert.match(wizard, /lbRenderCustomProductStats/);
   assert.match(wizard, /Added by you/);
+});
+
+// ── The Choose a product dropdown is A to Z ─────────────────────────────────
+
+const A_TO_Z = (a, b) => a.trim().localeCompare(b.trim(), "en-US", { numeric: true, sensitivity: "base" });
+
+test("the picklist is ordered by display name: case ignored, numbers by value, symbols first, accents as plain letters, spaces ignored, ties in their original order", () => {
+  const entries = (names) => names.map((name, index) => ({ name, root: `https://learn.microsoft.com/p${index}` }));
+  const order = (names) => sortPicklist(entries(names)).map((entry) => entry.name);
+  assert.deepEqual(order(["banana", "Apple", "cherry", "APRICOT"]), ["Apple", "APRICOT", "banana", "cherry"], "mixed case");
+  assert.deepEqual(order(["Product 10", "Product 2", "Product 1"]), ["Product 1", "Product 2", "Product 10"], "numbers count by value");
+  assert.deepEqual(order(["Zebra", "Éclair", "Eagle", "Ecole", "(Preview) Zed"]), ["(Preview) Zed", "Eagle", "Éclair", "Ecole", "Zebra"], "a symbol first, an accent as its plain letter");
+  assert.deepEqual(order(["  Beta ", "Alpha", "Gamma "]), ["Alpha", "  Beta ", "Gamma "], "leading and trailing spaces do not count, and the names are returned as given");
+  const ties = sortPicklist(entries(["alpha", "Alpha", "Beta", "ALPHA"]));
+  assert.deepEqual(ties.map((entry) => entry.root.slice(-2)), ["p0", "p1", "p3", "p2"], "equal names keep the order they came in");
+  assert.deepEqual(sortPicklist([]), []);
+});
+
+test("the shipped picklist comes back A to Z with every entry kept", () => {
+  const file = JSON.parse(readFileSync(new URL("../lib/lab-builder/product-picklist.json", import.meta.url), "utf8")).products;
+  const names = readPicklist().map((entry) => entry.name);
+  assert.deepEqual(names, [...names].sort(A_TO_Z));
+  assert.deepEqual([...names].sort(), file.map((entry) => entry.name).sort(), "the same products, only reordered");
+});
+
+/** The panel script in a small fake page whose requests go to a real picklist server at `base`. */
+function loadProductPanel(base) {
+  const source = readFileSync(new URL("../public/lab-builder-my-products.js", import.meta.url), "utf8");
+  const elements = new Map();
+  const element = (id) => {
+    if (!elements.has(id)) elements.set(id, { id, innerHTML: "", textContent: "", value: "", listeners: {}, classList: { toggle() {} }, addEventListener(type, fn) { this.listeners[type] = fn; } });
+    return elements.get(id);
+  };
+  const posts = [];
+  const context = {
+    document: { readyState: "complete", getElementById: element },
+    escapeHtml: (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"),
+    labBuilder: { products: [], selectedProducts: new Set(), chosenSteps: new Set() },
+    lbRenderProducts() {},
+    lbProductsChanged() {},
+    lbRefreshLearn: async () => {},
+    fetch: async (path, init) => {
+      if (path === "/api/lab-builder/features") return { ok: true, json: async () => ({ products: [] }) };
+      if (init?.method === "POST") posts.push(JSON.parse(init.body));
+      return fetch(`${base}${path}`, init);
+    },
+    setTimeout,
+    console,
+  };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const run = (code) => vm.runInContext(code, context);
+  const options = () => [...element("lb-addprod-pick").innerHTML.matchAll(/<option value="([^"]*)"( disabled)?>([^<]*)<\/option>/g)].map((m) => ({ value: m[1], disabled: Boolean(m[2]), label: m[3] }));
+  return { run, element, options, posts };
+}
+
+test("the Choose a product dropdown is A to Z, keeps an added product in its place, and each option still adds its own product", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "product-dropdown-"));
+  setCustomProducts([]);
+  t.after(() => {
+    setCustomProducts(undefined);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const service = { config: { userProductsPath: join(dir, "user-products.json"), cachePath: join(dir, "c.json"), snapshotPath: join(dir, "s.json") } };
+  const learn = { search: async () => [], page: async (url) => ({ url, error: null, markdown: "# Power BI documentation\n\nLearn about the product and how to use it every day.\n" }) };
+  const app = express();
+  app.use(express.json());
+  registerProductRoutes(app, { getService: () => service, createRateLimiter, positiveIntFromEnv, learn });
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const panel = loadProductPanel(`http://127.0.0.1:${server.address().port}`);
+  const select = panel.element("lb-addprod-pick");
+  const picklist = () => JSON.parse(panel.run("JSON.stringify(lbProd.picklist.map((item) => item.name))"));
+
+  await panel.run("lbProdLoadPicklist()");
+  const before = panel.options();
+  const names = picklist();
+  assert.deepEqual(before[0], { value: "", disabled: false, label: "Choose a product..." }, "the placeholder stays first");
+  assert.ok(names.length >= 15);
+  assert.deepEqual(names, [...names].sort(A_TO_Z), "the dropdown lists the products A to Z");
+  assert.ok(before.some((option) => option.disabled && /\(already covered by /.test(option.label)), "a covered product is listed, disabled, in its own place");
+  before.slice(1).forEach((option, index) => {
+    assert.equal(option.value, String(index), "the value is the product's place in the list");
+    assert.ok(option.label.startsWith(names[index]), `${option.label} is product ${index}`);
+  });
+
+  select.value = "";
+  panel.element("lb-addprod-add").listeners.click();
+  assert.equal(panel.element("lb-addprod-status").textContent, "Choose a product from the list first.");
+  assert.deepEqual(panel.posts, []);
+
+  select.value = before.find((option) => option.label === "Power BI").value;
+  panel.element("lb-addprod-add").listeners.click();
+  assert.deepEqual(panel.posts, [{ root: "https://learn.microsoft.com/power-bi", name: "Power BI" }], "the chosen option adds that product");
+  for (let waited = 0; waited < 3000 && !/topics are in the Topics step/.test(panel.element("lb-addprod-status").textContent); waited += 10) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.match(panel.element("lb-addprod-status").textContent, /^Added "Power BI"\./);
+
+  const after = panel.options();
+  assert.deepEqual(picklist(), names, "the list refreshes in the same order");
+  assert.deepEqual(
+    after.map((option) => option.label),
+    before.map((option) => (option.label === "Power BI" ? "Power BI (added)" : option.label)),
+    "the added product stays in its alphabetical place, marked added",
+  );
+  assert.equal(after.find((option) => option.label === "Power BI (added)").disabled, true);
 });

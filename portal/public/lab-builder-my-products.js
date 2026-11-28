@@ -53,6 +53,7 @@ async function lbProdLoadPicklist() {
 function lbProdRender() {
   const select = lbProdEl("lb-addprod-pick");
   if (select) {
+    // The server sends the picklist A to Z; each option's value is its place in lbProd.picklist, which the add button reads back.
     const options = lbProd.picklist
       .map((item, index) => {
         const state = item.addedId ? " (added)" : item.coveredBy ? ` (already covered by ${item.coveredBy})` : "";
@@ -173,7 +174,8 @@ function lbProdBind() {
     if (panel.open && !lbProd.loaded) lbProdLoadPicklist();
   });
   lbProdEl("lb-addprod-add")?.addEventListener("click", () => {
-    const item = lbProd.picklist[Number(lbProdEl("lb-addprod-pick")?.value)];
+    const chosen = lbProdEl("lb-addprod-pick")?.value;
+    const item = chosen ? lbProd.picklist[Number(chosen)] : null;
     if (!item) lbProdSetStatus("Choose a product from the list first.", true);
     else lbProdAdd(item.root, item.name);
   });
