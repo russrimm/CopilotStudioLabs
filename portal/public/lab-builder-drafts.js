@@ -98,7 +98,7 @@ function lbDraftContent() {
   }
   for (const id of products) {
     const product = lbProduct(id);
-    if (product) content.labels[id] = product.shortName || product.name;
+    if (product) content.labels[id] = lbProductName(product);
   }
   return content;
 }
@@ -139,7 +139,7 @@ function lbDraftProgress(step) {
 }
 
 function lbDraftProductNames(ids) {
-  const known = (ids || []).map((id) => lbProduct(id)).filter(Boolean).map((product) => product.shortName || product.name);
+  const known = (ids || []).map((id) => lbProduct(id)).filter(Boolean).map(lbProductName);
   const gone = (ids || []).length - known.length;
   if (gone) known.push(`${gone} product${gone === 1 ? " that is" : "s that are"} no longer available`);
   return known;

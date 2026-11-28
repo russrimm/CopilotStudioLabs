@@ -56,9 +56,14 @@ export function setCustomProducts(list) {
   combined = null;
 }
 
+/** A product a person added shows its full name wherever a short one is used: the short name saved with older ones is cut at 29 characters. The saved file is not changed. */
+function withFullShortName(product) {
+  return product.shortName === product.name ? product : { ...product, shortName: product.name };
+}
+
 /** Every product: the reviewed ones first, then the ones a person added from Microsoft Learn (marked `custom`). */
 export function getProducts() {
-  if (!combined) combined = [...getBuiltInProducts(), ...customProducts()];
+  if (!combined) combined = [...getBuiltInProducts(), ...customProducts().map(withFullShortName)];
   return combined;
 }
 

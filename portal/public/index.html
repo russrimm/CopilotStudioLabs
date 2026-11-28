@@ -1872,19 +1872,29 @@
       font-size: 12px;
       margin-top: 10px;
     }
-    /* The summary and the step navigation live in the wizard header (see .lb-wizard-sticky): the bar itself draws nothing. */
-    .lb-summary-bar { display: contents; }
-    .lb-summary-bar[hidden] { display: none; }
+    /* "Your lab so far" sits under the sticky wizard header, in the page flow, so a long list scrolls away instead of covering the step.
+       Every line is written out in full and wraps; nothing in it is ever cut off. */
     .lb-summary {
-      margin: 0;
-      grid-column: 1 / -1;
-      grid-row: 2;
+      margin: 0 0 16px;
       font-size: 13px;
       line-height: 1.5;
       color: var(--text-muted);
       overflow-wrap: anywhere;
     }
-    .lb-summary strong { color: var(--text); font-weight: 600; }
+    .lb-summary[hidden] { display: none; }
+    .lb-summary-title { margin: 0 0 4px; color: var(--text); font-size: 13px; font-weight: 600; }
+    .lb-summary-empty { margin: 0; }
+    .lb-summary-list, .lb-summary-values { margin: 0; padding: 0; list-style: none; }
+    .lb-summary-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px 32px; }
+    .lb-summary-item { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0 12px; }
+    .lb-summary-value, .lb-summary-values li { color: var(--text); }
+    @media (max-width: 480px) {
+      .lb-summary-item { grid-template-columns: 6.5rem minmax(0, 1fr); gap: 0 10px; }
+    }
+    @media (min-width: 760px) {
+      .lb-summary-list { grid-template-columns: repeat(2, minmax(0, 26rem)); justify-content: start; }
+      .lb-summary-products { grid-column: 1 / -1; }
+    }
     .lb-sticky-actions {
       grid-column: 2;
       grid-row: 1;
@@ -1895,6 +1905,7 @@
       flex-wrap: wrap;
       margin-left: auto;
     }
+    .lb-sticky-actions[hidden] { display: none; }
     /* The step footer stays at the bottom of the viewport while its step is on screen, so Back and Next
        are always reachable without a second copy in the sticky bar (see lbObserveStepFooter). */
     [data-lb-step-footer] {
@@ -1983,9 +1994,8 @@
     .lb-wizard-sticky > nav { grid-column: 1; grid-row: 1; min-width: 0; }
     @media (max-width: 720px) {
       .lb-wizard-sticky { grid-template-columns: minmax(0, 1fr); padding: 4px 0 12px; }
-      .lb-wizard-sticky > nav, .lb-summary, .lb-sticky-actions { grid-column: 1; }
-      .lb-summary { grid-row: 2; }
-      .lb-sticky-actions { grid-row: 3; justify-content: flex-start; margin-left: 0; }
+      .lb-wizard-sticky > nav, .lb-sticky-actions { grid-column: 1; }
+      .lb-sticky-actions { grid-row: 2; justify-content: flex-start; margin-left: 0; }
     }
     @media (max-width: 720px), (max-height: 759px) {
       .lb-wizard-sticky { position: static; }
@@ -5756,6 +5766,7 @@
 
       .lab-pagination-controls,
       .lb-wizard-sticky,
+      .lb-summary,
       .lb-step-footer,
       #lb-pane-3 > div:last-child {
         display: none !important;
@@ -6327,17 +6338,16 @@
                     <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Review and build</button></li>
                   </ol>
                 </nav>
-                <div class="lb-summary-bar">
-                  <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> nothing yet.</p>
-                  <div class="lb-sticky-actions" id="lb-sticky-nav" role="group" aria-label="Wizard step navigation">
-                    <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" hidden title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
-                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbAskStartOver()" hidden title="Asks first, then clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint" aria-expanded="false" aria-controls="lb-start-over-confirm">Start over</button>
-                    <span id="lb-start-over-hint" class="sr-only">Asks first, then clears your choices in the wizard. Your saved drafts are never deleted.</span>
-                    <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
-                    <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Tailor it →</button>
-                  </div>
+                <div class="lb-sticky-actions" id="lb-sticky-nav" role="group" aria-label="Wizard step navigation" hidden>
+                  <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" hidden title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
+                  <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbAskStartOver()" hidden title="Asks first, then clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint" aria-expanded="false" aria-controls="lb-start-over-confirm">Start over</button>
+                  <span id="lb-start-over-hint" class="sr-only">Asks first, then clears your choices in the wizard. Your saved drafts are never deleted.</span>
+                  <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
+                  <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Tailor it →</button>
                 </div>
               </div>
+              <div id="lb-summary" class="lb-summary" hidden><p class="lb-summary-title">Your lab so far</p><p class="lb-summary-empty">Nothing yet.</p></div>
+              <p id="lb-summary-announce" class="sr-only" role="status" aria-live="polite"></p>
               <p id="lb-draft-announce" class="sr-only" role="status" aria-live="polite"></p>
               <!-- One status slot: whichever of these comes first and has something to say is shown, and the rest wait (see .lb-status-slot in the styles). -->
               <div class="lb-status-slot" id="lb-status-slot">

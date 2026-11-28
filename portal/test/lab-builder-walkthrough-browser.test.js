@@ -147,7 +147,13 @@ test("a default lab for one product builds in five clicks, with every default vi
     assert.equal(await visible("#lb-harness-row"), true);
     assert.equal(await page.$eval('input[name="lb-harness"]:checked', (el) => el.value), "standard");
     assert.equal(await page.textContent("#lb-harness-hint"), "Standard harness is selected. Not sure? Keep it.");
-    assert.match(await page.textContent("#lb-summary"), /Copilot Studio · Cross-industry · All departments · Level 100 \(Beginner\) · Standard harness/);
+    assert.deepEqual(await page.$$eval("#lb-summary .lb-summary-values li", (els) => els.map((el) => el.textContent)), ["Copilot Studio"]);
+    assert.deepEqual(await page.$$eval("#lb-summary .lb-summary-item:not(.lb-summary-products)", (els) => els.map((el) => el.textContent)), [
+      "Industry: Cross-industry",
+      "Departments: All departments",
+      "Level: Level 100 (Beginner)",
+      "Agent experience: Standard harness",
+    ]);
 
     // 3. Next (nothing to change on Tailor it).
     await click("#lb-pane-2 .lb-nav-next");
