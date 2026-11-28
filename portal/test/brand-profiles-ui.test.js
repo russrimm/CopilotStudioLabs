@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
 import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
+import { readSummary } from "./fixtures/lab-summary.js";
 
 const read = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
 const html = read("index.html");
@@ -77,7 +78,9 @@ test("the Review and build Customize card and brand line are labeled, and the ca
   assert.match(reviewPane, /<button[^>]*id="lb-brand-change"[^>]*aria-expanded="false" aria-controls="lb-customize-card">Change<\/button>/);
   assert.match(reviewPane, /<section id="lb-customize-card"[^>]*aria-labelledby="lb-customize-heading" hidden>/, "the card is collapsed until Change is pressed");
   assert.doesNotMatch(html, /id="lb-step8-customize-summary"/, "the brand line replaces the old Step 8 summary");
-  assert.match(html, /id="lb-summary" class="lb-summary" role="status" aria-live="polite"/);
+  assert.match(html, /<div id="lb-summary" class="lb-summary"/);
+  assert.match(html, /<p id="lb-summary-announce" class="sr-only" role="status" aria-live="polite"><\/p>/, "the list is not a live region; one short status line announces changes");
+  assert.doesNotMatch(html, /id="lb-summary"[^>]*aria-live/);
 });
 
 test("scripts load in dependency order and the new CSS follows the theme conventions", () => {
@@ -352,7 +355,7 @@ test("Review and build renders the profile picker, pre-fills the SharePoint site
   assert.equal(element("lb-ov-supportEmail").placeholder, "ai-help@contoso.com");
   assert.match(element("lb-customize-preview").innerHTML, /Contoso Ltd/);
   assert.match(element("lb-customize-preview").innerHTML, /font-family:Georgia/);
-  assert.match(element("lb-summary").innerHTML, /<span class="lb-brand-chip">Brand: Contoso &lt;EU&gt;<\/span>/);
+  assert.ok(readSummary(element("lb-summary").innerHTML).choices.includes("Brand: Contoso <EU>"));
   assert.equal(run("lbBrandRequestFields().brandProfileId"), "contoso");
 
   // A SharePoint site the learner typed is never replaced; the profile default only fills blanks or its own earlier default.
@@ -447,37 +450,37 @@ test("the Brand chip in the summary bar shows only for a non-default profile or 
   };
   const onStep = (step) => {
     run(`labBuilder.step = LB_STEP.${step}; lbRenderSummary()`);
-    return { chip: run("lbBrandSummaryChip()"), summary: element("lb-summary").innerHTML };
+    return { brand: run("lbBrandSummaryName()"), summary: readSummary(element("lb-summary").innerHTML) };
   };
-  const CHIP = (name) => `<span class="lb-brand-chip">Brand: ${name}</span>`;
   const OFF_REVIEW = ["product", "tailor", "topics"];
 
   // The built-in Default with no overrides says nothing: it is what every lab gets.
   for (const step of [...OFF_REVIEW, "review"]) {
-    const { chip, summary } = onStep(step);
-    assert.equal(chip, "", `Default adds no chip on ${step}`);
-    assert.doesNotMatch(summary, /lb-brand-chip/);
+    const { brand, summary } = onStep(step);
+    assert.equal(brand, "", `Default adds no brand line on ${step}`);
+    assert.ok(!summary.choices.some((choice) => choice.startsWith("Brand:")));
   }
 
   // A profile the person chose shows on every step but Review and build, where the brand line is already on screen.
   choose("contoso");
   for (const step of OFF_REVIEW) {
-    const { chip, summary } = onStep(step);
-    assert.equal(chip, CHIP("Contoso &lt;EU&gt;"), `the chosen profile shows on ${step}`);
-    assert.ok(summary.endsWith(CHIP("Contoso &lt;EU&gt;")), "and sits at the end of the line");
+    const { brand, summary } = onStep(step);
+    assert.equal(brand, "Contoso <EU>", `the chosen profile shows on ${step}`);
+    assert.equal(summary.choices.at(-1), "Brand: Contoso <EU>", "and sits at the end of the list, as its own item");
+    assert.match(element("lb-summary").innerHTML, /Brand<\/span><span class="sr-only">: <\/span><span class="lb-summary-value">Contoso &lt;EU&gt;<\/span>/, "the name is escaped");
   }
   const review = onStep("review");
-  assert.equal(review.chip, "", "Review and build has its own brand line");
-  assert.doesNotMatch(review.summary, /lb-brand-chip/);
+  assert.equal(review.brand, "", "Review and build has its own brand line");
+  assert.ok(!review.summary.choices.some((choice) => choice.startsWith("Brand:")));
   assert.equal(element("lb-brand-summary").textContent, "Brand: Contoso <EU>", "and that line still names the profile");
 
   // Default with a change for this lab is no longer plain Default, so it shows (off Review and build) until the change is cleared.
   choose("default");
   override("tagline", "Spring cohort");
-  for (const step of OFF_REVIEW) assert.equal(onStep(step).chip, CHIP("Default"), `Default with an override shows on ${step}`);
-  assert.equal(onStep("review").chip, "");
+  for (const step of OFF_REVIEW) assert.equal(onStep(step).brand, "Default", `Default with an override shows on ${step}`);
+  assert.equal(onStep("review").brand, "");
   override("tagline", "   ");
-  assert.equal(onStep("tailor").chip, "", "a blank override is no override");
+  assert.equal(onStep("tailor").brand, "", "a blank override is no override");
 });
 
 test("the Manage brand profiles link opens the Configuration tab, and nothing breaks before profiles load", () => {
@@ -490,7 +493,7 @@ test("the Manage brand profiles link opens the Configuration tab, and nothing br
 
   const bare = vm.createContext({ document: { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], activeElement: { dataset: {} } }, escapeHtml: String, toast() {}, console, setTimeout });
   vm.runInContext(wizardSource, bare);
-  assert.equal(vm.runInContext("lbBrandSummaryChip()", bare), "");
+  assert.equal(vm.runInContext("lbBrandSummaryName()", bare), "");
   assert.equal(JSON.stringify(vm.runInContext("lbBrandRequestFields()", bare)), "{}");
   assert.equal(vm.runInContext("lbSyncCustomizeCard()", bare), undefined);
   assert.equal(vm.runInContext("lbSyncCustomizeSummary()", bare), undefined);

@@ -21,6 +21,7 @@ import { recommend } from "../lib/lab-builder/recommend.js";
 import { getIndustries, getRoles } from "../lib/scenarios.js";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 import { installInnerHtml, parseHtml } from "./fixtures/fake-html.js";
+import { readSummaryElement } from "./fixtures/lab-summary.js";
 
 process.env.LAB_BUILDER_LINK_CHECK = "off";
 
@@ -187,7 +188,12 @@ test("Tailor it shows every default selected and says so in one line each", asyn
   assert.deepEqual(differences.filter((el) => el.checked).map(valueOf), ["microsoft-copilot"]);
   assert.match(h.byId("lb-differences-options").innerHTML, /Compare with <strong>Microsoft Copilot harness<\/strong>/);
 
-  assert.match(h.text("lb-summary"), /Copilot Studio · Cross-industry · All departments · Level 100 \(Beginner\) · Standard harness/);
+  assert.deepEqual(readSummaryElement(h.byId("lb-summary")), {
+    title: "Your lab so far",
+    empty: "",
+    products: ["Copilot Studio"],
+    choices: ["Industry: Cross-industry", "Departments: All departments", "Level: Level 100 (Beginner)", "Agent experience: Standard harness"],
+  });
 });
 
 test("a product without harnesses never shows the harness choice, and the request carries no harness", async () => {
@@ -252,7 +258,12 @@ test("every Tailor answer refreshes the recommendation, and the summary follows"
   assert.equal(h.lastRecommend().harness, "microsoft-copilot");
   assert.equal(h.text("lb-harness-hint"), "Microsoft Copilot harness is selected.");
 
-  assert.match(h.text("lb-summary"), /Copilot Studio · Retail · All departments · Level 200 \(Intermediate\) · Microsoft Copilot harness/);
+  assert.deepEqual(readSummaryElement(h.byId("lb-summary")).choices, [
+    "Industry: Retail",
+    "Departments: All departments",
+    "Level: Level 200 (Intermediate)",
+    "Agent experience: Microsoft Copilot harness",
+  ]);
   const request = h.state("lbRequest()");
   assert.deepEqual([request.industry, request.roles, request.level, request.harness], ["retail", [], 200, "microsoft-copilot"]);
 });
@@ -516,36 +527,40 @@ test("a product that comes in more than one agent experience says so on its card
   assert.doesNotMatch(h.byId("lb-product-options").innerHTML, /Has harnesses/);
 });
 
-test("the summary bar stays out of the way until a product is chosen, appears with the first one, and goes again when none is left", async () => {
+test("the summary list stays out of the way until a product is chosen, appears with the first one, and goes again when none is left", async () => {
   const h = makeWizard();
-  const bar = h.byId("lb-summary").closest(".lb-summary-bar");
-  assert.ok(bar, "the summary and its buttons share one bar");
-  assert.equal(bar.hidden, true, "nothing to summarize yet, so no bar");
-  assert.equal(h.text("lb-summary"), "Your lab so far: nothing yet.", "the text is still there for a screen reader that reaches it");
+  const list = h.byId("lb-summary");
+  const buttons = h.byId("lb-sticky-nav");
+  assert.equal(list.hidden, true, "nothing to summarize yet, so no list");
+  assert.equal(buttons.hidden, true, "and the step buttons beside it wait too");
+  assert.equal(h.text("lb-summary"), "Your lab so farNothing yet.", "the text is still there for a screen reader that reaches it");
   assert.equal(h.byId("lb-save-draft").hidden, true);
-  assert.match(HTML, /\.lb-summary-bar\[hidden\]\s*\{\s*display:\s*none;\s*\}/, "a hidden bar takes no space");
+  assert.match(HTML, /\.lb-summary\[hidden\]\s*\{\s*display:\s*none;\s*\}/, "a hidden list takes no space");
+  assert.match(HTML, /\.lb-sticky-actions\[hidden\]\s*\{\s*display:\s*none;\s*\}/, "hidden step buttons take no space");
 
   await h.chooseProducts("copilot-studio");
-  assert.equal(bar.hidden, false);
-  assert.equal(h.text("lb-summary"), "Your lab so far: Copilot Studio");
+  assert.equal(list.hidden, false);
+  assert.equal(buttons.hidden, false);
+  assert.deepEqual(readSummaryElement(list).products, ["Copilot Studio"]);
   assert.equal(h.byId("lb-save-draft").hidden, false, "Save and finish later appears with the first product");
 
-  // Taking the product away again empties the wizard, so the bar goes too.
+  // Taking the product away again empties the wizard, so the list goes too.
   const box = h.all("#lb-product-options input").find((input) => input.getAttribute("value") === "copilot-studio");
   await h.change(box, (el) => {
     el.checked = false;
   });
   assert.equal(h.state("labBuilder.selectedProducts.size"), 0);
-  assert.equal(bar.hidden, true);
+  assert.equal(list.hidden, true);
+  assert.equal(buttons.hidden, true);
   assert.equal(h.byId("lb-save-draft").hidden, true);
 
-  // Start over ends in the same place: an empty wizard with no bar.
+  // Start over ends in the same place: an empty wizard with no list.
   await h.chooseProducts("sharepoint-ai");
-  assert.equal(bar.hidden, false);
+  assert.equal(list.hidden, false);
   await h.run("lbStartNewLab()");
   await h.settle();
-  assert.equal(bar.hidden, true);
-  assert.equal(h.text("lb-summary"), "Your lab so far: nothing yet.");
+  assert.equal(list.hidden, true);
+  assert.equal(readSummaryElement(list).empty, "Nothing yet.");
 });
 
 test("Edit selections on a built lab still opens Review and build with every choice filled in", async () => {

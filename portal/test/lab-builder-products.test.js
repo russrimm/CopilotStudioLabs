@@ -26,7 +26,9 @@ import { planLab } from "../lib/lab-builder/planner.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { buildDifferenceBlocks } from "../lib/lab-builder/differences.js";
 import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
+import { readSummary } from "./fixtures/lab-summary.js";
 
+const NOTHING_YET = { title: "Your lab so far", empty: "Nothing yet.", products: [], choices: [] };
 process.env.LAB_BUILDER_LINK_CHECK = "off";
 process.env.LAB_BUILDER_VENDOR_DOCS = "off";
 
@@ -355,7 +357,7 @@ test("a fresh wizard starts on Step 1 with no products selected and requires at 
   await run("lbRefresh()");
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, 0, "does not call /api/lab-builder/recommend when 0 products are selected");
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), NOTHING_YET);
   assert.equal(run.element("lb-start-over").hidden, true, "Start over stays hidden when nothing has been selected yet");
 
   run("lbNextStep()");
@@ -376,12 +378,17 @@ test("selecting SharePoint AI alone selects only SharePoint AI and never auto-in
   assert.equal(run("lbProductsLabel()"), "SharePoint AI");
   assert.equal(run("lbHasHarnessProduct()"), false);
   assert.equal(run.element("lb-start-over").hidden, false, "Start over appears as soon as a product is selected");
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), { title: "Your lab so far", empty: "", products: ["SharePoint AI"], choices: [] });
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100/);
 
   run("lbNextStep()"); // Product -> Tailor it: the defaults are on screen, so the summary names them (no harness for this product)
   assert.equal(run("labBuilder.step"), 2);
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI · Cross-industry · All departments · Level 100 (Beginner)");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), {
+    title: "Your lab so far",
+    empty: "",
+    products: ["SharePoint AI"],
+    choices: ["Industry: Cross-industry", "Departments: All departments", "Level: Level 100 (Beginner)"],
+  });
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|harness/i);
 });
 
@@ -425,7 +432,7 @@ test("unchecking all products clears selectedProducts cleanly without calling re
   assert.equal(run.element("lb-product-error").textContent, "");
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, callsBeforeClear, "no /api/lab-builder/recommend call is made with empty products");
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), NOTHING_YET);
 
   run("labBuilder.selectedProducts = new Set(['sharepoint-ai', 'ai-foundry', 'copilot-studio'])");
   assert.equal(run("lbProductsLabel()"), "Copilot Studio, SharePoint AI, and Foundry");
@@ -448,7 +455,12 @@ test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSe
     labBuilder.furthest = LB_STEP.topics;
   `);
   await run("lbRefresh()");
-  assert.match(run.element("lb-summary").innerHTML, /Copilot Studio and SharePoint AI · Manufacturing · Departments: Sales · Level 200 \(Intermediate\)/);
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), {
+    title: "Your lab so far",
+    empty: "",
+    products: ["Copilot Studio", "SharePoint AI"],
+    choices: ["Industry: Manufacturing", "Departments: Sales", "Level: Level 200 (Intermediate)", "Agent experience: Standard harness"],
+  });
   assert.equal(run.element("lb-start-over").hidden, false);
 
   const callsBeforeReset = run.recommendCalls.length;
@@ -464,7 +476,7 @@ test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSe
   assert.equal(run("labBuilder.excluded.size"), 0);
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, callsBeforeReset, "resetting to 0 products does not call recommend");
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), NOTHING_YET);
   assert.equal(run.element("lb-start-over").hidden, true);
   assert.ok(run.toasts.some((t) => t.msg === "Started a fresh lab. Choose one or more products to begin."));
 
@@ -488,64 +500,145 @@ test("Your lab so far reveals each wizard option progressively only after its st
   `);
 
   // Nothing chosen at all
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), NOTHING_YET);
+  assert.equal(run.element("lb-summary").hidden, true, "the list stays out of the way until a product is chosen");
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100|Standard harness|topic/);
 
   // Product step: choose Copilot Studio -> ONLY the product appears, and the Tailor defaults stay out of sight
   run("lbToggleProduct('copilot-studio', true)");
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(run("labBuilder.step"), 1);
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML), { title: "Your lab so far", empty: "", products: ["Copilot Studio"], choices: [] });
 
   // Reach Tailor it: industry, departments, level, and harness appear together, defaults included. No topics yet.
   run("lbNextStep()");
   assert.equal(run("labBuilder.step"), 2);
-  assert.equal(
-    run.element("lb-summary").innerHTML,
-    "<strong>Your lab so far:</strong> Copilot Studio · Cross-industry · All departments · Level 100 (Beginner) · Standard harness",
-  );
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).choices, [
+    "Industry: Cross-industry",
+    "Departments: All departments",
+    "Level: Level 100 (Beginner)",
+    "Agent experience: Standard harness",
+  ]);
 
-  // Changing a Tailor choice updates the line in place.
+  // Changing a Tailor choice updates the list in place.
   run("lbSelectIndustry('healthcare')");
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(
-    run.element("lb-summary").innerHTML,
-    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 100 (Beginner) · Standard harness",
-  );
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).choices, [
+    "Industry: Healthcare",
+    "Departments: All departments",
+    "Level: Level 100 (Beginner)",
+    "Agent experience: Standard harness",
+  ]);
   run("lbSelectLevel(200)");
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(
-    run.element("lb-summary").innerHTML,
-    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate) · Standard harness",
-  );
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).choices, [
+    "Industry: Healthcare",
+    "Departments: All departments",
+    "Level: Level 200 (Intermediate)",
+    "Agent experience: Standard harness",
+  ]);
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /topic|Knowledge checks/i, "topics stay out until the Topics step is reached");
 
-  // Reach Topics: the screen itself says the topic count and the time, so the bar does not repeat them there.
+  // Reach Topics: the screen itself says the topic count and the time, so the list does not repeat them there.
   run("lbNextStep()");
   assert.equal(run("labBuilder.step"), 3);
-  assert.equal(
-    run.element("lb-summary").innerHTML,
-    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate) · Standard harness",
-  );
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).choices, [
+    "Industry: Healthcare",
+    "Departments: All departments",
+    "Level: Level 200 (Intermediate)",
+    "Agent experience: Standard harness",
+  ]);
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /topic/);
 
-  // Back on another step, the bar names the topics too, once Topics has been reached.
+  // Back on another step, the list names the topics too, once Topics has been reached.
   await new Promise((r) => setTimeout(r, 20));
   run("lbGoToStep(2)");
   await new Promise((r) => setTimeout(r, 20));
-  assert.match(
-    run.element("lb-summary").innerHTML,
-    /^<strong>Your lab so far:<\/strong> Copilot Studio · Healthcare · All departments · Level 200 \(Intermediate\) · Standard harness · \d+ topics?( \+ \d+ refreshers?)?, about .+ \(estimate, not a limit\)$/,
-  );
+  const back = readSummary(run.element("lb-summary").innerHTML);
+  assert.deepEqual(back.choices.slice(0, 4), ["Industry: Healthcare", "Departments: All departments", "Level: Level 200 (Intermediate)", "Agent experience: Standard harness"]);
+  assert.equal(back.choices.length, 5);
+  assert.match(back.choices[4], /^Topics: \d+ topics?( \+ \d+ refreshers?)?, about .+ \(estimate, not a limit\)$/);
 
   // Confirming the Tailor step shows its answers even while the person is still on the Product step.
   const confirmed = loadWizard();
   confirmed("lbToggleProduct('sharepoint-ai', true)");
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(confirmed.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI");
+  assert.deepEqual(readSummary(confirmed.element("lb-summary").innerHTML), { title: "Your lab so far", empty: "", products: ["SharePoint AI"], choices: [] });
   confirmed("labBuilder.chosenSteps.add('tailor'); lbRenderSummary()");
   assert.equal(confirmed("labBuilder.step"), 1);
-  assert.equal(confirmed.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI · Cross-industry · All departments · Level 100 (Beginner)");
+  assert.deepEqual(readSummary(confirmed.element("lb-summary").innerHTML).choices, ["Industry: Cross-industry", "Departments: All departments", "Level: Level 100 (Beginner)"]);
+});
+
+test("Your lab so far lists every selected product on its own line, in full, even a product added from Microsoft Learn whose saved short name was cut", async () => {
+  const longName = "What do you need help with today? Microsoft Learn product page";
+  assert.equal(longName.length, 62);
+  const run = loadWizard();
+  run(`labBuilder.products = labBuilder.products.concat([
+    { id: "custom-long", name: ${JSON.stringify(longName)}, shortName: ${JSON.stringify(`${longName.slice(0, 29)}…`)}, hasHarnesses: false, custom: true },
+    { id: "custom-old", name: "Contoso Field Service", shortName: "Contoso Field Service", hasHarnesses: false, custom: true },
+  ]);`);
+  run("labBuilder.selectedProducts = new Set(['copilot-studio', 'custom-long', 'sharepoint-ai', 'custom-old'])");
+  run("labBuilder.chosenSteps.add('product'); lbRenderSummary()");
+
+  const html = run.element("lb-summary").innerHTML;
+  const summary = readSummary(html);
+  assert.deepEqual(summary.products, ["Copilot Studio", "SharePoint AI", longName, "Contoso Field Service"], "one line per product, the added one with its whole name");
+  assert.equal((html.match(/<li>/g) || []).length, 4, "each product is its own list item");
+  assert.match(html, /<span class="lb-summary-label">Products<\/span>/);
+  assert.doesNotMatch(html, /…|\.\.\./, "nothing is shortened");
+  assert.doesNotMatch(html, / and |, and /, "the names are not run together into one sentence");
+  assert.equal(run("lbProductsLabel()"), `Copilot Studio, SharePoint AI, ${longName}, and Contoso Field Service`, "a sentence uses the whole name too");
+  assert.equal(run.element("lb-summary").hidden, false);
+  assert.equal(run.element("lb-sticky-nav").hidden, false);
+
+  // The same pieces appear under the same rules as before, each as its own labeled item.
+  run(`
+    labBuilder.industries = [{ id: "retail", name: "Retail" }];
+    labBuilder.roles = [{ id: "sales", name: "Sales" }, { id: "it", name: "IT" }];
+    labBuilder.harnesses = [{ id: "standard", name: "Standard harness", product: "copilot-studio" }];
+    labBuilder.industry = "retail";
+    labBuilder.selectedRoles = new Set(["sales", "it"]);
+    labBuilder.level = 200;
+    labBuilder.chosenSteps.add("tailor");
+    labBuilder.chosenSteps.add("topics");
+    labBuilder.step = LB_STEP.tailor;
+    labBuilder.rec = { totals: { selectedCount: 1, prerequisiteCount: 2, duration: "35 min" } };
+    labBuilder.includeKnowledgeCheck = true;
+    lbRenderSummary();
+  `);
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).choices, [
+    "Industry: Retail",
+    "Departments: Sales, IT",
+    "Level: Level 200 (Intermediate)",
+    "Agent experience: Standard harness",
+    "Topics: 1 topic + 2 refreshers, about 35 min (estimate, not a limit)",
+    "Knowledge checks: Mini-quizzes on",
+  ]);
+
+  run("labBuilder.selectedProducts = new Set(['custom-long'])");
+  run("lbRenderSummary()");
+  assert.deepEqual(readSummary(run.element("lb-summary").innerHTML).products, [longName]);
+  assert.match(run.element("lb-summary").innerHTML, /<span class="lb-summary-label">Product<\/span>/, "one product says Product, not Products");
+});
+
+test("a screen reader hears one short update when the list changes, not the whole list again", async () => {
+  const run = loadWizard();
+  run("lbToggleProduct('copilot-studio', true)");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: 1 product.");
+  run("lbToggleProduct('sharepoint-ai', true)");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: 2 products.");
+  run("labBuilder.chosenSteps.add('tailor'); lbRenderSummary()");
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: 2 products, 4 other choices.");
+  const before = run.element("lb-summary").innerHTML;
+  run("lbRenderSummary(); lbRenderSummary()");
+  assert.equal(run.element("lb-summary").innerHTML, before, "drawing the same list again changes nothing");
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: 2 products, 4 other choices.");
+  run("labBuilder.selectedProducts = new Set(); lbRenderSummary()");
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: nothing yet.", "emptying the list is said once");
+  run("lbRenderSummary()");
+  assert.equal(run.element("lb-summary-announce").textContent, "Your lab so far: nothing yet.");
 });
 
 // ── Wizard card footer & prominent stat chips ───────────────────────────────
@@ -826,6 +919,30 @@ test("a product added from Learn joins the product list without touching the rev
   assert.match(product.labPrerequisites[0], /Not confirmed in Microsoft Learn/);
   assert.equal(buildUserProduct({ name: "x", root: "http://evil.example/x" }), null);
   assert.equal(buildUserProduct({ name: "Name", root: "https://learn.microsoft.com/" }), null);
+});
+
+test("a product added from Learn is never shown with a name cut short, including one saved earlier with a cut short name", (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "my-products-short-"));
+  t.after(() => {
+    setCustomProducts(undefined);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const name = "What do you need help with today? Microsoft Learn product page";
+  const root = "https://learn.microsoft.com/contoso-help";
+  const fresh = buildUserProduct({ name, root });
+  assert.equal(fresh.shortName, name, "a new product keeps its whole name");
+
+  // Older saved files carry a short name cut at 29 characters. The file is read as it is; only what the portal shows changes.
+  const older = { ...fresh, shortName: `${name.slice(0, 29)}…` };
+  const file = join(dir, "user-products.json");
+  writeFileSync(file, JSON.stringify({ schemaVersion: 1, products: [older] }));
+  assert.equal(readUserProducts(file)[0].shortName, older.shortName, "reading does not rewrite the saved name");
+  assert.equal(JSON.parse(readFileSync(file, "utf8")).products[0].shortName, older.shortName, "and nothing is written back");
+
+  setCustomProducts(readUserProducts(file));
+  assert.equal(getProduct(older.id).shortName, name, "the product list shows the whole name wherever a short one is used");
+  assert.equal(getProduct(older.id).name, name);
+  assert.equal(getProduct("copilot-studio").shortName, "Copilot Studio", "reviewed products keep their short names");
 });
 
 test("a lab for a product added from Learn is neutral: a pilot, no agent, no architecture, no quiz", async (t) => {

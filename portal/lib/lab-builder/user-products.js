@@ -56,7 +56,7 @@ export function buildUserProduct({ name, root, summary = "", now = Date.now() })
   return {
     id,
     name: cleanName,
-    shortName: cleanName.length > 30 ? `${cleanName.slice(0, 29).trimEnd()}…` : cleanName,
+    shortName: cleanName,
     order: 1000,
     summary: String(summary || `Hands-on labs for ${cleanName}, built from its Microsoft Learn documentation.`).slice(0, 300),
     learnHubUrl: root,

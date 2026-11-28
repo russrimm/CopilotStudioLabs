@@ -310,7 +310,7 @@ test("the status slot shows one message at a time, the most important first", as
     assert.deepEqual(await shown(), []);
 
     // The live regions stay in the page for a screen reader, whichever message is showing.
-    for (const id of ["lb-draft-status", "lb-draft-announce", "lb-summary"]) {
+    for (const id of ["lb-draft-status", "lb-draft-announce", "lb-summary-announce"]) {
       assert.match((await page.getAttribute(`#${id}`, "aria-live")) || "", /polite/, `${id} is still a polite live region`);
     }
     assert.equal(await page.getAttribute("#lb-draft-status", "role"), "status");

@@ -40,7 +40,8 @@ test("each pane heading can take focus so a step change is announced", () => {
 });
 
 test("a running total, reset affordances, and the time-as-guidance message are always shown", () => {
-  assert.match(builderPanel, /id="lb-summary"[^>]*aria-live="polite"/);
+  assert.match(builderPanel, /id="lb-summary-announce"[^>]*role="status" aria-live="polite"/, "a short live line announces list changes");
+  assert.doesNotMatch(builderPanel, /id="lb-summary"[^>]*aria-live/, "the list itself is not re-read in full on every change");
   assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbAskStartOver\(\)"[^>]*hidden[^>]*aria-expanded="false" aria-controls="lb-start-over-confirm">Start over<\/button>/, "Start over asks first");
   assert.match(builderPanel, /id="lb-start-over-confirm"[^>]*role="group"[^>]*onkeydown="if \(event\.key === 'Escape'\) lbCancelStartOver\(\)" hidden>/);
   assert.match(builderPanel, /id="lb-start-over-yes" onclick="lbConfirmStartOver\(\)">Start over<\/button>/);
@@ -77,7 +78,7 @@ test("the Build a Custom Lab intro is one short sentence, and a 560px rule keeps
   assert.match(block, /\.lb-step:not\(\.active\) \{ font-size: 0; gap: 0; \}/, "a step that is not current shows only its number");
   assert.match(css, /\.lb-step span \{[^}]*font-size: 11px/, "and the number has its own size, so font-size: 0 on the button never hides it");
   assert.equal([...builderPanel.matchAll(/<button type="button" class="lb-step[^"]*" data-lb-step="\d"[^>]*><span aria-hidden="true">\d<\/span> [^<]+<\/button>/g)].length, 4, "every step has a number and words");
-  assert.match(css, /\.lb-summary-bar\[hidden\] \{ display: none; \}/, "the summary bar can be hidden until there is something to summarize");
+  assert.match(css, /\.lb-summary\[hidden\] \{ display: none; \}/, "the summary list can be hidden until there is something to summarize");
 
   // Focus rings and the click size of the small text buttons.
   for (const selector of [".lb-more > summary", ".lb-link-btn", ".lb-row-toggle"]) {
@@ -112,9 +113,15 @@ test("no visible text or script string still names Step 7 or Step 8 of the old e
   }
 });
 
-test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Review and build has an accessible generation progress card", () => {
+test("the step pills and buttons stay sticky at the top of the wizard stage and Your lab so far follows them in the page flow, Previously generated labs starts collapsed, and Review and build has an accessible generation progress card", () => {
   assert.match(builderPanel, /id="lb-wizard-stage"[\s\S]*?id="lb-wizard-sticky"[\s\S]*?id="lb-summary"/);
   assert.match(html, /\.lb-wizard-sticky\s*\{[^}]*position:\s*sticky;/);
+  // A long list in the sticky header would cover the step, so the list sits after the header and scrolls with the page.
+  assert.match(builderPanel, /id="lb-sticky-next"[^>]*>[^<]*<\/button>\s*<\/div>\s*<\/div>\s*<div id="lb-summary" class="lb-summary"/, "the list is a sibling after the sticky header, not inside it");
+  const summaryRule = html.match(/\n\s*\.lb-summary\s*\{([^}]*)\}/)?.[1] || "";
+  assert.ok(summaryRule, "the list has its own rule");
+  assert.doesNotMatch(summaryRule, /position:\s*(sticky|fixed)/);
+  assert.doesNotMatch(html, /\.lb-summary[^{]*\{[^}]*(text-overflow|line-clamp|white-space:\s*nowrap)/, "nothing in the list is ever cut off");
 
   const detailsTag = builderPanel.match(/<details\b[^>]*id="lb-generated-details"[^>]*>/)?.[0];
   assert.ok(detailsTag, "Previously generated labs is wrapped in <details id=\"lb-generated-details\">");

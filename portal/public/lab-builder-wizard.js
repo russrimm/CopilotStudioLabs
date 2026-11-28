@@ -675,8 +675,13 @@ function lbJoinNames(names) {
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
+/** The name to show for a product in a sentence or a list. A product added from Microsoft Learn always shows its full name: the short name saved with older ones is cut at 29 characters. */
+function lbProductName(product) {
+  return (product.custom ? product.name || product.shortName : product.shortName || product.name) || product.id;
+}
+
 function lbProductsLabel() {
-  const names = lbSelectedProductList().map((p) => p.shortName || p.name);
+  const names = lbSelectedProductList().map(lbProductName);
   return names.length ? lbJoinNames(names) : "No products selected";
 }
 
@@ -1015,7 +1020,7 @@ function lbRenderProducts() {
             ${p.custom ? lbRenderCustomProductStats(p) : lbRenderProductStats(p)}
             ${
               hub
-                ? `<div class="lb-card-learn"><a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(p.shortName)} (opens in a new tab)</a></div>`
+                ? `<div class="lb-card-learn"><a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(lbProductName(p))} (opens in a new tab)</a></div>`
                 : ""
             }
           </div>
@@ -1896,12 +1901,12 @@ function lbRenderLearnBar() {
   for (const product of others) {
     const info = learn.products?.[product.id];
     if (!info?.refreshedAt) {
-      parts.push(`${product.shortName}: no Microsoft Learn topic list yet, so only the built-in catalog is shown. Refresh to read one.`);
+      parts.push(`${lbProductName(product)}: no Microsoft Learn topic list yet, so only the built-in catalog is shown. Refresh to read one.`);
       continue;
     }
     const stamp = new Date(info.refreshedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
     const label = info.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
-    parts.push(`${product.shortName}: ${label}: ${stamp} (${lbAgo(info.ageMs)}). ${info.newTopics} new topic${info.newTopics === 1 ? "" : "s"} from Learn.`);
+    parts.push(`${lbProductName(product)}: ${label}: ${stamp} (${lbAgo(info.ageMs)}). ${info.newTopics} new topic${info.newTopics === 1 ? "" : "s"} from Learn.`);
   }
   if (learn.disabled) parts.push("Refreshing is turned off on this server.");
   else if (learn.refreshing) parts.push("A refresh is running in the background.");
@@ -3014,9 +3019,9 @@ function lbRenderExportScope() {
   let text;
   if (!products.length) text = "Choose at least one product in Step 1 to export its topics.";
   else if (ready) text = `${labBuilder.exportData.scope.text} It ignores your search, filter, and level, and marks what you selected.`;
-  else if (labBuilder.exportBusy) text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map((p) => p.shortName))}, all levels. Counting rows...`;
+  else if (labBuilder.exportBusy) text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map(lbProductName))}, all levels. Counting rows...`;
   else if (labBuilder.exportFailedSignature === signature) text = "The full topic list could not be loaded, so Export All Topics is not ready. Choose it to try again.";
-  else text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map((p) => p.shortName))}, all levels.`;
+  else text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map(lbProductName))}, all levels.`;
   if (note && note.textContent !== text) note.textContent = text;
   const disabled = !products.length;
   for (const button of [main, toggle]) {
@@ -3195,51 +3200,85 @@ function lbSyncStepSummaryMirrors(summaryHtml) {
   });
 }
 
+/** One line of the summary list: a short plain label and what was chosen. The visually hidden colon keeps a screen reader's "Level: Level 200" from running together. */
+function lbSummaryItem(label, value) {
+  return `<li class="lb-summary-item"><span class="lb-summary-label">${escapeHtml(label)}</span><span class="sr-only">: </span><span class="lb-summary-value">${escapeHtml(value)}</span></li>`;
+}
+
+/** The "Your lab so far" list, plus how many products and other choices it holds. Every name is written out in full; nothing here shortens a name. */
+function lbSummaryContent() {
+  const title = '<p class="lb-summary-title">Your lab so far</p>';
+  if (!lbIsStepChosen("product")) return { html: `${title}<p class="lb-summary-empty">Nothing yet.</p>`, products: 0, choices: 0 };
+  const products = lbSelectedProductList().map((p) => `<li>${escapeHtml(lbProductName(p))}</li>`);
+  const items = [];
+  if (lbIsStepChosen("tailor")) {
+    const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
+    items.push(lbSummaryItem("Industry", industry ? industry.name : "Cross-industry"));
+    const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
+    items.push(lbSummaryItem("Departments", departments.length ? departments.join(", ") : "All departments"));
+    items.push(lbSummaryItem("Level", lbLevelName(labBuilder.level)));
+    if (lbHasHarnessProduct()) items.push(lbSummaryItem("Agent experience", lbHarnessChoiceName()));
+  }
+  // Topics and Review and build say the topic count, the time, the quiz choice, and the SharePoint site on the screen itself, so the list does not repeat them there.
+  const onTopicsOrReview = labBuilder.step === LB_STEP.topics || labBuilder.step === LB_STEP.review;
+  if (lbIsStepChosen("topics") && !onTopicsOrReview) {
+    const totals = labBuilder.rec?.totals;
+    const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} refresher${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+    const time = totals
+      ? totals.selectedCount
+        ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
+        : "No topics selected yet"
+      : "Calculating...";
+    items.push(lbSummaryItem("Topics", time));
+  }
+  if (lbIncludeKnowledgeCheck() && labBuilder.step !== LB_STEP.review) items.push(lbSummaryItem("Knowledge checks", "Mini-quizzes on"));
+  const spState = lbResolveSharepointSiteState();
+  if (spState.requiresSharepointSite && spState.configured && labBuilder.step !== LB_STEP.review) {
+    items.push(lbSummaryItem("SharePoint site", spState.label || spState.name || spState.url));
+  }
+  const brand = lbBrandSummaryName();
+  if (brand) items.push(lbSummaryItem("Brand", brand));
+  const productsItem = `<li class="lb-summary-item lb-summary-products"><span class="lb-summary-label">${products.length === 1 ? "Product" : "Products"}</span><span class="sr-only">: </span><ul class="lb-summary-values" role="list">${products.join("")}</ul></li>`;
+  return { html: `${title}<ul class="lb-summary-list" role="list">${productsItem}${items.join("")}</ul>`, products: products.length, choices: items.length };
+}
+
+const lbSummaryLast = { el: null, html: "", announced: "" };
+
 function lbRenderSummary() {
   lbSyncResetButton();
   const el = document.getElementById("lb-summary");
-  let summaryHtml;
-  if (!lbIsStepChosen("product")) {
-    summaryHtml = "<strong>Your lab so far:</strong> nothing yet.";
-  } else {
-    const parts = [escapeHtml(lbProductsLabel())];
-    if (lbIsStepChosen("tailor")) {
-      const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
-      parts.push(escapeHtml(industry ? industry.name : "Cross-industry"));
-      const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
-      parts.push(escapeHtml(departments.length ? `Departments: ${departments.join(", ")}` : "All departments"));
-      parts.push(escapeHtml(lbLevelName(labBuilder.level)));
-      if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessChoiceName()));
-    }
-    // Topics and Review and build say the topic count, the time, the quiz choice, and the SharePoint site on the screen itself, so the bar does not repeat them there.
-    const onTopicsOrReview = labBuilder.step === LB_STEP.topics || labBuilder.step === LB_STEP.review;
-    if (lbIsStepChosen("topics") && !onTopicsOrReview) {
-      const totals = labBuilder.rec?.totals;
-      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} refresher${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-      const time = totals
-        ? totals.selectedCount
-          ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
-          : "No topics selected yet"
-        : "Calculating topics...";
-      parts.push(escapeHtml(time));
-    }
-    if (lbIncludeKnowledgeCheck() && labBuilder.step !== LB_STEP.review) {
-      parts.push(escapeHtml("Knowledge checks: mini-quizzes on"));
-    }
-    const spState = lbResolveSharepointSiteState();
-    if (spState.requiresSharepointSite && spState.configured && labBuilder.step !== LB_STEP.review) {
-      parts.push(escapeHtml(`SharePoint site: ${spState.label || spState.name || spState.url}`));
-    }
-    const brandChip = lbBrandSummaryChip();
-    if (brandChip) parts.push(brandChip);
-    summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
+  const chosen = lbIsStepChosen("product");
+  const { html, products, choices } = lbSummaryContent();
+  // Rewriting a list with the same content would make a screen reader or the page redraw it for nothing, so an unchanged summary is left alone.
+  if (el && (lbSummaryLast.el !== el || lbSummaryLast.html !== html)) {
+    el.innerHTML = html;
+    lbSummaryLast.el = el;
+    lbSummaryLast.html = html;
   }
-  if (el) el.innerHTML = summaryHtml;
-  // With no product chosen there is nothing to summarize, so the bar stays out of the way until there is.
-  const bar = el?.closest?.(".lb-summary-bar");
-  if (bar) bar.hidden = !lbIsStepChosen("product");
-  lbSyncStepSummaryMirrors(summaryHtml);
+  // With no product chosen there is nothing to summarize, so the list and the step buttons next to it stay out of the way until there is.
+  if (el) el.hidden = !chosen;
+  const nav = document.getElementById("lb-sticky-nav");
+  if (nav) nav.hidden = !chosen;
+  lbAnnounceSummary(products, choices);
+  lbSyncStepSummaryMirrors(html);
   lbSyncSharepointSiteUi();
+}
+
+/** A short spoken update when the list gains or loses a line; the list itself is read by moving to it, not announced in full on every change. */
+function lbAnnounceSummary(products, choices) {
+  const live = document.getElementById("lb-summary-announce");
+  if (!live) return;
+  let text = "";
+  if (products) {
+    const parts = [`${products} product${products === 1 ? "" : "s"}`];
+    if (choices) parts.push(`${choices} other choice${choices === 1 ? "" : "s"}`);
+    text = `Your lab so far: ${parts.join(", ")}.`;
+  } else if (lbSummaryLast.announced) {
+    text = "Your lab so far: nothing yet.";
+  }
+  if (lbSummaryLast.announced === text) return;
+  lbSummaryLast.announced = text;
+  live.textContent = text;
 }
 
 /** Keep every heading's "Step n of m" true and mark which steps are current, done, and reachable. */
@@ -4377,12 +4416,12 @@ function lbEffectiveBrand() {
   return brandMergeOverrides(profile, lbBrandOverrides());
 }
 
-/** HTML for the "Brand: <profile>" chip in the summary bar. Empty until the profiles have loaded, for the built-in Default, and on Review and build, where the brand line is already on screen. */
-function lbBrandSummaryChip() {
+/** The profile name for the "Brand" line of the summary. Empty until the profiles have loaded, for the built-in Default, and on Review and build, where the brand line is already on screen. */
+function lbBrandSummaryName() {
   const profile = lbBrandProfile();
   if (!profile || labBuilder.step === LB_STEP.review) return "";
   if (profile.id === "default" && !Object.keys(lbBrandOverrides()).length) return "";
-  return `<span class="lb-brand-chip">Brand: ${escapeHtml(profile.name)}</span>`;
+  return profile.name;
 }
 
 /** The `brandProfileId` and `overrides` sent with the generate request (nothing until profiles have loaded). */

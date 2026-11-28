@@ -203,8 +203,8 @@ arrow, Home, and End keys move among the tabs of the current area.
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the portal; it lands on **Build a Lab**.
 3. Work through four steps, in this order. The page is one frame: a single title row, a wizard
-   header that stays at the top (the four-item step list, the persistent line **Your lab so far**,
-   and the navigation), and one card for the current step, so you always see where you are and
+   header that stays at the top (the four-item step list and the navigation), the **Your lab so far**
+   list under it, and one card for the current step, so you always see where you are and
    where to look. See [How the page is laid out](#how-the-page-is-laid-out).
    1. **Product** (one or more). Nothing is pre-selected on load: pick the product(s)
       you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
@@ -370,16 +370,22 @@ arrow, Home, and End keys move among the tabs of the current area.
         the build runs. A lab opened with **Edit selections** also asks here whether to save a
         new lab or replace the original.
 
-   The step list and the **Your lab so far** line make up the wizard header. It stays pinned at the top of
-   every wizard step on a large screen, so you can always see what will be generated.
-   The summary line appears once you have chosen a product (until then the step list
-   stands alone, and **Save and finish later** waits for a product too). **Your lab so far**
-   names your product first; once you have seen **Tailor
-   it** it also names the industry, departments, level, and harness that are selected
-   (defaults included), and when you go back to an earlier step it adds the topic count and
-   time estimate. On **Topics** and **Review and build** the line leaves out what the
-   screen already says (the topic count and time, the quiz choice, the SharePoint site, and the brand),
-   and a brand chip shows only for a profile other than the built-in Default. On a phone the step list
+   The step list and the navigation make up the wizard header. It stays pinned at the top of
+   every wizard step on a large screen. **Your lab so far** sits right under it, in the page itself, so a
+   long list scrolls away with the page and never covers the step. It is a plain list: the label
+   **Your lab so far**, then **Products** with one line per product, and then one labeled line for each
+   other choice. Every name is written out in full and wraps onto more lines when it is long; nothing is
+   cut off with an ellipsis, and a product you added from Microsoft Learn always shows its whole name.
+   The list appears once you have chosen a product (until then the step list
+   stands alone, and **Save and finish later** waits for a product too). Once you have seen **Tailor
+   it** it also lists the **Industry**, **Departments**, **Level**, and **Agent experience** (the harness)
+   that are selected (defaults included), and when you go back to an earlier step it adds a **Topics**
+   line with the topic count and time estimate. On **Topics** and **Review and build** the list leaves out
+   what the screen already says (the topic count and time, **Knowledge checks**, the SharePoint site, and the brand),
+   and a **Brand** line shows only for a profile other than the built-in Default. On wide screens the
+   choices sit in two columns; on a phone they stack in one. A screen reader hears one short update when
+   a line is added or removed ("Your lab so far: 2 products, 4 other choices."), not the whole list again;
+   moving to the list reads it in full. The list is left out of a printed page. On a phone the step list
    keeps one row: each step shows its number, and the current one also shows its name. You can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
    recommendations (the page says so if it resets your own choices). Changing the
@@ -436,8 +442,9 @@ The **Build a Lab** tab keeps to one frame, so there is always one obvious place
 1. **One title row.** **Build a Custom Lab** and one line about it. On a first visit, one slim
    **Set up your portal for your company** line sits above it (see [First-time setup](#first-time-setup)); it is
    a single line with two links, not a card, and it shows only while it applies.
-2. **One wizard header.** The four steps, **Your lab so far**, and the navigation (**Save and finish later**,
+2. **One wizard header.** The four steps and the navigation (**Save and finish later**,
    **Start over**, **Back**, **Next**) are one compact area on the page itself, with a thin rule under it. It is not a card.
+   **Your lab so far** is a plain list right under it, in the page flow, not a box.
 3. **One status area.** Above the step, one message at a time, the most important first: the **Start over** question,
    an offer of unsaved work (**Resume** or **Discard**), the notice that you are editing a saved lab (**Stop editing this lab**),
    a resumed-draft notice (with **Dismiss**), then the plain draft status (for example *Saved*). While a more important
@@ -3867,8 +3874,8 @@ that does not pick a profile follow the **active** profile.
   the company, tagline, more-information link and label, support contact, and footer
   for this lab only, and watch the cover preview. Leave a field blank to inherit the
   profile value. If the profile has a default SharePoint site, Review and build pre-fills the
-  SharePoint site fields from it (a site you enter always wins). The wizard summary line
-  also shows a **Brand: <profile>** chip for a profile other than the built-in Default, on the steps before Review and build.
+  SharePoint site fields from it (a site you enter always wins). The **Your lab so far** list
+  also shows a **Brand** line with the profile name for a profile other than the built-in Default, on the steps before Review and build.
 - **Previously generated labs → Open → Customize this lab (branding).** Change the
   profile or overrides of a saved lab, then **Update from profile** or **Reset to
   profile**.
@@ -4226,8 +4233,10 @@ results that are not product documentation (Microsoft Q&A threads, training modu
 refuses those addresses as well. Add posts the chosen scope as `root`; the product's name comes from the hub page.
 
 The product is saved in `user-products.json` next to the topic caches (`LAB_BUILDER_USER_PRODUCTS` moves it; up to 10)
-as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once:
-discovery reads the hub page and its links under that root, plus a few general searches, and keeps the product's own list
+as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once.
+A product you added always shows its full name where a short name is used (the **Your lab so far** list, the topic
+lists, and the exports): older saved files hold a `shortName` cut at 29 characters, so `getProducts()` answers with the
+full name as the short name and the saved file is left as it is. Discovery reads the hub page and its links under that root, plus a few general searches, and keeps the product's own list
 (`topics-cache-custom-<name>.json`) like any other product. It has no curated catalog, so it is left out of the catalog
 and coverage checks (`getBuiltInProducts()`), and everything it teaches is marked not reviewed: its prerequisites and license
 note say "Not confirmed in Microsoft Learn by this builder", topics added by link or found by discovery follow the
