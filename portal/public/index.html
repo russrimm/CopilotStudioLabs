@@ -1635,6 +1635,10 @@
     }
 
     /* ── Lab builder wizard ─────────────── */
+    /* One title row for the whole tab: the name of the page and one line about it, on the page itself. */
+    .lb-page-head { margin: 0 0 12px; }
+    .lb-page-head h3 { margin: 0 0 4px; font-family: var(--font-display); font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+    .lb-build-lead { margin: 0; max-width: 75ch; font-size: 14px; line-height: 1.5; color: var(--text-muted); }
     .lb-steps {
       display: flex;
       flex-wrap: wrap;
@@ -1676,7 +1680,7 @@
       color: var(--text);
     }
     .lb-step.active span { background: var(--accent); color: var(--accent-contrast); }
-    .lb-step.done span { background: var(--success, #34d399); color: var(--success-contrast); }
+    .lb-step.done span { background: color-mix(in srgb, var(--accent) 24%, var(--surface)); color: var(--text); }
     .lb-category { margin-bottom: 20px; }
     .lb-category-title {
       font-size: 14px;
@@ -1736,7 +1740,7 @@
     }
     .lb-subtopic:hover { border-color: var(--accent); }
     .lb-subtopic.checked { border-color: var(--accent); background: var(--lb-card-checked-bg); }
-    .lb-subtopic-match { box-shadow: inset 4px 0 0 var(--accent); }
+    .lb-subtopic-match { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
     .lb-subtopic-label { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 auto; min-width: 0; cursor: pointer; }
     .lb-subtopic-label input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
     .lb-subtopic-body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
@@ -1868,25 +1872,22 @@
       font-size: 12px;
       margin-top: 10px;
     }
-    .lb-summary-bar {
-      margin: 14px 0 0;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-      font-size: 13px;
-    }
+    /* The summary and the step navigation live in the wizard header (see .lb-wizard-sticky): the bar itself draws nothing. */
+    .lb-summary-bar { display: contents; }
     .lb-summary-bar[hidden] { display: none; }
     .lb-summary {
       margin: 0;
-      flex: 1 1 260px;
+      grid-column: 1 / -1;
+      grid-row: 2;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      overflow-wrap: anywhere;
     }
+    .lb-summary strong { color: var(--text); font-weight: 600; }
     .lb-sticky-actions {
+      grid-column: 2;
+      grid-row: 1;
       display: flex;
       align-items: center;
       justify-content: flex-end;
@@ -1963,17 +1964,28 @@
     .main-content:has(#panel-labbuilder.active),
     .content:has(#panel-labbuilder.active) { overflow: clip; }
     .tab-content:has(#panel-labbuilder.active) { overflow: visible; }
-    /* The summary bar stays at the top while the learner scrolls. It is static on narrow or short screens,
-       where the header, stepper, and summary together would fill most of the viewport. */
+    /* The wizard header is the one frame around the steps: the step indicator, what you have chosen so far, and the
+       navigation, on the page itself with a hairline under it (no card). It stays at the top while the learner scrolls,
+       and is static on narrow or short screens, where it would fill most of the viewport. */
     .lb-wizard-sticky {
       position: sticky;
       top: var(--lb-header-h, 68px);
       z-index: 20;
-      padding: 16px 20px;
-      background: var(--surface);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px 16px;
+      margin: 0 0 16px;
+      padding: 8px 0 12px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
     }
+    .lb-wizard-sticky > nav { grid-column: 1; grid-row: 1; min-width: 0; }
     @media (max-width: 720px) {
-      .lb-wizard-sticky { padding: 12px 14px; }
+      .lb-wizard-sticky { grid-template-columns: minmax(0, 1fr); padding: 4px 0 12px; }
+      .lb-wizard-sticky > nav, .lb-summary, .lb-sticky-actions { grid-column: 1; }
+      .lb-summary { grid-row: 2; }
+      .lb-sticky-actions { grid-row: 3; justify-content: flex-start; margin-left: 0; }
     }
     @media (max-width: 720px), (max-height: 759px) {
       .lb-wizard-sticky { position: static; }
@@ -1987,8 +1999,8 @@
       .lb-step { padding: 6px 8px; }
       .lb-step:not(.active) { font-size: 0; gap: 0; }
     }
-    .lb-pane { scroll-margin-top: 190px; }
-    .lb-pane h3 { scroll-margin-top: 190px; }
+    .lb-pane { scroll-margin-top: 150px; }
+    .lb-pane h3 { scroll-margin-top: 150px; }
     .lb-pane h3:focus { outline: none; }
     .lb-pane h3:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 4px; }
     /* A heading that takes focus after a step (no icon in front of it any more) needs room between its text and the ring. */
@@ -2078,13 +2090,39 @@
     .lb-check-list { display: flex; flex-direction: column; gap: 6px; }
     .lb-check-option { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
     .lb-check-option input { margin: 0; accent-color: var(--accent); }
-    .lb-brand-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 14px 0; padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .lb-brand-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 20px 0 0; padding: 14px 0 0; border-top: 1px solid var(--border); }
     .lb-brand-summary { margin: 0; font-size: 14px; }
     .lb-capture-on-build-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
     .lb-capture-on-build-label[hidden], .lb-capture-on-build-status:empty { display: none; }
     .lb-capture-on-build-label input { margin-top: 3px; accent-color: var(--accent); }
     .lb-capture-on-build-help { display: block; font-size: 13px; color: var(--text-muted); }
     .lb-sharepoint-site-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
+    /* ── Lab builder: inside a step, no box sits in another box ──
+       A step is one container. Its groups are told apart by headings, hairlines, and space. A box stays only where it is a
+       real choice (an option card, a module row) or has to stand out (an error, a confirm, a build waiting on a decision). */
+    .lb-pane .lb-mine { margin: 20px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; }
+    .lb-pane .lb-mine > summary { padding: 12px 0; }
+    .lb-pane .lb-mine-body { padding: 0 0 8px; }
+    .lb-pane .lb-topic-help { margin: 0 0 8px; border: 0; border-radius: 0; background: none; }
+    .lb-pane .lb-topic-help > summary { padding: 4px 0; color: var(--link-color); }
+    .lb-pane .lb-topic-help-body { padding: 4px 0 8px; }
+    .lb-pane .lb-quiz-optin-card { margin: 20px 0 0; padding: 16px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; }
+    .lb-pane .lb-ai-card { margin: 0; padding: 12px 0 0; border: 0; border-radius: 0; background: none; }
+    .lb-pane .lb-sharepoint-site-card { margin: 20px 0 0; padding: 16px 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: none; }
+    .lb-pane .lb-sharepoint-site-preview { padding: 0; border: 0; border-radius: 0; background: none; }
+    .lb-pane .lb-customize-card { margin: 0; padding: 16px 0 0; border: 0; border-radius: 0; background: none; }
+    .lb-pane .lb-capture-on-build-opt { margin: 16px 0 0; padding: 0; border: 0; background: none; }
+    .lb-pane .lb-advanced { margin-top: 16px; }
+    /* The numbers on a product card read as one quiet line, not as boxes inside the card. */
+    .lb-product-stats { gap: 2px; }
+    .lb-product-stats .lb-stat-chip,
+    .lb-product-stats .lb-stat-chip-total { padding: 0; border: 0; border-radius: 0; background: none; color: var(--text-muted); font-size: 13px; }
+    .lb-product-stats .lb-stat-chip strong,
+    .lb-product-stats .lb-stat-chip-total strong { color: var(--text); font-size: 13px; }
+    .lb-product-stats .lb-stat-chip-total strong { font-size: 15px; }
+    .lb-product-stats .lb-stat-level-grid { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+    .lb-product-stats .lb-stat-level-grid .lb-stat-chip-level { flex-direction: row; align-items: baseline; gap: 6px; padding: 0; }
+    .lb-product-stats .lb-stat-level-label { color: var(--text-muted); }
     @media (max-width: 560px) {
       .lb-segmented { grid-template-columns: 1fr; }
       .lb-seg-option { border-left: 0; border-top: 1px solid var(--border); }
@@ -2280,7 +2318,6 @@
       display: block;
       margin-top: 7px;
       padding: 5px 9px;
-      border-left: 3px solid var(--lb-reason-border);
       border-radius: 4px;
       background: var(--lb-reason-bg);
       color: var(--lb-reason-text);
@@ -2454,8 +2491,11 @@
     .lb-advanced summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0; }
     .lb-advanced summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
 
-    /* ── Lab builder: previously generated labs ── */
-    .lb-generated-section { padding: 0; overflow: hidden; }
+    /* ── Lab builder: saved drafts and previously generated labs ──
+       Two quiet rows under the wizard, each opening in place. They are lists to look things up in, so they are not cards. */
+    .lb-generated-section { margin: 0; padding: 0; border-top: 1px solid var(--border); }
+    .lb-generated-section + .lb-generated-section { border-bottom: 1px solid var(--border); }
+    #lb-result-panel + .lb-generated-section { margin-top: 28px; }
     .lb-generated-details { width: 100%; }
     .lb-gen-summary {
       list-style: none;
@@ -2464,14 +2504,16 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 18px 24px;
+      padding: 14px 4px;
+      margin: 0 -4px;
       user-select: none;
       transition: background var(--dur-fast) ease;
     }
     .lb-gen-summary::-webkit-details-marker { display: none; }
     .lb-gen-summary:hover { background: var(--surface-hover); }
+    .lb-gen-summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: -3px; }
     .lb-gen-summary-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .lb-gen-summary-title h3 { margin: 0; }
+    .lb-gen-summary-title h3 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 600; letter-spacing: -0.005em; }
     .lb-gen-badge { font-size: 12px; padding: 2px 9px; border-radius: 999px; }
     .lb-gen-summary-chevron {
       color: var(--text-muted);
@@ -2479,13 +2521,12 @@
       transition: transform var(--dur-fast) ease;
       flex-shrink: 0;
     }
-    .lb-generated-details[open] > .lb-gen-summary {
-      border-bottom: 1px solid var(--border);
-    }
     .lb-generated-details[open] .lb-gen-summary-chevron {
       transform: rotate(90deg);
     }
-    .lb-gen-body { padding: 18px 24px 24px; }
+    .lb-gen-body { padding: 4px 4px 24px; }
+    .lb-gen-intro { margin: 0 0 12px; max-width: 75ch; color: var(--text-muted); font-size: 14px; line-height: 1.55; }
+    .lb-gen-header .lb-gen-intro { margin: 0; flex: 1 1 320px; }
     .lb-gen-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
     .lb-gen-header h3 { margin: 0; }
 
@@ -2502,11 +2543,9 @@
       100% { transform: translateX(260%); }
     }
     .lb-generating-card {
-      margin-top: 18px;
-      padding: 18px 20px;
-      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-      border-radius: 10px;
-      background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+      margin-top: 20px;
+      padding: 16px 0 0;
+      border-top: 1px solid var(--border);
     }
     .lb-generating-card[hidden] { display: none; }
     .lb-generating-header {
@@ -2581,27 +2620,21 @@
       padding: 0;
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 8px;
-      font-size: 12px;
+      gap: 4px 16px;
+      font-size: 13px;
     }
     .lb-gen-stage {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--surface);
+      padding: 4px 0;
       color: var(--text-muted);
     }
     .lb-gen-stage.active {
-      border-color: var(--accent);
       color: var(--text);
       font-weight: 600;
-      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
     }
     .lb-gen-stage.done {
-      border-color: color-mix(in srgb, var(--success) 55%, var(--border));
       color: var(--text);
     }
     .lb-gen-stage-dot {
@@ -2622,9 +2655,9 @@
       color: var(--accent-contrast);
     }
     .lb-gen-stage.done .lb-gen-stage-dot {
-      background: var(--success);
-      border-color: var(--success);
-      color: var(--success-contrast);
+      background: color-mix(in srgb, var(--accent) 24%, var(--surface));
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      color: var(--text);
     }
 
     /* ── Interactive multi-page lab pagination (portal viewers) ── */
@@ -3268,20 +3301,29 @@
     .lb-admin-note { margin: 0; font-size: 13px; color: var(--text-muted); }
     .lb-prereq-dialog { max-width: min(980px, calc(100vw - 32px)); }
     .lb-prereq-frame { display: block; width: 100%; height: min(62vh, 680px); border: 1px solid var(--border); border-radius: 8px; background: #fff; }
-    .lb-edit-banner { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(79, 143, 247, 0.1); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
     .lb-save-mode { margin: 16px 0 0; }
-    .lb-capture-on-build-opt { margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
+    .lb-capture-on-build-opt { margin: 16px 0 0; }
+
+    /* ── Lab builder: the status slot ──
+       Start over, unsaved work, editing a lab, a resumed draft, and the draft status share one place above the step.
+       The first one that has something to say is shown; the rest wait their turn, so there is never a stack of banners.
+       They are listed in the page in that order of importance. Hidden ones stay in the page for assistive technology. */
+    .lb-status-slot > .lb-status:not([hidden]) { margin: 0 0 16px; }
+    .lb-status-slot > :not([hidden]):not(:empty) ~ :not([hidden]) { display: none; }
+    .lb-status { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 14px; line-height: 1.5; scroll-margin-top: calc(var(--lb-header-h, 68px) + 120px); }
+    .lb-edit-banner { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; justify-content: space-between; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
     .lb-edit-banner[hidden], .lb-gen-toolbar[hidden] { display: none; }
 
     /* ── Lab builder: saved drafts ── */
-    .lb-draft-status { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); min-height: 0; }
+    .lb-draft-status { color: var(--text-muted); font-size: 13px; min-height: 0; }
     .lb-draft-status:empty { display: none; }
     .lb-draft-banner-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
-    .lb-draft-notice { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--bg); font-size: 13px; }
     .lb-draft-notice[hidden] { display: none; }
     .lb-draft-notice p { margin: 0 0 6px; }
+    .lb-draft-notice p:last-child { margin-bottom: 0; }
     .lb-draft-notice ul { margin: 6px 0; padding-left: 20px; }
-    .lb-draft-notice-warn { border-left-color: var(--warning); }
+    .lb-draft-notice .btn { margin-top: 4px; }
+    .lb-draft-notice-warn { border-color: var(--warning); }
     .lb-draft-built { margin-left: 6px; }
     /* ── Lab builder: Screenshot Center and "Finish your lab" checklist ── */
     .sc-center {
@@ -5521,12 +5563,16 @@
     .rh-pairing { margin-top: 10px; }
     .rh-pairing:empty { display: none; }
     .rh-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .rh-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+    /* The first-run banner is one slim line above the page title, not a card: what is still to do, and two quiet links. */
+    .rh-banner { margin: 0 0 16px; padding: 0 0 12px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; font-size: 13px; line-height: 1.5; }
     .rh-banner[hidden] { display: none; }
     .rh-banner-copy { flex: 1 1 320px; min-width: 0; }
-    .rh-banner-title { margin: 0 0 2px; font-size: 15px; }
-    .rh-banner-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
-    .rh-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rh-banner-title { display: inline; margin: 0 8px 0 0; font-size: 13px; font-weight: 600; color: var(--text); }
+    .rh-banner-text { display: inline; margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+    .rh-banner-actions { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+    .rh-banner-actions .btn { min-height: 0; padding: 2px 4px; border: 0; background: none; color: var(--link-color); font-size: 13px; font-weight: 600; text-decoration: underline; }
+    .rh-banner-actions .btn:hover { background: none; color: var(--accent-hover); }
+    .rh-banner-actions .btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; border-radius: 4px; }
     @media (max-width: 560px) {
       .rh-actions, .rh-banner-actions { width: 100%; }
       .rh-row { padding: 10px; }
@@ -5684,6 +5730,7 @@
       }
 
       body[data-print-target="generated"] #panel-labbuilder > .panel:not(#lb-result-panel),
+      body[data-print-target="generated"] #panel-labbuilder > .lb-page-head,
       body[data-print-target="generated"] #lb-wizard-stage,
       body[data-print-target="generated"] #panel-labbuilder > section,
       body[data-print-target="generated"] #lb-result-heading,
@@ -6254,15 +6301,15 @@
                 <button type="button" class="btn btn-sm" id="rh-banner-dismiss">Dismiss</button>
               </div>
             </section>
-            <div class="panel">
+            <div class="lb-page-head">
               <h3 id="lb-build-heading" tabindex="-1">Build a Custom Lab</h3>
-              <p class="lb-build-lead" style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
+              <p class="lb-build-lead">
                 Every module is checked against Microsoft Learn, and times are estimates, never limits.
               </p>
             </div>
 
             <div class="lb-wizard-stage" id="lb-wizard-stage">
-              <div class="panel lb-wizard-sticky" id="lb-wizard-sticky">
+              <div class="lb-wizard-sticky" id="lb-wizard-sticky">
                 <nav aria-label="Lab builder steps">
                   <ol class="lb-steps" id="lb-steps">
                     <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Product</button></li>
@@ -6281,33 +6328,36 @@
                     <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Tailor it →</button>
                   </div>
                 </div>
-                <div id="lb-start-over-confirm" class="lb-edit-banner" role="group" aria-labelledby="lb-start-over-confirm-text" onkeydown="if (event.key === 'Escape') lbCancelStartOver()" hidden>
+              </div>
+              <p id="lb-draft-announce" class="sr-only" role="status" aria-live="polite"></p>
+              <!-- One status slot: whichever of these comes first and has something to say is shown, and the rest wait (see .lb-status-slot in the styles). -->
+              <div class="lb-status-slot" id="lb-status-slot">
+                <div id="lb-start-over-confirm" class="lb-status lb-edit-banner" role="group" aria-labelledby="lb-start-over-confirm-text" onkeydown="if (event.key === 'Escape') lbCancelStartOver()" hidden>
                   <span id="lb-start-over-confirm-text"><strong>Start over?</strong> This clears your choices. Your saved drafts are kept.</span>
                   <span class="lb-draft-banner-actions">
                     <button type="button" class="btn btn-sm" id="lb-start-over-yes" onclick="lbConfirmStartOver()">Start over</button>
                     <button type="button" class="btn btn-sm" id="lb-start-over-keep" onclick="lbCancelStartOver()">Keep working</button>
                   </span>
                 </div>
-                <p id="lb-draft-status" class="lb-draft-status" role="status" aria-live="polite"></p>
-                <p id="lb-draft-announce" class="sr-only" role="status" aria-live="polite"></p>
-                <div id="lb-edit-banner" class="lb-edit-banner" hidden>
-                  <span id="lb-edit-banner-text"></span>
-                  <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
-                </div>
-                <div id="lb-unsaved-banner" class="lb-edit-banner" role="region" aria-label="Unsaved work" hidden>
+                <div id="lb-unsaved-banner" class="lb-status lb-edit-banner" role="region" aria-label="Unsaved work" hidden>
                   <span id="lb-unsaved-banner-text"></span>
                   <span class="lb-draft-banner-actions">
                     <button type="button" class="btn btn-sm btn-primary" id="lb-unsaved-resume" aria-label="Resume your unsaved work">Resume</button>
                     <button type="button" class="btn btn-sm" id="lb-unsaved-discard" aria-label="Discard your unsaved work">Discard</button>
                   </span>
                 </div>
-                <div id="lb-draft-notice" class="lb-draft-notice" role="region" aria-label="Resumed draft" hidden></div>
+                <div id="lb-edit-banner" class="lb-status lb-edit-banner" hidden>
+                  <span id="lb-edit-banner-text"></span>
+                  <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
+                </div>
+                <div id="lb-draft-notice" class="lb-status lb-draft-notice" role="region" aria-label="Resumed draft" hidden></div>
+                <p id="lb-draft-status" class="lb-status lb-draft-status" role="status" aria-live="polite"></p>
               </div>
 
             <!-- Step 1: product -->
             <div class="panel lb-pane" id="lb-pane-1">
               <h3 id="lb-heading-1" tabindex="-1">Step 1 of 4: Which products is this lab about?</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+              <p class="lb-step-lead">
                 Choose one or more products to include in this lab — for example, SharePoint AI on its own or combined with Copilot Studio.
               </p>
               <fieldset class="lb-fieldset">
@@ -6729,7 +6779,7 @@
               <div id="lb-result-body" class="lb-result-body"></div>
             </div>
 
-            <section class="panel lb-generated-section" id="lb-drafts-section" aria-labelledby="lb-drafts-heading">
+            <section class="lb-generated-section" id="lb-drafts-section" aria-labelledby="lb-drafts-heading">
               <details class="lb-generated-details" id="lb-drafts-details">
                 <summary class="lb-gen-summary">
                   <span class="lb-gen-summary-title">
@@ -6739,7 +6789,7 @@
                   <span class="lb-gen-summary-chevron" aria-hidden="true">▸</span>
                 </summary>
                 <div class="lb-gen-body">
-                  <p style="color: var(--text-muted); margin: 0 0 12px; font-size: 14px;">
+                  <p class="lb-gen-intro">
                     A draft is a lab you have only partly set up. Choose <strong>Save and finish later</strong> on any step to keep every choice you have made so far,
                     then pick it up again here with <strong>Resume</strong>. A draft stays until you delete it. Building a lab from a resumed draft marks the draft as Built and keeps it.
                   </p>
@@ -6786,7 +6836,7 @@
               </dialog>
             </section>
 
-            <section class="panel lb-generated-section" aria-labelledby="lb-generated-heading">
+            <section class="lb-generated-section" aria-labelledby="lb-generated-heading">
               <details class="lb-generated-details" id="lb-generated-details">
                 <summary class="lb-gen-summary">
                   <span class="lb-gen-summary-title">
@@ -6797,7 +6847,7 @@
                 </summary>
                 <div class="lb-gen-body">
                   <div class="lb-gen-header">
-                    <p style="color: var(--text-muted); margin: 0; font-size: 14px;">
+                    <p class="lb-gen-intro">
                       Open, download per-topic Word (.docx) and PowerPoint (.pptx) files named per lab, export per-module Lab ZIPs (.docx, .pptx, .pdf, .html, or all formats with sample files), download multi-page HTML or Markdown, print/save as PDF, validate, edit selections and rebuild, rename, or delete a generated lab.
                       These are labs you built here; the hand-written labs are never changed.
                     </p>

@@ -202,13 +202,15 @@ arrow, Home, and End keys move among the tabs of the current area.
 
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the portal; it lands on **Build a Lab**.
-3. Work through four steps, in this order. A persistent line, **Your lab so far**, and a
-   four-item step list stay at the top, so you always see where you are:
+3. Work through four steps, in this order. The page is one frame: a single title row, a wizard
+   header that stays at the top (the four-item step list, the persistent line **Your lab so far**,
+   and the navigation), and one card for the current step, so you always see where you are and
+   where to look. See [How the page is laid out](#how-the-page-is-laid-out).
    1. **Product** (one or more). Nothing is pre-selected on load: pick the product(s)
       you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
-      together. Use **Start over** in the summary bar (or **Start new lab** under
+      together. Use **Start over** in the wizard header (or **Start new lab** under
       *Previously generated labs*) at any time to clear your selections and start fresh.
-      **Start over** asks first, right in the summary bar: *Start over? This clears your
+      **Start over** asks first, in the status area above the step: *Start over? This clears your
       choices. Your saved drafts are kept.* with **Start over** and **Keep working**
       (Esc also closes it). Nothing is cleared, and the autosave copy is left alone, until
       you confirm. It only clears the wizard: it never deletes a saved draft or a generated
@@ -360,14 +362,14 @@ arrow, Home, and End keys move among the tabs of the current area.
         the build runs. A lab opened with **Edit selections** also asks here whether to save a
         new lab or replace the original.
 
-   The step list and the **Your lab so far** summary bar stay pinned at the top of
+   The step list and the **Your lab so far** line make up the wizard header. It stays pinned at the top of
    every wizard step on a large screen, so you can always see what will be generated.
-   The summary bar appears once you have chosen a product (until then the step list
+   The summary line appears once you have chosen a product (until then the step list
    stands alone, and **Save and finish later** waits for a product too). **Your lab so far**
    names your product first; once you have seen **Tailor
    it** it also names the industry, departments, level, and harness that are selected
    (defaults included), and when you go back to an earlier step it adds the topic count and
-   time estimate. On **Topics** and **Review and build** the bar leaves out what the
+   time estimate. On **Topics** and **Review and build** the line leaves out what the
    screen already says (the topic count and time, the quiz choice, the SharePoint site, and the brand),
    and a brand chip shows only for a profile other than the built-in Default. On a phone the step list
    keeps one row: each step shows its number, and the current one also shows its name. You can jump back to any step you
@@ -394,7 +396,7 @@ arrow, Home, and End keys move among the tabs of the current area.
 
    Each wizard step has one **Back** and one primary button (**Next**, or **Build my lab** on
    the last step), in the step footer, which stays at the bottom of the screen while the step is in view. The
-   summary bar at the top repeats them only when the footer is out of view, so you never
+   wizard header repeats them only when the footer is out of view, so you never
    see the same button twice. A lab that is open in the result panel also lists its
    download, print, and validate actions only there, not again in its
    **Previously generated labs** row. The topic groups in the Topics step are separated by thin
@@ -419,9 +421,36 @@ finished markdown appears with a download button and a record of any decisions.
 After the build, **Finish your lab** at the top of the result lists the next steps (customize, capture screenshots,
 check against Microsoft Learn, download) with one button for each, and only the next step to do is a primary button.
 
+### How the page is laid out
+
+The **Build a Lab** tab keeps to one frame, so there is always one obvious place to look:
+
+1. **One title row.** **Build a Custom Lab** and one line about it. On a first visit, one slim
+   **Set up your portal for your company** line sits above it (see [First-time setup](#first-time-setup)); it is
+   a single line with two links, not a card, and it shows only while it applies.
+2. **One wizard header.** The four steps, **Your lab so far**, and the navigation (**Save and finish later**,
+   **Start over**, **Back**, **Next**) are one compact area on the page itself, with a thin rule under it. It is not a card.
+3. **One status area.** Above the step, one message at a time, the most important first: the **Start over** question,
+   an offer of unsaved work (**Resume** or **Discard**), the notice that you are editing a saved lab (**Stop editing this lab**),
+   a resumed-draft notice (with **Dismiss**), then the plain draft status (for example *Saved*). While a more important
+   message is showing, a plain status is still read aloud by a screen reader and shown as a short toast, so a result such as
+   *Saved* is never lost. All of them keep their own labels and polite live regions.
+4. **One step card.** The current step is the only card. Inside it, groups are separated by headings, thin rules,
+   and space, not by boxes. A box stays only where it groups a real choice (a product, a level, a harness, a module
+   to tick) or has to stand out (an error, a warning, a question the build needs answered). Optional and rarely used
+   choices sit behind a native disclosure that is closed by default (*Add another Microsoft product*, *How suggestions
+   work*, *More ways to add topics*, *Advanced options*).
+5. **Two quiet rows.** **Saved drafts** and **Previously generated labs** are collapsed rows under the wizard, not cards.
+   After a build, the finished lab opens in its own card under the step.
+
+`portal/test/lab-builder-containers-browser.test.js` counts the boxes a person can see in every step, in both themes,
+at 1440 and 360 wide, and in the common states (first visit, start over, editing a lab, unsaved work, a resumed
+draft, a build running, a build finished). It fails when the page shows more than one step card, more than one status
+message, any other top-level box, or a box inside the step that is not a choice or a warning.
+
 ### Save your progress and resume later
 
-You do not have to finish a lab in one sitting. **Save and finish later** sits in the summary bar at the top of
+You do not have to finish a lab in one sitting. **Save and finish later** sits in the wizard header at the top of
 every step (and **Ctrl+S**, or **Command+S**, does the same while focus is inside the wizard). It keeps the whole
 partly configured lab as a named **draft**, and **Saved drafts** (next to *Previously generated labs*, collapsed by
 default with a live count) brings it back exactly as you left it.
@@ -441,7 +470,7 @@ it builds a new lab.
 **Resuming.** Each draft in **Saved drafts** shows its name, products, level, how far it got (for example *Step 3 of 4: Topics*),
 the number of topics, and when it was saved, with **Resume**, **Rename**, **Duplicate**, and **Delete** (which asks first). Empty
 state: *No saved drafts yet.* **Resume** opens the wizard on the step you left, with every choice restored, including each sub-topic
-check, the order, and the removed modules, and moves keyboard focus to that step's heading. A notice under the summary bar says
+check, the order, and the removed modules, and moves keyboard focus to that step's heading. A notice in the status area above the step says
 where you are, and a screen reader hears it too. If the wizard holds choices that are not saved, Resume asks before it replaces
 them. Going back and forth works as usual. The draft stays until you delete it. **Save and finish later** on a resumed draft
 updates that draft (or offers **Save as a new draft**).
@@ -484,9 +513,9 @@ The draft routes are listed in the [API](#api) table.
 
 ### First-time setup
 
-The first time you open the portal, a short banner at the top of **Build** reads **Set up your portal for your company**
+The first time you open the portal, one slim line above the page title in **Build** reads **Set up your portal for your company**
 and opens the **Setup checklist**, the first card in **Settings > Configuration**. Everything on the checklist is
-optional: you can build a lab at any time and come back later. The banner goes away on its own once its three
+optional: you can build a lab at any time and come back later. The line goes away on its own once its three
 recommended steps are done, or when you select **Dismiss** (the portal remembers that in your browser).
 
 The recommended order is:
@@ -3818,7 +3847,7 @@ that does not pick a profile follow the **active** profile.
   the company, tagline, more-information link and label, support contact, and footer
   for this lab only, and watch the cover preview. Leave a field blank to inherit the
   profile value. If the profile has a default SharePoint site, Review and build pre-fills the
-  SharePoint site fields from it (a site you enter always wins). The wizard summary bar
+  SharePoint site fields from it (a site you enter always wins). The wizard summary line
   also shows a **Brand: <profile>** chip for a profile other than the built-in Default, on the steps before Review and build.
 - **Previously generated labs → Open → Customize this lab (branding).** Change the
   profile or overrides of a saved lab, then **Update from profile** or **Reset to
@@ -5106,6 +5135,9 @@ the Saved drafts panel and its dialogs, focus and announcements, autosave and th
 Built. `portal/test/lab-builder-drafts-browser.test.js` configures a lab in headless Chromium against a throwaway server (no language
 model, no Microsoft Learn), saves, reloads, resumes, checks every choice, and builds (it skips itself when Playwright or Chromium is
 missing; set `DRAFTS_DEMO_DIR` to also save screenshots of each moment).
+`portal/test/lab-builder-containers-browser.test.js` keeps the Build a Lab tab to one frame: it counts the visible boxes in every
+step and state in headless Chromium (light and dark, 1440 and 360 wide) and checks that the status area shows one message at a time
+(it skips itself when Playwright or Chromium is missing).
 
 The monthly catalog check is tested with the rest of the accuracy tooling:
 
