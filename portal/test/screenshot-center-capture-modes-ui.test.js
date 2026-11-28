@@ -1221,9 +1221,7 @@ test("the background option is a labeled checkbox outside the mode group, off by
   assert.ok(box, "the checkbox exists");
   assert.equal(box.checked, false);
   assert.equal(h.center().querySelector("fieldset.sc-mode #sc-run-background"), null, "it is not one of the modes");
-  assert.equal(h.center().querySelector('label[for="sc-run-background"]').textContent, "Run in the background when already signed in");
-  assert.match(h.center().querySelector("#sc-run-background-help").textContent, /hidden window uses your saved sign-in/);
-  assert.equal(box.getAttribute("aria-describedby"), "sc-run-background-help");
+  assert.equal(h.center().querySelector('label[for="sc-run-background"]').textContent, "Hide the browser window while capturing");
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
   await h.click(h.action("primary-capture-missing"));
   assert.equal(h.jobBodies()[0].options.background, undefined, "nothing is sent unless it is ticked");
@@ -1233,6 +1231,87 @@ test("the background option is a labeled checkbox outside the mode group, off by
   ticked.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
   await ticked.click(ticked.action("primary-capture-missing"));
   assert.equal(ticked.jobBodies()[0].options.background, true);
+});
+
+test("next to the background checkbox, plain sentences say what happens checked and not checked, and the checkbox points at them", async () => {
+  const h = await ready(stateFor([shot({ filename: "a.png" })]));
+  const box = h.center().querySelector("#sc-run-background");
+  assert.equal(box.getAttribute("aria-describedby"), "sc-run-background-help sc-run-background-now");
+  const help = h.center().querySelector("#sc-run-background-help");
+  assert.ok(help, "the explanation exists under the id the checkbox points at");
+  const [checked, unchecked, either] = help.querySelectorAll("p").map((p) => p.textContent);
+  assert.match(checked, /^Checked: works in the background when you are already signed in\. Your computer reuses your saved sign-in and shows no browser window, so you can keep using it\./);
+  assert.match(checked, /If you are not signed in yet, or Microsoft asks you to sign in again, a window opens\.$/);
+  assert.match(unchecked, /^Not checked: a browser window opens and stays open while it captures\. You can watch each screen and sign in if asked\.$/);
+  assert.match(either, /^Either way the same screens are captured at the same size\. Screens you set up yourself \(Retake guided\) always open a window\.$/);
+  assert.ok(h.center().querySelector("#sc-run-background-now"), "the second description exists too");
+  assert.equal(h.center().querySelector("#sc-run-background-now").textContent.startsWith("Next capture: "), true);
+});
+
+test("the Next capture line follows the box, the chosen mode, and which products the computer is already signed in to", async () => {
+  const state = stateFor([shot({ filename: "a.png", product: "copilot-studio" }), shot({ filename: "b.png", product: "sharepoint-ai" })]);
+  const now = (h) => h.text("#sc-run-background-now");
+  const withSignedIn = async (signedIn) => {
+    const h = makeHarness();
+    h.status = statusPayload({ devices: [device()] });
+    h.status.companion.signedInProducts = signedIn;
+    await h.run("scLoadStatus")(true);
+    await h.render(state);
+    return h;
+  };
+
+  const h = await withSignedIn(["copilot-studio", "sharepoint-ai"]);
+  assert.equal(now(h), "Next capture: a browser window opens on your computer.", "off: a window opens");
+  h.choose(h.center().querySelector("#sc-run-background"));
+  assert.equal(now(h), "Next capture: no browser window. Your computer has a saved sign-in for Copilot Studio and SharePoint AI.");
+  assert.equal(h.center().querySelector("#sc-run-background").checked, true, "the box keeps its state after the line updates");
+
+  const some = await withSignedIn(["copilot-studio"]);
+  some.choose(some.center().querySelector("#sc-run-background"));
+  assert.equal(now(some), "Next capture: a browser window opens so you can sign in to SharePoint AI. The rest runs in the background.");
+
+  const none = await withSignedIn([]);
+  none.choose(none.center().querySelector("#sc-run-background"));
+  assert.equal(now(none), "Next capture: a browser window opens so you can sign in to Copilot Studio and SharePoint AI. After that, captures can run in the background.");
+
+  none.choose(none.center().querySelector("#sc-mode-guided"));
+  assert.equal(now(none), "Next capture: a browser window opens, because you set up each screen yourself.", "setting up screens yourself always needs a window");
+
+  const offline = makeHarness();
+  await offline.render(state);
+  offline.choose(offline.center().querySelector("#sc-run-background"));
+  assert.equal(now(offline), "Next capture: no window if you are already signed in. If not, a window opens so you can sign in.");
+});
+
+test("a screen you set up yourself never asks for a hidden window, even when the box is ticked", async () => {
+  const state = stateFor([shot({ filename: "a.png" })]);
+  const body = async (act) => {
+    const h = await ready(state);
+    h.choose(h.center().querySelector("#sc-run-background"));
+    h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
+    await act(h);
+    return h.jobBodies()[0].options;
+  };
+  assert.equal((await body((h) => h.run("scRetakeShot")(LAB, "a.png", { mode: "guided" }))).background, undefined, "Retake guided opens a window");
+  assert.equal((await body((h) => h.run("scRetakeShot")(LAB, "a.png", { mode: "guided", record: { share: false } }))).background, undefined, "Show me once opens a window");
+  assert.equal((await body(async (h) => { h.choose(h.center().querySelector("#sc-mode-guided")); await h.click(h.action("primary-capture-missing")); })).background, undefined, "the I will set up each screen mode opens a window");
+  assert.equal((await body((h) => h.run("scRetakeShot")(LAB, "a.png"))).background, true, "an ordinary retake still runs hidden");
+  assert.equal((await body(async (h) => { h.choose(h.center().querySelector("#sc-mode-smart")); await h.click(h.action("primary-capture-missing")); })).background, true, "Smart keeps the choice");
+});
+
+test("a running or stalled capture says what the window is doing when the background option was on", () => {
+  const h = makeHarness();
+  const describe = (job) => json(h.run("scDescribeJob")(job));
+  const running = (options, rows = [["a.png", "running"]]) => jobWith(rows, { status: "running", options: { mode: "autonomous", ...options } });
+  assert.equal(describe(running({})).detail, "Keep the browser window your computer opened until this finishes.", "a visible run still says to keep its window");
+  assert.equal(describe(running({ background: true })).detail, "In the background, your computer uses your saved sign-in and shows no window, so you can keep using it. A window opens only if a product needs you to sign in.");
+  assert.doesNotMatch(describe(running({ background: true })).detail, /Keep the browser window/);
+
+  const stalled = [["a.png", "auth-required"]];
+  assert.match(describe(running({}, stalled)).detail, /^A browser window should be open on your computer\. Sign in there\./);
+  const hidden = describe(running({ background: true }, stalled)).detail;
+  assert.match(hidden, /If no window opened, the capture was running in the background and could not ask you: turn off Hide the browser window, then retake\./);
+  assert.match(hidden, /^If a browser window opened on your computer, sign in there/);
 });
 
 test("the new chips, prompts, fields, groups, and review panel meet WCAG AA in the dark and light themes", () => {

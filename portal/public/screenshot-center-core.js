@@ -1558,16 +1558,21 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
       phase: "auth-required",
       tone: "warn",
       headline: "Sign-in needed on your computer",
-      detail: "A browser window should be open on your computer. Sign in there. Capture continues by itself, and any screenshot that was skipped can be retaken afterward.",
+      detail: job?.options?.background === true
+        ? "If a browser window opened on your computer, sign in there and capture continues by itself. If no window opened, the capture was running in the background and could not ask you: turn off Hide the browser window, then retake. Any screenshot that was skipped can be retaken afterward."
+        : "A browser window should be open on your computer. Sign in there. Capture continues by itself, and any screenshot that was skipped can be retaken afterward.",
     };
   }
   const waiting = scAddressWaiting(job);
+  const windowText = job?.options?.background === true
+    ? "In the background, your computer uses your saved sign-in and shows no window, so you can keep using it. A window opens only if a product needs you to sign in."
+    : "Keep the browser window your computer opened until this finishes.";
   return {
     ...base,
     phase: job?.status === "claimed" ? "starting" : "running",
     tone: "info",
     headline: job?.status === "claimed" ? "Your computer is getting ready" : "Capturing screenshots",
-    detail: `Keep the browser window your computer opened until this finishes.${waiting ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : ""}`,
+    detail: `${windowText}${waiting ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : ""}`,
   };
 }
 

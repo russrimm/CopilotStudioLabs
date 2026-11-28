@@ -74,6 +74,7 @@ export function createAuthGate({
   product,
   waitMs = 10 * 60 * 1000,
   allowWait = true,
+  hiddenBy = "headless",
   pollMs = 500,
   settleMs = 1500,
   graceMs = 2500,
@@ -194,7 +195,9 @@ export function createAuthGate({
 
   async function waitThroughSignIn(page, info) {
     if (state.failed) return { ok: false, status: "auth-required", code: state.failed.code, error: state.failed.message, diagnosis: state.failed.diagnosis };
-    if (!allowWait) return fail("headless", `${label} needs a sign-in, but this companion was started with --headless, which cannot ask for one.`);
+    if (!allowWait) return fail("headless", hiddenBy === "background"
+      ? `${label} needs a sign-in, but its browser window is hidden (you chose Hide the browser window), so nothing could ask you. Turn that option off and retake: a window opens and you can sign in.`
+      : `${label} needs a sign-in, but this companion was started with --headless, which cannot ask for one.`);
     if (loop().detected) return failWith("ping-pong", `The browser kept bouncing between ${label} and the sign-in page.`, page);
     if (state.episodes >= maxEpisodes) return failWith("loop", `The browser kept returning to the sign-in page for ${label}.`, page);
     if (state.signedIn && state.signedIn.target === state.target && state.clockMs - state.signedIn.atMs < bounceMs) {
