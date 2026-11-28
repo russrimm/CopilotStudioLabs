@@ -4166,12 +4166,44 @@ The Product step ends with **Add another Microsoft product from Microsoft Learn*
 six reviewed ones needs no code or catalog edit. Pick one of 19 documentation hubs from the picklist
 (`product-picklist.json`: Power Automate, Power Apps, Power BI, Microsoft Fabric, Microsoft Purview, three Dynamics 365 products,
 the Teams platform, Entra Agent ID, five Azure AI services, Azure AI Bot Service, Semantic Kernel, and Microsoft Agent
-Framework; every root was confirmed to exist through the Learn MCP server on 2026-11-20), or search Learn and choose
-where the product's documentation starts (each path prefix of the result's address is offered). A documentation hub
+Framework; every root was confirmed to exist through the Learn MCP server on 2026-11-20), or search Learn. A documentation hub
 that overlaps a reviewed product's Learn roots is refused, and the picklist marks it as already covered. The **Choose a
 product** dropdown lists the hubs A to Z by name (case ignored, numbers by value, accents as plain letters), and a hub
 that is already added or covered stays in its alphabetical place, marked and disabled. The server sorts the picklist once
 (`sortPicklist` in `product-api.js`), so the route and the dropdown agree.
+
+**Searching Learn.** A search shows one group per documentation hub, not one row per page (`product-scopes.js`). A group is
+named for the hub, lists its matching pages as links that open in a new tab, and offers the places the product's
+documentation could start as radio buttons, widest to narrowest. Choosing a scope means "use everything under it": topic
+discovery follows only links under the chosen address, so a wider scope brings more topics from more areas and a narrower
+one fewer, more focused topics. Every option has a plain name (the reviewed hub, built-in product, or added product that it
+is, or its address read as words: `host-integration-server` is *Host Integration Server*, `sp-add-ins` is *SharePoint
+Add-ins*), one line saying what choosing it means, and its address as quiet text, so no option is ever blank. The scopes are
+the path prefixes of the result's address, at most four, shortest first. The page's own address is a scope only when it
+starts a folder (it ends with a slash, as training modules and landing pages do, or it is a single segment), never when it
+is an article, because that would add one page as a product.
+
+One option is marked **Recommended** and preselected. The rule, applied to the scopes that no product covers yet
+(`pickRecommended`):
+
+1. The shallowest scope that is a reviewed hub (an entry of `product-picklist.json`), because a reviewed hub is known to be
+   a product.
+2. Otherwise the shallowest scope that is not a one-level umbrella root. `relevance.js` lists the umbrella roots (`azure`,
+   `microsoft-365`, `dynamics365`, `power-platform`, and so on): each holds many unrelated products, so choosing one would
+   pull in topics from all of them. Going shallow first also means the deepest level, usually a folder of a few articles,
+   is never chosen over a real hub.
+3. When only umbrella roots are left, the narrowest of them; its note says that it is broad.
+
+A scope that a reviewed or added product already covers stays in the list, disabled, with "Already covered by *product*",
+and is never recommended. When every scope of a group is covered (every `/sharepoint` page, because SharePoint AI features
+covers `/sharepoint`), the group says so in one sentence and offers no button. Groups with a choice come first, in the order
+Learn ranked them; groups with nothing to add come last.
+
+Results whose first path segment is not product documentation are not listed: Microsoft Q&A threads (`/answers`), training
+modules and learning paths (`/training`), community posts, events, shows, code samples, certifications, profiles,
+collections, assessments, and support lifecycle pages. One quiet line says how many were left out, for example "Hidden: 2
+results that are not product documentation (Microsoft Q&A threads, training modules and learning paths)." The add route
+refuses those addresses as well. Add posts the chosen scope as `root`; the product's name comes from the hub page.
 
 The product is saved in `user-products.json` next to the topic caches (`LAB_BUILDER_USER_PRODUCTS` moves it; up to 10)
 as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once:
@@ -4187,8 +4219,8 @@ labs already built from it do not change.
 | Route | Purpose |
 |---|---|
 | `GET /api/lab-builder/products/picklist` | The reviewed hubs A to Z (`addedId`, `coveredBy`) and the products already added. |
-| `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn; each result lists the roots it could start from. |
-| `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 404/502 when Learn has no readable page or cannot be reached. |
+| `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn. `groups[]` (one per documentation hub: `name`, `pages[]`, `allCovered`, `coveredBy[]`, and `scopes[]` widest first, each with `root`, `label`, `path`, `kind`, `note`, `coveredBy`, `recommended`) and `hidden` (`count`, `kinds[]`) for results that are not product documentation. |
+| `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 422 for an address that is not product documentation (such as a Q&A thread or a training module); 404/502 when Learn has no readable page or cannot be reached. |
 | `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |
 
 Refresh its topic list with **Refresh from Microsoft Learn** (under **More ways to add topics**) in the Topics step (`POST /api/lab-builder/topics/refresh` with its

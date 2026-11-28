@@ -876,8 +876,11 @@ test("the product routes: picklist, search, add, refuse an overlap, and remove, 
   assert.ok(picklist.products.find((p) => p.name === "Microsoft Teams platform").coveredBy, "an overlap with a reviewed product is flagged");
 
   const found = await (await call("/api/lab-builder/products/mine/search", "POST", { query: "dynamics sales" })).json();
-  assert.equal(found.results.length, 1);
-  assert.deepEqual(found.results[0].roots.map((r) => r.root), ["https://learn.microsoft.com/dynamics365", "https://learn.microsoft.com/dynamics365/sales", "https://learn.microsoft.com/dynamics365/sales/get-started"]);
+  assert.equal(found.groups.length, 1);
+  assert.deepEqual(found.groups[0].pages.map((page) => page.title), ["Get started"]);
+  assert.deepEqual(found.groups[0].scopes.map((scope) => scope.root), ["https://learn.microsoft.com/dynamics365", "https://learn.microsoft.com/dynamics365/sales"], "the article itself is not a scope");
+  assert.deepEqual(found.groups[0].scopes.filter((scope) => scope.recommended).map((scope) => scope.root), ["https://learn.microsoft.com/dynamics365/sales"]);
+  assert.deepEqual(found.hidden, { count: 0, kinds: [] });
 
   const root = "https://learn.microsoft.com/dynamics365/sales";
   const added = await call("/api/lab-builder/products/mine", "POST", { root });
@@ -889,6 +892,12 @@ test("the product routes: picklist, search, add, refuse an overlap, and remove, 
   assert.equal((await call("/api/lab-builder/products/mine", "POST", { root })).status, 409);
   assert.equal((await call("/api/lab-builder/products/mine", "POST", { root: "https://learn.microsoft.com/copilot/plan" })).status, 409, "inside a reviewed product's documentation");
   assert.equal((await call("/api/lab-builder/products/mine", "POST", { root: "http://learn.microsoft.com/x" })).status, 400);
+  for (const address of ["https://learn.microsoft.com/answers/a/12804744", "https://learn.microsoft.com/training/modules/overview-d365-sales-professional"]) {
+    const refused = await call("/api/lab-builder/products/mine", "POST", { root: address });
+    assert.equal(refused.status, 422, `${address} is not product documentation`);
+    assert.match((await refused.json()).error, /not product documentation/);
+  }
+  assert.deepEqual(readUserProducts(file).map((p) => p.id), [product.id], "nothing was saved for a refused address");
 
   assert.equal((await call(`/api/lab-builder/products/mine/${product.id}`, "DELETE")).status, 200);
   assert.equal((await call(`/api/lab-builder/products/mine/${product.id}`, "DELETE")).status, 404);

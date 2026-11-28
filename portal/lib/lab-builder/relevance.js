@@ -78,6 +78,11 @@ const UMBRELLA_ROOTS = new Set([
   "entra",
 ]);
 
+/** True when a one-segment path root (such as `azure`) is an umbrella over many products rather than a product. */
+export function isUmbrellaRoot(segment) {
+  return UMBRELLA_ROOTS.has(String(segment || "").toLowerCase());
+}
+
 /**
  * Page kinds that answer a different question than a walk-through module asks.
  *
