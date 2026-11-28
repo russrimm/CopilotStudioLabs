@@ -225,8 +225,8 @@ test("the proof a picture carries is only what was proven, where it was, and how
   assert.equal(sanitizeHarnessProof({ ...retired, id: "standard", landmarks: ["Menu in the lower left corner", "No Open classic experience command"] }), null);
   // A 1.8.0 proof made of an agent page's own tabs is still good.
   assert.equal(sanitizeHarnessProof({ version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Build", "Preview", "Evaluate", "Monitor"], switched: false, wanted: "microsoft-copilot" })?.id, "microsoft-copilot");
-  assert.equal(HARNESS_MIN_COMPANION, "1.8.1", "the first version that proves the harness; its proofs of agent pages (the landmarks of the tab strip) stay valid in 1.8.2 and 1.8.3");
-  assert.equal(COMPANION_VERSION, "1.8.3");
+  assert.equal(HARNESS_MIN_COMPANION, "1.8.1", "the first version that proves the harness; its proofs of agent pages (the landmarks of the tab strip) stay valid in 1.8.2, 1.8.3, and 1.8.4");
+  assert.equal(COMPANION_VERSION, "1.8.4");
   // A screen outside an agent has no proof, only where it was and how it was reached.
   assert.deepEqual(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" }), { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false });
   assert.equal(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com" }), null, "how it was reached is part of the record");

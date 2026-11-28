@@ -403,6 +403,8 @@ export function describeControlForGate(element) {
     selected: element.getAttribute?.("aria-selected") === "true" || element.getAttribute?.("aria-pressed") === "true" || (Boolean(element.getAttribute?.("aria-current")) && element.getAttribute?.("aria-current") !== "false"),
     checked: element.getAttribute?.("aria-checked") === "true" || element.checked === true,
     editable: tag === "input" || tag === "textarea" || element.isContentEditable === true,
+    // A text box that shows text but does not take any (the Instructions box in view mode): marked read-only, or a plain element that is not content-editable.
+    readOnly: element.getAttribute?.("aria-readonly") === "true" || element.readOnly === true || ((explicitRole === "textbox" || explicitRole === "searchbox") && tag !== "input" && tag !== "textarea" && element.isContentEditable !== true),
     disabled: Boolean(element.disabled) || element.getAttribute?.("aria-disabled") === "true",
   };
 }

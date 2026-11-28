@@ -114,6 +114,14 @@ export function fitsArea(desc, within = "any") {
 const STRICT_AREAS = new Set(["dialog", "chat"]);
 
 /**
+ * The flag a verify step raises when its control (Save) stays disabled because the text typed is the text the product already holds (`alreadyOk`): the steps that save, and the
+ * check that the save happened, are then left out (`skipIfFlag`), and the one that leaves the editor runs (`skipUnlessFlag`). A flag lasts for one `run`.
+ */
+export const ALREADY_OK_FLAG = "already-ok";
+/** How long a disabled Save is watched, after the text was typed, before it is taken to mean "nothing changed" (a product may evaluate the change a moment after the keys). */
+const ALREADY_OK_SETTLE_MS = 1200;
+
+/**
  * The strategies that may find a text box to TYPE in. Only a name that matches (exactly, as whole words in order, or by its aria-label, title, or placeholder) counts: the
  * visible-text and the fuzzy strategies find a control "near" a word, and typing into a different box than the one a step names changes the agent (observed on a real
  * Standard agent: the Instructions editor and the Test panel both say "describe").
@@ -567,7 +575,7 @@ export function createExecutor(ctx) {
   const answerStableMs = ctx.answerStableMs ?? 900;
   // Writes are paced and counted across every executor of a job (`ctx.writeBudget` is shared), so a runaway loop cannot make changes quickly.
   const budget = ctx.writeBudget || { count: 0, max: Infinity, gapMs: 0, last: 0 };
-  const state = { chatRoot: null, lastInput: null, lenAtSend: 0, halted: null, haltKind: null, blocked: [], opened: [], observed: new Set() };
+  const state = { chatRoot: null, lastInput: null, lenAtSend: 0, halted: null, haltKind: null, blocked: [], opened: [], observed: new Set(), flags: new Set(), lastTypeUnchanged: false };
 
   /** Whether the page is inside the practice agent: its own address (environment and agent), not a page that merely mentions it. */
   const onPracticeAgent = () => {
@@ -937,6 +945,9 @@ export function createExecutor(ctx) {
         const wanted = normalize(text);
         const readBack = async () => normalize((await locator.inputValue({ timeout: 1000 }).catch(() => null)) ?? (await locator.innerText({ timeout: 1000 }).catch(() => "")));
         let lastRead = "";
+        // What the box held before this step typed: a text that is already the wanted one needs no save (the product keeps Save disabled when nothing changed).
+        const heldBefore = await readBack();
+        state.lastTypeUnchanged = false;
         const holds = async (settleMs = 0) => {
           // A rich editor can drop text that was set behind its back a moment later: look again after it had time to.
           if (settleMs) await sleep(settleMs);
@@ -946,7 +957,7 @@ export function createExecutor(ctx) {
         };
         // Keys go to whatever has the cursor: they are sent only after the cursor is in THIS box, never blindly (the box next to it could be another one).
         const cursorInBox = () => locator.evaluate((el) => el === document.activeElement || el.contains(document.activeElement), undefined, { timeout: 1000 }).catch(() => false);
-        const typedInto = { name: String(candidate.desc.name || "").slice(0, 80), role: candidate.desc.role || "", section: String(candidate.desc.section || "").slice(0, 60), inTestPane: candidate.desc.inTestPane === true, readback: "pending", length: wanted.length };
+        const typedInto = { name: String(candidate.desc.name || "").slice(0, 80), role: candidate.desc.role || "", section: String(candidate.desc.section || "").slice(0, 60), inTestPane: candidate.desc.inTestPane === true, readback: "pending", length: wanted.length, ...(candidate.desc.readOnly ? { readOnly: true } : {}) };
         candidate.attempt.typedInto = typedInto;
         record.typed = typedInto;
         let typedOk = false;
@@ -976,9 +987,13 @@ export function createExecutor(ctx) {
         if (!typedOk) {
           typedInto.readback = "mismatch";
           typedInto.found = lastRead.length;
-          return { ok: false, why: `the text did not register in the box named “${typedInto.name || "(no name)"}”${typedInto.section ? ` (in ${typedInto.section})` : ""}` };
+          const boxName = `the box named “${typedInto.name || "(no name)"}”${typedInto.section ? ` (in ${typedInto.section})` : ""}`;
+          // A box that is marked read-only was never open for typing: that is the cause, not a text that failed to register.
+          return { ok: false, why: candidate.desc.readOnly ? `${boxName} is read-only, so no text was typed in it` : `the text did not register in ${boxName}` };
         }
         typedInto.readback = "ok";
+        typedInto.unchanged = heldBefore === wanted;
+        state.lastTypeUnchanged = typedInto.unchanged;
         state.lastInput = locator;
         state.chatRoot = (await locator.evaluateHandle(chatRootInPage, undefined, { timeout: 1500 }).catch(() => null)) || state.chatRoot;
         return { ok: true, why: "the field holds the text" };
@@ -1138,6 +1153,8 @@ export function createExecutor(ctx) {
     const roles = step.target?.role ? [step.target.role] : ROLES_FOR.verify;
     const section = step.target?.section || "";
     let sawDisabled = null;
+    let disabledSince = 0;
+    let lackingOthers = false;
     for (;;) {
       let present = 0;
       for (const strategy of ["role-exact", "role-name"]) {
@@ -1159,6 +1176,12 @@ export function createExecutor(ctx) {
           // A control that must be available but is disabled is named as such (a Save button that stays off: the change did not register).
           if (step.expect?.enabled && desc.disabled) {
             sawDisabled = sawDisabled || { name: String(desc.name || "").slice(0, 60) };
+            disabledSince = disabledSince || now();
+            continue;
+          }
+          // Other controls that must be showing together with this one (Cancel and Save and the text box: the editor is open only when all of them are).
+          if (step.alsoPresent?.length && !(await presentAll(step.alsoPresent))) {
+            lackingOthers = true;
             continue;
           }
           record.strategy = strategy;
@@ -1166,13 +1189,20 @@ export function createExecutor(ctx) {
           return true;
         }
       }
-      // A "saved" proof that the product also gives by closing the editor: the control being gone counts, as the control being disabled does.
-      if (step.orGone && step.expect?.disabled && present === 0) {
+      // The control stays disabled because the text typed is the text the product already holds: nothing changed, so there is nothing to save. Later steps are told so by a flag.
+      if (step.alreadyOk && step.expect?.enabled && sawDisabled && state.lastTypeUnchanged && now() - disabledSince >= ALREADY_OK_SETTLE_MS) {
+        state.flags.add(ALREADY_OK_FLAG);
+        record.effect = step.alreadyOk;
+        return true;
+      }
+      // A "saved" proof that the product also gives by closing the editor: the control being gone counts, as the control being disabled does. A list of controls
+      // (the Edit button) must then be back on the page: a Save button that is gone because the page went elsewhere is not a save.
+      if (step.orGone && step.expect?.disabled && present === 0 && (step.orGone === true || (await presentAll(step.orGone)))) {
         record.effect = "the control is gone (the editor closed)";
         return true;
       }
       if (now() >= deadline) {
-        record.note = sawDisabled ? disabledNote(step, sawDisabled) : step.expect?.selected ? "the expected tab is not the one open" : step.expect?.disabled ? "the control is still available, so nothing was saved yet" : "the expected control is not on the page";
+        record.note = sawDisabled ? disabledNote(step, sawDisabled) : step.expect?.selected ? "the expected tab is not the one open" : step.expect?.disabled ? "the control is still available, so nothing was saved yet" : (present === 0 || lackingOthers) && step.ifMissing ? step.ifMissing : "the expected control is not on the page";
         return false;
       }
       await sleep(250);
@@ -1286,10 +1316,20 @@ export function createExecutor(ctx) {
         }
         if (!visible) continue;
         const desc = await describeLocator(item.locator);
+        // A text box counts as "there" only when it takes text: a read-only or disabled box with the same name (the Instructions box while its editor is closed) says nothing about an open editor.
+        if (desc && ["textbox", "searchbox"].includes(target.role) && (desc.readOnly || desc.disabled)) continue;
         if (desc && fitsArea(desc, target.within || "any") && (!target.section || fitsSection(desc, target.section))) return true;
       }
     }
     return false;
+  }
+
+  /** Whether EVERY control of a list is on the page (a step that must see Cancel and Save together to know an editor is open). A single target counts as a list of one. */
+  async function presentAll(targets) {
+    const list = (Array.isArray(targets) ? targets : [targets]).filter(Boolean);
+    if (!list.length) return false;
+    for (const target of list) if (!(await presentNow(target))) return false;
+    return true;
   }
 
   async function runReveal(step, record) {
@@ -1323,14 +1363,21 @@ export function createExecutor(ctx) {
       trace?.event("step-skipped-on-sign-in", { step: step.id, action: step.action });
       return record;
     }
-    if (step.skipIfPresent && (await presentNow(step.skipIfPresent))) {
+    // A step that follows a state an earlier step reached (a verify that found nothing to save) is left out, or run, by that flag.
+    if ((step.skipIfFlag && state.flags.has(step.skipIfFlag)) || (step.skipUnlessFlag && !state.flags.has(step.skipUnlessFlag))) {
+      record.status = "ok";
+      record.effect = "not needed";
+      record.ms = now() - started;
+      return record;
+    }
+    if (step.skipIfPresent && (await presentAll(step.skipIfPresent))) {
       record.status = "ok";
       record.effect = "already there";
       record.ms = now() - started;
       return record;
     }
-    // A step for a control that is not on the page is left out (the overflow menu steps when the tab is on the strip).
-    if (step.skipUnlessPresent && !(await presentNow(step.skipUnlessPresent))) {
+    // A step for a control that is not on the page is left out (the overflow menu steps when the tab is on the strip). A list of controls must all be on the page.
+    if (step.skipUnlessPresent && !(await presentAll(step.skipUnlessPresent))) {
       record.status = "ok";
       record.effect = "not needed";
       record.ms = now() - started;
@@ -1413,6 +1460,7 @@ export function createExecutor(ctx) {
   /** The plain sentence for a targeted step that failed without saying why: what the computer was looking for, and what it saw. Empty when the step has no control to name. */
   function plainFailureNote(step, record, { missing, waitedMs }) {
     if (!step.target?.name && !step.target?.alt?.length) return "";
+    if (missing && step.ifMissing) return step.ifMissing;
     const label = labelOf(step);
     if (record.ambiguous) return `${record.ambiguous.count} controls are named ${label}, so the computer did not guess which one to use`;
     if (missing) return `${label} was not on the page after waiting ${Math.max(1, Math.round(waitedMs / 1000))} seconds`;
@@ -1454,6 +1502,9 @@ export function createExecutor(ctx) {
    */
   async function run(steps) {
     attachPageGuards(page, { trace });
+    // Flags and the last typed text belong to one run: the cleanup that follows a failed run starts from nothing.
+    state.flags.clear();
+    state.lastTypeUnchanged = false;
     const records = [];
     let failed = null;
     let diagnostic = null;

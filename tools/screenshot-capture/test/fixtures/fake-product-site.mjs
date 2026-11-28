@@ -165,6 +165,14 @@ export function createFakeProductSite(options = {}) {
     editorIgnoresInput: false,
     // (realStandard) Save closes the editor instead of leaving it open with Save disabled.
     saveClosesEditor: false,
+    // (realStandard) The state a real run met (companion 1.8.3): in view mode the Instructions card ALREADY shows a text box with the editor's accessible name, read-only (aria-readonly, not
+    // contenteditable), with the Edit Instructions button and no Cancel or Save. Edit Instructions turns that box into the editor (editable) and brings up Cancel and Save.
+    // "silent": the box is not marked read-only (it looks editable) but swallows every keystroke in view mode, so nothing but typing tells it apart.
+    viewModeTextbox: false,
+    // (realStandard) The editor is open when the page loads (the older layout): the box is editable, Cancel and Save are there, and there is no Edit Instructions button.
+    editorOpenOnLoad: false,
+    // (realStandard) The practice agent already has these instructions saved (a reused practice agent).
+    savedInstructions: "",
     // (harnessMode) The Agents list draws its "More create options" button this many ms AFTER the page looks ready (a real list draws its controls 15 to 30 seconds after navigation,
     // observed 2026-11-27); the lower left "More options" button is there from the start.
     createMenuLateMs: 0,
@@ -309,8 +317,10 @@ function layoutTabs(){
 window.__layoutTabs=layoutTabs;
 window.addEventListener('resize',layoutTabs);
 function instrText(){var b=$('instr-box'); return b?String(b.innerText||'').trim():''}
-function instrChanged(){return instrText()!==String(window.__savedInstr||'').trim()}
-function closeEditor(){var e=$('instr-editor'); if(e) e.hidden=true; var b=$('r-edit-instr'); if(b) b.hidden=false; var p=$('instr-text'); if(p) p.hidden=false}
+function savedInstr(){if(window.__savedInstr==null){var c=$('instr-card'); window.__savedInstr=c?(c.getAttribute('data-saved')||''):''} return String(window.__savedInstr)}
+function instrChanged(){return instrText()!==savedInstr().trim()}
+function setBoxEditable(on){var b=$('instr-box'); if(!b||!CFG.viewModeTextbox) return; if(CFG.viewModeTextbox==='silent'){b.setAttribute('data-view',on?'0':'1'); return} b.setAttribute('contenteditable',on?'true':'false'); if(on) b.removeAttribute('aria-readonly'); else b.setAttribute('aria-readonly','true')}
+function closeEditor(){var e=$('instr-editor'); if(e) e.hidden=true; var b=$('r-edit-instr'); if(b) b.hidden=false; var p=$('instr-text'); if(p) p.hidden=false; if(CFG.viewModeTextbox){setBoxEditable(false); var bx=$('instr-box'); if(bx) bx.innerText=savedInstr()||'Add instructions to tell your agent how to respond.'}}
 document.addEventListener('click',function(e){
   var path=e.composedPath?e.composedPath():[e.target]; var t=path[0]; t=t&&t.closest?t.closest('button,a'):null; if(!t) return;
   var act=t.getAttribute('data-act'); var bot=document.body.getAttribute('data-bot')||''; var env=document.body.getAttribute('data-env')||'';
@@ -365,8 +375,7 @@ document.addEventListener('click',function(e){
   else if(act==='r-edit-instr'){
     // The card shows the editor in place of the button; the text box is NOT focused (what the real page does on open was not observed).
     var ed=$('instr-editor'); var box=$('instr-box'); if(!ed||!box) return;
-    window.__savedInstr=window.__savedInstr==null?(($('instr-text')||{}).getAttribute('data-saved')||''):window.__savedInstr;
-    box.innerText=window.__savedInstr; ed.hidden=false; t.hidden=true; var ip3=$('instr-text'); if(ip3) ip3.hidden=true; var sv=$('instr-save'); if(sv) sv.disabled=true;
+    box.innerText=savedInstr(); setBoxEditable(true); ed.hidden=false; t.hidden=true; var ip3=$('instr-text'); if(ip3) ip3.hidden=true; var sv=$('instr-save'); if(sv) sv.disabled=true;
   }
   else if(act==='r-instr-save'){
     var cur=instrText();
@@ -383,6 +392,7 @@ document.addEventListener('click',function(e){
   else if(act==='r-slink'){document.querySelectorAll('[data-act=r-slink]').forEach(function(x){x.removeAttribute('aria-current')}); t.setAttribute('aria-current','page'); var sp=$('r-settings-panel'); if(sp) sp.innerHTML='<h2>'+t.textContent+'</h2><p>Settings for '+t.textContent+'.</p>'}
 });
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true; var rm2=$('r-menu'); if(rm2) rm2.hidden=true; var cm3=$('create-menu'); if(cm3) cm3.hidden=true; var ad3=$('account-dialog'); if(ad3) ad3.hidden=true}});
+document.addEventListener('beforeinput',function(e){var t=e.target; if(t&&t.id==='instr-box'&&t.getAttribute('data-view')==='1') e.preventDefault()});
 document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false} if(t&&t.id==='instr-box'&&!CFG.editorIgnoresInput){var sb=$('instr-save'); if(sb) sb.disabled=!instrChanged()}});
 if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window.__dirty){e.preventDefault();e.returnValue=''}})}
 })();`;
@@ -397,7 +407,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     const lateJs = late ? `setTimeout(function(){${late}},${Number(lateMs) || Number(config.lateTextMs) || 600});` : "";
     const cookieHtml = config.cookieBanner ? `<script>if(document.cookie.indexOf('cookies_ok=1')<0){document.body.insertAdjacentHTML('beforeend',${JSON.stringify(cookieBanner)})}</script>` : "";
     const data = ` data-bot="${esc(agent?.id || "")}" data-env="${esc(envId)}"`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback, harnessMode: config.harnessMode, classicOpens: config.classicOpens, previewHost: FAKE_HOSTS.previewStudio, defaultEnv: FAKE_ENV_ID, editorIgnoresInput: config.editorIgnoresInput, saveClosesEditor: config.saveClosesEditor })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};if(window.__layoutTabs)window.__layoutTabs();${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback, harnessMode: config.harnessMode, classicOpens: config.classicOpens, previewHost: FAKE_HOSTS.previewStudio, defaultEnv: FAKE_ENV_ID, editorIgnoresInput: config.editorIgnoresInput, saveClosesEditor: config.saveClosesEditor, viewModeTextbox: config.viewModeTextbox })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};if(window.__layoutTabs)window.__layoutTabs();${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
   }
   function delayFor(name) {
     return Number.isFinite(config.delays[name]) ? config.delays[name] : config.defaultDelayMs;
@@ -410,6 +420,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
   const itemPanel = `<aside class="details" id="item-panel" hidden aria-label="Details"><h2 id="item-title">Details</h2><p>Name, description, and settings for this item.</p><button type="button" data-act="item-close">Close</button></aside>`;
 
   const instructionsByBot = new Map();
+  if (config.savedInstructions) instructionsByBot.set(FAKE_AGENT.id, String(config.savedInstructions));
 
   /**
    * The Standard agent page as observed on a real tenant (see `realStandard`): the facts of the Standard page (names only) that the recipes were written from.
@@ -437,6 +448,17 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     const toolDialog = `<dialog id="tool-dialog" aria-label="Add a tool"><h2>Add a tool</h2><button type="button" data-act="tool-close">Cancel</button></dialog>`;
     const card = (title, body) => `<section class="card"><h2>${title}</h2>${body}</section>`;
     const saved = instructionsByBot.get(agent.id) || "";
+    const instrName = "Describe what you want this agent to do, its tone, and rules";
+    const instrPlaceholder = "Add instructions to tell your agent how to respond.";
+    const instrToolbar = `<button type="button">Undo</button> <button type="button">Redo</button> <button type="button">Add</button> <button type="button" id="instr-cancel" data-act="r-instr-cancel">Cancel</button> <button type="button" id="instr-save" data-act="r-instr-save" disabled>Save</button>`;
+    const instrBoxStyle = "border:1px solid #475569;min-height:80px;padding:6px";
+    const openNow = config.editorOpenOnLoad;
+    // The Instructions card: by default the box and its buttons appear only after Edit Instructions; in `viewModeTextbox` the box is always there, read-only until Edit Instructions is clicked.
+    // `viewModeTextbox: "silent"`: the view-mode box is NOT marked read-only (it looks editable) but swallows every keystroke, so only what typing does can tell.
+    const viewAttrs = openNow ? ' contenteditable="true"' : config.viewModeTextbox === "silent" ? ' contenteditable="true" data-view="1"' : ' contenteditable="false" aria-readonly="true"';
+    const instructionsCard = config.viewModeTextbox
+      ? `<div id="instr-card" data-saved="${esc(saved)}"><div id="instr-box" role="textbox" aria-multiline="true" aria-label="${instrName}"${viewAttrs} style="${instrBoxStyle}">${esc(saved) || (openNow ? "" : instrPlaceholder)}</div><div id="instr-editor"${openNow ? "" : " hidden"}>${instrToolbar}</div><button type="button" id="r-edit-instr" data-act="r-edit-instr"${openNow ? " hidden" : ""}>Edit Instructions</button></div>`
+      : `<div id="instr-card" data-saved="${esc(saved)}"><p id="instr-text"${openNow ? " hidden" : ""}>${esc(saved) || instrPlaceholder}</p><button type="button" id="r-edit-instr" data-act="r-edit-instr"${openNow ? " hidden" : ""}>Edit Instructions</button><div id="instr-editor"${openNow ? "" : " hidden"}><div id="instr-box" contenteditable="true" role="textbox" aria-label="${instrName}" style="${instrBoxStyle}">${openNow ? esc(saved) : ""}</div>${instrToolbar}</div></div>`;
     const common = { agent, envId, sideNav: "", topHtml: top, testPane: false };
     const extra = `${testPanel}${publishDialog}${itemPanel}${experienceMenu()}${confirm}${toolDialog}`;
     if (onSettings) {
@@ -460,12 +482,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
         `<h1>${esc(agent.name)}</h1>` +
           card("Details", `<p>Name: ${esc(agent.name)}</p><p>Description:</p><p>Agent status: Draft</p><button type="button" data-act="danger" data-what="edit-details">Edit Details</button>`) +
           card("Model", `<button type="button" role="combobox" aria-label="Select your agent's model" aria-haspopup="listbox" aria-expanded="false" data-act="r-combo">GPT-4.1</button><div role="listbox" id="r-listbox" aria-label="Models" hidden><div role="option" aria-selected="true">GPT-4.1</div><div role="option" aria-selected="false">GPT-5</div></div>`) +
-          card(
-            "Instructions",
-            `<p id="instr-text" data-saved="${esc(saved)}">${esc(saved) || "Add instructions to tell your agent how to respond."}</p><button type="button" id="r-edit-instr" data-act="r-edit-instr">Edit Instructions</button>` +
-              `<div id="instr-editor" hidden><div id="instr-box" contenteditable="true" role="textbox" aria-label="Describe what you want this agent to do, its tone, and rules" style="border:1px solid #475569;min-height:80px;padding:6px"></div>` +
-              `<button type="button">Undo</button> <button type="button">Redo</button> <button type="button">Add</button> <button type="button" id="instr-cancel" data-act="r-instr-cancel">Cancel</button> <button type="button" id="instr-save" data-act="r-instr-save" disabled>Save</button></div>`,
-          ) +
+          card("Instructions", instructionsCard) +
           card("Knowledge", `<p>${knowledge.has(agent.id) ? "1 source: Policies.docx" : "No knowledge added yet."}</p><button type="button" data-act="kn-open">Add knowledge</button>`) +
           card("Tools", `<button type="button">Add tool</button>`) +
           card("Triggers", `<button type="button">Add trigger</button>`) +
