@@ -2804,22 +2804,54 @@ a catalog error) and the numbered real-tenant reads for what is still unseen are
   no harness and with Microsoft Copilot addresses (`/agents/<id>`), and their review reasons said nothing about the harness. See the review rules above.
 - **Two tabs.** After the switch the original tab stayed open on the default address, so a person watching saw a Microsoft Copilot Home page in tab 1.
 
-**The corrected Set the instructions recipe** (Standard only; `SET_INSTRUCTIONS_CLASSIC` in `scratch-recipes.mjs`; the Microsoft Copilot recipe is unchanged):
+**The corrected Set the instructions recipe** (Standard only; `SET_INSTRUCTIONS_CLASSIC` in `scratch-recipes.mjs`; the Microsoft Copilot recipe is unchanged).
+Companion 1.8.4 corrected the signal for an open editor (see *The Instructions text box is on the page while the editor is closed* below): the editor is
+open only when the Instructions card shows **Cancel** and **Save** together, never because the text box is on the page.
 
-1. `instr-edit`: select **Edit Instructions** (skipped when the editor is already open).
-2. `instr-editor`: check the Instructions editor (the text box named *Describe what you want this agent to do, its tone, and rules*) is open.
+1. `instr-edit`: select **Edit Instructions** in the Instructions card, unless **Cancel** and **Save** are both already there (the editor is open: the older
+   layout has no Edit button). The page draws its buttons several seconds after its tabs, so the button is waited for (up to 25 seconds). If it is not on the
+   page the step says *the Edit Instructions button was not found*.
+2. `instr-editor`: check the editor opened: **Save**, **Cancel**, and the text box named *Describe what you want this agent to do, its tone, and rules* are all
+   on the page. If not, the step says *Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page*, and nothing is typed.
 3. `instr-type`: set the lab's instruction text in **that** text box. The target is scoped to the Instructions card, so the Test panel's text box is never
-   typed into, and no fuzzy fallback can pick another text box. Before typing the executor checks the cursor is in the box, then reads the text back
-   (whitespace-normalized, 80 to 125 percent of the typed length) and records which box received it (`attempt.typedInto`: name, role, section, whether it
-   is in the Test panel, the read-back, and the length) in the diagnostic file.
+   typed into, and no fuzzy fallback can pick another text box. An agent that already has instructions (a reused practice agent) has them in the editor: the
+   text is replaced as a whole (select all, then insert the lab's text). The executor checks the cursor is in the box, then reads the whole text back
+   (whitespace-normalized, 80 to 125 percent of the typed length, so an old text that was not replaced is a mismatch) and records which box received it
+   (`attempt.typedInto`: name, role, section, whether it is in the Test panel, whether the box is read-only, the read-back, whether the box already held
+   the same text, and the length) in the diagnostic file.
 4. `instr-enabled`: check **Save** is now enabled. If it is disabled the step says so plainly: *Save is disabled: the text did not register in the
-   Instructions editor.* A disabled target is its own cause (`record.disabled`), never a generic timeout.
+   Instructions editor.* A disabled target is its own cause (`record.disabled`), never a generic timeout. One case is a success instead: when the text typed is
+   the text the box already held, nothing changed and **Save** stays disabled by design. The step then passes with *the instructions already match, nothing to
+   save* (after watching Save for 1.2 seconds), steps 5 and 6 are left out, and `instr-leave` closes the editor with **Cancel** (`instr-leave-discard` answers
+   **Discard** should the product ask). Nothing is saved, and the stage still counts as done.
 5. `instr-save`: select **Save** (this writes the practice agent only).
-6. `instr-saved`: check **Save** is disabled again (or gone), which is the saved state.
+6. `instr-saved`: check **Save** is disabled again, or that **Save** is gone and the **Edit Instructions** button is back (the editor closed). A **Save** that is
+   gone while **Edit Instructions** is not back proves nothing.
 
 If a step cancels, the recipe leaves with **Cancel** and answers the unsaved-changes dialog with **Discard** (`ABANDON_INSTRUCTIONS_EDIT`). The guard allows
 **Discard** only in a dialog whose buttons are Close, Discard, and Cancel. On failure the instructions stage runs these steps so the practice agent is not left
-with an open editor.
+with an open editor. The cleanup runs only when **Cancel** and **Save** are both on the page, so a closed card is left alone.
+
+**The Instructions text box is on the page while the editor is closed (companion 1.8.4, real run 2026-11-27).** A real run of companion 1.8.3 on a reused
+Standard practice agent still failed Set the instructions. Its trace: `instr-edit` was OK with no attempts (it was skipped, no click happened), `instr-editor`
+was OK, `instr-type` failed (*the text did not register in the box named “Describe what you want this agent to do, its tone, and rules” (in Instructions)*, read-back
+mismatch, the box was not in the Test panel), and the cleanup `instr-cancel` failed because no **Cancel** button existed. The diagnostic bundle listed, in the
+Instructions section, the button **Edit Instructions** and neither **Cancel** nor **Save**. So the text box with the editor's name is on the page even while the
+editor is closed (most likely a read-only view of the instructions), and the 1.8.2 and 1.8.3 recipes used that box as the sign that the editor was open: the
+**Edit Instructions** click was skipped, and the text was typed into a box that does not take text. What changed in 1.8.4:
+
+- The editor counts as open only when **Cancel** and **Save** are both in the Instructions card (a step can now name a list of controls that must all be on the
+  page: `skipIfPresent`, `skipUnlessPresent`, and `alsoPresent` accept a target or a short list). The recipe, the verify step, and the cleanup all use that signal.
+- A read-only or disabled text box never counts as *there* for a skip (`presentNow` ignores it), so the same mistake cannot be made by another recipe; the gate's
+  description of a control now carries `readOnly`, and a type step that fails on a read-only box says *the box ... is read-only, so no text was typed in it*.
+- The plain failure sentences (`ifMissing` on a step, and `PLAIN_FAILURES` or `stepFailure` for the job row) name exactly what was missing: *The Edit Instructions
+  button was not found on the agent's Overview page, so the instructions were not set* and *Edit Instructions was clicked but the editor did not open: Save and
+  Cancel are not on the page, so nothing was typed*. *The text did not register* is now said only when the editor was open and Save stayed disabled.
+- Test: `test/standard-page-browser.test.mjs` has a fixture mode (`viewModeTextbox` in `fixtures/fake-product-site.mjs`) that reproduces the real state: in view
+  mode the Instructions card shows a text box with the same name that does not take text (one marked read-only, one that only looks editable and swallows
+  keystrokes), plus **Edit Instructions**, and no **Cancel** or **Save**. The 1.8.3 recipe is kept in the test file as a regression and fails there exactly like
+  the real run; the corrected recipe passes end to end, with an agent that has no instructions, one that already has other instructions, and one whose
+  instructions already match.
 
 **Tabs and the overflow menu.** Every Standard recipe that opens a tab uses `classicTabSteps` (ids start with `cl-`): **Overview**, **Knowledge**, **Tools**,
 **Agents**, and **Topics** are always on the strip and are selected by name; **Activity**, **Evaluation**, **Monitor**, and **Channels** are selected by name when
@@ -2845,11 +2877,15 @@ controls of the Settings pages (orchestration, moderation, grounding, Security, 
 Publish dialog, the topic authoring canvas, and the Home **More options** menu items. Each slot that depends on one ends as **Needs you** with its own plain
 reason (`CLASSIC_UNSEEN_SLOTS`), and the read-only reads that would settle them are the numbered groups in [standard-capture-slots.md](standard-capture-slots.md).
 Also unverified: whether the real editor puts the cursor in the box when it opens (the recipe checks and clicks the box itself), the exact title of the
-Close, Discard, and Cancel dialog (the guard recognizes it by its buttons), and whether the overflow control is a tab or a button (the steps find it by name).
+Close, Discard, and Cancel dialog (the guard recognizes it by its buttons), whether the overflow control is a tab or a button (the steps find it by name), and (from
+the 2026-11-27 run, inferred and not read directly) that the text box named *Describe what you want this agent to do, its tone, and rules* exists read-only while the
+editor is closed, whether **Save** closes the editor or only disables itself, and what **Cancel** does when the text was not changed (the recipe handles each case).
 
 **Proofs from companion 1.8.1 stay valid.** The proof of an agent page (the landmarks of the Standard tab strip) did not change in 1.8.2, so a 1.8.1 Standard
 proof of an agent page is still accepted, and `HARNESS_MIN_COMPANION` stays 1.8.1. Companion 1.8.2 adds the executor, the recipes, the one-tab behavior, and the
-log line; an older companion fails the same way as before only at the Set the instructions step, which is a companion fix, not a proof change.
+log line; an older companion fails the same way as before only at the Set the instructions step, which is a companion fix, not a proof change. Companion 1.8.4 changes
+the Set the instructions recipe, the executor's presence checks, and the plain sentences for that step; the proof of an agent page is unchanged and `HARNESS_MIN_COMPANION`
+stays 1.8.1.
 
 #### Microsoft 365 Copilot Agent Builder capture (observed 2026-11-27)
 
