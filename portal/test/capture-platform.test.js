@@ -1466,6 +1466,67 @@ test("generate with captureScreenshots never waits on a tenant sign-in: it queue
   assert.equal(plainGenerate.json.screenshotCapture, null);
 });
 
+test("a build without the capture choice starts no capture and still gives every picture a place; a build with it queues one job and takes no picture itself", async () => {
+  const { base } = ctx;
+  for (const device of (await call(base, "GET", "/api/capture/devices")).json.devices) {
+    assert.equal((await call(base, "DELETE", `/api/capture/devices/${device.id}`)).status, 200);
+  }
+  const companion = new FakeCompanion(base);
+  await companion.pair((await call(base, "POST", "/api/capture/pair")).json.code);
+  await companion.heartbeat();
+  assert.equal((await call(base, "GET", "/api/capture/status")).json.companion.connected, true, "a computer is connected for both builds");
+
+  const generate = (captureScreenshots) =>
+    call(base, "POST", "/api/lab-builder/generate", {
+      json: { products: ["copilot-studio"], features: ["mc-memory"], harness: "microsoft-copilot", includeCore: false, useLearnMcp: false, useLlm: false, captureScreenshots },
+    });
+  const jobsOf = async (labId) => (await call(base, "GET", `/api/capture/jobs?labId=${labId}`)).json.jobs;
+  const slotFiles = (built) => {
+    const shots = JSON.parse(readFileSync(join(built.json.outputDir, "shots.json"), "utf8")).shots;
+    return shots.map((shot) => ({ filename: shot.filename, file: join(built.json.outputDir, "assets", shot.filename) }));
+  };
+
+  // Left off: the lab is built, nothing is queued, and each picture has its place (a neutral placeholder, drawn as a "Screenshot to add" note).
+  const off = await generate(false);
+  assert.equal(off.status, 200, off.text);
+  assert.equal(off.json.status, "complete");
+  assert.equal(off.json.captureQueued, false);
+  assert.equal(off.json.captureJobId, null);
+  assert.equal(off.json.captureReason, null);
+  assert.equal(off.json.screenshotCapture, null);
+  assert.deepEqual(await jobsOf(off.json.labId), [], "no capture job exists for the lab");
+  const offSlots = slotFiles(off);
+  assert.ok(offSlots.length >= 2, "the lab has pictures to take");
+  for (const slot of offSlots) {
+    assert.ok(existsSync(slot.file), `${slot.filename} has its place in the lab`);
+    assert.deepEqual(readFileSync(slot.file), readFileSync(PLACEHOLDER_PATH), `${slot.filename} is the neutral placeholder until it is taken`);
+  }
+  assert.equal(off.json.manifest.screenshots.pending, offSlots.length, "every picture is counted as still to take");
+  const view = await call(base, "GET", `/api/lab-builder/generated/${off.json.labId}`);
+  assert.equal(view.status, 200);
+  assert.equal(view.json.pendingScreenshots.length, offSlots.length, "the lab shows a note for each missing picture");
+  assert.match(view.json.html, /Screenshot to add/);
+
+  // Taking them later needs no rebuild: the Screenshot Center queues the same kind of job for the same lab.
+  const later = await call(base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId: off.json.labId }, scope: { mode: "missing" } } });
+  assert.equal(later.status, 201, later.text);
+  assert.equal(later.json.job.target.labId, off.json.labId);
+
+  // Ticked: one job is queued for the missing pictures, the response does not wait for any of them, and the server takes none itself.
+  const on = await generate(true);
+  assert.equal(on.status, 200, on.text);
+  assert.equal(on.json.captureQueued, true);
+  assert.equal(on.json.screenshotCapture.status, "queued", "queued for the computer, not a server-side capture result");
+  const jobs = await jobsOf(on.json.labId);
+  assert.equal(jobs.length, 1, "exactly one job");
+  assert.equal(jobs[0].id, on.json.captureJobId);
+  assert.equal(jobs[0].status, "queued", "still waiting for the computer when the build answers");
+  assert.equal(jobs[0].scope.mode, "missing", "only the pictures the lab does not have");
+  for (const slot of slotFiles(on)) {
+    assert.deepEqual(readFileSync(slot.file), readFileSync(PLACEHOLDER_PATH), `${slot.filename} is still the placeholder: the portal itself takes no picture`);
+  }
+});
+
 test("request bodies are size limited", async () => {
   const { base } = ctx;
   const big = await call(base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId: "x" }, filler: "x".repeat(80 * 1024) } });

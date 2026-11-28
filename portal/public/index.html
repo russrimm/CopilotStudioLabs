@@ -2094,7 +2094,10 @@
     .lb-brand-summary { margin: 0; font-size: 14px; }
     .lb-capture-on-build-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
     .lb-capture-on-build-label[hidden], .lb-capture-on-build-status:empty { display: none; }
-    .lb-capture-on-build-label input { margin-top: 3px; accent-color: var(--accent); }
+    .lb-capture-on-build-label input { flex: 0 0 auto; margin-top: 3px; accent-color: var(--accent); }
+    .lb-capture-on-build-choice { display: flex; flex-direction: column; gap: 12px; max-width: 80ch; }
+    .lb-capture-on-build-choice[hidden] { display: none; }
+    .lb-capture-on-build-title { display: block; font-weight: 600; }
     .lb-capture-on-build-help { display: block; font-size: 13px; color: var(--text-muted); }
     .lb-sharepoint-site-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
     /* ── Lab builder: inside a step, no box sits in another box ──
@@ -3879,7 +3882,7 @@
       .sc-lightbox-picture .sc-lb-info { max-height: 46vh; }
     }
 
-    .lb-capture-on-build-status { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
+    .lb-capture-on-build-status { margin: 8px 0 0; max-width: 80ch; font-size: 13px; color: var(--text-muted); }
     #lb-capture-on-build:disabled + span { opacity: 0.85; }
     #lb-capture-on-build-setup { margin-top: 8px; }
     #lb-capture-on-build-pairing:empty { display: none; }
@@ -6734,13 +6737,23 @@
                 </div>
               </fieldset>
               <div class="lb-capture-on-build-opt" id="lb-capture-on-build-wrap">
-                <label class="lb-capture-on-build-label" for="lb-capture-on-build" id="lb-capture-on-build-label" hidden>
-                  <input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">
-                  <span>
-                    <span style="font-weight: 600;">Capture screenshots when the lab is built</span>
-                    <span class="lb-capture-on-build-help">Your computer opens each screen and takes the picture. This never slows down or blocks the build.</span>
-                  </span>
-                </label>
+                <fieldset class="lb-fieldset lb-capture-on-build-choice" id="lb-capture-on-build-choice" hidden>
+                  <legend class="lb-legend">Screenshots</legend>
+                  <label class="lb-capture-on-build-label" for="lb-capture-on-build" id="lb-capture-on-build-label">
+                    <input type="radio" name="lb-capture-when" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-help lb-capture-on-build-status">
+                    <span>
+                      <span class="lb-capture-on-build-title">Take the screenshots right after the build</span>
+                      <span class="lb-capture-on-build-help" id="lb-capture-on-build-help">Your connected computer opens each screen in the product and takes the pictures. A screen it cannot take on its own waits for you in the Screenshot Center.</span>
+                    </span>
+                  </label>
+                  <label class="lb-capture-on-build-label" for="lb-capture-later" id="lb-capture-later-label">
+                    <input type="radio" name="lb-capture-when" id="lb-capture-later" autocomplete="off" checked aria-describedby="lb-capture-later-help lb-capture-on-build-status">
+                    <span>
+                      <span class="lb-capture-on-build-title">Build now, take the screenshots later</span>
+                      <span class="lb-capture-on-build-help" id="lb-capture-later-help">Your lab is ready right away. Each missing picture shows a "Screenshot to add" note until you take it in the lab's Screenshot Center.</span>
+                    </span>
+                  </label>
+                </fieldset>
                 <p id="lb-capture-on-build-status" class="lb-capture-on-build-status" role="status" aria-live="polite"></p>
                 <button type="button" class="btn btn-sm" id="lb-capture-on-build-setup" hidden>Set up screenshot capture</button>
                 <div id="lb-capture-on-build-pairing" data-sc-pairing-host="build"></div>

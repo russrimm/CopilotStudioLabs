@@ -196,12 +196,16 @@ function makeHarness({ eventSource = true, generated = false, buildStep = true }
   let buildEls = null;
   if (buildStep) {
     const pane = add(body, "div", { id: "lb-pane-4" });
-    const label = add(pane, "label", { id: "lb-capture-on-build-label", attrs: { hidden: "" } });
-    const box = add(label, "input", { id: "lb-capture-on-build", attrs: { type: "checkbox", disabled: "" } });
+    const choice = add(pane, "fieldset", { id: "lb-capture-on-build-choice", attrs: { hidden: "" } });
+    const label = add(choice, "label", { id: "lb-capture-on-build-label" });
+    const box = add(label, "input", { id: "lb-capture-on-build", attrs: { type: "radio", disabled: "" } });
+    const laterLabel = add(choice, "label", { id: "lb-capture-later-label" });
+    const later = add(laterLabel, "input", { id: "lb-capture-later", attrs: { type: "radio" } });
+    later.checked = true;
     const status = add(pane, "p", { id: "lb-capture-on-build-status" });
     const setup = add(pane, "button", { id: "lb-capture-on-build-setup", attrs: { hidden: "" } });
     const pairing = add(pane, "div", { id: "lb-capture-on-build-pairing", attrs: { "data-sc-pairing-host": "build" } });
-    buildEls = { pane, label, box, status, setup, pairing };
+    buildEls = { pane, choice, label, box, later, status, setup, pairing };
   }
 
   const clock = { now: NOW, seq: 1, timers: new Map() };
@@ -1877,13 +1881,14 @@ test("file names, captions, messages, and addresses from the network are shown a
 test("capture-on-build is shown and enabled only while a computer is connected, and setup is one click away", async () => {
   const h = makeHarness();
   h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
-  const { box, label, status, setup, pairing, pane } = h.buildStep;
-  assert.equal(label.hidden, true, "the checkbox starts hidden");
+  const { box, later, choice, status, setup, pairing, pane } = h.buildStep;
+  assert.equal(choice.hidden, true, "the choice starts hidden");
   await h.run("scSyncCaptureOnBuild")();
   assert.equal(box.disabled, true);
   assert.equal(box.checked, false);
-  assert.equal(label.hidden, true, "with no computer connected the checkbox is hidden, not a dead control");
-  assert.equal(status.textContent, "Want screenshots taken as the lab is built? Connect your computer (about two minutes). Or capture them after the build.");
+  assert.equal(later.checked, true, "without a computer the build-now choice is the one in force");
+  assert.equal(choice.hidden, true, "with no computer connected the choice is hidden, not a dead control");
+  assert.equal(status.textContent, NOT_CONNECTED_TEXT);
   assert.equal(setup.hidden, false, "the setup link shows");
 
   setup.click();
@@ -1893,16 +1898,19 @@ test("capture-on-build is shown and enabled only while a computer is connected, 
   h.advance(3000);
   await h.flush();
   assert.equal(box.disabled, false, "connecting turns the option on");
-  assert.equal(label.hidden, false, "and shows it");
-  assert.equal(box.checked, true, "and checks it, since that is why the learner connected");
-  assert.match(status.textContent, /^Connected: Ada PC\. Screenshots are captured on your computer right after your lab is built\.$/);
+  assert.equal(choice.hidden, false, "and shows it");
+  assert.equal(box.checked, true, "and picks it, since that is why the learner connected");
+  assert.equal(later.checked, false, "which leaves the other choice unpicked");
+  assert.match(status.textContent, /^Connected: Ada PC\. Either way, your lab is built, and pictures that already exist for these screens are used\.$/);
   assert.equal(setup.hidden, true);
 
   await h.setStatus(statusPayload({ devices: [device({ connected: false })] }));
   await h.run("scSyncCaptureOnBuild")({ fetch: false });
   assert.equal(box.disabled, true, "disconnecting turns it off again");
   assert.equal(box.checked, false);
-  assert.equal(label.hidden, true, "and hides it again");
+  assert.equal(later.checked, true, "and falls back to building now");
+  assert.equal(choice.hidden, true, "and hides it again");
+  assert.equal(status.textContent, NOT_CONNECTED_TEXT);
 
   const before = h.callsTo("GET", /\/api\/capture\/status$/).length;
   h.windowListeners.focus.forEach((fn) => fn());
@@ -1917,8 +1925,71 @@ test("capture-on-build is shown and enabled only while a computer is connected, 
   broken.route("GET", /\/api\/capture\/status$/, { status: 500, body: { error: "down" } });
   await broken.run("scSyncCaptureOnBuild")();
   assert.equal(broken.buildStep.box.disabled, true);
-  assert.equal(broken.buildStep.label.hidden, true);
-  assert.match(broken.buildStep.status.textContent, /We could not check whether a computer is connected\. You can still build your lab/);
+  assert.equal(broken.buildStep.choice.hidden, true);
+  assert.equal(broken.buildStep.setup.hidden, false, "the setup button stays when the check failed");
+  assert.equal(broken.buildStep.status.textContent, CHECK_FAILED_TEXT);
+});
+
+const NOT_CONNECTED_TEXT =
+  'No computer is connected, so the build takes no new screenshots. Your lab is still built, and pictures that already exist for these screens are used. Each missing one shows a "Screenshot to add" note until you take it later in the lab\'s Screenshot Center. To take them right after the build, connect your computer (about two minutes).';
+const CHECK_FAILED_TEXT =
+  'We could not check whether a computer is connected, so the build takes no new screenshots. Your lab is still built, and pictures that already exist for these screens are used. Each missing one shows a "Screenshot to add" note until you take it later in the lab\'s Screenshot Center.';
+
+/** The words of the two Screenshots options, read from the page the learner gets. */
+function captureOptionText(id) {
+  const match = new RegExp(`id="${id}">([^<]*)<`).exec(INDEX_HTML);
+  assert.ok(match, `${id} is on the Review and build step`);
+  return match[1];
+}
+
+test("in every state the Review and build step says what happens with and without screenshots, and where to take them later", async () => {
+  const connected = makeHarness();
+  connected.status = statusPayload({ devices: [device({ id: "dev_bbbbbbbbbbbb" })] });
+  await connected.run("scSyncCaptureOnBuild")();
+  const notConnected = makeHarness();
+  await notConnected.run("scSyncCaptureOnBuild")();
+  const broken = makeHarness();
+  broken.route("GET", /\/api\/capture\/status$/, { status: 500, body: { error: "down" } });
+  await broken.run("scSyncCaptureOnBuild")();
+
+  // Ticked: the computer takes them right after the build.
+  const now = captureOptionText("lb-capture-on-build-help");
+  assert.match(now, /connected computer opens each screen in the product and takes the pictures/);
+  assert.match(now, /cannot take on its own waits for you in the Screenshot Center/);
+  // Not ticked: the lab is ready at once and the pictures come later from the Screenshot Center.
+  const later = captureOptionText("lb-capture-later-help");
+  assert.match(later, /lab is ready right away/);
+  assert.match(later, /"Screenshot to add" note until you take it in the lab's Screenshot Center/);
+  assert.match(INDEX_HTML, /<span class="lb-capture-on-build-title">Take the screenshots right after the build<\/span>/);
+  assert.match(INDEX_HTML, /<span class="lb-capture-on-build-title">Build now, take the screenshots later<\/span>/);
+
+  const connectedLine = connected.buildStep.status.textContent;
+  assert.match(connectedLine, /^Connected: Ada PC\. Either way, your lab is built/);
+  assert.match(connectedLine, /pictures that already exist for these screens are used/);
+  assert.equal(connected.buildStep.choice.hidden, false, "both options show while a computer is connected");
+
+  for (const [name, line] of [["no computer", notConnected.buildStep.status.textContent], ["status check failed", broken.buildStep.status.textContent]]) {
+    assert.match(line, /the build takes no new screenshots/, `${name}: says no new pictures are taken during the build`);
+    assert.match(line, /Your lab is still built/, `${name}: says the lab is built either way`);
+    assert.match(line, /pictures that already exist for these screens are used/, `${name}: says existing pictures are used`);
+    assert.match(line, /Each missing one shows a "Screenshot to add" note/, `${name}: says what a missing picture is until it is taken`);
+    assert.match(line, /take it later in the lab's Screenshot Center/, `${name}: says where to take them later`);
+  }
+  assert.match(notConnected.buildStep.status.textContent, /connect your computer \(about two minutes\)\.$/);
+  for (const h of [notConnected, broken]) assert.equal(h.buildStep.setup.hidden, false, "Set up screenshot capture stays");
+  for (const line of [connectedLine, notConnected.buildStep.status.textContent, broken.buildStep.status.textContent, now, later]) {
+    assert.doesNotMatch(line, /Playwright|companion|SHOTLIST|shots\.json|slot|manifest|placeholder/i, "no internal names");
+  }
+});
+
+test("a lab with pictures still to take says what its pages show meanwhile, in the Screenshot Center and in the preview note", () => {
+  const h = makeHarness();
+  const intro = h.run("scIntroText");
+  assert.match(intro({ toCapture: 2, manual: 0 }), /Until a picture is taken, its place in the lab shows a "Screenshot to add" note\. You can also paste or upload your own\.$/);
+  assert.match(intro({ toCapture: 0, manual: 1 }), /"Screenshot to add" note/, "a screen only a person can take counts as still to take");
+  assert.doesNotMatch(intro({ toCapture: 0, manual: 0 }), /Screenshot to add/, "a lab with every picture says nothing about notes");
+  assert.match(APP_SOURCE, /not taken yet\. Each shows a "Screenshot to add" note until you take it in the Screenshot Center above\./);
+  assert.doesNotMatch(APP_SOURCE, /SHOTLIST|still pending\. Each shows a placeholder/, "the preview note never points a person at a file in the lab folder");
 });
 
 test("the build flow never waits on capture and hands a queued job to the live progress card", () => {
@@ -1932,12 +2003,13 @@ test("the build flow never waits on capture and hands a queued job to the live p
   const wizard = publicFile("lab-builder-wizard.js");
   assert.match(wizard, /step === LB_STEP\.review\)\s*\{[\s\S]{0,260}scSyncCaptureOnBuild\(\)/, "Review and build reads the capture status when it opens");
   const reviewPane = INDEX_HTML.slice(INDEX_HTML.indexOf('id="lb-pane-4"'), INDEX_HTML.indexOf('<div class="lb-step-footer"', INDEX_HTML.indexOf('id="lb-pane-4"')));
-  assert.match(reviewPane, /<label[^>]*id="lb-capture-on-build-label"[^>]*hidden>\s*<input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">/, "the checkbox is hidden until a computer is connected");
-  assert.match(reviewPane, /Capture screenshots when the lab is built/);
+  assert.match(reviewPane, /<fieldset[^>]*id="lb-capture-on-build-choice"[^>]*hidden>\s*<legend class="lb-legend">Screenshots<\/legend>/, "the choice is a fieldset with a legend, hidden until a computer is connected");
+  assert.match(reviewPane, /<label[^>]*for="lb-capture-on-build"[^>]*id="lb-capture-on-build-label">\s*<input type="radio" name="lb-capture-when" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-help lb-capture-on-build-status">/, "take them right after the build is off and unavailable until a computer is connected");
+  assert.match(reviewPane, /<label[^>]*for="lb-capture-later"[^>]*>\s*<input type="radio" name="lb-capture-when" id="lb-capture-later" autocomplete="off" checked aria-describedby="lb-capture-later-help lb-capture-on-build-status">/, "build now, take them later is the default");
   assert.match(reviewPane, /<p id="lb-capture-on-build-status"[^>]*role="status" aria-live="polite"/);
   assert.match(reviewPane, /id="lb-capture-on-build-setup"[^>]*hidden>Set up screenshot capture<\/button>/);
   assert.match(reviewPane, /id="lb-capture-on-build-pairing" data-sc-pairing-host="build"/);
-  assert.match(reviewPane, /never slows down or blocks the build/);
+  assert.doesNotMatch(reviewPane, /Capture screenshots when the lab is built|never slows down or blocks the build|Want screenshots taken/);
   assert.doesNotMatch(reviewPane, /Playwright|headed|\.auth|Learn Sync/i);
 });
 

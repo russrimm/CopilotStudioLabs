@@ -356,8 +356,16 @@ arrow, Home, and End keys move among the tabs of the current area.
       - **Advanced options** — folded away for custom lab title, agent name,
         Microsoft Learn checks, optional LLM narrative, and a preferred length
         that only suggests split points.
-      - **Capture screenshots when the lab is built** — shown only while a computer is
-        connected; otherwise one line says how to connect one (or to capture after the build).
+      - **Screenshots** — a choice between **Take the screenshots right after the build** and
+        **Build now, take the screenshots later** (the default). Either way the lab is built, and
+        pictures that already exist for its screens are used. A picture the lab does not have yet
+        shows a "Screenshot to add" note in the preview and the standalone HTML (Markdown, Word, and
+        PowerPoint carry a neutral "Screenshot pending" picture) until you take it in the lab's
+        **Screenshot Center**, or paste or upload your own. The choice is shown only while a computer is
+        connected, and picking the first option queues one capture job for the missing pictures after
+        the lab is saved; the pictures are taken on your computer, never by the portal. With no
+        computer connected (or if the check failed), the choice is hidden and one short paragraph says
+        the same, with a **Set up screenshot capture** button to connect one in about two minutes.
       - **Build my lab** — the one primary button, with the progress card and **Cancel** while
         the build runs. A lab opened with **Edit selections** also asks here whether to save a
         new lab or replace the original.
@@ -1993,9 +2001,19 @@ hides the rest:
    library), and
    the command line for developers with a Copy button.
 
-On the last step of the wizard, **Capture screenshots when the lab is built** is available only while a computer
-is connected. Otherwise it is turned off, with a plain explanation and a **Set up screenshot capture** button that
-pairs a computer right there. Building a lab never waits for capture.
+On the last step of the wizard, **Screenshots** asks when to take the pictures: **Take the screenshots right after the
+build** or **Build now, take the screenshots later**. Later is the default, and the first option is available only
+while a computer is connected (it is picked for you right after you connect one there). Building a lab never waits for
+the pictures: the lab is saved first, and a capture you asked for is only queued for your computer, which takes the
+pictures while you work. The build itself takes no picture, so leaving the option off starts no capture. The lab
+is still complete, with a place for every picture: one that already exists for that screen (from the shared library,
+or carried over from the lab it replaces) is used, and each other one is a neutral "Screenshot pending" picture that
+the preview and the standalone HTML draw as a "Screenshot to add" note. A line at the top of the preview says how many
+pictures are not taken yet. No rebuild is needed to fill them in: open the lab's **Screenshot Center** (it is on the
+result right after the build, and behind **Screenshots** on the lab in **Previously generated labs**) and use
+**Capture N missing screenshots** (needs a computer), **Paste image**, or **Upload image**. With no computer connected, the choice is
+replaced by a short paragraph that says the same and a **Set up screenshot capture** button that pairs a computer
+right there.
 
 #### Screenshot Center: the Local Capture Companion, and paste or upload
 
@@ -3168,12 +3186,14 @@ credentials) for tenant-specific screens, such as `CAPTURE_SHAREPOINT_SITE_URL`.
 (`brandProfileId`) or from the lab's own brand customization, so a lab built with a brand profile
 captures against that tenant with no extra input. The addresses go only to the companion that claims the job.
 
-**Older paths still work.** `POST .../screenshots/capture` and `captureScreenshots` on `generate` keep
-working for a server that has a browser and for the CLI (`node tools/screenshot-capture/capture.js
---generated-lab=<id>`). When the server has no browser they return a structured `companion` result
-(`queued`, `connected`, `jobId`, `message`, `downloadUrl`) next to the CLI command. `generate` with
-`captureScreenshots` never waits for a sign-in: it returns `captureQueued: true` and a `captureJobId`
-when a companion is connected, and `captureQueued: false` with a `captureReason` otherwise.
+**Older paths still work.** `POST .../screenshots/capture` keeps working for a server that has a browser and for
+the CLI (`node tools/screenshot-capture/capture.js --generated-lab=<id>`). When the server has no browser it
+returns a structured `companion` result (`queued`, `connected`, `jobId`, `message`, `downloadUrl`) next to the
+CLI command. `captureScreenshots` on `generate` (what **Take the screenshots right after the build** sends) never
+runs a browser on the server and never waits for a sign-in: the lab is built and saved first, then it returns
+`captureQueued: true` and a `captureJobId` when a companion is connected, and `captureQueued: false` with a
+`captureReason` otherwise. Without `captureScreenshots` (or with `false`) nothing is queued and every picture
+the lab does not already have stays a placeholder until it is taken from the Screenshot Center.
 
 See [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md) for the companion's quick
 start, security model, and troubleshooting, and the [Screenshot capture API](#screenshot-capture-api) for every route.

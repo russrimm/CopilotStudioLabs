@@ -5054,7 +5054,7 @@ async function lbLoadResultPreview(labId) {
     if (data.pendingScreenshots?.length) {
       host.insertAdjacentHTML(
         "afterbegin",
-        `<p class="lb-warning" role="status">${data.pendingScreenshots.length} screenshot${data.pendingScreenshots.length === 1 ? " is" : "s are"} still pending. Each shows a placeholder until it is captured; see SHOTLIST.md in the lab folder.</p>`
+        `<p class="lb-warning" role="status">${data.pendingScreenshots.length} screenshot${data.pendingScreenshots.length === 1 ? " is" : "s are"} not taken yet. Each shows a "Screenshot to add" note until you take it in the Screenshot Center above.</p>`
       );
     }
     if (typeof enhanceLabInteractivity === "function") {

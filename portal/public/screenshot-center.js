@@ -333,7 +333,7 @@ function scRenderInto(host, labId) {
   section.appendChild(
     scEl("p", {
       class: "sc-intro",
-      text: "Real screenshots from your own tenant make this lab easy to follow. We capture them on your computer, check each one, and update your lab for you.",
+      text: scIntroText(model.counts),
     }),
   );
   const banner = scBuildBanner(labId);
@@ -423,6 +423,14 @@ function scEnsureSetup(labId) {
       .catch(() => {});
   }
   void scResumeJobs(labId);
+}
+
+/** The line under the Screenshot Center heading. A lab with pictures still to take says what its pages show in the meantime and the other ways to add them. */
+function scIntroText(counts) {
+  const base = "Real screenshots from your own tenant make this lab easy to follow. We capture them on your computer, check each one, and update your lab for you.";
+  const waiting = scCount(counts?.toCapture) + scCount(counts?.manual);
+  if (!waiting) return base;
+  return `${base} Until a picture is taken, its place in the lab shows a "Screenshot to add" note. You can also paste or upload your own.`;
 }
 
 function scBuildHeader(model) {
@@ -3098,7 +3106,24 @@ function scFillLightbox(labId, filename) {
 
 // ── Review and build: capture when the lab is built ─────────────────────────
 
-/** Show the "Capture screenshots" checkbox only while a computer is connected; otherwise say in one line how to turn it on. */
+/** What the line under the Screenshots choice says in each state. Both "not connected" states say what a build without a computer does. */
+const SC_BUILD_CAPTURE_WITHOUT_COMPUTER =
+  'Your lab is still built, and pictures that already exist for these screens are used. Each missing one shows a "Screenshot to add" note until you take it later in the lab\'s Screenshot Center.';
+const SC_BUILD_CAPTURE_TEXT = {
+  notConnected: `No computer is connected, so the build takes no new screenshots. ${SC_BUILD_CAPTURE_WITHOUT_COMPUTER} To take them right after the build, connect your computer (about two minutes).`,
+  checkFailed: `We could not check whether a computer is connected, so the build takes no new screenshots. ${SC_BUILD_CAPTURE_WITHOUT_COMPUTER}`,
+  connected: (names) => `${names.length ? `Connected: ${scJoinNames(names, 2)}. ` : "Your computer is connected. "}Either way, your lab is built, and pictures that already exist for these screens are used.`,
+};
+
+/** Pick "take the screenshots right after the build" (true) or "build now, take them later" (false). */
+function scSetCaptureOnBuild(on) {
+  const box = document.getElementById("lb-capture-on-build");
+  const later = document.getElementById("lb-capture-later");
+  if (box) box.checked = Boolean(on) && !box.disabled;
+  if (later) later.checked = !(box && box.checked);
+}
+
+/** Show the Screenshots choice only while a computer is connected; otherwise say in plain words what a build without one does. */
 async function scSyncCaptureOnBuild({ fetch: refresh = true } = {}) {
   const box = document.getElementById("lb-capture-on-build");
   if (!box) return;
@@ -3106,17 +3131,17 @@ async function scSyncCaptureOnBuild({ fetch: refresh = true } = {}) {
   const connected = scIsConnected();
   const statusEl = document.getElementById("lb-capture-on-build-status");
   const setup = document.getElementById("lb-capture-on-build-setup");
-  const label = document.getElementById("lb-capture-on-build-label");
+  const choice = document.getElementById("lb-capture-on-build-choice");
   box.disabled = !connected;
-  if (!connected) box.checked = false;
-  if (label) label.hidden = !connected;
+  if (!connected) scSetCaptureOnBuild(false);
+  if (choice) choice.hidden = !connected;
   if (statusEl) {
     const names = (scState.status?.companion?.devices || []).filter((d) => d.connected).map((d) => d.name);
     statusEl.textContent = connected
-      ? `${names.length ? `Connected: ${scJoinNames(names, 2)}. ` : "Your computer is connected. "}Screenshots are captured on your computer right after your lab is built.`
+      ? SC_BUILD_CAPTURE_TEXT.connected(names)
       : scState.statusError && !scState.status
-        ? "We could not check whether a computer is connected. You can still build your lab and capture screenshots afterward."
-        : "Want screenshots taken as the lab is built? Connect your computer (about two minutes). Or capture them after the build.";
+        ? SC_BUILD_CAPTURE_TEXT.checkFailed
+        : SC_BUILD_CAPTURE_TEXT.notConnected;
   }
   if (setup) setup.hidden = connected;
 }
@@ -3126,8 +3151,7 @@ function scStartBuildPairing() {
     source: "build",
     onConnected: () => {
       void scSyncCaptureOnBuild({ fetch: false });
-      const box = document.getElementById("lb-capture-on-build");
-      if (box && !box.disabled) box.checked = true;
+      scSetCaptureOnBuild(true);
     },
   });
 }
