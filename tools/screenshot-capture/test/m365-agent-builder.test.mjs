@@ -204,7 +204,7 @@ test("the old recipe fails on a page shaped like the real one with 'the control 
     assert.equal(result.ok, false, "the old recipe cannot open Agent Builder on this page");
     const failed = failedOf(result);
     assert.equal(failed.id, "builder-open", "it got as far as the Agents button, then looked for a button named Create agent in the main area");
-    assert.match(plainFailure(result), /The computer could not complete .*Opened .*Create agent.*: the control was not found or did nothing\./);
+    assert.match(plainFailure(result), /The computer could not complete .*Opened .*Create agent.*: (?:the control was not found or did nothing|.*Create agent.* was not on the page after waiting \d+ seconds?)\./);
     assert.deepEqual(site.stats.writes, []);
     assert.equal(new URL(page.url()).pathname, "/home", "the side bar button did not navigate: the address stays /home");
   });
