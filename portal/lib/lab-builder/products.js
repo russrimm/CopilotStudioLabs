@@ -1,5 +1,5 @@
 /**
- * Products: the solution areas the Agentic Microsoft Training and Lab Generator builds labs for.
+ * Products: the solution areas the Dynamic Microsoft Training and Lab Generator builds labs for.
  *
  * A product sits above the harness. Copilot Studio is the only product with
  * harnesses today, so a harness is optional everywhere: it is chosen, tagged,

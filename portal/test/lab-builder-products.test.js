@@ -243,7 +243,7 @@ test("a generated lab for another product passes the validator and records its p
     );
     assert.equal(lab.status, "complete");
     assert.equal(lab.validation.failed, 0, lab.validation.tests.filter((t) => t.status === "fail").map((t) => t.name).join(", "));
-    assert.equal(lab.manifest.generator, "Agentic Microsoft Training and Lab Generator");
+    assert.equal(lab.manifest.generator, "Dynamic Microsoft Training and Lab Generator");
     assert.equal(lab.manifest.product, "ai-foundry");
     assert.deepEqual(lab.manifest.products, ["ai-foundry"]);
     assert.ok(lab.manifest.modules.every((m) => m.product === "ai-foundry"));
@@ -785,17 +785,17 @@ test("sticky top navigation and right-anchored step footers stay synchronized ac
 
 // ── The rename ──────────────────────────────────────────────────────────────
 
-test("the product is named Agentic Microsoft Training and Lab Generator wherever a person sees its name", () => {
+test("the product is named Dynamic Microsoft Training and Lab Generator wherever a person sees its name", () => {
   const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
   const html = read("../public/index.html");
-  assert.match(html, /<title>[^<]*Agentic Microsoft Training and Lab Generator[^<]*<\/title>/);
-  assert.match(html, /id="portal-title"[^>]*>Agentic Microsoft Training and Lab Generator</);
+  assert.match(html, /<title>[^<]*Dynamic Microsoft Training and Lab Generator[^<]*<\/title>/);
+  assert.match(html, /id="portal-title"[^>]*>Dynamic Microsoft Training and Lab Generator</);
   for (const file of ["../public/index.html", "../public/app.js", "../server.js", "../lib/branding.js", "../README.md", "../../README.md", "../package.json"]) {
     assert.doesNotMatch(read(file), /Copilot Studio Labs/, `${file} still uses the old product name`);
   }
-  assert.match(read("../lib/product-name.js"), /PRODUCT_NAME = "Agentic Microsoft Training and Lab Generator"/);
+  assert.match(read("../lib/product-name.js"), /PRODUCT_NAME = "Dynamic Microsoft Training and Lab Generator"/);
   assert.match(read("../lib/branding.js"), /companyName: PRODUCT_NAME/);
-  assert.match(read("../../README.md"), /^# ⚡ Agentic Microsoft Training and Lab Generator/m);
+  assert.match(read("../../README.md"), /^# ⚡ Dynamic Microsoft Training and Lab Generator/m);
 });
 
 // ── Products added from Microsoft Learn ─────────────────────────────────────

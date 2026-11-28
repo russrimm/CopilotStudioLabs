@@ -1,4 +1,4 @@
-# ⚡ Agentic Microsoft Training and Lab Generator — Provisioning Portal
+# ⚡ Dynamic Microsoft Training and Lab Generator — Provisioning Portal
 
 A web-based lab operations portal for building, customizing, validating, previewing, provisioning, approving, exporting, and supporting training labs across Microsoft Copilot Studio, Agent Builder and declarative agents, SharePoint AI, Microsoft Foundry, the Microsoft 365 Copilot hub, and the Power Platform AI hub (AI Builder).
 

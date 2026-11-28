@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Agentic Microsoft Training and Lab Generator — Custom Lab Builder CLI.
+ * Dynamic Microsoft Training and Lab Generator — Custom Lab Builder CLI.
  *
  * Builds a custom, Microsoft Learn-grounded hands-on lab across all 6 Microsoft AI
  * products without needing the portal or any authentication.
@@ -97,7 +97,7 @@ function printCatalog() {
   const products = getProducts();
   const categories = getFeaturesByCategory();
 
-  console.log("\nAgentic Microsoft Training and Lab Generator — Custom Lab Builder CLI\n");
+  console.log("\nDynamic Microsoft Training and Lab Generator — Custom Lab Builder CLI\n");
 
   console.log("Products");
   for (const product of products) {
@@ -149,7 +149,7 @@ function printCatalog() {
 
 function help() {
   console.log(`
-Agentic Microsoft Training and Lab Generator — Custom Lab Builder CLI
+Dynamic Microsoft Training and Lab Generator — Custom Lab Builder CLI
 
 Builds custom, Microsoft Learn-grounded hands-on labs across Microsoft Copilot Studio,
 Microsoft Foundry, Microsoft Agent 365 & M365 Admin Governance, Power Platform AI &

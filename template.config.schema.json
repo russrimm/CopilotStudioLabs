@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/russrimm/CopilotStudioLabs/blob/main/template.config.schema.json",
-  "title": "Agentic Microsoft Training and Lab Generator template configuration",
+  "title": "Dynamic Microsoft Training and Lab Generator template configuration",
   "type": "object",
   "required": [
     "industryPreset",

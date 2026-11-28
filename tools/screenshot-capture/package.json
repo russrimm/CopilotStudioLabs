@@ -2,7 +2,7 @@
   "name": "copilot-studio-lab-screenshot-capture",
   "version": "1.0.0",
   "private": true,
-  "description": "Interactive Playwright capture tool for the screenshots in the Agentic Microsoft Training and Lab Generator.",
+  "description": "Interactive Playwright capture tool for the screenshots in the Dynamic Microsoft Training and Lab Generator.",
   "type": "module",
   "scripts": {
     "capture": "node capture.js",

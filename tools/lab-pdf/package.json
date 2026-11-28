@@ -2,7 +2,7 @@
   "name": "copilot-studio-lab-pdf",
   "version": "1.0.0",
   "private": true,
-  "description": "Generate printable PDF walkthroughs for labs from the Agentic Microsoft Training and Lab Generator.",
+  "description": "Generate printable PDF walkthroughs for labs from the Dynamic Microsoft Training and Lab Generator.",
   "type": "module",
   "scripts": {
     "generate": "node generate.js",

@@ -1,5 +1,5 @@
 /**
- * Feature catalog for every product the Agentic Microsoft Training and Lab Generator covers.
+ * Feature catalog for every product the Dynamic Microsoft Training and Lab Generator covers.
  *
  * Loads `features.json` (Copilot Studio) plus `catalog/<product>.json` for each
  * other product, and exposes lookup / dependency helpers used by the lab

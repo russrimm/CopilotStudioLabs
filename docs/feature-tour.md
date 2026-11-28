@@ -1,6 +1,6 @@
 # Feature tour site
 
-The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every capability in the Agentic Microsoft Training and Lab Generator catalog (`200` capabilities and `345` configured feature-tour shots across `6` products, alongside the `40` curated hand-written labs in `labs/`), plus a guided tour that steps through them. It covers all six products:
+The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every capability in the Dynamic Microsoft Training and Lab Generator catalog (`200` capabilities and `345` configured feature-tour shots across `6` products, alongside the `40` curated hand-written labs in `labs/`), plus a guided tour that steps through them. It covers all six products:
 
 | Product id | Product | Capabilities | Shots | Where on the site |
 | --- | --- | --- | --- | --- |

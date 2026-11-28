@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Local Capture Companion for the Agentic Microsoft Training and Lab Generator portal.
+// Local Capture Companion for the Dynamic Microsoft Training and Lab Generator portal.
 //
 // Runs on your own computer. You pair it with the portal once, sign in to each
 // Microsoft product once in the browser window it opens, and from then on the

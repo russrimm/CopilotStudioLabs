@@ -1,5 +1,5 @@
 // ── Main Bicep entry point for lab resource provisioning ──────────────────
-// Deploys the Azure resources needed by the Agentic Microsoft Training and Lab Generator.
+// Deploys the Azure resources needed by the Dynamic Microsoft Training and Lab Generator.
 // Usage: az deployment sub create --location eastus --template-file main.bicep --parameters ...
 
 targetScope = 'subscription'
