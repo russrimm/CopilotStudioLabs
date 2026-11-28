@@ -66,6 +66,9 @@ function sanitizeExpect(raw) {
   if (raw.noDialog === true) out.noDialog = true;
   if (raw.answer === true) out.answer = true;
   if (raw.panel === true) out.panel = true;
+  // The menu or dialog that opened must list each of these items by its exact name: how a step proves it opened the right menu and not another one (an account flyout).
+  const menuItems = (Array.isArray(raw.menuItems) ? raw.menuItems : []).map(safeName).filter(Boolean).slice(0, 6);
+  if (menuItems.length) out.menuItems = menuItems;
   // An item that can be removed (an added knowledge source) is listed.
   if (raw.removable === true) out.removable = true;
   // The open dialog may hold only these controls (and must hold the required ones): how a walkthrough proves a dialog is the plain one before it confirms it.
@@ -228,6 +231,9 @@ export function sanitizeStep(raw, index = 0, product = "", { internal = false } 
     step.key = key;
   }
   if (raw.optional === true) step.optional = true;
+  // The control is found by its exact name only (never a partial or a fuzzy match), and a name that more than one control has is a failure, not a guess.
+  if (raw.exact === true) step.exact = true;
+  if (raw.unique === true) step.unique = true;
   if (raw.cleanup === true) step.cleanup = true;
   if (raw.practiceOnly === true) step.practiceOnly = true;
   // A click whose result is checked by the next step (a save that shows nothing by itself), and a switch that is clicked only when it is off.

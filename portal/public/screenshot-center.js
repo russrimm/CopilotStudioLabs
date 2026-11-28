@@ -988,7 +988,7 @@ function scBuildConsentCard(labId, consent) {
   scratchLabel.appendChild(scratchBox);
   scratchLabel.appendChild(scEl("span", { text: "Build the agent from scratch (recommended): it creates one new practice agent and follows the lab on it" }));
   scratchRow.appendChild(scratchLabel);
-  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Classic shots - ” (Standard (Classic) harness) or “Copilot shots - ” (Microsoft Copilot harness) and a short title from your lab; a lab that covers both harnesses gets one of each. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
+  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Classic shots - ” (Standard (Classic) harness) or “Copilot shots - ” (Microsoft Copilot harness), a short title from your lab, and a short code that keeps two labs with similar titles apart; a lab that covers both harnesses gets one of each. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
   card.appendChild(scratchRow);
 
   const practiceId = "sc-consent-practice";

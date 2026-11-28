@@ -31,10 +31,18 @@ export const ACCOUNT_LABEL_RE = new RegExp(
     "^\\s*(?:use|sign in with|sign in as)\\s+(?:another|a\\s+different)\\s+(?:account|user)\\b",
     "^\\s*(?:add|remove|forget)\\s+(?:an?\\s+)?(?:another\\s+|work\\s+|school\\s+|personal\\s+|new\\s+)?account\\b",
     "^\\s*(?:pick|choose|select|change)\\s+(?:an?\\s+|your\\s+|the\\s+)?account\\b",
-    "^\\s*(?:account\\s+manager|my\\s+account|view\\s+account|manage\\s+(?:my\\s+)?account|profile\\s+(?:picture|photo)|account\\s+menu|profile\\s+menu)\\b",
+    "^\\s*(?:open\\s+)?(?:account\\s+manager|my\\s+account|view\\s+account|manage\\s+(?:my\\s+)?account|profile\\s+(?:picture|photo)|account\\s+menu|profile\\s+menu)\\b",
   ].join("|"),
   "i",
 );
+
+// The title of the account or profile flyout (the top bar's account button opens a dialog named "Account"): nothing in it is ever clicked, whatever the control is called.
+const ACCOUNT_DIALOG_TITLE_RE = /^\s*(?:(?:my|your)\s+)?(?:accounts?|profile|account\s+(?:manager|menu|settings)|profile\s+menu)\s*$/i;
+
+/** Whether a dialog's title is the account or profile flyout. */
+export function isAccountDialogTitle(title) {
+  return ACCOUNT_DIALOG_TITLE_RE.test(String(title ?? ""));
+}
 
 /** A whole sentence that tells the learner to leave the signed-in state. Plain "sign in" does not count: the click targets are the bold labels. */
 export const ACCOUNT_INSTRUCTION_RE = new RegExp(
@@ -425,6 +433,7 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (inputType === "password") return verdict(TIER.NEVER, "credential", "Password fields are never touched.");
   if (desc.href && isAccountLink(desc.href)) return verdict(TIER.NEVER, "account", "This link signs out or switches the account.");
   if (names.some(isAccountName) || names.some((n) => ACCOUNT_LABEL_RE.test(n))) return verdict(TIER.NEVER, "account", "Signing out or switching accounts is never done.");
+  if (inDialog && isAccountDialogTitle(desc.dialogTitle)) return verdict(TIER.NEVER, "account", "Nothing in the account or profile flyout is ever clicked.");
   if (isText && (names.some(isCredentialName) || /secret|password|token|api[-_ ]?key/i.test(String(desc.placeholder || "")))) return verdict(TIER.NEVER, "credential", "Credential fields are never filled in.");
 
   // The switch to the classic experience is allowed on its own few controls and nowhere else (a look: nothing in the tenant changes).

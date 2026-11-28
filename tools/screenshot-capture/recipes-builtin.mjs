@@ -104,7 +104,7 @@ export const BUILTIN_RECIPES = Object.freeze(
       // OBSERVED on a real tenant (2026-11-24 and 2026-11-26): the Agents list has a "More create options" button whose menu offers "Agent, uses Copilot Credits", "Customer conversation agent,
       // uses Copilot Credits", and "Agent, Standard". The menu is opened and shown; nothing is chosen, so nothing is created.
       steps: [
-        { id: "create-options-open", action: "open", intent: "open", say: "Opening More create options", target: { role: "button", name: "More create options", within: "any" }, expect: { dialog: true } },
+        { id: "create-options-open", action: "open", intent: "open", say: "Opening More create options", target: { role: "button", name: "More create options", within: "any" }, expect: { dialog: true, menuItems: ["Agent, Standard"] }, findMs: 60_000 },
         { id: "create-options-shown", action: "verify", say: "Checking that the menu offers Agent, Standard", target: { role: "menuitem", name: "Agent, Standard", within: "any" }, timeoutMs: 6000 },
       ],
     },

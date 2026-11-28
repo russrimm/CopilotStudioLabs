@@ -158,7 +158,7 @@ test("when the practice agent cannot be created, the shots that show an agent wa
     assert.deepEqual(botIdsOpened(out), [], "no agent page was opened: the shots did not go to a guessed or saved agent");
     const waiting = out.rows.filter((r) => r.cause === "agent-unavailable");
     assert.ok(waiting.length >= 3, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
-    assert.ok(waiting.every((r) => r.status === "skipped" && /^The practice agent could not be created: the computer could not choose “Agent, uses Copilot Credits” in More create options \(.+\)\. Nothing was created, so this screenshot needs an agent address\.$/.test(r.reason)), waiting.map((r) => r.reason).join(" | "));
+    assert.ok(waiting.every((r) => r.status === "skipped" && /^The practice agent could not be created: after the computer used “More create options”, no menu opened, so “Agent, uses Copilot Credits” was not offered\. Nothing was created, so this screenshot needs an agent address\.$/.test(r.reason)), waiting.map((r) => r.reason).join(" | "));
     assert.equal(out.job.causes.find((c) => c.code === "agent-unavailable")?.title, "Waiting for the agent");
     assert.equal(scenario.site.practiceAgents().length, 0);
   } finally {

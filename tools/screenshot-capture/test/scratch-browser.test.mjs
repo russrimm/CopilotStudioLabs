@@ -21,7 +21,7 @@ const skip = !found.available && "Playwright with Chromium is not installed";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const FEATURES = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent", "mc-memory"];
 const SITE = { layout: "newer", chatDelayMs: 200, chatStreamMs: 200, defaultDelayMs: 100 };
-const RUN = { localOptIn: true, writeGapMs: 0, effectMs: 1500, findMs: 3500, readiness: { answerMs: 20000 } };
+const RUN = { localOptIn: true, writeGapMs: 0, effectMs: 1500, findMs: 3500, agentListMs: 4000, createMenuMs: 4000, readiness: { answerMs: 20000 } };
 
 async function scenarioFor(site = {}, features = FEATURES, harness = "microsoft-copilot") {
   const scenario = await startScenario({ repoDir: REPO, site: { ...SITE, ...site }, lab: { harness, features } });
@@ -100,7 +100,8 @@ test("an account that cannot create agents ends every agent shot with one plain 
     const out = await run(scenario);
     assert.deepEqual(out.site.stats.writes, []);
     assert.ok(out.rows.every((r) => r.status === "needs-you" && r.cause === "agent-create-failed"), out.rows.map((r) => `${r.status}:${r.cause}`).join(", "));
-    assert.match(out.rows[0].reason, /could not choose “Agent, uses Copilot Credits” in “More create options”/);
+    assert.match(out.rows[0].reason, /could not start creating the practice agent: after the computer used “More create options”, no menu opened, so “Agent, uses Copilot Credits” was not offered\. Nothing was created\./);
+    assert.doesNotMatch(out.rows[0].reason, /could not choose/);
     const registryFile = path.join(out.home, ".practice-agents.json");
     if (fs.existsSync(registryFile)) {
       const registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));

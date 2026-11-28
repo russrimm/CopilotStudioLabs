@@ -1,8 +1,13 @@
 // The practice agent: the one agent the companion may change, and only after the person opted in. It is created
-// by the companion itself in the practice environment the person chose, one per harness, named "Classic shots - <code>" or
-// "Copilot shots - <code>" (before 1.8.0: "Lab screenshots - <code>"), and
+// by the companion itself in the practice environment the person chose, one per harness, named "Classic shots - <title> <code>" or
+// "Copilot shots - <title> <code>" (before 1.8.0: "Lab screenshots - <title>"), and
 // recorded in a local registry so the next job reuses it. The companion never deletes anything: after a run it
 // writes a plain-language report of everything it created, so the person can delete the practice agent themselves.
+//
+// Names are unique within the 30 characters the product keeps (before 1.8.3 the title was cut at 30 characters and two labs with titles that start alike got the SAME name,
+// "Classic shots - Energy &"): the name ends with a four character code from the lab's key and from the number of earlier agents of that lab set aside by Start fresh
+// (`registry.generation`). The agent is found by its id, which the registry records and the address after Save holds, never by its name alone; an agent recorded
+// under the older shared name is still reused by its recorded address, and a name that two rows of the Agents list share is never opened.
 //
 // The registry and the report stay on this computer, under the companion folder. They hold the agent's address,
 // which is why they are never uploaded and never part of the companion download.
@@ -15,6 +20,7 @@ import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, NOT_RECORDED_
 import { ensureClassicExperience, ensureDefaultExperience, proveAgentPage, unprovenMessage, wrongHarness } from "./harness-run.mjs";
 import { parseCopilotStudioAddress, sameEnvironment } from "./targets.mjs";
 import { openCreateFlow } from "./scratch-recipes.mjs";
+import { AGENT_LIST_WAIT_MS, NEW_AGENT_ADDRESS_WAIT_MS, findAgentByName, waitForAgentAddress } from "./agent-lookup.mjs";
 
 export const PRACTICE_PREFIX = "Lab screenshots - ";
 const REGISTRY_NAME = ".practice-agents.json";
@@ -134,8 +140,16 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
       data.pending.push({ envId, key, name, ...(isSpecificHarness(harness) ? { harness } : {}), at: iso() });
       save(data);
     },
+    /** The pending create of an environment, lab, and harness, if one was marked and never finished. */
     pending(envId, key = "shared", harness = null) {
       return load().pending.find((p) => p.envId === envId && p.key === key && sameHarness(p, harness)) || null;
+    },
+    /**
+     * How many practice agents of this environment, lab, and harness were set aside by "Start fresh" (or found unopenable). The next agent's name code
+     * includes it (see practiceAgentName in walkthrough.mjs), so a new agent never has the same name as an older one that is still in the Agents list.
+     */
+    generation(envId, key = "shared", harness = null) {
+      return load().agents.filter((a) => a.envId === envId && a.retired && (a.key || "shared") === key && sameHarness(a, harness)).length;
     },
     clearPending(envId, key = "shared", harness = null) {
       const data = load();
@@ -365,10 +379,10 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
   const executor = executorFor(practice);
   // The new-agent flow starts from "More create options" ("Agent, Standard" for a Standard agent, "Agent, uses Copilot Credits" for a Microsoft Copilot one).
   // NOT VERIFIED on a real tenant: what the flow shows after the option is chosen; the Name field and the confirm button that follow must be found, or it stops.
-  const opening = await openCreateFlow({ executor, harness: h, trace, log });
+  const opening = await openCreateFlow({ executor, harness: h, trace, log, waitMs: session.createMenuMs });
   if (!opening.ok) {
-    const exact = opening.via === "create-option" ? (opening.stage === "menu" ? "open More create options" : `choose “${opening.option}” in More create options`) : "open the new agent form";
-    return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created: the computer could not ${exact} (${opening.failed?.why || "a step failed"}). Nothing was created.`, setup: opening });
+    const why = opening.reason || opening.failed?.why || "a step failed";
+    return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created: ${why}. Nothing was created.`, setup: opening });
   }
   // A Microsoft Copilot agent opens at /agents/<id> (observed), a Standard one at /bots/<id>/...: the address that is read afterward is what counts, so only the older
   // single-harness flow expects /bots/ in the address after the click.
@@ -377,8 +391,15 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
     { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent", "Save"], within: "main" }, ...(h === MICROSOFT_COPILOT ? {} : { expect: { urlPath: "/bots/" } }) },
   ].map((s) => ({ ...s, note: s.id === "create-name" ? "Named the practice agent" : "Created the practice agent" })));
   if (!result.ok) return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result });
-  const created = parseCopilotStudioAddress(page.url());
-  if (!created.botId) return failed({ ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." });
+  // The flow leaves the new-agent page for the new agent's own page: the id in that address is the agent (waited for, a bounded time). A page that stays where it was is searched in the Agents list by the exact name.
+  let created = (await waitForAgentAddress({ page, sleep, waitMs: Math.min(session.agentListMs ?? NEW_AGENT_ADDRESS_WAIT_MS, NEW_AGENT_ADDRESS_WAIT_MS) })) || parseCopilotStudioAddress(page.url());
+  if (!created.botId) {
+    const found = await findAgentByName({ page, go, env, name, executorFor, practice, sleep, waitMs: session.agentListMs ?? AGENT_LIST_WAIT_MS, trace });
+    if (found.signIn) return { ok: false, signIn: found.signIn, cause: "sign-in", error: "" };
+    if (found.parsed) created = found.parsed;
+    else if (found.ambiguous) return failed({ ok: false, cause: "automation-failed", error: `The practice agent was created, but ${found.ambiguous} agents in your Agents list are named “${name}”, so the computer did not open any of them.` });
+  }
+  if (!created.botId) return failed({ ok: false, cause: "automation-failed", error: `The practice agent was created, but its address could not be read, and “${name}” did not show in your Agents list within ${Math.round((session.agentListMs ?? AGENT_LIST_WAIT_MS) / 1000)} seconds.` });
   // The new agent's harness is what its page proves, never what was asked for: it is recorded under the proven harness.
   const proof = await prove();
   const where = created.agentBase || `${env.envBase}/bots/${created.botId}`;

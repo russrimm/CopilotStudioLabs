@@ -12,6 +12,7 @@
 // list. A step the computer cannot do ends the shot as "needs you" with a plain, specific reason. An unexpected prompt
 // (a license, a consent, a quota message) stops the whole run.
 
+import { AGENT_LIST_WAIT_MS, NEW_AGENT_ADDRESS_WAIT_MS, findAgentByName as lookupAgentByName, waitForAgentAddress } from "./agent-lookup.mjs";
 import { createExecutor, removableItemsInPage } from "./executor.mjs";
 import { TIER } from "./guard.mjs";
 import { CUSTOMER_CONVERSATION, HARNESS_LABELS, MICROSOFT_COPILOT, STANDARD, isSpecificHarness } from "./harness.mjs";
@@ -141,19 +142,14 @@ function makeExecutor({ page, session, practice, trace, log, sleep, terms, home,
 const addressOf = (parsed) => (parsed.section ? `${parsed.agentBase}/${parsed.section}` : parsed.agentBase);
 
 /**
- * Find the practice agent in the Agents list by its name: search the list, open the agent, and read its address. The name
- * is the practice agent's own (the fixed prefix and a short title), so nothing else is opened.
- * @returns {Promise<{signIn?: object, parsed?: object, failed?: object}>}
+ * Find the practice agent in the Agents list by its exact name (see agent-lookup.mjs): search the list, open the agent's own row, and read its address. The name is the
+ * practice agent's own (the fixed prefix, a short title, and the lab's code), so nothing else is opened, and a name two rows share is never guessed.
+ * @returns {Promise<{signIn?: object, parsed?: object, failed?: object, ambiguous?: number}>}
  */
 async function findAgentByName({ page, session, go, env, name, trace, log, sleep, terms, home, companion, readiness }) {
-  const list = await go(`${env.envBase}/agents`, "the list of agents");
-  if (list.signIn) return { signIn: list.signIn };
   const practice = { agentId: null, envId: env.envId, creating: (url) => isCreateFlowUrl(url, env.envBase) };
-  const executor = makeExecutor({ page, session, practice, trace, log, sleep, terms, home, shot: "find-agent", companion, readiness });
-  const found = await executor.run(sanitizeSteps(R.findAgentSteps(name), { product: "copilot-studio" }));
-  const parsed = parseCopilotStudioAddress(page.url());
-  if (found.ok && UUID.test(parsed.botId || "")) return { parsed };
-  return { failed: found };
+  const executorFor = (forPractice) => makeExecutor({ page, session, practice: forPractice, trace, log, sleep, terms, home, shot: "find-agent", companion, readiness, inputs: { agentName: name } });
+  return lookupAgentByName({ page, go, env, name, executorFor, practice, sleep, waitMs: session.agentListMs ?? AGENT_LIST_WAIT_MS, trace });
 }
 
 /**
@@ -270,22 +266,26 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     log?.("  The practice agent from an earlier run could not be opened (it may have been deleted), so a new one is built.");
   }
 
-  const name = practiceAgentName(scratch.context, h);
-  const lookup = { page, session, go, env, name, trace, log, sleep, terms, home, companion, readiness };
-  if (registry.pending(envId, key, h)) {
-    // An earlier run clicked Save and stopped before it wrote the new agent down: never create a second one blindly.
-    const adopt = await findAgentByName(lookup);
+  // The name carries the harness marker, the lab's short title, and a code from the lab's key and from how many agents of it were set aside by Start fresh, so it is unique among the agents
+  // of the list within the 30 characters the product keeps (see practiceAgentName). An agent made before the code existed keeps the name it was recorded with.
+  const name = practiceAgentName(scratch.context, h, { generation: registry.generation?.(envId, key, h) || 0 });
+  const pending = registry.pending(envId, key, h);
+  if (pending) {
+    // An earlier run clicked Save and stopped before it wrote the new agent down: never create a second one blindly. It is looked for by the name it was recorded under.
+    const pendingName = pending.name || name;
+    const adopt = await findAgentByName({ page, session, go, env, name: pendingName, trace, log, sleep, terms, home, companion, readiness });
     if (adopt.signIn) return { ok: false, signIn: adopt.signIn };
     if (adopt.parsed) {
       const proof = await prove(20_000);
-      registry.recordAgent({ ...base, harness: proof.proven || null, botId: adopt.parsed.botId, name, address: addressOf(adopt.parsed), key, accountId: session.accountId });
+      registry.recordAgent({ ...base, harness: proof.proven || null, botId: adopt.parsed.botId, name: pendingName, address: addressOf(adopt.parsed), key, accountId: session.accountId });
       if (!proof.ok) return proof.failure;
-      const agent = { ...base, botId: adopt.parsed.botId, agentBase: adopt.parsed.agentBase, openUrl: addressOf(adopt.parsed), name, reused: true };
+      const agent = { ...base, botId: adopt.parsed.botId, agentBase: adopt.parsed.agentBase, openUrl: addressOf(adopt.parsed), name: pendingName, reused: true };
       useAgent(scratch, agent);
       log?.("  Found the practice agent that an earlier run started to create, and will use it.");
       return { ok: true, agent };
     }
-    return needsYou("agent-create-failed", `An earlier run started to create the practice agent and stopped before it could write down which one it is, so the computer will not create a second one. Look in your Agents list for one named “${name}”, then choose Start fresh and run the capture again (a new agent is then built; the old one stays until you delete it).`);
+    if (adopt.ambiguous) return needsYou("agent-create-failed", `An earlier run started to create the practice agent, but ${adopt.ambiguous} agents in your Agents list are named “${pendingName}”, so the computer did not open any of them and will not create another one. Open the right one yourself and choose “Use an existing agent”, or delete the extra ones and run again.`);
+    return needsYou("agent-create-failed", `An earlier run started to create the practice agent and stopped before it could write down which one it is, so the computer will not create a second one. Look in your Agents list for one named “${pendingName}”, then choose Start fresh and run the capture again (a new agent is then built; the old one stays until you delete it).`);
   }
 
   // Made inside the experience of its harness, after the switch for a Classic agent. Nothing exists until the last click, and the registry is written just before it, so a crash after the click cannot lead to a second agent.
@@ -304,14 +304,13 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
   const cannot = (what, made) => needsYou("agent-create-failed", `${what} Use “Show me once” to teach it this step, or set the agent up yourself and choose “Use an existing agent”.`, { detail: made.failed?.why || "", diagnostic: made.diagnostic?.file || null });
   // The new-agent flow starts from "More create options": "Agent, Standard" for a Standard practice agent, "Agent, uses Copilot Credits" for a Microsoft Copilot one.
   // NOT VERIFIED on a real tenant: what the flow shows after the option is chosen. The Name field and the Save button that follow must be found, or it stops with the exact step.
-  const opened = await R.openCreateFlow({ executor, harness: h, trace, log });
+  const opened = await R.openCreateFlow({ executor, harness: h, trace, log, waitMs: session.createMenuMs });
   if (opened.halted) return stop(opened);
   if (!opened.ok) {
     if (opened.via === "create-option") {
-      const exact = opened.stage === "menu" ? "open “More create options” on the Agents list" : `choose “${opened.option}” in “More create options”`;
-      return cannot(`The computer could not ${exact}. The account may not be allowed to create ${h === STANDARD ? "Standard" : "Microsoft Copilot"} agents here, or the control was renamed. Nothing was created.`, opened);
+      return cannot(`The computer could not start creating the practice agent: ${opened.reason}. Nothing was created.`, opened);
     }
-    return cannot("The computer could not find a way to create an agent in this environment. The account may not be allowed to create agents here, or the New agent control was renamed.", opened);
+    return cannot(`The computer could not find a way to create an agent in this environment (${opened.reason}). The account may not be allowed to create agents here, or the New agent control was renamed.`, opened);
   }
   const filled = await executor.run(sanitizeSteps(R.CREATE_AGENT_FILL, { product: "copilot-studio" }));
   if (filled.halted) return stop(filled);
@@ -325,18 +324,16 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     registry.clearPending(envId, key, h);
     return cannot("The computer named the agent but could not find its Save button. Nothing was created.", committed);
   }
-  // The new-agent page can stay on its own address after Save: then the agent is found in the list by its name.
-  let created = parseCopilotStudioAddress(page.url());
-  for (let tries = 0; tries < 6 && !UUID.test(created.botId || ""); tries += 1) {
-    await sleep(1000);
-    created = parseCopilotStudioAddress(page.url());
-  }
+  // The flow leaves the new-agent page for the new agent's OWN page, and that address holds the agent's id: it names exactly one agent, so it is what counts. Only a page that stays
+  // where it was (the agent is made and the page says Saved) sends the computer to the Agents list, where it looks for the agent's exact name (a list that lags is read again for a bounded time).
+  let created = (await waitForAgentAddress({ page, sleep, waitMs: Math.min(session.agentListMs ?? NEW_AGENT_ADDRESS_WAIT_MS, NEW_AGENT_ADDRESS_WAIT_MS) })) || parseCopilotStudioAddress(page.url());
   if (!UUID.test(created.botId || "")) {
-    const found = await findAgentByName(lookup);
+    const found = await findAgentByName({ page, session, go, env, name, trace, log, sleep, terms, home, companion, readiness });
     if (found.signIn) return { ok: false, signIn: found.signIn };
     if (found.parsed) created = found.parsed;
+    else if (found.ambiguous) return needsYou("agent-create-failed", `The computer clicked Save, but ${found.ambiguous} agents in your Agents list are named “${name}”, so it did not open any of them. Open the new one yourself and choose “Use an existing agent”, or delete the extra ones and run again.`, { detail: committed.failed?.why || "" });
   }
-  if (!UUID.test(created.botId || "")) return needsYou("agent-create-failed", `The computer clicked Save but could not find the new agent afterward, so it stopped. Look in your Agents list for one named “${name}”, then choose Start fresh and run again.`, { detail: committed.failed?.why || "" });
+  if (!UUID.test(created.botId || "")) return needsYou("agent-create-failed", `The computer clicked Save, but the page stayed on the new agent form and “${name}” did not show in your Agents list within ${Math.round((session.agentListMs ?? AGENT_LIST_WAIT_MS) / 1000)} seconds, so it stopped. Look in your Agents list for one named “${name}”, then choose Start fresh and run again. It will not create a second one on its own.`, { detail: committed.failed?.why || "" });
   // The new agent's harness is what its page proves, never what was asked for: it is recorded under the proven harness (or with none, when it could not be read).
   const proof = await prove();
   registry.recordAgent({ ...base, harness: proof.proven || null, botId: created.botId, name, address: addressOf(created), key, accountId: session.accountId });

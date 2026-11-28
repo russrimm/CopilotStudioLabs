@@ -279,7 +279,7 @@ function scConsentModel(autonomy) {
 }
 
 const SC_CREATES_FALLBACK = Object.freeze([
-  "One new agent in the environment you choose (or the one Copilot Studio opens for this account), named “Classic shots - <short lab title>” for a Standard (Classic) harness lab or “Copilot shots - <short lab title>” for a Microsoft Copilot harness lab (a lab that covers both harnesses gets one of each)",
+  "One new agent in the environment you choose (or the one Copilot Studio opens for this account), named “Classic shots - <short lab title> <short code>” for a Standard (Classic) harness lab or “Copilot shots - <short lab title> <short code>” for a Microsoft Copilot harness lab (a lab that covers both harnesses gets one of each; the short code keeps two labs with similar titles apart)",
   "That agent's instructions and description, using the text from your lab",
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
