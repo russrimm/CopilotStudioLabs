@@ -901,6 +901,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         product: profile,
         waitMs: signInWaitMs,
         allowWait: !hidden || Boolean(options.waitForSignIn),
+        hiddenBy: backgroundHidden ? "background" : "headless",
         pollMs: options.authPollMs ?? 250,
         settleMs: options.authSettleMs ?? 1000,
         graceMs: options.authGraceMs ?? 2500,
@@ -1009,7 +1010,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           }
           if (effective === "guided" && (!attended || backgroundHidden || state.guidedUnavailable)) {
             tally.needsYou += 1;
-            const message = !attended || backgroundHidden ? "This screen needs you to set it up, and this companion has no visible window (--headless or --background). Use “Retake guided” with a normal window." : "Nobody was here to set this screen up earlier in this job, so it is waiting for you. Use “Retake guided” when you are at the computer.";
+            const message = !attended || backgroundHidden ? "This screen needs you to set it up, but the browser window is hidden (--headless, or you chose Hide the browser window), so nobody can. Use “Retake guided”: it opens a window." : "Nobody was here to set this screen up earlier in this job, so it is waiting for you. Use “Retake guided” when you are at the computer.";
             log(`  Not run: ${message}`);
             notRun.push({ filename: shot.filename, why: "It needs you at the computer." });
             await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });

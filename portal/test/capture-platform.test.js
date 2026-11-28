@@ -1092,6 +1092,24 @@ test("the real companion code drives a whole job against the real portal over HT
   t.diagnostic(`companion log lines: ${lines.length}`);
 });
 
+test("the hide-the-window choice reaches the companion exactly as the person made it: only an explicit yes counts", async () => {
+  const { base } = ctx;
+  const companion = new FakeCompanion(base);
+  await companion.pair((await call(base, "POST", "/api/capture/pair")).json.code);
+  await companion.heartbeat();
+  const labId = ctx.lab.labId;
+  const queue = (options) => call(base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId }, scope: { mode: "all", filenames: [], featureIds: [] }, ...(options ? { options } : {}) } });
+  for (const [sent, expected] of [[{ background: true }, true], [{}, false], [{ background: "true" }, false], [undefined, false]]) {
+    const queued = await queue(sent);
+    assert.equal(queued.status, 201, queued.text);
+    assert.equal(queued.json.job.options.background, expected);
+    const claimed = (await companion.next()).json;
+    assert.equal(claimed.job.options.background, expected, "the companion is handed the same answer");
+    await call(base, "POST", `/api/capture/jobs/${claimed.job.id}/cancel`);
+    assert.equal((await companion.complete(claimed.job.id)).json.job.status, "cancelled");
+  }
+});
+
 test("a job carries the tenant addresses of a brand profile or of the lab's own brand customization", async () => {
   const { base } = ctx;
   const brandEnv = { PORTAL_STORAGE_ROOT: ctx.storageRoot };

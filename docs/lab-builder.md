@@ -2288,9 +2288,24 @@ A job without consent fields behaves as read-only, and a request can only lower,
   sample question*), with **Pause** and **Stop**. The end-of-job report groups outcomes (*36 captured, 4 saved for
   your review, 2 need a practice agent, 1 could not be completed*), shows **Show me once** only on shots that failed,
   and lists what the computer created.
-- **Background.** Once signed in and a session is saved, `--background` (the portal option **Run in the background when
-  already signed in**) uses a hidden window with the saved session. If the tenant rejects it (Conditional Access, a
-  sign-in redirect) a normal window opens with one message. The first sign-in is always in a visible window.
+- **Hide the browser window (background).** The Screenshot Center checkbox **Hide the browser window while capturing**
+  (earlier wording: *Run in the background when already signed in*; the companion flag is `--background`) is off each time
+  the Center opens. It rides on every capture queued from a lab's Center (capture, retake, selected screens) as
+  `options.background`, and not on **Capture screenshots when the lab is built** or shared-library captures, which always
+  show a window. A **Next capture** line under it says what will happen, from the sign-ins the computer reports.
+  - *Checked:* for each product, if a sign-in was saved by an earlier successful capture, the companion opens the browser
+    with no window and the saved session, and first opens the product's start screen to check it does not ask to sign in
+    again. If it does (Conditional Access, a sign-in redirect), the hidden browser is closed and a normal window opens
+    instead. With no saved sign-in (the first time) a normal window opens so the person can sign in. Nobody can watch,
+    sign in, or approve a prompt in a hidden window, so a product that asks for a sign-in later in the job stops its
+    remaining screens with a message to turn the option off and retake.
+  - *Not checked:* a visible window opens, comes to the front once when the job starts, and stays open while it captures.
+    The person can watch each screen, sign in, and approve prompts.
+  - *The same either way:* the same screens, the same account and profile, the same checks, and the same picture size
+    (1440 by 900 at a device pixel ratio of 1). The option changes only the window.
+  - *Screens the person sets up* (**Retake guided**, **Show me once**, the *I will set up each screen* mode) always open a
+    window: the Center does not send the option for them. In Smart mode a screen that needs setup ends *Needs you* in a
+    hidden run. A companion started with `--background` hides the window for every job, whatever the checkbox says.
 
 **What the computer may and never does (the safety tiers).** One table in `tools/screenshot-capture/guard.mjs`
 (`TIER_TABLE`, shown in the consent card, used by the portal's classifier) is the single source of truth. Every click

@@ -692,6 +692,8 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
   scRerender(labId);
   let needsAddress = false;
   try {
+    // Screens you set up yourself (and "Show me once") need a window you can use, so they never run hidden.
+    const hideWindow = lab.ui.background === true && scCaptureModeOf(mode ?? lab.ui.mode) !== "guided" && !record;
     const body = {
       target: { type: "lab", labId },
       scope: scScopeBody(scope, filenames),
@@ -699,7 +701,7 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
         callouts: lab.ui.callouts,
         redact: lab.ui.redact,
         ...scModeRequest(mode ?? lab.ui.mode),
-        ...(lab.ui.background === true ? { background: true } : {}),
+        ...(hideWindow ? { background: true } : {}),
         ...(record ? { record: { share: record.share === true } } : {}),
         // A retake may replace the shared library's picture (never one that is marked accurate); an ordinary capture never does.
         ...(retake ? { retake: true } : {}),

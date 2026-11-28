@@ -355,7 +355,7 @@ function scRenderInto(host, labId) {
   section.appendChild(scBuildPrimary(model, lab));
   if (lab.ui.ask?.kind === "retake" && !lab.ui.ask.filename) section.appendChild(scBuildAskPanel(labId, lab.ui.ask));
   section.appendChild(scBuildModeChoice(labId));
-  section.appendChild(scBuildBackgroundChoice(labId));
+  section.appendChild(scBuildBackgroundChoice(labId, model));
   section.appendChild(scEl("div", { class: "sc-progress-host", data: { scProgressHost: labId } }));
   const choice = scBuildAgentSource(labId, model);
   if (choice) section.appendChild(choice);
@@ -827,15 +827,38 @@ function scBuildModeChoice(labId) {
   return fieldset;
 }
 
-/** Background running: a hidden window with the saved sign-in. It is a choice about the window, not about what the computer may do, so it sits outside the mode group. */
-function scBuildBackgroundChoice(labId) {
+/**
+ * What the next capture will do with its browser window, from what the computer reported about saved sign-ins.
+ * It is a promise only about the start: a product that asks for a sign-in later in a hidden run stops those screens.
+ */
+function scBackgroundNow({ checked, mode, connected, products = [], signedIn = [] }) {
+  if (mode === "guided") return "a browser window opens, because you set up each screen yourself.";
+  if (!checked) return "a browser window opens on your computer.";
+  const have = new Set(signedIn);
+  const missing = products.filter((p) => !have.has(p.id));
+  if (!connected || !products.length) return "no window if you are already signed in. If not, a window opens so you can sign in.";
+  const names = (list) => scJoinNames(list.map((p) => p.name), 3);
+  if (!missing.length) return `no browser window. Your computer has a saved sign-in for ${names(products)}.`;
+  if (missing.length === products.length) return `a browser window opens so you can sign in to ${names(missing)}. After that, captures can run in the background.`;
+  return `a browser window opens so you can sign in to ${names(missing)}. The rest runs in the background.`;
+}
+
+/** Background running: no browser window while a saved sign-in works. It is a choice about the window, not about what the computer may do, so it sits outside the mode group. */
+function scBuildBackgroundChoice(labId, model = {}) {
   const lab = scLab(labId);
+  const checked = lab.ui.background === true;
   const row = scEl("div", { class: "sc-mode-background" });
-  const box = scEl("input", { id: "sc-run-background", attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-run-background-help" }, data: { scField: "background", scFocus: "background" } });
-  box.checked = lab.ui.background === true;
+  const box = scEl("input", { id: "sc-run-background", attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-run-background-help sc-run-background-now" }, data: { scField: "background", scFocus: "background" } });
+  box.checked = checked;
   row.appendChild(box);
-  row.appendChild(scLabel("sc-run-background", "Run in the background when already signed in"));
-  row.appendChild(scEl("p", { id: "sc-run-background-help", class: "sc-mode-help", text: "A hidden window uses your saved sign-in, so you can start the capture and walk away. If Microsoft asks you to sign in again, a normal window opens instead." }));
+  row.appendChild(scLabel("sc-run-background", "Hide the browser window while capturing"));
+  const help = scEl("div", { id: "sc-run-background-help", class: "sc-mode-help sc-bg-help" });
+  help.appendChild(scEl("p", {}, [scEl("strong", { text: "Checked: " }), "works in the background when you are already signed in. Your computer reuses your saved sign-in and shows no browser window, so you can keep using it. If you are not signed in yet, or Microsoft asks you to sign in again, a window opens."]));
+  help.appendChild(scEl("p", {}, [scEl("strong", { text: "Not checked: " }), "a browser window opens and stays open while it captures. You can watch each screen and sign in if asked."]));
+  help.appendChild(scEl("p", { text: "Either way the same screens are captured at the same size. Screens you set up yourself (Retake guided) always open a window." }));
+  row.appendChild(help);
+  const now = scEl("p", { id: "sc-run-background-now", class: "sc-mode-help sc-bg-now", data: { scBackgroundNow: "1" } }, [scEl("strong", { text: "Next capture: " }), scBackgroundNow({ checked, mode: lab.ui.mode, connected: model.connected === true, products: model.products || [], signedIn: model.signedIn || [] })]);
+  row.appendChild(now);
   return row;
 }
 
@@ -2422,6 +2445,7 @@ function scBindSection(section, labId) {
       else lab.ui.picks.delete(target.dataset.filename);
     } else if (field === "background") {
       lab.ui.background = Boolean(target.checked);
+      scRerender(labId);
     } else if (field === "mode") {
       if (target.checked) {
         lab.ui.mode = scCaptureModeOf(target.dataset.scMode);
