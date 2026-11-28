@@ -105,6 +105,9 @@ function stepFailure(label, result) {
   if (failed?.code === "blocked") return { cause: "blocked-by-safety", error: `The computer would not ${label.toLowerCase()}, because ${failed.blockedBy ? `it is something it never does (${failed.blockedBy})` : "a safety rule stops it"}. Set the screen up yourself with “Retake guided”.` };
   if (failed?.code === "cancelled") return { cause: "stopped", error: "You stopped the capture, so nothing else was changed." };
   if (failed?.id === "knowledge-add-url") return { cause: "automation-failed", error: "The product did not accept the website address (it allows a public website only up to two levels deep, and its Add button stays off), so no knowledge was added. Use “Retake guided”, or add a website yourself." };
+  // The Standard Instructions editor: say exactly what was missing (the button, or the editor that did not open), never "the text did not register" for an editor that was never open.
+  if (failed?.id === "instr-edit") return { cause: "automation-failed", error: "The Edit Instructions button was not found on the agent's Overview page, so the instructions were not set. Use “Retake guided”, or set the instructions yourself." };
+  if (failed?.id === "instr-editor") return { cause: "automation-failed", error: "Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page, so nothing was typed. Use “Retake guided”, or set the instructions yourself." };
   return { cause: "automation-failed", error: `The computer could not ${label.toLowerCase()}${failed?.why ? ` (${failed.why})` : ""}. Use “Show me once” so it can learn this step, or set the screen up yourself with “Retake guided”.` };
 }
 
@@ -527,7 +530,7 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
     toRun = steps.filter((s) => !lead.includes(s));
   }
   const result = await executor.run(toRun);
-  const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE && r.effect !== "already there");
+  const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE && r.effect !== "already there" && r.effect !== "not needed" && !r.typed?.unchanged);
   for (const r of changed) session.registry.recordChange({ botId: agent.botId, what: r.summary || `${r.action} in the practice agent`, shot });
   if (!result.ok) {
     // A Standard Instructions editor left open with text in it is closed without saving (Cancel, then Discard on the confirmation), so the next screen starts clean.

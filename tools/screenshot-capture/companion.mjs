@@ -52,7 +52,7 @@ import { HARNESS_LABELS, harnessPlan } from "./harness.mjs";
 import { forgetClassicPage, harnessGapMessage, orderByHarness, wantedHarness, workPageOf } from "./harness-run.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.8.3";
+export const COMPANION_VERSION = "1.8.4";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";

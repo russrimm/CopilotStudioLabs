@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { classicGapFor, showStepsFor, stagesToPrepare } from "../scratch.mjs";
+import { failureMessage } from "../autonomous.mjs";
 import { resolveAutomation, resolveStage } from "../walkthrough.mjs";
 import { familyShowSteps } from "../families.mjs";
 import { classifyControl, TIER } from "../guard.mjs";
@@ -94,6 +95,68 @@ test("the new step fields are kept, bounded, and cannot carry anything but plain
   assert.equal(steps([{ id: "t3", action: "verify", target: { role: "button", name: "Save" }, expect: { enabled: true, disabled: true } }])[0].expect.disabled, true, "enabled and disabled are never asked together");
 });
 
+test("the Instructions editor is open only when Cancel and Save are both on the page: the text box alone is never the signal, in the recipe or in the cleanup", () => {
+  const instr = steps(R.SET_INSTRUCTIONS_CLASSIC);
+  assert.equal(instr.length, R.SET_INSTRUCTIONS_CLASSIC.length, "every step of the recipe is allowed");
+  const byId = Object.fromEntries(instr.map((s) => [s.id, s]));
+  const named = (list) => list.map((t) => `${t.role}:${t.name}:${t.section}`);
+  assert.deepEqual(named(byId["instr-edit"].skipIfPresent), ["button:Cancel:Instructions", "button:Save:Instructions"], "Edit Instructions is skipped only when Cancel and Save are both there");
+  assert.deepEqual(named([byId["instr-edit"].target]), ["button:Edit Instructions:Instructions"]);
+  assert.equal(byId["instr-edit"].ifMissing, "the Edit Instructions button was not found");
+  assert.equal(byId["instr-editor"].ifMissing, "Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page");
+  assert.deepEqual(named([byId["instr-editor"].target, ...byId["instr-editor"].alsoPresent]), ["button:Save:Instructions", "button:Cancel:Instructions", "textbox:Describe what you want this agent to do, its tone, and rules:Instructions"]);
+  assert.deepEqual(named(byId["instr-saved"].orGone), ["button:Edit Instructions:Instructions"], "a Save that is gone proves a save only when the Edit Instructions button is back");
+  assert.equal(byId["instr-enabled"].alreadyOk, "the instructions already match, nothing to save");
+  assert.deepEqual([byId["instr-save"].skipIfFlag, byId["instr-saved"].skipIfFlag, byId["instr-leave"].skipUnlessFlag, byId["instr-leave-discard"].skipUnlessFlag], ["already-ok", "already-ok", "already-ok", "already-ok"]);
+  const abandon = steps(R.ABANDON_INSTRUCTIONS_EDIT);
+  assert.deepEqual(named(abandon[0].skipUnlessPresent), ["button:Cancel:Instructions", "button:Save:Instructions"], "the cleanup runs only for an open editor");
+  for (const s of [...instr, ...abandon]) for (const key of ["skipIfPresent", "skipUnlessPresent"]) {
+    const list = [].concat(s[key] || []);
+    assert.ok(list.every((t) => t.role !== "textbox"), `${s.id}.${key} never names a text box`);
+  }
+  // Nothing of the Details card is ever named, and no step types anywhere but the Instructions editor.
+  assert.ok(![...instr, ...abandon].some((s) => /details/i.test(s.target?.name || "")), "Edit Details is never a target");
+  assert.deepEqual(instr.filter((s) => s.action === "type").map((s) => s.target.section), ["Instructions"]);
+});
+
+test("the step fields for presence lists, plain failures, and flags are bounded and plain", () => {
+  const save = { role: "button", name: "Save", within: "main", section: "Instructions" };
+  const cancel = { role: "button", name: "Cancel", within: "main", section: "Instructions" };
+  const [s] = steps([{ id: "t", action: "verify", target: save, alsoPresent: [cancel], orGone: [cancel], skipIfPresent: [cancel, save], skipUnlessPresent: cancel, ifMissing: "the Edit Instructions button was not found", alreadyOk: "the instructions already match, nothing to save", skipIfFlag: "already-ok", skipUnlessFlag: "Not A Flag" }]);
+  assert.equal(s.alsoPresent.length, 1);
+  assert.equal(s.orGone.length, 1);
+  assert.equal(s.skipIfPresent.length, 2);
+  assert.equal(s.skipUnlessPresent.name, "Cancel", "a single control stays a single control");
+  assert.equal(s.ifMissing, "the Edit Instructions button was not found");
+  assert.equal(s.alreadyOk, "the instructions already match, nothing to save");
+  assert.equal(s.skipIfFlag, "already-ok");
+  assert.equal(s.skipUnlessFlag, undefined, "a flag is a short lowercase word");
+  // A list with one bad member is dropped whole (a required control left out would weaken the condition), and a long list is too.
+  const [bad] = steps([{ id: "t2", action: "verify", target: save, skipIfPresent: [cancel, { role: "nonsense" }], alsoPresent: [cancel, cancel, cancel, cancel, cancel] }]);
+  assert.equal(bad.skipIfPresent, undefined);
+  assert.equal(bad.alsoPresent, undefined);
+  const [odd] = steps([{ id: "t3", action: "verify", target: save, ifMissing: "see https://example.com/a", alreadyOk: "<b>match</b>" }]);
+  assert.equal(odd.ifMissing, undefined, "a note is never an address");
+  assert.equal(odd.alreadyOk, undefined, "and never markup");
+});
+
+test("the plain words for a missing Edit Instructions button and an editor that did not open are the job row text, and never 'did not register'", () => {
+  const edit = failureMessage({ id: "instr-edit", code: "step-failed", why: "the Edit Instructions button was not found" });
+  const editor = failureMessage({ id: "instr-editor", code: "step-failed", why: "Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page" });
+  assert.match(edit, /^The Edit Instructions button was not found/);
+  assert.match(editor, /^Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page/);
+  for (const text of [edit, editor]) {
+    assert.doesNotMatch(text, /did not register/);
+    // A job row keeps 300 characters, and the companion adds 44 and the stage name: the whole sentence must be readable.
+    assert.ok(text.length + 44 + "Set the instructions: ".length <= 300, `${text.length}`);
+  }
+});
+
+test("the plain recipe wording has no emoji and no stray symbols", () => {
+  const all = JSON.stringify([R.SET_INSTRUCTIONS_CLASSIC, R.ABANDON_INSTRUCTIONS_EDIT]);
+  assert.doesNotMatch(all, /[^\x00-\x7f\u201c\u201d]/, "plain text");
+});
+
 test("the Standard recipes are written for the tab strip: no Build, Preview, Evaluate, or Monitor tab of the Microsoft Copilot harness is ever asked for", () => {
   const shot = (over = {}) => ({ kind: "ui-location", caption: "The agent", alt: "", instructions: [], callouts: [], ...over });
   const stages = ["agent", "instructions", "knowledge", "tools", "model", "preview", "evaluate", "publish", "monitor", "settings"];
@@ -116,7 +179,7 @@ test("the Standard recipes are written for the tab strip: no Build, Preview, Eva
   assert.equal(asked.find((s) => s.id === "ask-type").target.section, "Test your agent", "the Test panel's box is named by its panel");
   assert.equal(asked.find((s) => s.id === "ask-send").target.section, "Test your agent");
   const instr = [...R.classicTabSteps("Overview"), ...R.SET_INSTRUCTIONS_CLASSIC];
-  assert.deepEqual(steps(instr).map((s) => s.id), ["cl-overview-tab", "cl-overview-tab-open", "instr-edit", "instr-editor", "instr-type", "instr-enabled", "instr-save", "instr-saved"]);
+  assert.deepEqual(steps(instr).map((s) => s.id), ["cl-overview-tab", "cl-overview-tab-open", "instr-edit", "instr-editor", "instr-type", "instr-enabled", "instr-save", "instr-saved", "instr-leave", "instr-leave-discard"]);
   assert.equal(steps(instr).find((s) => s.id === "instr-type").target.name, "Describe what you want this agent to do, its tone, and rules");
   assert.ok(!steps(instr).some((s) => s.target?.alt?.length && s.action === "type"), "a text box that is typed into has one exact name and no looser alternates");
   // A caller with no harness (an older plan) keeps the side navigation of an older classic build.

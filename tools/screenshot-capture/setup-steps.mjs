@@ -31,6 +31,12 @@ const safeName = (value) => {
   if (!text || /https?:\/\/|[^\s@]+@[^\s@]+\.[^\s@]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[<>{}]/i.test(text)) return "";
   return text;
 };
+/** A plain sentence a person reads (a step's own words for a failure): up to 120 characters, and never an address, an email, an id, or markup. */
+const safeSentence = (value) => {
+  const text = clean(value, 120);
+  if (!text || /https?:\/\/|[^\s@]+@[^\s@]+\.[^\s@]+|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[<>{}]/i.test(text)) return "";
+  return text;
+};
 
 /** The target of a step: what to find, never how. */
 export function sanitizeTarget(raw) {
@@ -45,6 +51,16 @@ export function sanitizeTarget(raw) {
   const section = safeName(raw.section).slice(0, 60) || undefined;
   if (!name && !alt.length && !role) return null;
   return { ...(role ? { role } : {}), ...(name ? { name } : {}), ...(alt.length ? { alt } : {}), within, ...(nth !== undefined ? { nth } : {}), ...(corner ? { corner } : {}), ...(section ? { section } : {}) };
+}
+
+/**
+ * One target, or a short list of targets that must ALL be on the page (an editor is open when Cancel and Save are both there). A list with a target that does not fit the shape
+ * is dropped whole: a required control that is silently left out would make the condition weaker than the recipe says.
+ */
+export function sanitizeTargetList(raw) {
+  if (!Array.isArray(raw)) return sanitizeTarget(raw);
+  const list = raw.slice(0, 4).map((item) => sanitizeTarget(item));
+  return list.length && list.length === raw.length && list.every(Boolean) ? list : null;
 }
 
 function sanitizeExpect(raw) {
@@ -241,15 +257,30 @@ export function sanitizeStep(raw, index = 0, product = "", { internal = false } 
   if (raw.onlyIfOff === true) step.onlyIfOff = true;
   if (raw.onlyIfOn === true) step.onlyIfOn = true;
   // The plain words for a target that is there but disabled ("the text did not register in the Instructions editor"), and the "saved" proof that is also met when the control is gone (an editor that closed itself).
-  const ifDisabled = safeName(clean(raw.ifDisabled, 120));
+  const ifDisabled = safeSentence(raw.ifDisabled);
   if (ifDisabled) step.ifDisabled = ifDisabled;
+  // `orGone` is true, or a list of controls that must be back on the page when the checked one is gone (the Edit button after an editor closed).
+  const goneWith = Array.isArray(raw.orGone) ? sanitizeTargetList(raw.orGone) : null;
   if (raw.orGone === true) step.orGone = true;
+  else if (goneWith) step.orGone = goneWith;
+  // The plain words for a control that is not on the page ("the Edit Instructions button was not found"), and for a disabled control that is disabled only because nothing changed.
+  const ifMissing = safeSentence(raw.ifMissing);
+  if (ifMissing) step.ifMissing = ifMissing;
+  const alreadyOk = safeSentence(raw.alreadyOk);
+  if (alreadyOk) step.alreadyOk = alreadyOk;
+  // Other controls a check must see together with its own (the editor is open only when Cancel, Save, and the text box are all there).
+  const alsoPresent = sanitizeTargetList(raw.alsoPresent);
+  if (alsoPresent) step.alsoPresent = alsoPresent;
+  // A step that follows a state an earlier step reached is left out (or run) by a flag; a flag is a short lowercase word.
+  if (typeof raw.skipIfFlag === "string" && /^[a-z][a-z-]{1,29}$/.test(raw.skipIfFlag)) step.skipIfFlag = raw.skipIfFlag;
+  if (typeof raw.skipUnlessFlag === "string" && /^[a-z][a-z-]{1,29}$/.test(raw.skipUnlessFlag)) step.skipUnlessFlag = raw.skipUnlessFlag;
   // A click that is made once per practice agent, ever (publishing): the claim is written first and never undone.
   if (typeof raw.once === "string" && /^[a-z][a-z-]{1,19}$/.test(raw.once)) step.once = raw.once;
-  const skipIfPresent = sanitizeTarget(raw.skipIfPresent);
+  // A control, or a list of controls that must ALL be on the page, that makes the step unnecessary.
+  const skipIfPresent = sanitizeTargetList(raw.skipIfPresent);
   if (skipIfPresent) step.skipIfPresent = skipIfPresent;
-  // The opposite: the step is left out when this control is NOT on the page (a tab that sits in the overflow menu has its own steps).
-  const skipUnlessPresent = sanitizeTarget(raw.skipUnlessPresent);
+  // The opposite: the step is left out when this control (or one of these controls) is NOT on the page (a tab that sits in the overflow menu has its own steps).
+  const skipUnlessPresent = sanitizeTargetList(raw.skipUnlessPresent);
   if (skipUnlessPresent) step.skipUnlessPresent = skipUnlessPresent;
   // How long a control that is not on the page yet is waited for (a page that draws its buttons several seconds after its tabs).
   if (Number.isFinite(Number(raw.findMs))) step.findMs = Math.max(500, Math.min(60_000, Number(raw.findMs)));

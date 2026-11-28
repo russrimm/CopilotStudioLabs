@@ -201,34 +201,50 @@ export function classicTabSteps(tab, { alt = [] } = {}) {
 
 const CLASSIC_EDITOR_NAME = "Describe what you want this agent to do, its tone, and rules";
 const CLASSIC_EDITOR = T("textbox", CLASSIC_EDITOR_NAME, [], "main", "Instructions");
+const CLASSIC_EDIT = T("button", "Edit Instructions", [], "main", "Instructions");
 const CLASSIC_SAVE = T("button", "Save", [], "main", "Instructions");
+const CLASSIC_CANCEL = T("button", "Cancel", [], "main", "Instructions");
+/**
+ * The editor is open only when the Instructions card shows BOTH Cancel and Save. The text box proves nothing: on a real tenant (companion 1.8.3, 2026-11-27) the box with this name
+ * is on the page while the editor is closed (it is a read-only view of the instructions with an Edit Instructions button), and a step that took the box for an open editor skipped
+ * the click and typed into a box that does not take text.
+ */
+const CLASSIC_EDITOR_OPEN = Object.freeze([CLASSIC_CANCEL, CLASSIC_SAVE]);
 
 /**
- * Set the instructions of a Standard agent (observed 2026-11-26). The Overview tab's Instructions card has a button named "Edit Instructions". It opens an inline editor: a text box
- * (a contenteditable box with the role textbox) named "Describe what you want this agent to do, its tone, and rules", and the buttons Cancel and Save. Save is DISABLED until the text
- * changes (typing or filling enables it; clearing the text disables it again). The Test panel has a second box that also says "describe", so the editor is named by its full name and by
- * the Instructions card, and the text is read back from it before anything is saved.
- *   1. click Edit Instructions (the page draws its buttons several seconds after its tabs, so it is waited for);
- *   2. check that the editor is open, type the lab's instructions into it, and read the text back;
- *   3. check that Save became available, and if it did not say so plainly ("Save is disabled: the text did not register in the Instructions editor");
+ * Set the instructions of a Standard agent (observed 2026-11-26 and 2026-11-27). The Overview tab's Instructions card has a button named "Edit Instructions". It opens an inline editor: a text
+ * box (a contenteditable box with the role textbox) named "Describe what you want this agent to do, its tone, and rules", and the buttons Cancel and Save. Save is DISABLED until the text
+ * changes (typing or filling enables it; clearing the text disables it again). A box with that same name is also on the page BEFORE the editor opens (read-only), so only Cancel and Save
+ * together say the editor is open. The Test panel has a second box that also says "describe", so the editor is named by its full name and by the Instructions card, and the text is read
+ * back from it before anything is saved. An agent that already has instructions has them in the editor: they are replaced as a whole (select all, then the text), and the readback
+ * must hold the lab's text and nothing else.
+ *   1. click Edit Instructions, unless Cancel and Save are already there (the page draws its buttons several seconds after its tabs, so the button is waited for);
+ *   2. check that the editor opened (Save, Cancel, and the text box are on the page), type the lab's instructions into it, and read the text back;
+ *   3. check that Save became available, and if it did not say so plainly ("Save is disabled: the text did not register in the Instructions editor"). When the text typed is the
+ *      text the box already held, Save stays disabled because nothing changed: that is a success ("the instructions already match, nothing to save"), the editor is closed with
+ *      Cancel, and steps 4 and 5 are left out;
  *   4. click Save;
- *   5. check that Save is disabled again (or the editor closed): the product's own proof that the change was saved.
+ *   5. check that Save is disabled again, or that the editor closed and the Edit Instructions button is back: the product's own proof that the change was saved.
  */
 export const SET_INSTRUCTIONS_CLASSIC = Object.freeze([
-  { id: "instr-edit", action: "open", intent: "open", say: "Opening the Instructions editor", note: "Opened the Instructions editor", target: T("button", "Edit Instructions", [], "main"), skipIfPresent: CLASSIC_EDITOR, findMs: 25_000, timeoutMs: 8000 },
-  { id: "instr-editor", action: "verify", say: "Checking that the Instructions editor is open", target: CLASSIC_EDITOR, timeoutMs: 10_000 },
+  { id: "instr-edit", action: "open", intent: "open", say: "Opening the Instructions editor", note: "Opened the Instructions editor", target: CLASSIC_EDIT, skipIfPresent: CLASSIC_EDITOR_OPEN, soft: true, ifMissing: "the Edit Instructions button was not found", findMs: 25_000, timeoutMs: 8000 },
+  { id: "instr-editor", action: "verify", say: "Checking that the Instructions editor is open", target: CLASSIC_SAVE, alsoPresent: [CLASSIC_CANCEL, CLASSIC_EDITOR], ifMissing: "Edit Instructions was clicked but the editor did not open: Save and Cancel are not on the page", timeoutMs: 10_000 },
   { id: "instr-type", action: "type", intent: "type", say: "Setting the instructions", note: "Set the agent's instructions from the lab", target: CLASSIC_EDITOR, text: { sample: "instructions" } },
-  { id: "instr-enabled", action: "verify", say: "Checking that the text registered (Save is available)", target: CLASSIC_SAVE, expect: { enabled: true }, ifDisabled: "the text did not register in the Instructions editor", timeoutMs: 6000 },
-  { id: "instr-save", action: "confirm", intent: "confirm", say: "Saving the instructions", note: "Saved the agent", target: CLASSIC_SAVE, soft: true, ifDisabled: "the text did not register in the Instructions editor" },
-  { id: "instr-saved", action: "verify", say: "Checking that the instructions were saved", target: CLASSIC_SAVE, expect: { disabled: true }, orGone: true, timeoutMs: 10_000 },
+  { id: "instr-enabled", action: "verify", say: "Checking that the text registered (Save is available)", target: CLASSIC_SAVE, expect: { enabled: true }, ifDisabled: "the text did not register in the Instructions editor", alreadyOk: "the instructions already match, nothing to save", timeoutMs: 6000 },
+  { id: "instr-save", action: "confirm", intent: "confirm", say: "Saving the instructions", note: "Saved the agent", target: CLASSIC_SAVE, soft: true, ifDisabled: "the text did not register in the Instructions editor", skipIfFlag: "already-ok" },
+  { id: "instr-saved", action: "verify", say: "Checking that the instructions were saved", target: CLASSIC_SAVE, expect: { disabled: true }, orGone: [CLASSIC_EDIT], skipIfFlag: "already-ok", timeoutMs: 10_000 },
+  // Only after "already match": nothing was changed, so the editor is closed with Cancel (and Discard, should the product ask), and the run is still a success.
+  { id: "instr-leave", action: "click", intent: "close", say: "Closing the Instructions editor (nothing changed)", note: "Closed the Instructions editor: the instructions already match", target: CLASSIC_CANCEL, skipUnlessFlag: "already-ok", optional: true, retries: 0 },
+  { id: "instr-leave-discard", action: "discard", intent: "close", say: "Leaving without saving", note: "Left the Instructions editor without saving", target: T("button", "Discard", [], "dialog"), skipUnlessFlag: "already-ok", optional: true, retries: 0 },
 ]);
 
 /**
  * Leave the Instructions editor without saving, after a step failed with text in it: Cancel, then Discard on the confirmation that follows (a dialog with Close, Discard, and Cancel,
- * observed 2026-11-26). Both are optional (a closed editor, or no confirmation, is fine), so this never fails a run.
+ * observed 2026-11-26). The editor counts as open only when Cancel and Save are both on the page (the read-only text box of the closed card proves nothing), so a closed card is left
+ * alone. Both steps are optional (no confirmation is fine), so this never fails a run.
  */
 export const ABANDON_INSTRUCTIONS_EDIT = Object.freeze([
-  { id: "instr-cancel", action: "click", intent: "close", say: "Closing the Instructions editor without saving", note: "Closed the Instructions editor", target: T("button", "Cancel", [], "main", "Instructions"), skipUnlessPresent: CLASSIC_EDITOR, optional: true, retries: 0 },
+  { id: "instr-cancel", action: "click", intent: "close", say: "Closing the Instructions editor without saving", note: "Closed the Instructions editor", target: CLASSIC_CANCEL, skipUnlessPresent: CLASSIC_EDITOR_OPEN, optional: true, retries: 0 },
   { id: "instr-discard", action: "discard", intent: "close", say: "Leaving without saving", note: "Left the unsaved Instructions text", target: T("button", "Discard", [], "dialog"), optional: true, retries: 0 },
 ]);
 
