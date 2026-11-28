@@ -184,6 +184,63 @@ export function createNamer({ named = [], products = [] } = {}) {
   };
 }
 
+// ── A product you added, as its card describes it ─────────────────────────────
+
+/**
+ * Titles of landing pages that say nothing about a product. A product added from a hub is named for the hub page's title, so
+ * one of these (or a question, see looksGenericName) can end up as a product's name.
+ */
+const GENERIC_NAMES = new Set([
+  "browse",
+  "documentation",
+  "docs",
+  "get started",
+  "getting started",
+  "home",
+  "index",
+  "introduction",
+  "learn",
+  "microsoft learn",
+  "overview",
+  "start here",
+  "tutorials",
+  "welcome",
+]);
+
+/** True for a name that does not say what the product is: a question ("What do you need help with today?") or a bare landing page title ("Overview"). */
+export function looksGenericName(name) {
+  const text = String(name || "").replace(/\s+/g, " ").trim();
+  return Boolean(text) && (text.endsWith("?") || GENERIC_NAMES.has(text.toLowerCase().replace(/[.!:]+$/, "")));
+}
+
+/** A Learn address the way a person reads it, without the scheme: "learn.microsoft.com/power-bi". */
+export function learnAddress(rawUrl) {
+  const normalized = normalizeLearnUrl(String(rawUrl || ""));
+  return normalized ? normalized.replace(/^https:\/\//, "") : "";
+}
+
+/**
+ * What the Product step shows about a product you added, beyond what is saved: its address, when it was added (the saved entry
+ * has `addedAt`; an older one may not), the plain name of what its address is when that is not product documentation (the same
+ * rule that refuses to add one, so a product added before the rule existed is flagged, never changed or removed), and, for a
+ * generic name, the product's address read as words so the person can tell what it is.
+ * @param {{name: string, learnHubUrl?: string, learnRoots?: string[], addedAt?: string}} product
+ * @param {(root: string) => string} nameOf a namer from createNamer
+ */
+export function describeAddedProduct(product, nameOf) {
+  const roots = [...new Set([product.learnHubUrl, ...(product.learnRoots || [])].filter(Boolean))];
+  const notDocumentation = roots.map(nonDocumentationKind).find(Boolean) || null;
+  const readable = !notDocumentation && looksGenericName(product.name) && roots[0] ? nameOf(normalizeLearnUrl(roots[0]) || roots[0]) : "";
+  const added = Date.parse(product.addedAt || "");
+  const plain = (text) => String(text).trim().replace(/[.?!:]+$/, "").toLowerCase();
+  return {
+    address: learnAddress(roots[0]),
+    addedAt: Number.isFinite(added) ? new Date(added).toISOString() : null,
+    notDocumentation,
+    alsoKnownAs: readable && plain(readable) !== plain(product.name) ? readable : null,
+  };
+}
+
 // ── The recommended scope ─────────────────────────────────────────────────────
 
 /** True for a one-level address such as /azure whose documentation holds many unrelated products, unless it is a reviewed hub. */

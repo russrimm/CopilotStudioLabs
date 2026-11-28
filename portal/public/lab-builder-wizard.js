@@ -989,33 +989,43 @@ function lbRenderProductStats(product) {
   return `<div class="lb-product-stats">${totalRow} <div class="lb-stat-level-grid lb-stat-level-grid-${cols}">${levelTiles.join(" ")}</div></div>`;
 }
 
-/** A product added from Learn has no reviewed topics: say how many topics Microsoft Learn gave it, or how to get them. */
+/** A product added from Learn has no reviewed topics: say how many topics Microsoft Learn gave it and what that means for its labs, or how to get them. */
 function lbRenderCustomProductStats(product) {
   const info = labBuilder.learn?.products?.[product.id];
   const text = info?.newTopics
-    ? `<strong>${escapeHtml(info.newTopics)}</strong> ${info.newTopics === 1 ? "topic" : "topics"} from Microsoft Learn, not reviewed`
+    ? `<strong>${escapeHtml(info.newTopics)}</strong> ${info.newTopics === 1 ? "topic" : "topics"} read from Microsoft Learn. Not reviewed by this tool, so labs built from ${info.newTopics === 1 ? "it" : "them"} say so.`
     : "No Microsoft Learn topics read yet. Choose Refresh from Microsoft Learn in the Topics step.";
   return `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total">${text}<span class="sr-only">.</span></span></div></div>`;
+}
+
+/** True when the Product step can describe and remove a product you added (the My products script is loaded after this one). */
+function lbCanManageAddedProducts() {
+  return typeof lbProdCardNotesHtml === "function" && typeof lbProdCardActionsHtml === "function";
 }
 
 function lbRenderProducts() {
   const el = document.getElementById("lb-product-options");
   if (!el) return;
-  const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
+  const active = el.contains(document.activeElement) ? document.activeElement : null;
+  const focused = active ? active.value : null;
+  const focusedAction = active?.getAttribute?.("data-prod-focus") || null;
+  const manage = lbCanManageAddedProducts();
   el.innerHTML = labBuilder.products
     .map((p) => {
       const checked = labBuilder.selectedProducts.has(p.id);
       const hub = lbLearnUrl(p.learnHubUrl);
+      const added = p.custom && manage;
+      const flagged = added && Boolean(p.notDocumentation);
       return `
       <label class="scenario-role${checked ? " checked" : ""}">
-        <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" autocomplete="off" ${checked ? "checked" : ""}>
+        <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" autocomplete="off" ${checked ? "checked" : ""}${added ? ` aria-labelledby="lb-prod-title-${escapeHtml(p.id)}" aria-describedby="${flagged ? `lb-prod-flag-${escapeHtml(p.id)} ` : ""}lb-prod-about-${escapeHtml(p.id)}"` : ""}>
         <span class="lb-card-body">
           <span class="lb-card-head">
-            <span class="lb-card-title">${escapeHtml(p.name)}<span class="sr-only">.</span></span>
+            <span class="lb-card-title"${added ? ` id="lb-prod-title-${escapeHtml(p.id)}"` : ""}>${escapeHtml(p.name)}<span class="sr-only">.</span></span>
             ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness" title="This product comes in more than one agent experience, called a harness. You choose one on the next step.">Choose an agent experience<span class="sr-only">.</span></span>' : ""}
             ${p.custom ? '<span class="lb-badge lb-badge-new">Added by you<span class="sr-only">.</span></span>' : ""}
           </span>
-          ${p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
+          ${added ? lbProdCardNotesHtml(p) : p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
           <div class="lb-card-footer">
             ${p.custom ? lbRenderCustomProductStats(p) : lbRenderProductStats(p)}
             ${
@@ -1023,6 +1033,7 @@ function lbRenderProducts() {
                 ? `<div class="lb-card-learn"><a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(lbProductName(p))} (opens in a new tab)</a></div>`
                 : ""
             }
+            ${added && !flagged ? lbProdCardActionsHtml(p) : ""}
           </div>
         </span>
       </label>`;
@@ -1031,7 +1042,8 @@ function lbRenderProducts() {
   el.querySelectorAll("input[type=checkbox]").forEach((input) => {
     input.addEventListener("change", () => lbToggleProduct(input.value, input.checked));
   });
-  if (focused) el.querySelector(`input[value="${CSS.escape(focused)}"]`)?.focus();
+  if (focusedAction) el.querySelector(`[data-prod-focus="${focusedAction.replace(/["\\]/g, "")}"]`)?.focus();
+  else if (focused) el.querySelector(`input[value="${CSS.escape(focused)}"]`)?.focus();
 }
 
 function lbToggleProduct(id, checked) {

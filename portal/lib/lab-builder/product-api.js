@@ -12,7 +12,7 @@ import { createKeyedMutex } from "../concurrency/keyed-mutex.js";
 import { visitorKey } from "../concurrency/visitor.js";
 import { connect, fetchDocPage, searchDocs } from "./learn-mcp.js";
 import { getBuiltInProducts, getProducts, setCustomProducts } from "./products.js";
-import { candidateRoots, createNamer, groupSearchResults, nonDocumentationKind } from "./product-scopes.js";
+import { candidateRoots, createNamer, describeAddedProduct, groupSearchResults, nonDocumentationKind } from "./product-scopes.js";
 import { cleanText, normalizeLearnUrl } from "./topic-sanitize.js";
 import { parsePage } from "./topic-discovery.js";
 import { productIdFor, buildUserProduct, readUserProducts, updateUserProducts, userProductsPath, MAX_USER_PRODUCTS } from "./user-products.js";
@@ -68,6 +68,21 @@ function overlappingProduct(root, products) {
 /** The hub addresses a page could be the start of; see product-scopes.js. */
 export { candidateRoots };
 
+/**
+ * What the Product step and the Products you added list show about each product a person added: its address, when it was
+ * added, whether its address is not product documentation, and a readable name for a generic one. Read from the product,
+ * never saved (see describeAddedProduct). Products that are not added by a person get nothing.
+ * @returns {Map<string, object>} by product id
+ */
+export function addedProductDetails(products) {
+  const details = new Map();
+  const mine = (products || []).filter((product) => product.custom);
+  if (!mine.length) return details;
+  const nameOf = createNamer({ named: readPicklist() });
+  for (const product of mine) details.set(product.id, describeAddedProduct(product, nameOf));
+  return details;
+}
+
 export function registerProductRoutes(app, { getService, createRateLimiter, positiveIntFromEnv, learn = null }) {
   const rate = createRateLimiter({
     windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_USER_PRODUCTS_RATE_WINDOW_MS, 3600000),
@@ -103,7 +118,8 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
       const overlap = mine ? null : overlappingProduct(entry.root, getBuiltInProducts());
       return { ...entry, addedId: mine?.id ?? null, coveredBy: overlap ? overlap.name : null };
     });
-    res.json({ products: items, added: added.map(describe), limit: MAX_USER_PRODUCTS, known: all.length });
+    const details = addedProductDetails(added);
+    res.json({ products: items, added: added.map((product) => ({ ...describe(product), ...details.get(product.id) })), limit: MAX_USER_PRODUCTS, known: all.length });
   });
 
   /**
