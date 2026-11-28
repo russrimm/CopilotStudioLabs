@@ -4293,15 +4293,44 @@ and coverage checks (`getBuiltInProducts()`), and everything it teaches is marke
 note say "Not confirmed in Microsoft Learn by this builder", topics added by link or found by discovery follow the
 [new topic rules](#dynamic-topics-from-microsoft-learn) (steps read from the article, start and result screenshot slots,
 no quiz), and the lab is the neutral `learn-product` deliverable: "Hands-on *topic* for a *Scenario* Pilot", with no
-agent, no architecture drawing, and no agent-style sample prompts. **Remove** deletes the product and its cached list;
-labs already built from it do not change.
+agent, no architecture drawing, and no agent-style sample prompts.
+
+**What *Added by you* means, and removing it.** A product you added is shown on the Product step as a card marked **Added by
+you**, and the card says what it is and where it came from, in plain lines and without extra boxes: "You added this from
+Microsoft Learn. Its topics are read from the address below.", then its address (`learn.microsoft.com/power-bi`) and the date it was
+added (the saved entry's `addedAt`; an entry saved without one shows no date), and, in the footer, how many topics Microsoft Learn gave it
+("201 topics read from Microsoft Learn. Not reviewed by this tool, so labs built from them say so."). A hub is named for its
+landing page title, so a name that is a question or a bare landing page title ("What do you need help with today?",
+"Overview", "Welcome"; `looksGenericName` in `product-scopes.js`) also shows **Also known as** with the address read as words
+(*Microsoft Fabric*). The saved name is never changed, and renaming is not offered: the saved prerequisites, license note,
+and summary are written with the name and the product's id comes from it, so a safe rename would rebuild the saved entry.
+
+Every such card has a **Remove** button (accessible name "Remove *name* from my products"). It asks on the card, with no
+dialog: "Remove *name*? Labs you already built from it are not changed. You can add it again from Add another Microsoft product."
+with **Remove** and **Keep** (the focus lands on Keep; Escape or Keep cancels and returns the focus to Remove). Removing calls
+`DELETE /api/lab-builder/products/mine/:id`, unselects the product, refreshes the product list and **Your lab so far**, and
+says what happened in a status message under the list with **Undo**. Undo adds the same address and name back through
+`POST /api/lab-builder/products/mine`, so the add route's rules apply and it needs Microsoft Learn: the original date is
+replaced by today's and its topics are read again (the saved list and its cached topic list were deleted), and it is
+selected again only if it was selected. An address the add route refuses is never offered Undo. The **Products you added** list in the
+add panel removes through the same function (without the question; it also ends in Undo), and a draft that used a removed product
+behaves as before ("None of the products in this draft are available anymore" when every one is gone).
+
+**Products that are not documentation.** A product added before the search rework can point at an address that the add route
+now refuses (the Microsoft Q&A forum at `/answers`, training at `/training`, and the other first path segments listed above).
+`nonDocumentationKind` in `product-scopes.js` is the one list: the add route refuses by it and the card is flagged by it
+(`describeAddedProduct`), so they cannot disagree. Such a card says, first, "This points to *Microsoft Q&A threads*, which are
+not product documentation, so labs built from it will not be useful. We suggest removing it." and puts **Remove** right under
+it; its question says it cannot be added again and it gets no Undo. Nothing is removed or changed for the person automatically.
+`GET /api/lab-builder/features` and `GET /api/lab-builder/products/picklist` add `address`, `addedAt`, `notDocumentation`, and
+`alsoKnownAs` to each product you added (read from the product, never saved).
 
 | Route | Purpose |
 |---|---|
-| `GET /api/lab-builder/products/picklist` | The reviewed hubs A to Z (`addedId`, `coveredBy`) and the products already added. |
+| `GET /api/lab-builder/products/picklist` | The reviewed hubs A to Z (`addedId`, `coveredBy`) and the products already added (with `address`, `addedAt`, `notDocumentation`, `alsoKnownAs`). |
 | `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn. `groups[]` (one per documentation hub: `name`, `pages[]`, `allCovered`, `coveredBy[]`, and `scopes[]` widest first, each with `root`, `label`, `path`, `kind`, `note`, `coveredBy`, `recommended`) and `hidden` (`count`, `kinds[]`) for results that are not product documentation. |
 | `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 422 for an address that is not product documentation (such as a Q&A thread or a training module); 404/502 when Learn has no readable page or cannot be reached. |
-| `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |
+| `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added, and its cached topic list. Labs already built from it do not change. |
 
 Refresh its topic list with **Refresh from Microsoft Learn** (under **More ways to add topics**) in the Topics step (`POST /api/lab-builder/topics/refresh` with its
 id). The weekly snapshot workflow and `npm run refresh-topics` only cover the six reviewed products, so a product you

@@ -2136,6 +2136,20 @@
     .lb-product-stats .lb-stat-level-grid { display: flex; flex-wrap: wrap; gap: 2px 16px; }
     .lb-product-stats .lb-stat-level-grid .lb-stat-chip-level { flex-direction: row; align-items: baseline; gap: 6px; padding: 0; }
     .lb-product-stats .lb-stat-level-label { color: var(--text-muted); }
+    /* A product you added says what it is, where it came from, and how to remove it as lines of text on its card: no boxes inside the card. */
+    .lb-card-notes { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: var(--text-muted); min-width: 0; }
+    .lb-card-notes > * { max-width: 100%; }
+    .lb-card-also { overflow-wrap: anywhere; }
+    .lb-card-address { display: flex; flex-wrap: wrap; gap: 0 12px; overflow-wrap: anywhere; }
+    .lb-card-flag { font-size: 13px; line-height: 1.45; color: var(--text); }
+    .lb-card-actions { margin-top: 2px; font-size: 13px; line-height: 1.45; }
+    .lb-card-confirm { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; color: var(--text); }
+    .lb-card-confirm-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lb-card-actions .btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-product-status { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text); }
+    .lb-product-status:not(:empty) { margin: 12px 0 0; }
+    .lb-product-status:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-mine-result-note { font-size: 12px; color: var(--text-muted); }
     @media (max-width: 560px) {
       .lb-segmented { grid-template-columns: 1fr; }
       .lb-seg-option { border-left: 0; border-top: 1px solid var(--border); }
@@ -6417,11 +6431,12 @@
                   <div class="scenario-empty">Loading products...</div>
                 </div>
               </fieldset>
+              <p id="lb-product-status" class="lb-product-status" role="status" aria-live="polite" tabindex="-1"></p>
               <p id="lb-product-error" class="lb-error" role="alert"></p>
               <details class="lb-mine" id="lb-addprod">
                 <summary>Add another Microsoft product from Microsoft Learn</summary>
                 <div class="lb-mine-body">
-                  <p class="lb-mine-help">Pick a product's documentation from the list, or search Microsoft Learn. It joins the products above, is saved for next time, and its topics are read from Microsoft Learn. Nothing about it is reviewed here, so its labs say so.</p>
+                  <p class="lb-mine-help">Pick a product's documentation from the list, or search Microsoft Learn. Products you add here appear in the list above marked Added by you, and are saved for next time. Their topics are read from Microsoft Learn and nothing about them is reviewed here, so their labs say so. Remove one from its card or from Products you added below.</p>
                   <div class="lb-addprod-rows">
                   <div class="lb-mine-row">
                     <label for="lb-addprod-pick" class="lb-mine-label">Choose a product</label>

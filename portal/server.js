@@ -107,7 +107,7 @@ import {
 } from "./lib/lab-builder/learn-drift-dashboard.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
-import { registerProductRoutes } from "./lib/lab-builder/product-api.js";
+import { addedProductDetails, registerProductRoutes } from "./lib/lab-builder/product-api.js";
 import { registerDraftRoutes } from "./lib/lab-builder/drafts-api.js";
 import { TRAINING_EXPORT_FORMAT, registerTrainingDeckRoutes, sendTrainingExport } from "./lib/lab-builder/training-routes.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
@@ -633,11 +633,13 @@ setInterval(() => {
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
   try {
+    const products = getProducts();
+    const addedDetails = addedProductDetails(products);
     res.json({
       industries: getIndustries(),
       roles: getRoles(),
       categories: getFeaturesByCategory(),
-      products: getProducts().map((p) => ({
+      products: products.map((p) => ({
         id: p.id,
         name: p.name,
         shortName: p.shortName,
@@ -646,6 +648,7 @@ app.get("/api/lab-builder/features", (_req, res) => {
         hasHarnesses: p.hasHarnesses,
         learnHubUrl: p.learnHubUrl,
         custom: Boolean(p.custom),
+        ...addedDetails.get(p.id),
         featureCount: getFeatures().filter((f) => productOf(f) === p.id).length,
       })),
       harnesses: getHarnesses(),
