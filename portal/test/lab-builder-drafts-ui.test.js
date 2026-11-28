@@ -37,7 +37,7 @@ const WIZARD = read("lab-builder-wizard.js");
 const DRAFTS = read("lab-builder-drafts.js");
 const HTML = read("index.html");
 const STAGE = HTML.slice(HTML.indexOf('<div class="lb-wizard-stage"'), HTML.indexOf('<div class="panel" id="lb-result-panel"'));
-const DRAFTS_SECTION = HTML.slice(HTML.indexOf('<section class="panel lb-generated-section" id="lb-drafts-section"'), HTML.indexOf("</section>", HTML.indexOf('id="lb-drafts-section"')) + "</section>".length);
+const DRAFTS_SECTION = HTML.slice(HTML.indexOf('<section class="lb-generated-section" id="lb-drafts-section"'), HTML.indexOf("</section>", HTML.indexOf('id="lb-drafts-section"')) + "</section>".length);
 
 const BASE = "https://learn.microsoft.com/microsoft-copilot-studio";
 const urlOf = (slug) => `${BASE}/${slug}`;
@@ -1134,7 +1134,7 @@ test("if the offered work cannot be kept as a draft, the banner stays, autosave 
 
   assert.equal(page.byId("lb-unsaved-banner").hidden, false, "the offer stays");
   assert.equal(page.state("lbDraft.bannerOpen"), true);
-  assert.equal(page.text("lb-draft-status"), "Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard above to continue autosaving.");
+  assert.equal(page.text("lb-draft-status"), "Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard to continue autosaving.");
   assert.notEqual(drafts.store.getUnsaved("local"), null, "the offered work is still in the slot");
   const posts = page.draftCalls.filter((call) => call.method === "POST" && call.url === "/api/lab-builder/drafts");
   assert.equal(posts.length, 1, "one attempt, then no retry loop");
@@ -1186,7 +1186,8 @@ test("the drafts script writes nothing to the clipboard or local storage and kee
   const printBlocks = [...HTML.matchAll(/@media print/g)].length;
   assert.ok(printBlocks >= 1);
   const screenCss = HTML.slice(0, HTML.indexOf("@media print"));
-  assert.match(screenCss, /\.lb-draft-notice \{/, "the draft styles are screen CSS, before the first print block");
+  assert.match(screenCss, /\.lb-status \{/, "the draft styles are screen CSS, before the first print block");
+  assert.match(screenCss, /\.lb-draft-notice\[hidden\] \{/);
 });
 
 // ── Both harnesses, one after another ───────────────────────────────────────

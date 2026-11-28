@@ -203,6 +203,18 @@ function lbDraftNameList(ids, labels) {
 function lbDraftAnnounce(message) {
   const el = document.getElementById("lb-draft-status");
   if (el) el.textContent = message || "";
+  lbDraftSurfaceIfCovered(el, message);
+}
+
+/**
+ * The status slot shows one message at a time, so a plain status can wait behind a question or a banner that needs an answer.
+ * When that happens, a screen reader still hears it and a short notice shows, so a result such as "Saved" is never lost.
+ */
+function lbDraftSurfaceIfCovered(el, message) {
+  if (!el || !message || typeof getComputedStyle !== "function") return;
+  if (getComputedStyle(el).display !== "none") return;
+  lbDraftSay(message);
+  if (typeof toast === "function") toast(message, "info");
 }
 
 /** Said to a screen reader only: the same words are already on screen in the notice. */
@@ -697,7 +709,7 @@ async function lbDraftKeepOfferedWork() {
   } catch {
     // The offer stays until the person chooses Resume or Discard, and autosave stays paused rather than overwrite it.
     lbDraft.rescueFailed = true;
-    lbDraftAnnounce("Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard above to continue autosaving.");
+    lbDraftAnnounce("Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard to continue autosaving.");
   } finally {
     lbDraft.busy = false;
   }
