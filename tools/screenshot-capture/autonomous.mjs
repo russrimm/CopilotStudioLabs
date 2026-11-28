@@ -7,6 +7,7 @@
 import { createExecutor } from "./executor.mjs";
 import { REASONS } from "./automation.mjs";
 import { TIER } from "./guard.mjs";
+import { agentBuilderUnseenReason } from "./recipes-builtin.mjs";
 import { sanitizeSetup, sanitizeSteps, stepsFromReveal } from "./setup-steps.mjs";
 import { recipeKeyForShot } from "./recipes.mjs";
 import { ensurePracticeAgent } from "./practice.mjs";
@@ -49,6 +50,12 @@ const PLAIN_FAILURES = Object.freeze({
   "sessions-any": "The Sessions list has nothing to show yet: sessions appear only after people use the published agent in a channel, and the computer never adds channels or talks to the agent as a user. Use “Retake guided” once the agent has real sessions.",
   "sessions-open": "The Sessions list has nothing to open yet: sessions appear only after the agent is published and people talk to it in a channel, and the computer never adds channels. Use “Retake guided” once the agent has real sessions.",
   "publish-plain": "The Publish dialog shows something the computer does not know (a channel, an audience, a warning, or another button), so it did not publish anything. Look at the dialog yourself, then use “Retake guided”.",
+  // Microsoft 365 Copilot Agent Builder start screen (read on a real tenant on 2026-11-27): each step says what was expected on that page.
+  "agents-flyout-open": "The Microsoft 365 Copilot side bar has no button named “Agents” that could be clicked (on 2026-11-27 it was a button, not a link, and it opened a flyout). The side bar may be collapsed or renamed. Nothing was typed or sent. Use “Retake guided” and open Agent Builder yourself.",
+  "agents-menu-shown": "The “Agents” button was clicked, but no dialog named “Agents menu” opened (on 2026-11-27 the button opened that flyout). Nothing was typed or sent. Use “Retake guided” and open Agent Builder yourself.",
+  "new-agent-open": "The “Agents menu” is open, but it has no link named “New agent” that opened the New agent page (on 2026-11-27 that link went to /agents/new). Nothing was typed or sent. Use “Retake guided” and open Agent Builder yourself.",
+  "builder-address": "The “New agent” link was clicked, but the address did not become the New agent page (/agents/new). Nothing was typed or sent. Use “Retake guided” and open Agent Builder yourself.",
+  "builder-start-shown": "The address is the New agent page, but neither its heading “Build your own specialist agent” nor its message box “Message Agent Builder” is showing, so the computer did not take a picture of it. Use “Retake guided” and open Agent Builder yourself.",
 });
 
 /** One sentence that says what the computer could not do and what to do next. */
@@ -115,6 +122,20 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
   const executor = createExecutor({ page, autonomy, product, practice, claimOnce, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: { ...(candidates[0]?.inputs || {}), ...(scratch?.inputs || {}) }, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: session.scratch?.budget, effectMs: session.effectMs, findMs: session.findMs });
 
   const attempts = [];
+  // A screen of Agent Builder that was never read on a real tenant is not guessed: it ends here, with its exact reason, before any step runs. A recipe a person recorded
+  // ("Show me once") or shared for the slot is a way to reach it, so that one is tried instead.
+  const unseen = agentBuilderUnseenReason(shot);
+  if (unseen && !candidates.some((c) => c.source === "local" || String(c.source).startsWith("shared:"))) {
+    trace?.event("agent-builder-unseen", { shot: shot.filename });
+    return {
+      ok: false,
+      executor,
+      cause: "needs-you",
+      reason: "unseen",
+      error: `${unseen} Use “Retake guided”, or upload the picture.`,
+      setup: { source: "builtin:m365.agent-builder.unseen", steps: [], summary: [], notes: [...notes, "No recipe reaches this screen: it was never read on a real tenant."] },
+    };
+  }
   // A screen deeper than the page the address opens, with nothing that can reach it (no recorded recipe, no shared or built-in recipe, no labels to
   // open), is not photographed as it stands: the page that happens to be open is the product's start page, not the screen the lab describes.
   // The shot is left to a person, for the same plain reason the portal showed on its card.

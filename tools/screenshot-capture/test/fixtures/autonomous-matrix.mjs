@@ -16,6 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { FAKE_AGENT_URL, FAKE_PRACTICE_ENV_URL, FAKE_SITE_URL } from "./fake-product-site.mjs";
+import { createFakeM365CopilotSite } from "./fake-m365-copilot-site.mjs";
 import { runCaptureScenario, tally } from "./capture-scenarios.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).map((a) => (a.startsWith("--") ? a.slice(2).split("=") : [a, true])).map(([k, v]) => [k, v ?? true]));
@@ -73,12 +74,13 @@ export const SCENARIOS = [
     run: () => runCaptureScenario({ repoDir, channel, site: { directSections: false }, job: { targets: AGENT, options: { mode: "autonomous" } }, prepare: withConsent(CONSENT_READ_ONLY) }),
   },
   {
-    name: "automatic, Agent Builder inside Microsoft 365 Copilot (no direct address)",
+    name: "automatic, Agent Builder inside Microsoft 365 Copilot (the Agents menu, then New agent; no direct address)",
     agentBuilder: true,
     run: () =>
       runCaptureScenario({
         repoDir,
         channel,
+        siteInstance: createFakeM365CopilotSite(),
         lab: { products: ["m365-copilot-agent-builder"], features: ["dca-agent-builder-first-agent", "dca-write-agent-instructions", "dca-agent-builder-knowledge"] },
         job: { options: { mode: "autonomous" } },
         prepare: withConsent(CONSENT_READ_ONLY),

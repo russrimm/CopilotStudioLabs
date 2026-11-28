@@ -13,6 +13,8 @@ import { createPortalClient } from "../companion.mjs";
 import { createRecipeStore } from "../recipes.mjs";
 import { detectBrowserAvailability } from "../lab-runner.mjs";
 import { FAKE_AGENT_URL, FAKE_PRACTICE_ENV_URL, FAKE_SITE_URL } from "./fixtures/fake-product-site.mjs";
+import { createFakeM365CopilotSite } from "./fixtures/fake-m365-copilot-site.mjs";
+import { AGENT_BUILDER_UNSEEN_SLOTS } from "../recipes-builtin.mjs";
 import { startScenario, WORKTREE_ROOT } from "./fixtures/capture-scenarios.mjs";
 
 const found = await detectBrowserAvailability({ repoRoot: WORKTREE_ROOT }).catch(() => ({ available: false }));
@@ -216,19 +218,27 @@ for (const [name, site] of VARIANTS) {
   });
 }
 
-test("Agent Builder, which has no direct address, and a SharePoint site are captured automatically", { skip, timeout: 240_000 }, async () => {
-  const builder = await startScenario({ repoDir: REPO, lab: { products: ["m365-copilot-agent-builder"], features: ["dca-agent-builder-first-agent", "dca-write-agent-instructions", "dca-agent-builder-knowledge"] } });
+test("Agent Builder, which has no direct address, is reached through the Agents menu and New agent; every screen nobody read stops with its reason. A SharePoint site is captured automatically", { skip, timeout: 240_000 }, async () => {
+  // The pretend Microsoft 365 Copilot is shaped like the real one read on 2026-11-27 (fixtures/fake-m365-copilot-site.mjs): Agents is a side bar button that opens a flyout dialog with a New agent link.
+  const m365 = createFakeM365CopilotSite();
+  const builder = await startScenario({ repoDir: REPO, siteInstance: m365, lab: { products: ["m365-copilot-agent-builder"], features: ["dca-agent-builder-first-agent", "dca-write-agent-instructions", "dca-agent-builder-knowledge"] } });
   try {
     await builder.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await builder.runJob({ job: { options: { mode: "autonomous" } } });
-    assertClean(out);
-    // The pretend Agent Builder has no Try it panel and no knowledge options. A picture that does not show the labels the lab names is saved for
-    // review (these four used to be accepted as captured although they showed the Configure screen again, which is how a wrong screen got in).
-    assert.equal(count(out.rows, "captured"), 4, out.lines.join("\n"));
-    const review = out.rows.filter((r) => r.status === "needs-review");
-    assert.deepEqual(review.map((r) => r.filename), ["dca-try-it-response.png", "dca-instructions-test-result.png", "dca-knowledge-section.png", "dca-knowledge-test-result.png"]);
-    assert.ok(review.every((r) => r.verification.reasons.some((x) => x.code === "labels-missing")), "each says which labels are missing");
-    assert.equal(out.site.stats.directBuilderVisits, 0, "it was reached through Microsoft 365 Copilot, never by an address");
+    // The start screen is captured; the other seven screens of these three features were never read on a real tenant, so each one ends as Needs you with its own exact reason, and nothing was clicked for them.
+    assertClean(out, { person: 7 });
+    assert.equal(count(out.rows, "captured"), 1, out.lines.join("\n"));
+    assert.equal(out.rows.find((r) => r.filename === "dca-new-agent-page.png").status, "captured");
+    const stopped = out.rows.filter((r) => r.status === "needs-you");
+    assert.deepEqual(stopped.map((r) => r.filename).sort(), ["dca-configure-tab-prepopulated.png", "dca-instructions-field.png", "dca-instructions-test-result.png", "dca-knowledge-section.png", "dca-knowledge-sources-added.png", "dca-knowledge-test-result.png", "dca-try-it-response.png"]);
+    for (const row of stopped) {
+      assert.equal(row.cause, "needs-you", row.filename);
+      assert.equal(row.raw.message, `${AGENT_BUILDER_UNSEEN_SLOTS[row.filename]} Use “Retake guided”, or upload the picture.`, `${row.filename} says exactly what is needed and what was never read`);
+    }
+    assert.deepEqual(m365.stats.writes, [], "no template, Skip, Send, or Add and manage sources was clicked");
+    assert.equal(m365.stats.flyoutOpens, 1, "the Agents menu was opened once, for the one screen that has a recipe");
+    assert.equal(m365.stats.directBuilderVisits, 0, "it was reached through the Agents menu, never by an address");
+    assert.equal(m365.stats.newAgentVisits, 1);
   } finally {
     await builder.close();
   }
