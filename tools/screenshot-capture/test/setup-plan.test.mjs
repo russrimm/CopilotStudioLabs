@@ -104,8 +104,10 @@ test("a built-in recipe is chosen from what the shot is about", () => {
   assert.equal(pick({ caption: "The Publish dialog", alt: "the publish dialog before you confirm" }), "cs.publish.dialog");
   assert.equal(pick({ section: "home", alt: "The Home page with the natural-language description box" }), "cs.home.describe");
   assert.equal(pick({ section: "settings", caption: "The Settings page" }), undefined, "an ordinary screen needs no recipe");
-  const builder = matchBuiltinRecipe({ product: "m365-copilot-agent-builder", caption: "Write the instructions", instructions: [], callouts: [] });
-  assert.deepEqual(builder.steps.map((s) => s.id), ["agents-nav", "builder-open", "configure-tab"]);
+  // Agent Builder: only its start screen has a recipe (the Agents menu, then New agent, proven by address and by content); the screens after it were never read on a real tenant.
+  const builder = matchBuiltinRecipe({ product: "m365-copilot-agent-builder", filename: "dca-new-agent-page.png", caption: "The New agent page", instructions: [], callouts: [] });
+  assert.deepEqual(builder.steps.map((s) => s.id), ["agents-flyout-open", "agents-menu-shown", "new-agent-open", "builder-address", "builder-start-shown"]);
+  assert.equal(matchBuiltinRecipe({ product: "m365-copilot-agent-builder", filename: "dca-instructions-field.png", caption: "Write the instructions", instructions: [], callouts: [] }), null, "an Agent Builder screen nobody read has no recipe");
   assert.equal(matchBuiltinRecipe({ product: "sharepoint-ai", caption: "A site page" }), null, "a product with no recipe gets none");
 });
 

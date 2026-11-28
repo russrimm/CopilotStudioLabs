@@ -11,6 +11,7 @@
 import { checkPublicWebsite, checkTypedText, limitWebsiteDepth } from "./guard.mjs";
 import { AUTOMATION_VERSION, BLOCKER_REASON, FAMILIES, REASONS, describeFamily, detectFamily, shotFacts } from "./automation.mjs";
 import { PRACTICE_AGENT_PREFIXES, isSpecificHarness } from "./harness.mjs";
+import { AGENT_BUILDER_START_LANDMARKS, isAgentBuilderStartShot } from "./recipes-builtin.mjs";
 import { settingsTabFor } from "./scratch-recipes.mjs";
 
 export const PRACTICE_NAME_PREFIX = "Lab screenshots - ";
@@ -391,6 +392,8 @@ export function describeAutomation(shot, { capture = null, labels = [] } = {}) {
       result = known ? automatic({ via: "walkthrough" }) : person("unseen");
     }
   } else if (capture?.mode === "auto") result = automatic({ via: "address" });
+  // The one Agent Builder screen a built-in recipe reaches (the New agent start screen): the Agents menu, then New agent, checked by its heading.
+  else if (product === "m365-copilot-agent-builder" && isAgentBuilderStartShot({ ...shot, product })) result = automatic({ via: "family", family: "navigate", verified: false, review: "landmark", landmarks: [...AGENT_BUILDER_START_LANDMARKS], maxTier: 1 });
   else if (ADMIN_SECTIONS.has(section)) result = person("admin");
   else if (kind === "error-state") result = person("error-state");
   else if (section === "sharepoint-library") result = person("files");

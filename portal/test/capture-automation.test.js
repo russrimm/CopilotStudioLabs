@@ -55,7 +55,8 @@ test("before and after: the planner still says how a shot is captured by address
   const expected = {
     standard: [{ auto: 9, guided: 15 }, 16, 8, { admin: 2, "build-first": 2, connection: 2, credits: 1, unseen: 1 }, { conversation: 5, dialog: 2, testset: 1 }],
     "microsoft-copilot": [{ auto: 4, guided: 7 }, 6, 5, { "build-first": 1, credits: 1, "real-users": 2, unseen: 1 }, { conversation: 2, dialog: 2 }],
-    "agent-builder": [{ guided: 8 }, 0, 8, { "other-product": 8 }, {}],
+    // Agent Builder: only the New agent start screen has a recipe (the Agents menu, then New agent), so it is automatic by the navigate family; the other seven were never read on a real tenant.
+    "agent-builder": [{ guided: 8 }, 1, 7, { "other-product": 7 }, { navigate: 1 }],
     "sharepoint-ai": [{ guided: 6 }, 0, 6, { "other-product": 6 }, {}],
     foundry: [{ guided: 9 }, 2, 7, { "other-product": 7 }, { navigate: 2 }],
   };
@@ -67,10 +68,10 @@ test("before and after: the planner still says how a shot is captured by address
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.reason), (s) => s.capture.automation.reason), reasons, `${name}: the reasons`);
     assert.deepEqual(tally(shots.filter((s) => s.capture.automation.family), (s) => s.capture.automation.family), families, `${name}: the recipe families`);
   }
-  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 24 run automatically.
+  // Across the five labs: 45 of the 58 shots were "guided" (what the Screenshot Center showed as needing a person); now 25 run automatically.
   // (One Foundry shot names navigation labels but no step reaches its screen, so it is left to a person instead of being photographed from the start page.)
   const all = Object.keys(expected).flatMap((name) => plans[name].plan.shots);
-  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 24]);
+  assert.deepEqual([all.length, all.filter((s) => s.capture.mode === "guided").length, all.filter((s) => s.capture.automation.state === "automatic").length], [58, 45, 25]);
 });
 
 test("the shots that were conservative are now taken by a family, and each one says how it is judged", () => {
