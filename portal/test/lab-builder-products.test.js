@@ -30,14 +30,15 @@ import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
 process.env.LAB_BUILDER_LINK_CHECK = "off";
 process.env.LAB_BUILDER_VENDOR_DOCS = "off";
 
-const NON_HARNESS = getProducts().filter((p) => !p.hasHarnesses).map((p) => p.id);
+const NON_HARNESS = getBuiltInProducts().filter((p) => !p.hasHarnesses).map((p) => p.id);
 const idsOf = (product, level) => getFeatures().filter((f) => productOf(f) === product && (!level || f.level === level)).map((f) => f.id);
 
 // ── The product model ───────────────────────────────────────────────────────
 
 test("the shipped catalog has the six products, each with real Learn-grounded topics at every level it lists", () => {
+  // Built-in products only: a product a person added on this computer is saved in their own data and is not part of the shipped catalog.
   assert.deepEqual(
-    getProducts().map((p) => p.id),
+    getBuiltInProducts().map((p) => p.id),
     ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry", "m365-copilot-hub", "power-platform-ai-hub"],
   );
   assert.deepEqual(validateCatalog(), []);
@@ -134,7 +135,7 @@ test("the shipped coverage matrix has one table per product and only the known g
   const matrix = buildCoverageMatrix({ concepts: getConcepts(), features: getFeatures(), harnesses: getHarnesses() });
   assert.deepEqual([...matrix.missing].sort(), [...getKnownCoverageGaps()].sort());
   const markdown = renderCoverageMarkdown(matrix, getHarnesses());
-  for (const product of getProducts()) assert.ok(markdown.includes(`**${product.name}**`), `${product.name} has a table`);
+  for (const product of getBuiltInProducts()) assert.ok(markdown.includes(`**${product.name}**`), `${product.name} has a table`);
   for (const gap of getKnownCoverageGaps()) assert.ok(NON_HARNESS.includes(gap.split(":")[1]), `${gap} is a product gap`);
 });
 
