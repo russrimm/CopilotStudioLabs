@@ -250,7 +250,7 @@
     jump.value = f.id;
     prevBtn.disabled = current === 0;
     nextBtn.disabled = current === total - 1;
-    document.title = f.name + " | Guided tour | Agentic Microsoft Training and Lab Generator feature tour";
+    document.title = f.name + " | Guided tour | Dynamic Microsoft Training and Lab Generator feature tour";
     statusEl.textContent = "Step " + n + " of " + total + ": " + f.name;
     if (userNavigated) {
       stepEl.focus({ preventScroll: true });

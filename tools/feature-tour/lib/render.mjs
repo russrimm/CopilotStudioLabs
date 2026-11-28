@@ -94,7 +94,7 @@ function layout({ model, title, description, root, active, body, scripts = [], b
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header">
     <div class="wrap header-row">
-      <a class="brand" href="${root}index.html">Agentic Microsoft Training and Lab Generator feature tour</a>
+      <a class="brand" href="${root}index.html">Dynamic Microsoft Training and Lab Generator feature tour</a>
       <nav aria-label="Primary" class="primary-nav">
         ${nav}
         <a href="${REPO_URL}/blob/main/docs/feature-tour.md">About and refresh guide</a>
@@ -107,7 +107,7 @@ ${body}
   </main>
   <footer class="site-footer">
     <div class="wrap">
-      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Agentic Microsoft Training and Lab Generator feature catalog</a>. ${scope} Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
+      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Dynamic Microsoft Training and Lab Generator feature catalog</a>. ${scope} Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
     </div>
   </footer>
 </body>
@@ -231,7 +231,7 @@ export function renderFeaturePage(model, feature, repoUrl = REPO_URL) {
 
   return layout({
     model,
-    title: `${feature.name} | Agentic Microsoft Training and Lab Generator feature tour`,
+    title: `${feature.name} | Dynamic Microsoft Training and Lab Generator feature tour`,
     description: feature.summary,
     root,
     active: "overview",
@@ -312,10 +312,10 @@ ${groups}
 
   return layout({
     model,
-    title: model.hasHarnesses ? "Agentic Microsoft Training and Lab Generator feature tour" : `${model.productLabel} | Agentic Microsoft Training and Lab Generator feature tour`,
+    title: model.hasHarnesses ? "Dynamic Microsoft Training and Lab Generator feature tour" : `${model.productLabel} | Dynamic Microsoft Training and Lab Generator feature tour`,
     description: model.hasHarnesses
-      ? "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the Agentic Microsoft Training and Lab Generator catalog."
-      : `Screenshots, explanations, and a guided tour for every ${model.productLabel} feature in the Agentic Microsoft Training and Lab Generator catalog.`,
+      ? "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the Dynamic Microsoft Training and Lab Generator catalog."
+      : `Screenshots, explanations, and a guided tour for every ${model.productLabel} feature in the Dynamic Microsoft Training and Lab Generator catalog.`,
     root: "",
     active: "overview",
     body,
@@ -364,7 +364,7 @@ export function renderTour(model) {
 
   return layout({
     model,
-    title: model.hasHarnesses ? "Guided tour | Agentic Microsoft Training and Lab Generator feature tour" : `Guided tour | ${model.productLabel} | Agentic Microsoft Training and Lab Generator feature tour`,
+    title: model.hasHarnesses ? "Guided tour | Dynamic Microsoft Training and Lab Generator feature tour" : `Guided tour | ${model.productLabel} | Dynamic Microsoft Training and Lab Generator feature tour`,
     description: model.hasHarnesses
       ? "Step through every Copilot Studio feature in the lab catalog with screenshots and callouts."
       : `Step through every ${model.productLabel} feature in the lab catalog with screenshots and callouts.`,

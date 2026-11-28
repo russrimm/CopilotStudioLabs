@@ -55,7 +55,7 @@ const LEGACY_BROKEN_BANNER = [
   '  <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">',
   "    ",
   "    <div>",
-  '      <div class="lab-branding-title" style="font-size: 28px; font-weight: 700; color: #4f8ff7;">Agentic Microsoft Training and Lab Generator</div>',
+  '      <div class="lab-branding-title" style="font-size: 28px; font-weight: 700; color: #4f8ff7;">Dynamic Microsoft Training and Lab Generator</div>',
   '      <div class="lab-branding-tagline" style="font-size: 14px;">Provisioning Portal</div>',
   "    </div>",
   "  </div>",
@@ -65,7 +65,7 @@ const LEGACY_BROKEN_BANNER = [
 const LONG_WORD = "Longword".repeat(10);
 
 const BRANDS = {
-  default: { companyName: "Agentic Microsoft Training and Lab Generator", tagline: "Provisioning Portal", logo: null, primaryColor: "#4f8ff7" },
+  default: { companyName: "Dynamic Microsoft Training and Lab Generator", tagline: "Provisioning Portal", logo: null, primaryColor: "#4f8ff7" },
   "custom without logo": { companyName: "Contoso Ltd", tagline: "AI Academy", logo: null, primaryColor: "#0b3d91" },
   "custom with logo": { companyName: "Contoso Ltd", tagline: "AI Academy", logo: "/uploads/logo-1.png", primaryColor: "#0b3d91" },
   "all optional fields": {
@@ -250,7 +250,7 @@ test("a stored banner written by the old code (blank line, indentation) renders 
   const stored = `${LEGACY_BROKEN_BANNER}\n\n${SAMPLE_MD}`;
   const html = renderLabMarkdown(stored);
   assert.doesNotMatch(bannerRegion(html), CODE_BLOCK_LEAK);
-  assert.match(html, /<div class="lab-branding-title"[^>]*>Agentic Microsoft Training and Lab Generator<\/div>/);
+  assert.match(html, /<div class="lab-branding-title"[^>]*>Dynamic Microsoft Training and Lab Generator<\/div>/);
   assert.match(html, /<h1[^>]*>Sample Lab<\/h1>/);
   assert.equal(stripEmbeddedHtml(stored).trim(), SAMPLE_MD.trim());
 });
@@ -546,7 +546,7 @@ test("a lab whose stored index.md carries the old broken banner renders and expo
   const viewer = readGeneratedLab(labRoot, builtLab.labId, renderLabMarkdown);
   assert.equal(viewer.status, 200);
   assert.doesNotMatch(viewer.body.html.slice(0, 2000), CODE_BLOCK_LEAK);
-  assert.match(viewer.body.html, /<div class="lab-branding-title"[^>]*>Agentic Microsoft Training and Lab Generator<\/div>/);
+  assert.match(viewer.body.html, /<div class="lab-branding-title"[^>]*>Dynamic Microsoft Training and Lab Generator<\/div>/);
   assert.doesNotMatch(viewer.body.html, /<pre><code>&lt;/);
 
   const split = splitGeneratedLabModules(`${LEGACY_BROKEN_BANNER}\n\n${original}`, {}, { labId: builtLab.labId });

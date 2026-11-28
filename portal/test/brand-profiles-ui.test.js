@@ -313,7 +313,7 @@ function loadBrandWizard({ profiles, activeProfileId }) {
 }
 
 const PROFILES = [
-  { id: "default", name: "Default", companyName: "Agentic Microsoft Training and Lab Generator", tagline: "Provisioning Portal", primaryColor: "#4f8ff7", secondaryColor: "", font: "default", supportEmail: "", footerText: "" },
+  { id: "default", name: "Default", companyName: "Dynamic Microsoft Training and Lab Generator", tagline: "Provisioning Portal", primaryColor: "#4f8ff7", secondaryColor: "", font: "default", supportEmail: "", footerText: "" },
   {
     id: "contoso",
     name: "Contoso <EU>",

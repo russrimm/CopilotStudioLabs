@@ -1,5 +1,5 @@
 {
-  "name": "Agentic Microsoft Training and Lab Generator",
+  "name": "Dynamic Microsoft Training and Lab Generator",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."

@@ -1,6 +1,6 @@
 /**
- * The product is named "Agentic Microsoft Training and Lab Generator". These tests keep the earlier name from
- * creeping back into the code, the docs, or anything a person sees, and check that lab data saved under the
+ * The product is named "Dynamic Microsoft Training and Lab Generator". These tests keep the earlier names from
+ * creeping back into the code, the docs, or anything a person sees, and check that lab data saved under an
  * earlier name is shown under the current one without rewriting any file.
  */
 
@@ -19,15 +19,18 @@ import { GENERATOR_NAME } from "../lib/lab-builder/products.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const EARLIER_NAME = ["Microsoft", "AI", "Training", "Generator"].join(" ");
+const AGENTIC_NAME = ["Agentic", "Microsoft", "Training", "and", "Lab", "Generator"].join(" ");
+const EARLIER_NAMES = [EARLIER_NAME, AGENTIC_NAME];
 
-// "AI Training Generator" spelled with spaces, hyphens, underscores, non-breaking spaces, markup, or a line break between the words.
+// An earlier name ("AI Training Generator" or "Agentic Microsoft Training and Lab Generator") spelled with spaces, hyphens,
+// underscores, non-breaking spaces, markup, or a line break between the words.
 const SEPARATOR = String.raw`(?:[\s_-]|&nbsp;|&#160;|\\u00a0|\\n|<[^>]*>)+`;
-const EARLIER_NAME_RE = new RegExp(`AI${SEPARATOR}Training${SEPARATOR}Generator`, "i");
+const EARLIER_NAME_RE = new RegExp(`AI${SEPARATOR}Training${SEPARATOR}Generator|Agentic${SEPARATOR}Microsoft${SEPARATOR}Training${SEPARATOR}and${SEPARATOR}Lab${SEPARATOR}Generator`, "i");
 
 // The only places allowed to name the earlier product: each needs a reason.
 const ALLOWED = [
   { file: "portal/test/product-name.test.js", reason: "this guard test names the earlier name to check for it and to test the repair on read" },
-  { file: "portal/lib/product-name.js", reason: "maps the earlier name to the current one when older saved labs and brand profiles are read" },
+  { file: "portal/lib/product-name.js", reason: "maps the earlier names to the current one when older saved labs and brand profiles are read" },
   { file: "README.md", line: /^\*Formerly the Microsoft AI Training Generator\.\*$/, reason: "the one line that tells people who know the earlier name where to find the product" },
 ];
 
@@ -72,14 +75,14 @@ function read(file) {
   return readFileSync(join(REPO_ROOT, file), "utf8");
 }
 
-test("the product name is exactly Agentic Microsoft Training and Lab Generator everywhere it is defined", () => {
-  assert.equal(PRODUCT_NAME, "Agentic Microsoft Training and Lab Generator");
+test("the product name is exactly Dynamic Microsoft Training and Lab Generator everywhere it is defined", () => {
+  assert.equal(PRODUCT_NAME, "Dynamic Microsoft Training and Lab Generator");
   assert.equal(DEFAULT_BRANDING.companyName, PRODUCT_NAME);
   assert.equal(DEFAULT_BRAND.companyName, PRODUCT_NAME);
   assert.equal(GENERATOR_NAME, PRODUCT_NAME);
 });
 
-test("the earlier product name appears in no tracked source or document outside the short allowlist", () => {
+test("the earlier product names appear in no tracked source or document outside the short allowlist", () => {
   const offenders = [];
   for (const file of repositoryFiles()) {
     const text = read(file);
@@ -95,7 +98,7 @@ test("the earlier product name appears in no tracked source or document outside 
       offenders.push(`${file}: ${(stray[0] || "name split across lines or markup").trim().slice(0, 120)}`);
     }
   }
-  assert.deepEqual(offenders, [], `The earlier product name is back. Use "${PRODUCT_NAME}":\n${offenders.join("\n")}`);
+  assert.deepEqual(offenders, [], `An earlier product name is back. Use "${PRODUCT_NAME}":\n${offenders.join("\n")}`);
 });
 
 test("the new name is not doubled, mis-articled, or shortened", () => {
@@ -105,23 +108,23 @@ test("the new name is not doubled, mis-articled, or shortened", () => {
     const text = read(file);
     if (!text.includes("Lab Generator")) continue;
     if (/Lab Generator Generator/.test(text)) problems.push(`${file}: "Generator Generator"`);
-    if (/\b[Aa] Agentic Microsoft Training/.test(text)) problems.push(`${file}: "a Agentic" (use "an")`);
-    if (/Agentic Training and Lab Generator/.test(text)) problems.push(`${file}: shortened label`);
+    if (/\b[Aa]n Dynamic Microsoft Training/.test(text)) problems.push(`${file}: "an Dynamic" (use "a")`);
+    if (/Dynamic Training and Lab Generator/.test(text)) problems.push(`${file}: shortened label`);
   }
   assert.deepEqual(problems, []);
 });
 
 test("a person sees the new name in the page title, the header, the README title, and the banners", () => {
   const html = read("portal/public/index.html");
-  assert.match(html, /<title>[^<]*Agentic Microsoft Training and Lab Generator[^<]*<\/title>/);
-  assert.match(html, /id="portal-title"[^>]*>Agentic Microsoft Training and Lab Generator</);
-  assert.match(read("README.md"), /^# ⚡ Agentic Microsoft Training and Lab Generator$/m);
-  assert.match(read("portal/README.md"), /^# ⚡ Agentic Microsoft Training and Lab Generator — Provisioning Portal$/m);
-  assert.match(read("tools/screenshot-capture/companion.mjs"), /^\/\/ Local Capture Companion for the Agentic Microsoft Training and Lab Generator portal\.$/m);
-  assert.match(read("tools/screenshot-capture/capture.js"), /Agentic Microsoft Training and Lab Generator screenshot capture/);
-  assert.match(read("tools/lab-builder/build.mjs"), /Agentic Microsoft Training and Lab Generator — Custom Lab Builder CLI/);
-  assert.match(read("setup.js"), /Agentic Microsoft Training and Lab Generator — Template Setup/);
-  assert.match(read("tools/feature-tour/lib/render.mjs"), /Agentic Microsoft Training and Lab Generator feature tour/);
+  assert.match(html, /<title>[^<]*Dynamic Microsoft Training and Lab Generator[^<]*<\/title>/);
+  assert.match(html, /id="portal-title"[^>]*>Dynamic Microsoft Training and Lab Generator</);
+  assert.match(read("README.md"), /^# ⚡ Dynamic Microsoft Training and Lab Generator$/m);
+  assert.match(read("portal/README.md"), /^# ⚡ Dynamic Microsoft Training and Lab Generator — Provisioning Portal$/m);
+  assert.match(read("tools/screenshot-capture/companion.mjs"), /^\/\/ Local Capture Companion for the Dynamic Microsoft Training and Lab Generator portal\.$/m);
+  assert.match(read("tools/screenshot-capture/capture.js"), /Dynamic Microsoft Training and Lab Generator screenshot capture/);
+  assert.match(read("tools/lab-builder/build.mjs"), /Dynamic Microsoft Training and Lab Generator — Custom Lab Builder CLI/);
+  assert.match(read("setup.js"), /Dynamic Microsoft Training and Lab Generator — Template Setup/);
+  assert.match(read("tools/feature-tour/lib/render.mjs"), /Dynamic Microsoft Training and Lab Generator feature tour/);
 });
 
 test("the portal email and the exported bundle name the product by its current name", () => {
@@ -131,35 +134,39 @@ test("the portal email and the exported bundle name the product by its current n
   assert.ok(!EARLIER_NAME_RE.test(email.html));
 });
 
-test("brand data saved under the earlier name reads as the current name and stays an unbranded default", () => {
-  assert.equal(currentProductName(EARLIER_NAME), PRODUCT_NAME);
-  assert.equal(currentProductName(`  ${EARLIER_NAME} `), PRODUCT_NAME, "a saved value with stray spaces is still the earlier default");
+test("brand data saved under an earlier name reads as the current name and stays an unbranded default", () => {
+  for (const earlier of EARLIER_NAMES) {
+    assert.equal(currentProductName(earlier), PRODUCT_NAME);
+    assert.equal(currentProductName(`  ${earlier} `), PRODUCT_NAME, "a saved value with stray spaces is still the earlier default");
+    assert.equal(currentProductName(`${earlier} for Contoso`), `${earlier} for Contoso`, "only the exact earlier name is replaced");
+    assert.ok(isDefaultCompanyName(earlier));
+
+    const saved = normalizeBrand({ companyName: earlier, tagline: "Provisioning Portal", primaryColor: "#4f8ff7" });
+    assert.equal(saved.companyName, PRODUCT_NAME);
+    assert.equal(hasBrandCustomization({ companyName: earlier }), false, "an earlier default profile is not a customized brand");
+  }
   assert.equal(currentProductName("Contoso Training"), "Contoso Training", "a customer's own name is never touched");
-  assert.equal(currentProductName(`${EARLIER_NAME} for Contoso`), `${EARLIER_NAME} for Contoso`, "only the exact earlier name is replaced");
   assert.equal(currentProductName(undefined), undefined);
 
-  assert.ok(isDefaultCompanyName(EARLIER_NAME));
   assert.ok(isDefaultCompanyName(PRODUCT_NAME));
   assert.ok(!isDefaultCompanyName("Contoso Training"));
 
-  const saved = normalizeBrand({ companyName: EARLIER_NAME, tagline: "Provisioning Portal", primaryColor: "#4f8ff7" });
-  assert.equal(saved.companyName, PRODUCT_NAME);
-  assert.equal(hasBrandCustomization({ companyName: EARLIER_NAME }), false, "an earlier default profile is not a customized brand");
   assert.equal(normalizeBrand({ companyName: "Contoso Training" }).companyName, "Contoso Training");
 });
 
-test("a lab saved under the earlier name is handed to a learner under the current name, and the saved manifest is not rewritten", () => {
-  const manifest = Object.freeze({
-    slug: "contoso-lab",
-    generator: EARLIER_NAME,
-    customization: Object.freeze({ profileSnapshot: Object.freeze({ id: "default", name: "Default", companyName: EARLIER_NAME }) }),
-  });
-  const safe = learnerSafeManifest(manifest);
-  assert.equal(safe.generator, PRODUCT_NAME);
-  assert.equal(safe.customization.profileSnapshot.companyName, PRODUCT_NAME);
-  assert.equal(manifest.generator, EARLIER_NAME, "the input is left as it was");
-  assert.equal(manifest.customization.profileSnapshot.companyName, EARLIER_NAME);
-
+test("a lab saved under an earlier name is handed to a learner under the current name, and the saved manifest is not rewritten", () => {
+  for (const earlier of EARLIER_NAMES) {
+    const manifest = Object.freeze({
+      slug: "contoso-lab",
+      generator: earlier,
+      customization: Object.freeze({ profileSnapshot: Object.freeze({ id: "default", name: "Default", companyName: earlier }) }),
+    });
+    const safe = learnerSafeManifest(manifest);
+    assert.equal(safe.generator, PRODUCT_NAME);
+    assert.equal(safe.customization.profileSnapshot.companyName, PRODUCT_NAME);
+    assert.equal(manifest.generator, earlier, "the input is left as it was");
+    assert.equal(manifest.customization.profileSnapshot.companyName, earlier);
+  }
   const custom = learnerSafeManifest({ generator: "Contoso Lab Factory", customization: { profileSnapshot: { companyName: "Fabrikam Training" } } });
   assert.equal(custom.generator, "Contoso Lab Factory");
   assert.equal(custom.customization.profileSnapshot.companyName, "Fabrikam Training");

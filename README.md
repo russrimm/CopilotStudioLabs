@@ -1,4 +1,4 @@
-# ⚡ Agentic Microsoft Training and Lab Generator
+# ⚡ Dynamic Microsoft Training and Lab Generator
 
 *Formerly the Microsoft AI Training Generator.*
 
@@ -8,7 +8,7 @@
 
 ## What is this?
 
-The Agentic Microsoft Training and Lab Generator is a set of practical, scenario-driven labs and a lab builder that teach you how to design, build, govern, and deploy AI solutions on Microsoft products. The 40 hand-written labs teach Microsoft Copilot Studio. The lab builder writes a new lab for the **products** you choose, grounded on Microsoft Learn:
+The Dynamic Microsoft Training and Lab Generator is a set of practical, scenario-driven labs and a lab builder that teach you how to design, build, govern, and deploy AI solutions on Microsoft products. The 40 hand-written labs teach Microsoft Copilot Studio. The lab builder writes a new lab for the **products** you choose, grounded on Microsoft Learn:
 
 | Product | What the builder covers |
 |---|---|
@@ -213,7 +213,7 @@ A static GitHub Pages site shows a screenshot and an explanation for every capab
 
 ## ⚡ Portal Features
 
-The repository includes a full **Agentic Microsoft Training and Lab Generator portal** ([`portal/README.md`](./portal/README.md), default port `3005`) for building, delivering, and operating labs:
+The repository includes a full **Dynamic Microsoft Training and Lab Generator portal** ([`portal/README.md`](./portal/README.md), default port `3005`) for building, delivering, and operating labs:
 
 - 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (`200` capabilities), grounded on Microsoft Learn, with exports to `.md`, standalone paged `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx` files, and multi-format `.zip` bundles
 - 👁️ **Interactive paged lab viewer** with chapter navigation, Mermaid flow diagrams, TOC, image lightbox, `localStorage` checkable task lists, opt-in multiple-choice Knowledge Check mini-quizzes, print/PDF support, and pre-built walkthrough PDFs ([`tools/lab-pdf`](./tools/lab-pdf/README.md))

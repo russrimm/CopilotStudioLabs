@@ -672,7 +672,7 @@ test("branding, approvals, agent-chat, and topic-store honor PORTAL_STORAGE_ROOT
   process.env.PORTAL_UPLOADS_DIR = explicitUploadsDir;
 
   // Fresh directory starts clean and isolated from storageRoot.
-  assert.equal(loadBranding().companyName, "Agentic Microsoft Training and Lab Generator");
+  assert.equal(loadBranding().companyName, "Dynamic Microsoft Training and Lab Generator");
   assert.equal(listRequests().length, 0);
   assert.equal(loadAgentChatConfig().configured, false);
   assert.equal(

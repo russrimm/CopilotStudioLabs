@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Agentic Microsoft Training and Lab Generator — Template Setup Script
+ * Dynamic Microsoft Training and Lab Generator — Template Setup Script
  *
  * Reads template.config.json and customizes the lab content:
  *   - Replaces organization names, industry, branding, and scenario references
@@ -68,7 +68,7 @@ function replaceAll(content, searchValue, replaceValue) {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log("\n⚡ Agentic Microsoft Training and Lab Generator — Template Setup\n");
+  console.log("\n⚡ Dynamic Microsoft Training and Lab Generator — Template Setup\n");
 
   // Load config
   if (!existsSync(configPath)) {
