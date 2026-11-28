@@ -2394,8 +2394,10 @@ text over the allowed length), stores it under `<data dir>/capture/recipes.json`
 **What was verified and what was assumed.** Everything above is proven against the deterministic pretend product site
 (`tools/screenshot-capture/test/fixtures/fake-product-site.mjs`: streaming test pane, add-knowledge dialog that must be
 canceled, publish dialog, a create-agent flow, Delete agent, Sign out, an admin page, iframes, shadow DOM, a cookie banner, a leave-page prompt,
-renamed controls, a slow skeleton, a flaky control, an Agent Builder page with no direct address, and a SharePoint site) with real Chromium and the installed Edge.
-**Agent Builder and SharePoint pages have not been verified, and Copilot Studio only in part (see *Real-tenant status* above):** their control names, landmarks, test-pane markup, and timings are
+renamed controls, a slow skeleton, a flaky control, an older Agent Builder page with no direct address, and a SharePoint site) with real Chromium and the installed Edge.
+Microsoft 365 Copilot Agent Builder has its own pretend site shaped like the real pages read on 2026-11-27 (`fixtures/fake-m365-copilot-site.mjs`, see
+[m365-agent-builder-capture-slots.md](m365-agent-builder-capture-slots.md)); only its start screen was read, so only that screen is proven against that shape.
+**The rest of Agent Builder and the SharePoint pages have not been verified, and Copilot Studio only in part (see *Real-tenant status* above):** their control names, landmarks, test-pane markup, and timings are
 assumptions until a run on a real tenant, and the practice-agent creation steps are written against the pretend site.
 When a built-in step does not match the real page, the shot ends `needs-you` with a diagnostic bundle and **Show me once** teaches the companion the real step.
 
@@ -2812,6 +2814,32 @@ Close, Discard, and Cancel dialog (the guard recognizes it by its buttons), and 
 **Proofs from companion 1.8.1 stay valid.** The proof of an agent page (the landmarks of the Standard tab strip) did not change in 1.8.2, so a 1.8.1 Standard
 proof of an agent page is still accepted, and `HARNESS_MIN_COMPANION` stays 1.8.1. Companion 1.8.2 adds the executor, the recipes, the one-tab behavior, and the
 log line; an older companion fails the same way as before only at the Set the instructions step, which is a companion fix, not a proof change.
+
+#### Microsoft 365 Copilot Agent Builder capture (observed 2026-11-27)
+
+On 2026-11-27 the real Microsoft 365 Copilot pages were read, read only, at 1440 by 900, nothing typed, saved, sent, or created. The slot-by-slot table (which of the 43 `dca-`
+slots has a recipe, which end as Needs you and why, which are outside the browser) and the numbered real-tenant reads for what is still unseen are in
+[m365-agent-builder-capture-slots.md](m365-agent-builder-capture-slots.md).
+
+**What was found.** Every `dca-` picture ended with *The computer could not complete “Opened “Create agent””: the control was not found or did nothing.* The old recipe opened
+the Agents navigation item and then looked for a **button** named *Create agent* in the main area. On the real page the side bar **button** *Agents* does not navigate (the address
+stays `copilot.cloud.microsoft/home`): it opens a flyout, a dialog named *Agents menu*, with the agents as links and then a **link** named *New agent* (to `/agents/new`). The start
+screen has the heading *Build your own specialist agent*, the text box *Message Agent Builder*, the buttons *Skip* and *Add and manage sources*, and the tabs *Templates* and
+*My agents*. It has **no Describe or Configure tab**: the builder is a conversation.
+
+**The recipe** (`m365.agent-builder.open`, by file name `dca-new-agent-page.png` only): click the button *Agents*; look for the dialog *Agents menu*; click the link *New agent* in it;
+wait for the address path `/agents/new`; look for the heading or the text box. Each step is OK only when its expected effect is seen, and each failure has its own plain message
+(`PLAIN_FAILURES` in `autonomous.mjs`). It never clicks a template, *Skip*, *Send*, *Add and manage sources*, or anything that creates, saves, publishes, shares, or submits.
+The companion has no step that types an address, so the click path is the only path; if the start screen is already open, the click steps are left out.
+
+**Everything after the start screen ends as Needs you.** What *Skip* does, what a sent message shows, and the Configure, Try it, Knowledge, Skills, Share, and About this agent
+screens were never read, so the other 42 slots stop before any step runs, each with its own exact reason (`AGENT_BUILDER_UNSEEN_SLOTS` in `recipes-builtin.mjs`, at most 256
+characters so the whole sentence fits a job row). A recipe a person recorded or shared for the slot is still tried. The portal shows the start screen as automatic and the other
+seven shots of the three sample features as *Needs another Microsoft product*, as before.
+
+**The lab text** follows the screen where Learn differs (the Agents menu and New agent, the message box instead of a Describe tab, Skip instead of Skip to configure, Add and manage
+sources instead of the plus sign, the Templates tab instead of Start with a template), names Learn's wording in brackets, and leaves the Configure, Try it, Create, Share, and About
+this agent steps as Learn words them, marked unverified in the slot document.
 
 #### Command-line tools for wrong-harness pictures and older practice agents
 
