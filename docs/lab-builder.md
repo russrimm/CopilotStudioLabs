@@ -4168,7 +4168,10 @@ six reviewed ones needs no code or catalog edit. Pick one of 19 documentation hu
 the Teams platform, Entra Agent ID, five Azure AI services, Azure AI Bot Service, Semantic Kernel, and Microsoft Agent
 Framework; every root was confirmed to exist through the Learn MCP server on 2026-11-20), or search Learn and choose
 where the product's documentation starts (each path prefix of the result's address is offered). A documentation hub
-that overlaps a reviewed product's Learn roots is refused, and the picklist marks it as already covered.
+that overlaps a reviewed product's Learn roots is refused, and the picklist marks it as already covered. The **Choose a
+product** dropdown lists the hubs A to Z by name (case ignored, numbers by value, accents as plain letters), and a hub
+that is already added or covered stays in its alphabetical place, marked and disabled. The server sorts the picklist once
+(`sortPicklist` in `product-api.js`), so the route and the dropdown agree.
 
 The product is saved in `user-products.json` next to the topic caches (`LAB_BUILDER_USER_PRODUCTS` moves it; up to 10)
 as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once:
@@ -4183,7 +4186,7 @@ labs already built from it do not change.
 
 | Route | Purpose |
 |---|---|
-| `GET /api/lab-builder/products/picklist` | The reviewed hubs (`addedId`, `coveredBy`) and the products already added. |
+| `GET /api/lab-builder/products/picklist` | The reviewed hubs A to Z (`addedId`, `coveredBy`) and the products already added. |
 | `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn; each result lists the roots it could start from. |
 | `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 404/502 when Learn has no readable page or cannot be reached. |
 | `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |

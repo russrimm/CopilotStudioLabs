@@ -35,12 +35,22 @@ function changeSaved(file, change) {
 export function readPicklist() {
   try {
     const parsed = JSON.parse(fs.readFileSync(PICKLIST_PATH, "utf8"));
-    return (parsed.products || [])
-      .map((entry) => ({ name: cleanText(String(entry?.name || ""), 80), root: normalizeLearnUrl(String(entry?.root || "")) }))
-      .filter((entry) => entry.name && entry.root);
+    return sortPicklist(
+      (parsed.products || [])
+        .map((entry) => ({ name: cleanText(String(entry?.name || ""), 80), root: normalizeLearnUrl(String(entry?.root || "")) }))
+        .filter((entry) => entry.name && entry.root),
+    );
   } catch {
     return [];
   }
+}
+
+/** Entries A to Z by display name; this is the one place the picklist is ordered, so the route and the dropdown agree (the dropdown's option values are places in this list). */
+export function sortPicklist(entries) {
+  return entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => a.entry.name.trim().localeCompare(b.entry.name.trim(), "en-US", { numeric: true, sensitivity: "base" }) || a.index - b.index)
+    .map(({ entry }) => entry);
 }
 
 /** The product whose Learn roots overlap this address (it contains, equals, or sits inside one), or null. */
