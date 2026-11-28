@@ -70,7 +70,7 @@ export function createAgentOpenPlan(harness, { waitMs = CREATE_MENU_WAIT_MS } = 
     option,
     menuName,
     menu: [
-      { id: "create-menu", action: "create", intent: "open", exact: true, say: "Opening More create options", note: "Opened the create options on the Agents list", target: T("button", menuName, [], "any"), expect: { dialog: true, menuItems: [option] }, findMs: waitMs, timeoutMs: 20_000, retries: 0 },
+      { id: "create-menu", action: "create", intent: "open", exact: true, say: "Opening More create options", note: "Opened the create options on the Agents list", target: T("button", menuName, [], "any"), expect: { menuItems: [option] }, findMs: waitMs, timeoutMs: 20_000, retries: 0 },
       { id: "create-option", action: "create", intent: "choose", exact: true, say: `Choosing ${option}`, note: `Chose ${option} to create the practice agent`, target: T("menuitem", option, [], "any"), timeoutMs: 10_000, retries: 0 },
     ],
     fallback: harness === MICROSOFT_COPILOT ? CREATE_AGENT_OPEN : null,
