@@ -2349,6 +2349,32 @@
     .lb-mine-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .lb-mine-result { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
     .lb-mine-heading { margin: 12px 0 0; font-size: 13px; }
+    /* Search results in Add another product: one group per documentation hub, its scopes as plain radio rows (no box inside the box). */
+    #lb-addprod-results .lb-scope-group { gap: 8px; padding: 12px 14px; min-width: 0; }
+    #lb-addprod-results .lb-scope-set { min-width: 0; margin: 0; padding: 0; border: 0; }
+    #lb-addprod-results .lb-scope-name { display: block; padding: 0; margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+    #lb-addprod-results .lb-scope-pages { margin: 0; font-size: 12px; color: var(--text-muted); }
+    #lb-addprod-results .lb-scope-links { margin: 2px 0 0; padding: 0; list-style: none; font-size: 13px; }
+    #lb-addprod-results .lb-scope-links li { margin: 2px 0; overflow-wrap: anywhere; }
+    #lb-addprod-results .lb-scope-links a { color: var(--link-color); }
+    #lb-addprod-results .lb-scope-covered { margin: 0; font-size: 13px; }
+    #lb-addprod-results .lb-scope-options { display: grid; gap: 2px; margin: 10px 0 0; }
+    #lb-addprod-results .lb-scope-option { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: start; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+    #lb-addprod-results .lb-scope-option:hover:not(.is-covered) { background: var(--surface-hover); }
+    #lb-addprod-results .lb-scope-option:has(> input:checked) { background: var(--lb-card-checked-bg); }
+    #lb-addprod-results .lb-scope-option:has(> input:focus-visible) { outline: 3px solid var(--accent-hover); outline-offset: 0; }
+    #lb-addprod-results .lb-scope-option > input { margin: 3px 0 0; accent-color: var(--accent); }
+    #lb-addprod-results .lb-scope-option > input:focus-visible { outline: none; }
+    #lb-addprod-results .lb-scope-option.is-covered { cursor: default; }
+    #lb-addprod-results .lb-scope-text { display: grid; gap: 1px; min-width: 0; }
+    #lb-addprod-results .lb-scope-label { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+    #lb-addprod-results .lb-scope-badge { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--link-color); }
+    #lb-addprod-results .lb-scope-note { font-size: 13px; line-height: 1.4; }
+    #lb-addprod-results .lb-scope-path { font-size: 12px; color: var(--text-muted); overflow-wrap: anywhere; }
+    #lb-addprod-results .lb-scope-option.is-covered .lb-scope-label,
+    #lb-addprod-results .lb-scope-option.is-covered .lb-scope-note { color: var(--text-muted); font-weight: 400; }
+    #lb-addprod-results .lb-scope-actions { margin: 10px 0 0; }
+    #lb-addprod-results .lb-scope-hidden { font-size: 12px; color: var(--text-muted); }
     /* ── Topics step: summary line, collapsed groups, compact rows, More ways to add topics ── */
     .lb-link-btn { padding: 4px 6px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--link-color); text-decoration: underline; cursor: pointer; }
     .lb-link-btn:hover { color: var(--accent-hover); }

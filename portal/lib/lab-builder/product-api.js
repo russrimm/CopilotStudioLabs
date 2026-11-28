@@ -12,7 +12,8 @@ import { createKeyedMutex } from "../concurrency/keyed-mutex.js";
 import { visitorKey } from "../concurrency/visitor.js";
 import { connect, fetchDocPage, searchDocs } from "./learn-mcp.js";
 import { getBuiltInProducts, getProducts, setCustomProducts } from "./products.js";
-import { cleanText, MAX_SUMMARY, MAX_TITLE, normalizeLearnUrl } from "./topic-sanitize.js";
+import { candidateRoots, createNamer, groupSearchResults, nonDocumentationKind } from "./product-scopes.js";
+import { cleanText, normalizeLearnUrl } from "./topic-sanitize.js";
 import { parsePage } from "./topic-discovery.js";
 import { productIdFor, buildUserProduct, readUserProducts, updateUserProducts, userProductsPath, MAX_USER_PRODUCTS } from "./user-products.js";
 import { productPaths } from "./topic-store.js";
@@ -64,15 +65,8 @@ function overlappingProduct(root, products) {
   return null;
 }
 
-/** The hub addresses a page could be the start of: each path prefix of its address, shortest first, at most four. */
-export function candidateRoots(url) {
-  const normalized = normalizeLearnUrl(url);
-  if (!normalized) return [];
-  const segments = new URL(normalized).pathname.split("/").filter(Boolean);
-  const roots = [];
-  for (let depth = 1; depth <= Math.min(4, segments.length); depth += 1) roots.push(`https://learn.microsoft.com/${segments.slice(0, depth).join("/")}`);
-  return roots;
-}
+/** The hub addresses a page could be the start of; see product-scopes.js. */
+export { candidateRoots };
 
 export function registerProductRoutes(app, { getService, createRateLimiter, positiveIntFromEnv, learn = null }) {
   const rate = createRateLimiter({
@@ -93,7 +87,7 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     return next;
   };
   const client = learn || {
-    search: async (query) => searchDocs(await session(15000), query, { limit: 8 }),
+    search: async (query) => searchDocs(await session(15000), query, { limit: 10 }),
     page: async (url) => fetchDocPage(await session(20000), url),
   };
   const filePath = () => getService().config?.userProductsPath || userProductsPath();
@@ -112,23 +106,26 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     res.json({ products: items, added: added.map(describe), limit: MAX_USER_PRODUCTS, known: all.length });
   });
 
-  /** POST /api/lab-builder/products/mine/search: search Learn for a product's documentation. */
+  /**
+   * POST /api/lab-builder/products/mine/search: search Learn for a product's documentation. The pages come back grouped by
+   * documentation hub, each with its scopes (widest to narrowest, one recommended); pages that are not product documentation
+   * are counted in `hidden`, not listed. See product-scopes.js.
+   */
   app.post("/api/lab-builder/products/mine/search", async (req, res) => {
     if (limited(req, res)) return;
     const query = typeof req.body?.query === "string" ? req.body.query.trim() : "";
     if (query.length < 3 || query.length > 200) return res.status(400).json({ error: "Enter 3 to 200 characters to search Microsoft Learn." });
     try {
       const found = await client.search(query);
-      const results = [];
-      const seen = new Set();
-      for (const item of found || []) {
-        const url = normalizeLearnUrl(String(item?.url || ""));
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        const roots = candidateRoots(url).map((root) => ({ root, coveredBy: overlappingProduct(root, getProducts())?.name || null }));
-        results.push({ title: cleanText(String(item?.title || ""), MAX_TITLE) || url, url, roots });
-      }
-      res.json({ query, results });
+      const products = getProducts();
+      const picklist = readPicklist();
+      const named = [...picklist, ...products.filter((product) => product.custom).map((product) => ({ name: product.name, root: product.learnHubUrl }))];
+      const { groups, hidden } = groupSearchResults(found, {
+        coveredBy: (root) => overlappingProduct(root, products)?.name || null,
+        nameOf: createNamer({ named, products }),
+        hubRoots: new Set(picklist.map((entry) => entry.root)),
+      });
+      res.json({ query, groups, hidden });
     } catch (err) {
       res.status(502).json({ error: `Microsoft Learn could not be searched: ${String(err.message || err).slice(0, 160)}` });
     }
@@ -141,6 +138,8 @@ export function registerProductRoutes(app, { getService, createRateLimiter, posi
     if (!root || new URL(root).pathname.split("/").filter(Boolean).length < 1) {
       return res.status(400).json({ error: "Use an https address on learn.microsoft.com that starts at a product's documentation, such as https://learn.microsoft.com/power-automate." });
     }
+    const notDocumentation = nonDocumentationKind(root);
+    if (notDocumentation) return res.status(422).json({ error: `That address is not product documentation (it holds ${notDocumentation}). Choose a product's documentation hub instead.` });
     const overlap = overlappingProduct(root, getProducts());
     if (overlap) return res.status(409).json({ error: `That documentation is already covered by "${overlap.name}".`, product: describe(overlap) });
     // A cheap early answer before the network call; the same checks run again under the lock, which is the one that counts.
