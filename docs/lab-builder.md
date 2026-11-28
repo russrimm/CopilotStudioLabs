@@ -2254,7 +2254,7 @@ in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints e
 After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
 
-**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard** since 1.8.1 (it created a Standard agent on a real tenant on 2026-11-26; the form after that choice has not been listed screen by screen), and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**), each named `Classic shots - <short lab title>` or `Copilot shots - <short lab title>` (within the 30-character cap; the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
+**Build the agent from scratch (the default for shots that show an agent).** *Companion 1.8.0 builds one practice agent per harness (a Classic agent, made with **More create options > Agent, Standard** since 1.8.1 (it created a Standard agent on a real tenant on 2026-11-26; the form after that choice has not been listed screen by screen), and a Microsoft Copilot agent, made with **Agent, uses Copilot Credits**), each named `Classic shots - <short lab title> <code>` or `Copilot shots - <short lab title> <code>` (within the 30-character cap; from 1.8.3 the four-character code, from the lab's key, keeps two labs with similar titles apart, see [Creating the practice agent reliably](#creating-the-practice-agent-reliably-companion-183); the older name `Lab screenshots - <title>` is still recognized as a practice agent but is never reused for a harness), and never uses one for the other; see *Which harness a picture shows*.* The old inline prompt *N screenshots need your agent
 address* is replaced by one choice per lab, **Which agent should these screenshots use?** (see *Capture settings* above): **The agent created earlier in this capture
 (recommended)** or **An agent I choose** (an address or a name, as before; a saved address counts as that choice). The created agent is the practice agent the
 computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
@@ -2375,7 +2375,14 @@ tools that need a connection, connected agents (other agents are never touched),
 **An adaptive executor.** Each setup step is a tiny verified state machine (`action`, `target`, `expect`, `timeout`,
 `retries`). A control is found by ranked strategies: role plus exact accessible name inside the expected area, role plus a
 normalized name, `aria-label` or `title`, visible text nearest an interactive ancestor, then a fuzzy match over the
-interactive controls only; every frame is searched and open shadow DOM is pierced. A click that changes nothing is not success: the next candidate or strategy is
+interactive controls only; every frame is searched and open shadow DOM is pierced. **Which strategies a step may use depends on
+what a wrong click costs (companion 1.8.3, `strategiesFor` in `executor.mjs`).** A step that creates or confirms, and any tier 2 write, finds
+its control by its **exact name only** (role and name, or `aria-label`, `title`, placeholder, test id). A step that opens a menu or a dialog the next step works in
+adds the name's words as whole words, and never the visible-text or fuzzy strategies. Only navigation may fall back to the looser strategies, and then only to a control
+of the role the step names. A control that is not on the page yet is **waited for (`findMs`, 7 seconds by default, 60 for the practice agent's
+More create options), never replaced by a look-alike**. A step that opens a menu can declare `expect.menuItems`: it passes only when the opened menu lists those items,
+and any other dialog that opened is closed with Escape and named in the failure. Nothing inside a dialog named *Account* or *Profile*, and no account menu or
+sign-out control, is ever clicked. A click that changes nothing is not success: the next candidate or strategy is
 tried, and a step passes only when its expected evidence (a dialog, a label, an address, a finished answer) is on the page. A test answer is captured only after it has stopped streaming. Cookie, teaching, and
 what's-new pop-ups, toasts, and leave-the-page prompts are dismissed; label alternates cover renamed buttons. When a shot cannot be completed it
 ends `needs-you` with the exact failing step and a redacted **diagnostic bundle** (roles and accessible names of the visible
@@ -2840,6 +2847,42 @@ seven shots of the three sample features as *Needs another Microsoft product*, a
 **The lab text** follows the screen where Learn differs (the Agents menu and New agent, the message box instead of a Describe tab, Skip instead of Skip to configure, Add and manage
 sources instead of the plus sign, the Templates tab instead of Start with a template), names Learn's wording in brackets, and leaves the Configure, Try it, Create, Share, and About
 this agent steps as Learn words them, marked unverified in the slot document.
+
+#### Creating the practice agent reliably (companion 1.8.3)
+
+**What failed.** Every Microsoft Copilot practice agent failed in a traced run (3 of 3 jobs, and a fresh traced one) with *The practice agent could not be created: the computer
+could not choose Agent, uses Copilot Credits in More create options*. The trace showed the create-menu step reporting OK after 10 attempts and 4 seconds, and the
+failure bundle showed the Agents list in the default experience with **an Account dialog open** (the control list ended with **Sign out**) and no menu items. The Agents
+list draws its controls 15 to 30 seconds after navigation and the job clicked after about 5, so the exact **More create options** button did not exist yet; the executor
+fell through every exact strategy to the fuzzy one, where the lower left **More options** button scored 0.77 against it (the cutoff is 0.5), and the step, which had no
+expectation, counted any click as success. The guard and the finder were fine: a read-only probe of the real page with the menu open showed the option as a menu item with exactly that
+name, enabled and not covered, and the guard classifies it tier 0 for the create action.
+
+**What changed.**
+
+- **Exact names only for writes.** A step that creates or confirms (and any tier 2 write) never uses the fuzzy or visible-text strategies; a step that opens a menu or a dialog never uses
+  them either. Fuzzy and visible-text matches are limited to navigation, and to a control of the role the step names. Every other use of the fuzzy strategy was reviewed: the
+  switch to the classic experience keeps it (its controls are limited by the guard to the ellipsis, *Open classic experience*, and *Skip feedback*, a look that changes nothing), and
+  navigation keeps it (a wrong tab is caught by the verify step after it).
+- **The create-menu step waits and verifies.** It waits up to 60 seconds (`findMs`) for the button named exactly **More create options**, and is OK only when the menu that opened
+  lists the harness's option (`expect.menuItems`). If a different dialog opened it presses Escape, clicks nothing inside it, and fails with a sentence that names it (*after the computer
+  used “More create options”, a dialog named “Account” opened instead of the menu; it was closed with Escape and nothing in it was touched*). The next step says *the menu was not
+  open* when the menu is gone, and a menu that is open but does not offer the option lists the items it did offer. A Microsoft Copilot agent falls back to the older **New agent** button only
+  when **More create options** was never on the list.
+- **The account flyout is off limits.** No control inside a dialog named *Account* or *Profile*, and no control named like the account menu (*Open account menu for <person>*), is ever clicked.
+- **Other steps.** A reveal that opens a menu is no longer accepted because its words are on the page; the built-in **Open More create options** recipe now also requires the menu to list
+  *Agent, Standard*. Steps that open a menu or a dialog have no looser fallback. Not changed (and why): the model list and the sessions list steps have no named menu items to
+  check (their markup was not read), and the overflow tab steps are proven by the verify step after them.
+- **Unique practice agent names.** The product cuts a name at 30 characters, and different Energy labs got the same name, *Classic shots - Energy &* (a real bundle: three candidates, the click timed
+  out; the 62-shot job also reported *clicked Save but could not find the new agent afterward*). A practice agent built from a lab is now named *Classic shots - <title> <code>* or
+  *Copilot shots - <title> <code>*, where the code is four letters and digits from the lab's key and from the number of earlier agents of that lab set aside by Start fresh
+  (`registry.generation` in `practice.mjs`), all within 30 characters. An agent recorded under the older name is reused by its recorded address, and never opened by name alone.
+- **The new agent is found by its id.** After Save the flow leaves the new-agent page for the agent's own page; the companion waits up to 20 seconds for that address and reads the id from it. Only a page
+  that stays on the form sends it to the Agents list, where it opens the row **Open <name>** by that exact name (never one that merely starts with it, never the top bar's *Open account
+  menu for <person>*), reading the list again for up to 45 seconds because it can lag. Two rows with the same name are never opened; the sentence says how many there are.
+
+**Still unverified.** What the Microsoft Copilot creation screen shows after the option is chosen. The steps after it (a Name field, then Save or Create) are the older ones; each failing
+step writes a diagnostic bundle with the screen's real controls and dialogs, and a stop after the option names the exact step.
 
 #### Command-line tools for wrong-harness pictures and older practice agents
 
@@ -4031,7 +4074,8 @@ string.
 | `LAB_BUILDER_TOPICS_DISABLED` | `false` | Never contact Microsoft Learn; use the cache or snapshot. |
 | `LAB_BUILDER_TOPICS_CACHE` | `portal/data/lab-builder/topics-cache.json` | Cache file (inside the git-ignored `portal/data/`). |
 | `LAB_BUILDER_TOPICS_SNAPSHOT` | the committed snapshot | Offline baseline file. |
-| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
+| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
+
 | `LAB_BUILDER_USER_TOPICS`, `LAB_BUILDER_USER_PRODUCTS` | `user-topics.json` and `user-products.json` next to the topic cache | The files that keep topics and products a person added from Microsoft Learn. |
 | `LAB_BUILDER_TOPICS_TTL_MS` | `86400000` | How long the list counts as fresh. |
 | `LAB_BUILDER_TOPICS_AUTO_REFRESH` | `false` | Refresh on a timer while the server runs (the timer never keeps the process alive). |

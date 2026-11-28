@@ -14,6 +14,7 @@ import {
   checkTypedText,
   classifyControl,
   describeTiers,
+  isAccountDialogTitle,
   isAllowedHost,
   isAllowedUrl,
   normalizeControlName,
@@ -70,6 +71,18 @@ test("a neutral button inside a dialog that makes it destructive is tier 3, and 
     assert.equal(tierOf("OK", { inDialog: true, dialogTitle: title }).tier, TIER.NEVER, `OK in "${title}"`);
   }
   assert.equal(tierOf("OK", { inDialog: true, dialogTitle: "What's new" }).tier, TIER.PRACTICE, "an ordinary dialog's OK may confirm something, so it needs the practice agent");
+});
+
+test("the account flyout is never touched: its button, anything in a dialog named Account, and anything that signs out", () => {
+  for (const name of ["Open account menu for Ada Lovelace", "Account menu", "Profile menu", "My account", "View account"]) assert.equal(tierOf(name).tier, TIER.NEVER, `${name} is the account control`);
+  for (const title of ["Account", "Profile", "My account", "Account manager"]) {
+    for (const name of ["Settings", "Close", "More options", "Ada Lovelace", "Sign out"]) assert.equal(tierOf(name, { inDialog: true, dialogTitle: title }).tier, TIER.NEVER, `${name} inside the ${title} flyout`);
+  }
+  assert.equal(tierOf("Close", { inDialog: true, dialogTitle: "Add knowledge" }).tier, TIER.TRY, "a dialog that merely mentions an account elsewhere is not the flyout");
+  assert.equal(isAccountDialogTitle("Account"), true);
+  assert.equal(isAccountDialogTitle("Account settings"), true);
+  assert.equal(isAccountDialogTitle("Add account details"), false);
+  assert.equal(tierOf("Open Classic shots - Energy 3k9a", {}, { action: "open-item", intent: "navigate" }).tier, TIER.LOOK, "an agent's own row is a plain navigation");
 });
 
 test("tier 2 is creating, saving, and publishing; it needs the practice agent", () => {

@@ -18,8 +18,9 @@ import { dryRunItemsFromJob, dryRunLines } from "../dry-run.mjs";
 import { checkFeatureShots } from "../feature-shots-check.mjs";
 import { familyShowSteps } from "../families.mjs";
 import { authorizeStep, classifyControl, resolveAutonomy, TIER } from "../guard.mjs";
+import { roleCompatible, strategiesFor } from "../executor.mjs";
 import { createAgentOpenPlan, openCreateFlow } from "../scratch-recipes.mjs";
-import { HARNESS_MIN_COMPANION, harnessFromAgentHarness, harnessPlan, sanitizeHarnessProof, sanitizeHarnessReached } from "../harness.mjs";
+import { CREATE_OPTIONS, HARNESS_MIN_COMPANION, harnessFromAgentHarness, harnessPlan, sanitizeHarnessProof, sanitizeHarnessReached } from "../harness.mjs";
 import {
   classicPageOf,
   ensureClassicExperience,
@@ -106,22 +107,52 @@ test("the practice agent starts from More create options: Agent, Standard and Ag
   assert.equal(item("Customer conversation agent, uses Copilot Credits", "create").category, "credits");
   assert.equal(item("Run evaluation", "create").category, "credits");
 
-  const fake = (failId) => ({ ran: [], async run(steps) { this.ran.push(steps.map((s) => s.id)); const bad = steps.find((s) => s.id === failId); return bad ? { ok: false, steps: [], failed: { id: bad.id, why: "not found" } } : { ok: true, steps: [] }; }, async cleanup() {} });
+  const fake = (failId, extra = {}) => ({ ran: [], async run(steps) { this.ran.push(steps.map((s) => s.id)); const bad = steps.find((s) => s.id === failId); return bad ? { ok: false, steps: [], failed: { id: bad.id, why: "not found", missing: true, ...extra } } : { ok: true, steps: [] }; }, async readOverlays() { return this.overlays || []; }, async cleanup() {} });
   const standardMenu = fake("create-menu");
   const noMenu = await openCreateFlow({ executor: standardMenu, harness: "standard" });
   assert.deepEqual([noMenu.ok, noMenu.via, noMenu.stage, noMenu.option], [false, "create-option", "menu", "Agent, Standard"], "a Standard agent has no other way in: the exact step is named");
   assert.deepEqual(standardMenu.ran, [["create-menu", "create-option"]], "and the older New agent button is not tried");
+  assert.match(noMenu.reason, /^“More create options” was not on the Agents list after waiting \d+ seconds/);
   const noOption = await openCreateFlow({ executor: fake("create-option"), harness: "standard" });
   assert.deepEqual([noOption.ok, noOption.stage], [false, "option"]);
+  assert.match(noOption.reason, /menu was not open when “Agent, Standard” was to be chosen/, "no menu is open: it says the menu was not open, not that the option is missing");
+  const openMenu = fake("create-option");
+  openMenu.overlays = [{ kind: "menu", title: "" }];
+  assert.match((await openCreateFlow({ executor: openMenu, harness: "standard" })).reason, /menu is open but does not list “Agent, Standard”/, "an open menu without the option says so");
   const copilotFallback = fake("create-menu");
   const older = await openCreateFlow({ executor: copilotFallback, harness: "microsoft-copilot" });
   assert.deepEqual([older.ok, older.via], [true, "new-agent-button"], "an older build without the create menu still has the New agent button for a Microsoft Copilot agent");
   assert.deepEqual(copilotFallback.ran, [["create-menu", "create-option"], ["create-open"]]);
+  // A different dialog that opened (the account flyout) is a failure with its own sentence: the older button is never tried after a wrong click.
+  const wrong = fake("create-menu", { missing: false, why: "after the computer used “More create options”, a dialog named “Account” opened instead of the menu; it was closed with Escape and nothing in it was touched" });
+  const wrongMenu = await openCreateFlow({ executor: wrong, harness: "microsoft-copilot" });
+  assert.deepEqual([wrongMenu.ok, wrongMenu.via, wrongMenu.stage], [false, "create-option", "menu"]);
+  assert.deepEqual(wrong.ran, [["create-menu", "create-option"]], "a wrong dialog does not fall back to another button");
+  assert.match(wrongMenu.reason, /a dialog named “Account” opened instead of the menu/);
+  assert.doesNotMatch(wrongMenu.reason, /could not choose/);
   const noCopilotOption = await openCreateFlow({ executor: fake("create-option"), harness: "microsoft-copilot" });
   assert.deepEqual([noCopilotOption.ok, noCopilotOption.stage, noCopilotOption.option], [false, "option", "Agent, uses Copilot Credits"], "a menu without the option stops: the button is not guessed");
   const plain = fake("none");
   assert.equal((await openCreateFlow({ executor: plain, harness: null })).via, "new-agent-button");
   assert.deepEqual(plain.ran, [["create-open"]], "a shot with no harness keeps the older single button");
+});
+
+test("the create menu step finds its button by exact name only, waits for the list to draw, and is OK only when the menu lists the option", () => {
+  for (const harness of ["standard", "microsoft-copilot"]) {
+    const [menu, option] = sanitizeSteps(createAgentOpenPlan(harness).menu, { product: "copilot-studio" });
+    assert.deepEqual([...strategiesFor(menu)], ["role-exact", "attribute"], "no partial name, no visible-text, and no fuzzy match: a lower left More options button is not More create options");
+    assert.deepEqual([...strategiesFor(option)], ["role-exact", "attribute"]);
+    assert.equal(menu.findMs, 60_000, "the Agents list takes 15 to 30 seconds to draw, so the button is waited for");
+    assert.deepEqual(menu.expect.menuItems, [CREATE_OPTIONS[harness].names[0]], "the menu that opened must list the harness's option");
+  }
+  assert.equal(createAgentOpenPlan("standard", { waitMs: 800 }).menu[0].findMs, 800, "the wait is a knob, for tests");
+  assert.deepEqual([...strategiesFor({ action: "type", target: { name: "Name" } })], ["role-exact", "attribute", "role-name"], "typing is unchanged");
+  assert.deepEqual([...strategiesFor({ action: "open", intent: "open", expect: { dialog: true } })], ["role-exact", "attribute", "role-name"], "a step that opens a menu or a dialog never uses the visible-text and fuzzy strategies");
+  assert.deepEqual([...strategiesFor({ action: "confirm", tier: 2 })], ["role-exact", "attribute"], "a step that confirms finds its control by its exact name");
+  assert.deepEqual([...strategiesFor({ action: "click", tier: 2 })], ["role-exact", "attribute"], "so does any tier 2 write");
+  assert.deepEqual([...strategiesFor({ action: "select-tab", tier: 0 })], ["role-exact", "role-name", "attribute", "text-ancestor", "fuzzy"], "navigation keeps its looser fallbacks");
+  assert.equal(roleCompatible("menuitem", "button"), false, "a plain button called Settings is not the Settings menu item");
+  assert.equal(roleCompatible("button", "link"), true);
 });
 
 // ── Reading the page: which harness do the landmarks prove ──────────────────
@@ -194,8 +225,8 @@ test("the proof a picture carries is only what was proven, where it was, and how
   assert.equal(sanitizeHarnessProof({ ...retired, id: "standard", landmarks: ["Menu in the lower left corner", "No Open classic experience command"] }), null);
   // A 1.8.0 proof made of an agent page's own tabs is still good.
   assert.equal(sanitizeHarnessProof({ version: 1, id: "microsoft-copilot", proof: "landmarks", landmarks: ["Build", "Preview", "Evaluate", "Monitor"], switched: false, wanted: "microsoft-copilot" })?.id, "microsoft-copilot");
-  assert.equal(HARNESS_MIN_COMPANION, "1.8.1", "the first version that proves the harness; its proofs of agent pages (the landmarks of the tab strip) stay valid in 1.8.2");
-  assert.equal(COMPANION_VERSION, "1.8.2");
+  assert.equal(HARNESS_MIN_COMPANION, "1.8.1", "the first version that proves the harness; its proofs of agent pages (the landmarks of the tab strip) stay valid in 1.8.2 and 1.8.3");
+  assert.equal(COMPANION_VERSION, "1.8.3");
   // A screen outside an agent has no proof, only where it was and how it was reached.
   assert.deepEqual(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com", via: "click-path" }), { version: 2, id: "standard", scope: "environment", host: "copilotstudio.preview.microsoft.com", via: "click-path", proven: false });
   assert.equal(sanitizeHarnessReached({ id: "standard", host: "copilotstudio.preview.microsoft.com" }), null, "how it was reached is part of the record");
@@ -585,25 +616,34 @@ test("the switch stops, with a plain reason, when neither the page's controls no
 
 // ── The practice agent per harness ──────────────────────────────────────────
 
-test("a practice agent's name carries its harness, is distinct per harness, and never exceeds the 30 characters the product keeps", () => {
-  assert.equal(scratchAgentName("Team Assistant", "standard"), "Classic shots - Team Assistant");
-  assert.equal(scratchAgentName("Team Assistant", "microsoft-copilot"), "Copilot shots - Team Assistant");
+test("a practice agent's name carries its harness, is distinct per harness and per lab, and never exceeds the 30 characters the product keeps", () => {
+  const classicTeam = scratchAgentName("Team Assistant", "standard", { key: "lab-a" });
+  assert.match(classicTeam, /^Classic shots - Team [0-9a-z]{4}$/);
+  assert.match(scratchAgentName("Team Assistant", "microsoft-copilot", { key: "lab-a" }), /^Copilot shots - Team [0-9a-z]{4}$/);
+  assert.equal(scratchAgentName("Team Assistant", "standard", { key: "lab-a" }), classicTeam, "the same lab and harness always get the same name");
   assert.equal(scratchAgentName("Team Assistant"), "Lab screenshots - Team", "the older name is unchanged");
   const titles = ["Team Assistant", "x".repeat(200), "Cross-industry: Build a Customer Support Agent with Knowledge", "Ops", "Extraordinarily", "A B C D E F G H I J K L"];
   for (const title of titles) {
-    const names = ["standard", "microsoft-copilot", "customer-conversation", null].map((h) => scratchAgentName(title, h));
+    const names = ["standard", "microsoft-copilot", "customer-conversation", null].map((h) => scratchAgentName(title, h, { key: title }));
     assert.ok(names.every((n) => n.length <= MAX_AGENT_NAME), `${title.slice(0, 20)}: ${names.map((n) => n.length).join(", ")}`);
     assert.equal(new Set(names).size, 4, "four distinct names");
   }
+  // Two labs whose titles start alike were given the SAME name when the title was cut at the 30 characters (a real run: "Classic shots - Energy &" three times).
+  const energy = ["lab-energy-utilities-assistant", "lab-energy-grid-planner", "lab-energy-retail-advisor"].map((key, i) => scratchAgentName(["Energy & Utilities Assistant", "Energy & Grid Planner", "Energy & Retail Advisor"][i], "standard", { key }));
+  assert.equal(new Set(energy).size, 3, `three labs, three names: ${energy.join(" | ")}`);
+  assert.ok(energy.every((n) => n.length <= MAX_AGENT_NAME && /^Classic shots - Energy [0-9a-z]{4}$/.test(n)), energy.join(" | "));
+  // An agent set aside by Start fresh stays in the list, so the next one has a different name.
+  assert.notEqual(scratchAgentName("Team Assistant", "standard", { key: "lab-a", generation: 1 }), classicTeam);
   const context = sanitizeScratchContext({ labTitle: "Cross-industry: Build a Team Assistant with Create an agent", key: "lab-a" });
-  assert.equal(practiceAgentName(context, "standard"), "Classic shots - Team Assistant");
-  assert.equal(practiceAgentName(context, "microsoft-copilot"), "Copilot shots - Team Assistant");
+  assert.equal(practiceAgentName(context, "standard"), classicTeam, "the name comes from the lab's key");
+  assert.match(practiceAgentName(context, "microsoft-copilot"), /^Copilot shots - Team [0-9a-z]{4}$/);
+  assert.notEqual(practiceAgentName(context, "standard", { generation: 1 }), practiceAgentName(context, "standard"));
   assert.equal(practiceAgentName(context), context.agentName);
   assert.match(practiceName(() => "ab12cd", "standard"), /^Classic shots - ab12cd$/);
   assert.match(practiceName(() => "ab12cd", "microsoft-copilot"), /^Copilot shots - ab12cd$/);
   assert.match(practiceName(() => "ab12cd"), /^Lab screenshots - ab12cd$/);
   assert.ok(practiceName(() => "ffffff", "customer-conversation").length <= MAX_AGENT_NAME);
-  for (const name of ["Classic shots - A", "Copilot shots - A", "Lab screenshots - A"]) assert.ok(isPracticeName(name), name);
+  for (const name of ["Classic shots - A", "Copilot shots - A", "Lab screenshots - A", "Classic shots - Energy 3k9a"]) assert.ok(isPracticeName(name), name);
   assert.equal(isPracticeName("Classic - Sales"), false, "a person's agent that looks similar is not ours");
 });
 

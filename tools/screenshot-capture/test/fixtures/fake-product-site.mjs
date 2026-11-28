@@ -165,9 +165,16 @@ export function createFakeProductSite(options = {}) {
     editorIgnoresInput: false,
     // (realStandard) Save closes the editor instead of leaving it open with Save disabled.
     saveClosesEditor: false,
+    // (harnessMode) The Agents list draws its "More create options" button this many ms AFTER the page looks ready (a real list draws its controls 15 to 30 seconds after navigation,
+    // observed 2026-11-27); the lower left "More options" button is there from the start.
+    createMenuLateMs: 0,
+    // The lower left "More options" button opens a dialog named "Account" (with a Sign out button) instead of the experience menu, as the control the old fuzzy match clicked did on a real tenant.
+    accountDecoy: false,
+    // "More create options" itself opens the Account dialog (needs `accountDecoy`): the click opened a dialog that is not the create menu.
+    createMenuOpensAccount: false,
     ...options,
   };
-  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0, classicClicks: 0, feedbackSkips: 0, feedbackSubmits: 0, rootVisits: 0, menuOpens: 0, popups: 0, createMenuOpens: 0, createPicks: [], redirects: 0, instructions: [] };
+  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0, classicClicks: 0, feedbackSkips: 0, feedbackSubmits: 0, rootVisits: 0, menuOpens: 0, popups: 0, createMenuOpens: 0, accountOpens: 0, createPicks: [], redirects: 0, instructions: [] };
   let abortedOnce = false;
   let navClickPending = false;
   let nextId = 0;
@@ -217,13 +224,16 @@ export function createFakeProductSite(options = {}) {
   const HARNESS_MENU = ["See what's new", "Solutions", "Open classic experience", "Power Platform Admin Center", "Learning resources", "Session details"];
   const experienceMenu = () => {
     if (config.noExperienceMenu) return "";
+    if (config.accountDecoy) {
+      return `<button type="button" id="x-ellipsis" aria-label="More options" aria-haspopup="menu" data-act="account-open" style="position:fixed;left:12px;bottom:12px">&#8230;</button><div role="dialog" id="account-dialog" aria-label="Account" hidden style="position:fixed;left:12px;bottom:56px;background:#fff;border:1px solid #475569;padding:10px;z-index:30"><h2>Account</h2><p>Ada Lovelace</p><button type="button" data-act="danger" data-what="sign-out-flyout">Sign out</button></div>`;
+    }
     const items = HARNESS_MENU.map((label) => (label === "Open classic experience" ? `<button type="button" role="menuitem" data-act="x-classic">${label}</button>` : `<button type="button" role="menuitem" data-act="danger" data-what="menu-${label.toLowerCase().replace(/[^a-z]+/g, "-")}">${label}</button>`)).join("");
     return `<button type="button" id="x-ellipsis" aria-label="More options" aria-haspopup="menu" data-act="x-menu-open" style="position:fixed;left:12px;bottom:12px">&#8230;</button><div role="menu" id="x-menu" aria-label="More options menu" hidden style="position:fixed;left:12px;bottom:56px;background:#fff;border:1px solid #475569;padding:6px;z-index:30">${items}</div>`;
   };
 
   // The Agents list's "More create options" button and its menu (observed on a real tenant, 2026-11-24): three ways to create an agent. An account that cannot
   // create agents (`createDisabled`) is modeled with the button and an empty menu: what a real tenant shows such an account was not observed.
-  const createMenuHtml = () => `<p><button type="button" id="create-more" aria-label="More create options" aria-haspopup="menu" data-act="create-menu-open">&#9662;</button></p><div role="menu" id="create-menu" aria-label="More create options menu" hidden>${config.createDisabled ? "" : '<button type="button" role="menuitem" data-act="create-pick" data-kind="copilot">Agent, uses Copilot Credits</button><button type="button" role="menuitem" data-act="create-pick" data-kind="customer">Customer conversation agent, uses Copilot Credits</button><button type="button" role="menuitem" data-act="create-pick" data-kind="standard">Agent, Standard</button>'}</div>`;
+  const createMenuHtml = () => `<p><button type="button" id="create-more" aria-label="More create options" aria-haspopup="menu" data-act="${config.createMenuOpensAccount ? "account-open" : "create-menu-open"}">&#9662;</button></p><div role="menu" id="create-menu" aria-label="More create options menu" hidden>${config.createDisabled ? "" : '<button type="button" role="menuitem" data-act="create-pick" data-kind="copilot">Agent, uses Copilot Credits</button><button type="button" role="menuitem" data-act="create-pick" data-kind="customer">Customer conversation agent, uses Copilot Credits</button><button type="button" role="menuitem" data-act="create-pick" data-kind="standard">Agent, Standard</button>'}</div>`;
 
   const envNav = (current, envId) => {
     if (config.harnessMode) {
@@ -324,6 +334,7 @@ document.addEventListener('click',function(e){
   else if(act==='create-agent'){var nm=$('agent-name'); post('/__write/create-agent',{env:env,name:nm?nm.value:'',kind:t.getAttribute('data-kind')||'',host:location.hostname}).then(function(d){if(d.url)location.href=d.url; else if(d.id)location.href=location.origin+'/environments/'+env+'/bots/'+d.id+'/overview'})}
   else if(act==='open-agent'){location.href=t.getAttribute('data-url')}
   else if(act==='create-menu-open'){var cm=$('create-menu'); if(cm) cm.hidden=!cm.hidden; post('/__experience/create-menu',{})}
+  else if(act==='account-open'){var ad=$('account-dialog'); if(ad) ad.hidden=!ad.hidden; post('/__experience/account-open',{})}
   else if(act==='create-pick'){var kind=t.getAttribute('data-kind'); post('/__experience/create-pick',{kind:kind}).then(function(){ if(kind==='customer') return; location.href=location.origin+'/environments/'+env+'/agents/new?kind='+kind })}
   else if(act==='tab-genai'){document.querySelectorAll('[role=tab]').forEach(function(x){x.setAttribute('aria-selected',String(x.id==='tab-genai'))});$('panel').innerHTML='<h2>Orchestration</h2><p>Use generative AI orchestration for your agent&#39;s responses?</p><label><input type="radio" name="o" checked> Yes</label> <label><input type="radio" name="o"> No</label>'}
   else if(act==='item'){var ip=$('item-panel'); if(ip){ip.hidden=false;$('item-title').textContent=t.getAttribute('data-title')||'Details'}}
@@ -371,19 +382,19 @@ document.addEventListener('click',function(e){
   else if(act==='tool-close'){var td2=$('tool-dialog'); if(td2) td2.close()}
   else if(act==='r-slink'){document.querySelectorAll('[data-act=r-slink]').forEach(function(x){x.removeAttribute('aria-current')}); t.setAttribute('aria-current','page'); var sp=$('r-settings-panel'); if(sp) sp.innerHTML='<h2>'+t.textContent+'</h2><p>Settings for '+t.textContent+'.</p>'}
 });
-document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true; var rm2=$('r-menu'); if(rm2) rm2.hidden=true; var cm3=$('create-menu'); if(cm3) cm3.hidden=true}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var xm3=$('x-menu'); if(xm3) xm3.hidden=true; var rm2=$('r-menu'); if(rm2) rm2.hidden=true; var cm3=$('create-menu'); if(cm3) cm3.hidden=true; var ad3=$('account-dialog'); if(ad3) ad3.hidden=true}});
 document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false} if(t&&t.id==='instr-box'&&!CFG.editorIgnoresInput){var sb=$('instr-save'); if(sb) sb.disabled=!instrChanged()}});
 if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window.__dirty){e.preventDefault();e.returnValue=''}})}
 })();`;
 
   /** A page whose main area shows a skeleton for `delay` ms, then the content (or, with `boot`, a bare spinner that is replaced whole). */
-  function shell({ title, agent = null, envId = FAKE_ENV_ID, sideNav, content, delay, boot = false, late = "", host = "studio", topHtml = null, extraBody = "", testPane: withTestPane = true, tabsHtml = "" }) {
+  function shell({ title, agent = null, envId = FAKE_ENV_ID, sideNav, content, delay, boot = false, late = "", lateMs = 0, host = "studio", topHtml = null, extraBody = "", testPane: withTestPane = true, tabsHtml = "" }) {
     const top = topHtml ?? topBar(agent, envId);
     const frame = (inner, busy) => `${top}${tabsHtml}<div class="layout">${sideNav}<main id="main"${busy ? ' aria-busy="true"' : ""}>${inner}</main></div>${agent && withTestPane ? testPane(agent) : ""}${extraBody}`;
     const skeleton = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
     const initial = boot ? `<div id="boot" role="progressbar" aria-label="Loading" class="spinner"></div>` : frame(skeleton, true);
     const fill = boot ? `document.body.innerHTML=${JSON.stringify(frame(content, false))}` : `var m=document.getElementById('main');m.innerHTML=${JSON.stringify(content)};m.removeAttribute('aria-busy')`;
-    const lateJs = late ? `setTimeout(function(){${late}},${Number(config.lateTextMs) || 600});` : "";
+    const lateJs = late ? `setTimeout(function(){${late}},${Number(lateMs) || Number(config.lateTextMs) || 600});` : "";
     const cookieHtml = config.cookieBanner ? `<script>if(document.cookie.indexOf('cookies_ok=1')<0){document.body.insertAdjacentHTML('beforeend',${JSON.stringify(cookieBanner)})}</script>` : "";
     const data = ` data-bot="${esc(agent?.id || "")}" data-env="${esc(envId)}"`;
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew, feedback: config.feedback, harnessMode: config.harnessMode, classicOpens: config.classicOpens, previewHost: FAKE_HOSTS.previewStudio, defaultEnv: FAKE_ENV_ID, editorIgnoresInput: config.editorIgnoresInput, saveClosesEditor: config.saveClosesEditor })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};if(window.__layoutTabs)window.__layoutTabs();${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
@@ -536,9 +547,11 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
           ? `<table><thead><tr><th>Name</th><th>Status</th><th>Owner</th><th>Last modified</th><th>Agent harness</th><th><span style="position:absolute;left:-9999px">Actions</span></th></tr></thead><tbody>${list.map((a) => `<tr><td>${esc(a.name)}</td><td>Published</td><td>Ada Lovelace</td><td>today</td>${cell(a)}<td><button type="button" aria-label="Open ${esc(a.name)}" data-act="open-agent" data-url="${esc(agentHome(a, envId))}">Open</button> <button type="button" aria-label="More actions for ${esc(a.name)}" data-act="danger" data-what="row-actions">&#8230;</button></td></tr>`).join("")}</tbody></table>`
           : "<p>No agents yet.</p>";
         const create = config.createMenu !== false
-          ? createMenuHtml()
+          ? config.createMenuLateMs
+            ? `<div id="create-late" hidden>${createMenuHtml()}</div>`
+            : createMenuHtml()
           : `<p><button type="button" id="new-agent" data-act="n-new-agent">New agent</button></p>`;
-        return shell({ title: "Agents", envId, sideNav: envNav("agents", envId), delay: delayFor("agents"), content: `<h1>Agents</h1>${table}${create}`, extraBody: newerExtraBody({ config }) });
+        return shell({ title: "Agents", envId, sideNav: envNav("agents", envId), delay: delayFor("agents"), content: `<h1>Agents</h1>${table}${create}`, extraBody: newerExtraBody({ config }), ...(config.createMenuLateMs ? { late: "var l=document.getElementById('create-late');if(l)l.hidden=false;", lateMs: config.createMenuLateMs } : {}) });
       }
       const newerList = sessionLayout() === "newer";
       const deleteButton = `<button type="button" data-act="danger" data-what="delete-listed-agent">Delete</button>`;
@@ -687,6 +700,10 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     }
     if (url.pathname === "/__experience/create-menu") {
       stats.createMenuOpens += 1;
+      return json({});
+    }
+    if (url.pathname === "/__experience/account-open") {
+      stats.accountOpens += 1;
       return json({});
     }
     if (url.pathname === "/__experience/create-pick") {

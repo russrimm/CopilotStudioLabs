@@ -12,11 +12,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { findAgentByName, agentAddressOf } from "../agent-lookup.mjs";
+import { createExecutor } from "../executor.mjs";
 import { createCaptureSession, runCaptureShot } from "../capture-run.mjs";
 import { resolveAutonomy } from "../guard.mjs";
 import { workPageOf } from "../harness-run.mjs";
 import { detectBrowserAvailability, loadPlaywrightModule, verifyCapturedImageBuffer } from "../lab-runner.mjs";
 import { createPracticeRegistry } from "../practice.mjs";
+import { practiceAgentName } from "../walkthrough.mjs";
 import { FAKE_PRACTICE_ENV_ID, FAKE_PRACTICE_ENV_URL, createFakeProductSite } from "./fixtures/fake-product-site.mjs";
 
 const found = await detectBrowserAvailability();
@@ -26,6 +29,11 @@ const skip = !found.available && "Playwright with Chromium is not installed";
 const gateOk = () => ({ failed: null, async ensureSignedIn() { return { ok: true }; } });
 const real = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const CONTEXT = { labTitle: "Team Assistant", key: "lab-a", questions: ["What can you help me with?"] };
+// The practice agent names of this lab: the harness marker, the short title, and the lab's code (see scratchAgentName), within 30 characters.
+const COPILOT_NAME = practiceAgentName(CONTEXT, "microsoft-copilot");
+const CLASSIC_NAME = practiceAgentName(CONTEXT, "standard");
+assert.match(COPILOT_NAME, /^Copilot shots - Team [0-9a-z]{4}$/);
+assert.match(CLASSIC_NAME, /^Classic shots - Team [0-9a-z]{4}$/);
 
 /** A shot of the "create the agent" stage (the walkthrough builds the agent and shows it), for the harness the picture needs. */
 function agentShot(filename, harness) {
@@ -77,7 +85,7 @@ async function withTenant(options, fn) {
       { consented: true, level: mode, practiceEnvironmentUrl: FAKE_PRACTICE_ENV_URL, ...(mode === "scratch" ? { scratchContext: CONTEXT } : {}) },
       { allowPracticeWrites: true },
     );
-    const session = createCaptureSession({ autonomy, registry, home, agentSource: "created", writeGapMs: 0, effectMs: 2500, findMs: 4000, landmarkMs: 4000, landmarkSettleMs: 150, promptMs: 1200, switchWaitMs: 4000, switchTabMs: 6000 });
+    const session = createCaptureSession({ autonomy, registry, home, agentSource: "created", writeGapMs: 0, effectMs: 2500, findMs: 4000, landmarkMs: 4000, landmarkSettleMs: 150, promptMs: 1200, switchWaitMs: 4000, switchTabMs: 6000, ...(options.session || {}) });
     const shoot = (shot) =>
       runCaptureShot({
         page: workPageOf(session, page),
@@ -102,6 +110,47 @@ async function withTenant(options, fn) {
 
 const practiceAgents = (site) => site.practiceAgents().map((a) => ({ name: a.name, harness: a.harness }));
 
+// The real Agents list (observed 2026-11-27) drew its "More create options" button 15 to 30 seconds after the address opened, while the lower left "More options" button was there at
+// once, and a click on that button opened a dialog named Account (the control list ended with Sign out). The old executor fell back to a fuzzy match (a name score of 0.77 for
+// "More options" against "More create options") and reported the step OK, so every Microsoft Copilot practice agent failed with "could not choose Agent, uses Copilot Credits".
+// The fake delay is scaled: 2.5 seconds here for the 15 to 30 seconds there.
+const SLOW_LIST = { createMenuLateMs: 2500, accountDecoy: true };
+
+test("the Agents list draws More create options late and the lower left More options opens the Account flyout: the computer waits for the exact button, never clicks the wrong one, and makes the agent from the right menu", { skip, timeout: 300_000 }, async () => {
+  // Both ways of making the practice agent: the practice level (agent handed over from the creation step) and building from scratch.
+  for (const level of ["practice", "scratch"]) {
+    await withTenant({ level, ...SLOW_LIST, session: { createMenuMs: 20_000, agentListMs: 4000 } }, async ({ site, shoot }) => {
+      const result = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
+      assert.equal(result.status, "captured", `${level}: ${result.error}`);
+      assert.equal(site.stats.accountOpens, 0, `${level}: the lower left More options button (it opens the Account flyout) was never clicked`);
+      assert.deepEqual(site.stats.dangers, [], `${level}: nothing in the Account flyout or the top bar was touched`);
+      assert.deepEqual(site.stats.createPicks, ["copilot"], `${level}: it started from More create options > Agent, uses Copilot Credits`);
+      assert.equal(site.practiceAgents().length, 1, `${level}: one practice agent was made`);
+    });
+  }
+});
+
+test("when the Agents list never draws More create options, the computer waits for it, says so in plain words, and never clicks another button; a click that opens the Account flyout is closed and named", { skip, timeout: 300_000 }, async () => {
+  await withTenant({ level: "practice", createMenuLateMs: 60_000, accountDecoy: true, session: { createMenuMs: 2000 } }, async ({ site, shoot }) => {
+    const result = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
+    assert.equal(result.status, "skipped", `${result.status} ${result.error}`);
+    assert.match(result.error, /^The practice agent could not be created: “More create options” was not on the Agents list after waiting \d+ seconds? \(.+\), and the older “New agent” button did not work either \(.+\)\. Nothing was created, so this screenshot needs an agent address\.$/);
+    assert.doesNotMatch(result.error, /could not choose/);
+    assert.equal(site.stats.accountOpens, 0, "the lower left More options button was never clicked");
+    assert.deepEqual([site.stats.dangers, site.stats.writes, site.practiceAgents().length], [[], [], 0]);
+  });
+
+  // The exact button is there, and it opens the Account dialog instead of the menu: the dialog is closed with Escape (nothing inside it is touched) and the reason names it.
+  await withTenant({ level: "practice", createMenuOpensAccount: true, accountDecoy: true, session: { createMenuMs: 3000 } }, async ({ site, shoot }) => {
+    const result = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
+    assert.equal(result.status, "skipped", `${result.status} ${result.error}`);
+    assert.match(result.error, /after the computer used “More create options”, a dialog named “Account” opened instead of the menu; it was closed with Escape and nothing in it was touched/);
+    assert.doesNotMatch(result.error, /could not choose/);
+    assert.equal(site.stats.accountOpens, 1, "the button was clicked once, and the flyout was not clicked inside");
+    assert.deepEqual([site.stats.dangers, site.stats.writes, site.practiceAgents().length], [[], [], 0], "Sign out and the rest of the flyout were never touched, and nothing was created");
+  });
+});
+
 test("built from scratch, a Microsoft Copilot picture and a Standard picture each get their own practice agent: distinct, within 30 characters, started from the right create option, made in the right experience, proven, and recorded by harness", { skip, timeout: 300_000 }, async () => {
   await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines, context }) => {
     const copilot = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
@@ -110,7 +159,7 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
     assert.deepEqual(site.stats.createPicks, ["copilot"], "it started from More create options > Agent, uses Copilot Credits");
     assert.equal(copilot.harness.id, "microsoft-copilot");
     assert.equal(copilot.harness.host, "copilotstudio.microsoft.com");
-    assert.deepEqual(practiceAgents(site), [{ name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" }]);
+    assert.deepEqual(practiceAgents(site), [{ name: COPILOT_NAME, harness: "microsoft-copilot" }]);
 
     const classic = await shoot(agentShot("agent.classic.png", "standard"));
     assert.equal(classic.status, "captured", classic.error);
@@ -125,15 +174,15 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
     assert.equal(context.pages().length, 1, "one tab: the first tab was closed once the classic tab was open");
     const made = practiceAgents(site);
     assert.deepEqual(made, [
-      { name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" },
-      { name: "Classic shots - Team Assistant", harness: "standard" },
+      { name: COPILOT_NAME, harness: "microsoft-copilot" },
+      { name: CLASSIC_NAME, harness: "standard" },
     ]);
     assert.ok(made.every((a) => a.name.length <= 30) && new Set(made.map((a) => a.name)).size === 2, "distinct names within the 30 characters the product keeps");
 
     // The registry looks agents up by environment, lab, and harness, and records the harness each agent was proven to be in.
     const envId = FAKE_PRACTICE_ENV_ID;
-    assert.equal(registry.find(envId, "lab-a", "standard").name, "Classic shots - Team Assistant");
-    assert.equal(registry.find(envId, "lab-a", "microsoft-copilot").name, "Copilot shots - Team Assistant");
+    assert.equal(registry.find(envId, "lab-a", "standard").name, CLASSIC_NAME);
+    assert.equal(registry.find(envId, "lab-a", "microsoft-copilot").name, COPILOT_NAME);
     assert.equal(registry.find(envId, "lab-a", "customer-conversation"), null);
     assert.equal(registry.items().agents.length, 2);
 
@@ -149,6 +198,59 @@ test("built from scratch, a Microsoft Copilot picture and a Standard picture eac
   });
 });
 
+test("an agent is found by its exact name: names that start alike are told apart, a name two rows share is never opened, and the top bar's account button is never a row", { skip, timeout: 180_000 }, async () => {
+  await withTenant({ level: "scratch" }, async ({ site, context }) => {
+    const envId = FAKE_PRACTICE_ENV_ID;
+    const agent = (n, name) => ({ id: `aaaaaaaa-0000-4000-8000-00000000000${n}`, name, harness: "microsoft-copilot" });
+    // A longer name that starts with the wanted one is listed first: a partial match would open it.
+    site.envs[envId].agents.push(agent(1, "Copilot shots - Energy ab12 (copy)"), agent(2, "Copilot shots - Energy ab12"), agent(3, "Copilot shots - Energy cd34"), agent(4, "Copilot shots - Energy cd34"));
+    const page = await context.newPage();
+    const autonomy = resolveAutonomy({ consented: true, level: "scratch", practiceEnvironmentUrl: FAKE_PRACTICE_ENV_URL, scratchContext: CONTEXT }, { allowPracticeWrites: true });
+    const env = { envBase: FAKE_PRACTICE_ENV_URL.replace(/\/home$/, ""), envId };
+    const go = async (url) => {
+      await page.goto(url);
+      return {};
+    };
+    const executorFor = (practice) => createExecutor({ page, autonomy, product: "copilot-studio", practice, sleep: real, effectMs: 2500, findMs: 3000 });
+    const practice = { agentId: null, envId, creating: () => false };
+    const find = (name) => findAgentByName({ page, go, env, name, executorFor, practice, sleep: real, waitMs: 3000 });
+
+    const found = await find("Copilot shots - Energy ab12");
+    assert.equal(found.parsed?.botId, agent(2).id, "the row whose whole name matches is the one opened, not the one that merely starts with it");
+    assert.equal(agentAddressOf(page)?.botId, agent(2).id, "and the id is read from the address the page lands on");
+
+    const twice = await find("Copilot shots - Energy cd34");
+    assert.equal(twice.ambiguous, 2, "two rows have this name, so it is said and nothing is opened");
+    assert.equal(twice.parsed, undefined);
+
+    const none = await find("Copilot shots - Energy zz99");
+    assert.deepEqual([none.parsed, none.ambiguous], [undefined, undefined], "a name that is not listed finds nothing");
+
+    // The top bar's "Open account menu for <person>" starts with "Open " too: it is never taken for a row, whatever name is asked for.
+    const account = await find("account menu for Ada Lovelace");
+    assert.equal(account.parsed, undefined);
+    assert.deepEqual(site.stats.dangers, [], "the account button was never clicked");
+  });
+});
+
+test("an agent recorded under the older shared name is still reused by its address, and a new agent of a set-aside lab gets a name of its own", { skip, timeout: 240_000 }, async () => {
+  await withTenant({ level: "scratch" }, async ({ site, registry, shoot }) => {
+    // What an earlier version recorded: the harness marker, the title cut at 30 characters, and no code. Three labs shared it.
+    const legacy = { id: "11111111-2222-4333-8444-555555555566", name: "Copilot shots - Team Assistant" };
+    site.envs[FAKE_PRACTICE_ENV_ID].agents.push({ ...legacy, harness: "microsoft-copilot" });
+    registry.recordAgent({ envId: FAKE_PRACTICE_ENV_ID, botId: legacy.id, name: legacy.name, address: `${FAKE_PRACTICE_ENV_URL.replace(/\/home$/, "")}/agents/${legacy.id}`, key: "lab-a", harness: "microsoft-copilot" });
+    const reused = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
+    assert.equal(reused.status, "captured", reused.error);
+    assert.equal(site.practiceAgents().length, 1, "the agent with the old name was reused: nothing new was created");
+    assert.equal(registry.items().agents[0].reusedCount, 1);
+
+    // Set aside by Start fresh: the next one is built, and its name differs from the old one that is still listed.
+    assert.equal(registry.generation(FAKE_PRACTICE_ENV_ID, "lab-a", "microsoft-copilot"), 0);
+    registry.retire(FAKE_PRACTICE_ENV_ID, "lab-a", "microsoft-copilot");
+    assert.equal(registry.generation(FAKE_PRACTICE_ENV_ID, "lab-a", "microsoft-copilot"), 1);
+  });
+});
+
 test("an agent recorded before harnesses were recorded is never reused for a harness-specific picture: a new one is made, and the log says so", { skip, timeout: 240_000 }, async () => {
   await withTenant({ level: "scratch" }, async ({ site, registry, shoot, lines }) => {
     // An agent from an earlier version: a name with the older prefix and no harness.
@@ -160,7 +262,7 @@ test("an agent recorded before harnesses were recorded is never reused for a har
 
     const result = await shoot(agentShot("agent.copilot.png", "microsoft-copilot"));
     assert.equal(result.status, "captured", result.error);
-    assert.deepEqual(practiceAgents(site).filter((a) => a.name !== legacy.name), [{ name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" }]);
+    assert.deepEqual(practiceAgents(site).filter((a) => a.name !== legacy.name), [{ name: COPILOT_NAME, harness: "microsoft-copilot" }]);
     assert.match(lines.join("\n"), /An earlier practice agent has no harness recorded, so it is not used for a Microsoft Copilot harness picture\. A new one is built\./);
     assert.equal(registry.items().agents.find((a) => a.botId === legacy.id).reusedCount, 0, "the older agent was not reused");
     assert.equal(registry.findUnrecorded(FAKE_PRACTICE_ENV_ID, "lab-a").botId, legacy.id, "and it is still listed as not recorded");
@@ -224,8 +326,8 @@ test("one job with both harnesses, one harness after the other: the classic swit
 
     // Two practice agents inside the same job, each proven in its own experience and neither used for the other.
     assert.deepEqual(practiceAgents(site), [
-      { name: "Classic shots - Team Assistant", harness: "standard" },
-      { name: "Copilot shots - Team Assistant", harness: "microsoft-copilot" },
+      { name: CLASSIC_NAME, harness: "standard" },
+      { name: COPILOT_NAME, harness: "microsoft-copilot" },
     ]);
     assert.deepEqual(registry.items().agents.map((a) => a.harness), ["standard", "microsoft-copilot"]);
     assert.deepEqual([first, second, third, fourth].map((r) => r.detail.practice.harness), ["standard", "standard", "microsoft-copilot", "microsoft-copilot"]);

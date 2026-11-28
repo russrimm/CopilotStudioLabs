@@ -47,50 +47,85 @@ export const CREATE_AGENT_OPEN = Object.freeze([
 ]);
 
 /**
+ * How long the Agents list is waited for to draw its "More create options" button. A real list draws its controls 15 to 30 seconds after its address opens
+ * (observed 2026-11-27), so the default wait of a step (7 seconds) is far too short: a button that is not there yet must be waited for, never replaced by another control.
+ */
+export const CREATE_MENU_WAIT_MS = 60_000;
+
+/**
  * How the new-agent flow is started for a harness. The Agents list has a "More create options" button whose menu offers "Agent, uses Copilot Credits" (the
  * Microsoft Copilot harness), "Customer conversation agent, uses Copilot Credits", and "Agent, Standard" (observed on a real tenant, 2026-11-24; nothing was
  * created). A Standard practice agent starts from "Agent, Standard" and a Microsoft Copilot one from "Agent, uses Copilot Credits"; the computer never builds
  * a Customer Conversation agent. NOT VERIFIED on a real tenant: what the flow shows after an option is chosen, so the steps after it are the existing ones
  * (a Name field, then Save or Create), each of which stops with the exact step when its control is not there.
+ * The menu step finds "More create options" by its exact name only (waiting for the list to draw) and is OK only when the menu that opened lists the harness's option:
+ * a different control or dialog (the lower left "More options", the Account flyout) can never count as the create menu.
  * `fallback` is the older single-button way (the Microsoft Copilot harness only: in the default experience that button makes a Microsoft Copilot agent).
  */
-export function createAgentOpenPlan(harness) {
+export function createAgentOpenPlan(harness, { waitMs = CREATE_MENU_WAIT_MS } = {}) {
   const option = harness === STANDARD || harness === MICROSOFT_COPILOT ? CREATE_OPTIONS[harness].names[0] : null;
   if (!option) return { menu: null, option: null, fallback: CREATE_AGENT_OPEN };
+  const menuName = CREATE_OPTIONS.menu.names[0];
   return {
     option,
+    menuName,
     menu: [
-      { id: "create-menu", action: "create", intent: "open", say: "Opening More create options", note: "Opened the create options on the Agents list", target: T("button", CREATE_OPTIONS.menu.names[0], [], "any"), timeoutMs: 20_000, retries: 0 },
-      { id: "create-option", action: "create", intent: "choose", say: `Choosing ${option}`, note: `Chose ${option} to create the practice agent`, target: T("menuitem", option, [], "any"), timeoutMs: 10_000, retries: 0 },
+      { id: "create-menu", action: "create", intent: "open", exact: true, say: "Opening More create options", note: "Opened the create options on the Agents list", target: T("button", menuName, [], "any"), expect: { menuItems: [option] }, findMs: waitMs, timeoutMs: 20_000, retries: 0 },
+      { id: "create-option", action: "create", intent: "choose", exact: true, say: `Choosing ${option}`, note: `Chose ${option} to create the practice agent`, target: T("menuitem", option, [], "any"), timeoutMs: 10_000, retries: 0 },
     ],
     fallback: harness === MICROSOFT_COPILOT ? CREATE_AGENT_OPEN : null,
   };
 }
 
+/** Seconds, as a plain number for a sentence. */
+const secondsOf = (ms) => Math.max(1, Math.round(Number(ms || 0) / 1000));
+
+/**
+ * The plain reason the create menu could not be used, from what the executor saw (a clause: it reads on its own and inside a longer sentence).
+ * `menuOpen` is whether a menu or a dialog is open after the failure.
+ */
+export function createFailureReason({ failed, stage, option, menuName = "More create options", menuOpen = true, waitMs = CREATE_MENU_WAIT_MS }) {
+  if (stage === "menu") {
+    if (failed?.missing) return `“${menuName}” was not on the Agents list after waiting ${secondsOf(failed.waitedMs || waitMs)} seconds (the list may still have been loading, or this account may not be allowed to create agents)`;
+    return failed?.why || `“${menuName}” could not be opened`;
+  }
+  if (!menuOpen) return `the “${menuName}” menu was not open when “${option}” was to be chosen, so nothing was chosen`;
+  if (failed?.missing) return `the “${menuName}” menu is open but does not list “${option}”`;
+  return failed?.why || `“${option}” could not be chosen`;
+}
+
 /**
  * Start the new-agent flow on the Agents list for a harness: "More create options", then the harness's option; a Microsoft Copilot agent falls back to the older
  * New agent button only when the create menu itself is not there. Returns the executor's result with `via` ("create-option" or "new-agent-button"), and on a
- * failure `stage` ("menu", "option", or "button") and the `option` that was looked for, so the reason names the exact step.
+ * failure `stage` ("menu", "option", or "button"), the `option` that was looked for, and a plain `reason` (see createFailureReason), so the message names the exact step.
  */
-export async function openCreateFlow({ executor, harness = null, trace = null, log = null, product = "copilot-studio" }) {
-  const plan = createAgentOpenPlan(harness);
+export async function openCreateFlow({ executor, harness = null, trace = null, log = null, product = "copilot-studio", waitMs = CREATE_MENU_WAIT_MS }) {
+  const plan = createAgentOpenPlan(harness, { waitMs });
+  let menuReason = "";
   if (plan.menu) {
     const steps = sanitizeSteps(plan.menu, { product });
     // A step the safety rules dropped must never be skipped quietly: the flow would look opened when it was not.
-    if (steps.length !== plan.menu.length) return { ok: false, steps: [], failed: { id: "create-option", why: "a safety rule did not allow the step" }, via: "create-option", stage: "option", option: plan.option };
+    if (steps.length !== plan.menu.length) return { ok: false, steps: [], failed: { id: "create-option", why: "a safety rule did not allow the step" }, via: "create-option", stage: "option", option: plan.option, reason: "a safety rule did not allow the step" };
     const made = await executor.run(steps);
     if (made.halted || made.ok) {
       trace?.event("create-option", { harness, option: plan.option, ok: Boolean(made.ok) });
       return { ...made, via: "create-option" };
     }
     const stage = made.failed?.id === "create-option" ? "option" : "menu";
-    trace?.event("create-option", { harness, option: plan.option, ok: false, stage });
+    // A menu that is still showing something (a menu, a dialog) is not "not open": the reason tells the two apart.
+    const overlays = stage === "option" ? await Promise.resolve(executor.readOverlays?.()).catch(() => null) : null;
+    const menuOpen = Array.isArray(overlays) ? overlays.some((d) => d.kind === "menu" || d.kind === "dialog") : true;
+    const reason = createFailureReason({ failed: made.failed, stage, option: plan.option, menuName: plan.menuName, menuOpen, waitMs });
+    trace?.event("create-option", { harness, option: plan.option, ok: false, stage, missing: Boolean(made.failed?.missing), menuOpen });
     await Promise.resolve(executor.cleanup?.()).catch(() => {});
-    if (stage !== "menu" || !plan.fallback) return { ...made, via: "create-option", stage, option: plan.option };
+    // Only an exact "More create options" that is not on the list falls back to the older button: a wrong menu that opened is a failure, never a reason to click something else.
+    if (stage !== "menu" || !plan.fallback || !made.failed?.missing) return { ...made, via: "create-option", stage, option: plan.option, reason };
     log?.("  More create options was not on the Agents list, so the older New agent button is used.");
+    menuReason = reason;
   }
   const old = await executor.run(sanitizeSteps(plan.fallback, { product }));
-  return { ...old, via: "new-agent-button", stage: "button", option: plan.option };
+  const why = old.failed?.why || "the New agent button could not be used";
+  return { ...old, via: "new-agent-button", stage: "button", option: plan.option, reason: menuReason ? `${menuReason}, and the older “New agent” button did not work either (${why})` : why };
 }
 
 export const CREATE_AGENT_FILL = Object.freeze([
@@ -101,11 +136,16 @@ export const CREATE_AGENT_COMMIT = Object.freeze([
   { id: "create-commit", action: "create", intent: "confirm", say: "Creating the agent", note: "Created the practice agent", target: T("button", "Save", ["Create", "Create agent", "Save agent", "Save icon"], "any"), timeoutMs: 20_000, retries: 0 },
 ]);
 
-/** Find the practice agent in the Agents list by its own name: filter the list, then open the row. Nothing is changed. */
-export function findAgentSteps(name) {
+/**
+ * Find the practice agent in the Agents list by its own name: filter the list, then open its row. Nothing is changed. The row is the agent's "Open <name>" button (observed on the real
+ * list; `by: "name"` is the older list, where the name itself is the link), found by that exact name only, and a name that two rows have is never guessed. The top bar's "Open account
+ * menu for <person>" can never be a row: only "Open " followed by the agent's whole name is.
+ */
+export function findAgentSteps(name, { by = "open-button", waitMs = 15_000 } = {}) {
+  const rowName = by === "name" ? name : `Open ${name}`;
   return [
-    { id: "find-search", action: "type", intent: "type", say: "Looking for the practice agent in the list", target: T("searchbox", "Search agents by name", ["Search agents", "Search"], "any"), text: { sample: "agentName" }, optional: true },
-    { id: "find-open", action: "open-item", intent: "navigate", say: "Opening the practice agent", target: T(undefined, name, [], "main"), timeoutMs: 15_000 },
+    { id: "find-search", action: "type", intent: "type", say: "Looking for the practice agent in the list", target: T("searchbox", "Search agents by name", ["Search agents", "Search"], "any"), text: { literal: name }, optional: true },
+    { id: "find-open", action: "open-item", intent: "navigate", say: "Opening the practice agent", target: T(undefined, rowName, [], "main"), exact: true, unique: true, findMs: waitMs, timeoutMs: 15_000 },
   ];
 }
 

@@ -8,6 +8,8 @@
 // Steps the computer must never do (add a tool that needs a connection, upload files, publish to a channel, change a tenant
 // setting) are named here with a plain reason, so the shot ends "needs you" with one fix instead of a failed click.
 
+import crypto from "node:crypto";
+
 import { checkPublicWebsite, checkTypedText, limitWebsiteDepth } from "./guard.mjs";
 import { AUTOMATION_VERSION, BLOCKER_REASON, FAMILIES, REASONS, describeFamily, detectFamily, shotFacts } from "./automation.mjs";
 import { PRACTICE_AGENT_PREFIXES, isSpecificHarness } from "./harness.mjs";
@@ -224,13 +226,26 @@ function agentTitleOf(shortTitle) {
 }
 
 /**
- * "Lab screenshots - Team": the fixed prefix and a short title from the lab, 30 characters at most. With a harness the prefix is the compact
- * harness marker instead ("Classic shots - Team", "Copilot shots - Team"), so the agents of two harnesses have different names.
+ * A short code (four letters and digits) that tells the practice agents of two labs apart. The product cuts an agent's name at 30 characters, so two labs whose titles start
+ * alike ("Energy & Utilities ..." and "Energy & Grid ...") used to get the SAME name ("Classic shots - Energy &"). The code comes from the lab's own key, and from how many
+ * practice agents of that lab were set aside by "Start fresh" (`generation`), so a new agent never shares a name with an older one that is still in the list.
  */
-export function scratchAgentName(shortTitle, harness = null) {
+export function agentNameCode(key, generation = 0) {
+  const digest = crypto.createHash("sha1").update(`${String(key || "").toLowerCase()}|${Number(generation) || 0}`).digest();
+  return (digest.readUInt32BE(0) % 36 ** 4).toString(36).padStart(4, "0");
+}
+
+/**
+ * "Lab screenshots - Team": the fixed prefix and a short title from the lab, 30 characters at most. With a harness the prefix is the compact
+ * harness marker instead, and the name ends with the lab's code (see agentNameCode): "Classic shots - Team 3k9a", "Copilot shots - Team 3k9a". The two harnesses
+ * have different names, and so do two labs, all within the 30 characters the product keeps.
+ */
+export function scratchAgentName(shortTitle, harness = null, { key = "", generation = 0 } = {}) {
   const short = agentTitleOf(shortTitle);
-  const prefix = (isSpecificHarness(harness) && PRACTICE_AGENT_PREFIXES[harness]) || PRACTICE_NAME_PREFIX;
-  const room = MAX_AGENT_NAME - prefix.length;
+  const named = isSpecificHarness(harness) && PRACTICE_AGENT_PREFIXES[harness];
+  const prefix = named || PRACTICE_NAME_PREFIX;
+  const code = named ? ` ${agentNameCode(key || short || "Training lab", generation)}` : "";
+  const room = MAX_AGENT_NAME - prefix.length - code.length;
   let fitted = "";
   for (const word of (short || "Training lab").split(" ")) {
     const next = fitted ? `${fitted} ${word}` : word;
@@ -238,14 +253,14 @@ export function scratchAgentName(shortTitle, harness = null) {
     fitted = next;
   }
   // A first word longer than the room is cut: a name is better short than missing.
-  return `${prefix}${(fitted || (short || "Training lab").slice(0, room)).replace(/[\s.,;:-]+$/, "")}`;
+  return `${prefix}${(fitted || (short || "Training lab").slice(0, room)).replace(/[\s.,;:&-]+$/, "")}${code}`;
 }
 
 /** The name of the practice agent for one harness, from a lab's (sanitized) context. Without a harness: the older name. */
-export function practiceAgentName(context, harness = null) {
+export function practiceAgentName(context, harness = null, { generation = 0 } = {}) {
   const ctx = context && typeof context === "object" ? context : {};
   if (!isSpecificHarness(harness)) return ctx.agentName || scratchAgentName(ctx.agentTitle || ctx.labTitle || "");
-  return scratchAgentName(ctx.agentTitle || ctx.labTitle || "", harness);
+  return scratchAgentName(ctx.agentTitle || ctx.labTitle || "", harness, { key: ctx.key || ctx.labTitle || "", generation });
 }
 
 /** A lab or a profile key for the practice agent registry: letters, digits, dashes. */

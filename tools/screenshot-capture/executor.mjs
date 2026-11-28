@@ -4,6 +4,9 @@
 //   * A control is found by ranked strategies: its role and exact name in the expected area, its role and a
 //     normalized name, its aria-label or title, its visible text (then the nearest control around it), and last a
 //     fuzzy match over the interactive controls only. Every frame is searched, and shadow DOM is pierced.
+//     The ranking depends on what a wrong click costs (strategiesFor): a step that creates or confirms finds its
+//     control by its exact name only, a step that opens a menu or a dialog never uses the visible-text and fuzzy
+//     strategies, and only navigation may fall back to them (and then only to a control of the role it names).
 //   * Every control is described and checked against the action tiers (guard.mjs) before it is touched, and the
 //     decision is written to the trace. Anything that is not allowed is skipped, never clicked.
 //   * A click that changes nothing is not success: the next candidate or the next strategy is tried. A step
@@ -13,7 +16,7 @@
 //   * A failed step ends the shot with the exact step that failed and a redacted diagnostic file. It never
 //     blocks the next shot.
 
-import { authorizeStep, classifyControl, describeControlForGate, isAllowedUrl, normalizeControlName, TIER } from "./guard.mjs";
+import { authorizeStep, classifyControl, describeControlForGate, isAccountDialogTitle, isAllowedUrl, normalizeControlName, TIER } from "./guard.mjs";
 import { writeDiagnostic } from "./diagnostics.mjs";
 import { BrowserClosedError, classifyBrowserError, isBrowserClosedError } from "./lifecycle.mjs";
 import { readinessProbeInPage } from "./readiness.mjs";
@@ -116,6 +119,50 @@ const STRICT_AREAS = new Set(["dialog", "chat"]);
  * Standard agent: the Instructions editor and the Test panel both say "describe").
  */
 export const TYPE_STRATEGIES = Object.freeze(["role-exact", "attribute", "role-name"]);
+
+/**
+ * The strategies for a step that CHANGES something or confirms it (it creates, confirms, or is a tier 2 write): only the control whose own name is exactly the wanted one
+ * (or an alternate) counts, by its role and name or by its aria-label, title, placeholder, or test id. A partial name, the words near a name, and a fuzzy score all find
+ * "some control that looks alike", and on a real tenant that was the lower left "More options" button standing in for "More create options" (observed 2026-11-27).
+ */
+export const WRITE_STRATEGIES = Object.freeze(["role-exact", "attribute"]);
+
+/**
+ * The strategies for a step that opens a menu or a dialog the next step depends on: the exact name, then its words as whole words in order ("2 more options" in
+ * "+2 more options"), and never the visible-text and fuzzy strategies, which find a control "near" a word (a lower left "More options" is not a "2 more options" tab overflow).
+ */
+export const OPEN_STRATEGIES = Object.freeze(["role-exact", "attribute", "role-name"]);
+
+/** Whether a step must find its control by its exact name only: it creates or confirms, it is a tier 2 write, or it says so (`exact`). */
+export function needsExactName(step) {
+  if (!step) return false;
+  if (step.exact === true) return true;
+  if (step.action === "create" || step.action === "confirm" || step.intent === "confirm") return true;
+  return Number(step.tier) >= TIER.PRACTICE;
+}
+
+/** Whether a step opens a menu, a dialog, or a panel that the steps after it work in (a click that opens the wrong one makes every later step act on the wrong screen). */
+export function opensForNextStep(step) {
+  if (!step) return false;
+  if (step.expect?.dialog || step.expect?.panel || step.expect?.menuItems?.length) return true;
+  return (step.action === "open" || step.action === "reveal") && step.intent === "open";
+}
+
+/** The ranked strategies a step may use, from the most to the least precise. */
+export function strategiesFor(step) {
+  if (step?.action === "type") return TYPE_STRATEGIES;
+  if (needsExactName(step)) return WRITE_STRATEGIES;
+  if (opensForNextStep(step)) return OPEN_STRATEGIES;
+  return STRATEGIES;
+}
+
+const STRONG_ROLES = new Set(["menuitem", "menuitemradio", "tab", "option", "radio", "checkbox", "switch", "textbox", "searchbox", "combobox", "treeitem"]);
+
+/** Whether a control that a loose strategy found has the role the step names: a plain button called "Settings" is not the "Settings" menu item. */
+export function roleCompatible(wanted, actual) {
+  if (!wanted || !actual || wanted === actual) return true;
+  return !STRONG_ROLES.has(wanted);
+}
 
 /**
  * Whether a described control sits in the card or panel a step names (`target.section`, by the card's heading, for example "Instructions"). The control's nearest
@@ -343,6 +390,19 @@ export function fuzzyListInPage(selector) {
     out.push({ index, name: String(name).replace(/\s+/g, " ").trim().slice(0, 120) });
   });
   return out.slice(0, 400);
+}
+
+/** The names of the visible menu items among `elements` (self-contained: it runs in the page). Names only. */
+export function menuItemNamesInPage(elements) {
+  const out = [];
+  for (const el of elements) {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    if (rect.width < 4 || rect.height < 4 || style.visibility === "hidden" || style.display === "none") continue;
+    const name = String(el.getAttribute("aria-label") || el.innerText || el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (name) out.push(name);
+  }
+  return out.slice(0, 12);
 }
 
 // ── Page state ──────────────────────────────────────────────────────────────
@@ -629,8 +689,10 @@ export function createExecutor(ctx) {
     const roles = step.target?.role ? [step.target.role] : ROLES_FOR[step.action] || ROLES_FOR.click;
     const within = step.target?.within || "any";
     const section = step.target?.section || "";
-    // Typing goes only to a text box whose own name matches (see TYPE_STRATEGIES); every other action may fall back to a looser match.
-    const strategies = step.action === "type" ? TYPE_STRATEGIES : STRATEGIES;
+    // The strategies depend on what a wrong click costs (see strategiesFor): a write finds its control by its exact name only, a step that opens a menu or a dialog never
+    // uses the visible-text and fuzzy strategies, and typing goes only to a text box whose own name matches.
+    const strategies = strategiesFor(step);
+    const looseOnly = new Set(["text-ancestor", "fuzzy"]);
     const seen = new Set();
     let produced = 0;
     for (const strategy of strategies) {
@@ -651,6 +713,11 @@ export function createExecutor(ctx) {
         if (!desc) continue;
         if (section && !fitsSection(desc, section)) {
           attempt.skippedOtherSection = (attempt.skippedOtherSection || 0) + 1;
+          continue;
+        }
+        // A loose match (visible text, fuzzy score) must still be the kind of control the step names: a plain button called "Settings" is not the "Settings" menu item.
+        if (looseOnly.has(strategy) && !roleCompatible(step.target?.role, desc.role)) {
+          attempt.skippedOtherRole = (attempt.skippedOtherRole || 0) + 1;
           continue;
         }
         // A control that is there but disabled is its own cause (a Save button that stays off until the text changed): it is remembered, never clicked, and named in the failure.
@@ -677,6 +744,11 @@ export function createExecutor(ctx) {
         described.push(...placed.map((entry) => entry.item));
       }
       attempt.found = described.length;
+      // A name that more than one control has (two agents in the list with one name) is not guessed: the step fails and says so.
+      if (step.unique && described.length > 1) {
+        record.ambiguous = { count: described.length, name: names[0] };
+        return;
+      }
       for (const item of described) {
         if (produced >= MAX_TRIES) return;
         produced += 1;
@@ -717,6 +789,52 @@ export function createExecutor(ctx) {
     }
   }
 
+  /** Whether a visible menu item has this exact name (any frame). Role and name only: the menu's own markup is never relied on. */
+  async function menuItemShown(name) {
+    const re = exactNameRegex([name]);
+    for (const frame of framesOf(page)) {
+      if (typeof frame.getByRole !== "function") continue;
+      for (const role of ["menuitem", "menuitemradio", "option"]) {
+        try {
+          const list = frame.getByRole(role, { name: re });
+          if ((await list.count()) > 0 && (await list.nth(0).isVisible())) return true;
+        } catch (err) {
+          if (isBrowserClosedError(err)) throw err;
+        }
+      }
+    }
+    return false;
+  }
+
+  /** The names of the menu items showing now (names only), for the plain sentence that says what the menu offered instead. */
+  async function menuItemsShowing() {
+    const found = [];
+    for (const frame of framesOf(page)) {
+      try {
+        if (typeof frame.getByRole !== "function") continue;
+        found.push(...((await frame.getByRole("menuitem").evaluateAll(menuItemNamesInPage)) || []));
+      } catch (err) {
+        if (isBrowserClosedError(err)) throw err;
+      }
+    }
+    return [...new Set(found)].slice(0, 6);
+  }
+
+  /** The plain sentence for a menu that did not open as expected: what did open (an account flyout, another dialog, a menu without the item), or that nothing did. */
+  async function explainMenu(expect, before) {
+    const open = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu");
+    const wanted = (expect.menuItems || []).map((n) => `“${n}”`).join(" and ");
+    const fresh = open.length > before.dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu").length;
+    if (!open.length) return { why: `no menu opened, so ${wanted} was not offered`, opened: [] };
+    const account = open.find((d) => isAccountDialogTitle(d.title));
+    if (account) return { why: `a dialog named “${account.title}” opened instead of the menu`, opened: open, account: true };
+    const items = await menuItemsShowing();
+    const menu = open.find((d) => d.kind === "menu");
+    if (menu) return { why: `a menu opened, but it does not list ${wanted}${items.length ? ` (it lists ${items.map((n) => `“${n}”`).join(", ")})` : ""}`, opened: open, menu: true };
+    const titled = open.find((d) => d.title);
+    return { why: `${titled ? `a dialog named “${titled.title}”` : "a dialog"} opened instead of the menu`, opened: fresh ? open : [] };
+  }
+
   async function waitForEffect(step, before, candidate, expectOverride = null) {
     const expect = expectOverride ?? step.expect;
     const deadline = now() + (step.timeoutMs ?? effectMs);
@@ -738,8 +856,20 @@ export function createExecutor(ctx) {
       last = effectSatisfied(expect, before, after, { selectedChanged });
       if (last.ok && expect?.text?.length && !(await textsVisible(expect.text))) last = { ok: false, why: "the expected text is not showing" };
       if (last.ok && expect?.absent?.length && (await anyTextVisible(expect.absent))) last = { ok: false, why: "the old screen is still showing" };
+      // A menu or dialog that opened is the right one only when it lists the items the step names.
+      if (last.ok && expect?.menuItems?.length) {
+        for (const name of expect.menuItems) {
+          if (!(await menuItemShown(name))) {
+            last = { ok: false, why: "the menu does not list the expected item", menuMissing: true };
+            break;
+          }
+        }
+      }
       if (last.ok) return last;
-      if (now() >= deadline || waited >= (step.timeoutMs ?? effectMs)) return last;
+      if (now() >= deadline || waited >= (step.timeoutMs ?? effectMs)) {
+        if (last.menuMissing || (expect?.menuItems?.length && !last.ok)) return { ...last, ...(await explainMenu(expect, before)), ok: false, menu: true };
+        return last;
+      }
       await sleep(150);
       waited += 150;
     }
@@ -874,6 +1004,19 @@ export function createExecutor(ctx) {
         if (step.onlyIfOn && !candidate.desc.checked) return { ok: true, why: "already off", already: true };
         await locator.click({ timeout: stepTimeoutMs });
         const effect = await waitForEffect(step, before, candidate);
+        // A click that was meant to open a menu or a dialog must not leave the account or profile flyout (or any other dialog it was not meant to open) on the screen:
+        // it is closed with Escape (never clicked inside) and the step fails with a plain sentence that names what opened.
+        if (step.expect?.dialog || step.expect?.panel || step.expect?.menuItems?.length) {
+          const open = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu");
+          const account = open.find((d) => isAccountDialogTitle(d.title));
+          const wrong = account ? `a dialog named “${account.title}” opened instead of ${step.expect?.menuItems?.length ? "the menu" : "the one expected"}` : effect.ok ? "" : step.expect?.menuItems?.length && open.length > before.dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu").length ? effect.why : "";
+          if (wrong) {
+            await page.keyboard?.press?.("Escape").catch(() => {});
+            await sleep(300);
+            trace?.event("wrong-overlay", { step: step.id, account: Boolean(account), closed: "escape" });
+            return { ok: false, stop: true, why: `${wrong}; it was closed with Escape and nothing in it was touched` };
+          }
+        }
         if (step.action === "open" || step.action === "choose") {
           const opened = (await readState(page)).dialogs;
           if (opened.length > before.dialogs.length) state.opened.push(step.id);
@@ -921,6 +1064,14 @@ export function createExecutor(ctx) {
       }
       candidate.attempt.effect = outcome.ok;
       candidate.attempt.note = outcome.why || "";
+      if (!outcome.ok && outcome.why) record.lastWhy = { id: candidate.desc?.name || "", why: outcome.why };
+      // A click that opened the wrong thing (an account flyout, another menu) ends the step: the next candidate is not tried on a screen that is not the expected one.
+      if (!outcome.ok && outcome.stop) {
+        record.note = `after the computer used ${labelOf(step)}, ${outcome.why}`;
+        record.stopped = true;
+        await leaveIfOutside(record);
+        return false;
+      }
       if (outcome.ok) {
         record.strategy = candidate.strategy;
         record.tier = Math.max(record.tier, decision.tier);
@@ -1145,6 +1296,8 @@ export function createExecutor(ctx) {
     const revealStep = { ...step, action: "reveal" };
     if (await runTargetedStep(revealStep, record)) return true;
     if (record.blocked) return false;
+    // A reveal that opens a menu or a dialog is OK only when the click did it (its expectation was checked): words on the page prove nothing about a menu that did not open.
+    if (opensForNextStep(step)) return false;
     // A label that is plain text (a heading) counts as showing when its words are on the page.
     for (const name of targetNames(step.target)) {
       if (await textVisible(name)) {
@@ -1184,6 +1337,7 @@ export function createExecutor(ctx) {
       return record;
     }
     const findBudgetMs = step.findMs ?? (step.optional ? 2500 : ctx.findMs ?? 7000);
+    let missing = false;
     for (let attempt = 0; ; attempt += 1) {
       if (step.action !== "discard") await dismissInterruptions();
       let ok = false;
@@ -1226,9 +1380,12 @@ export function createExecutor(ctx) {
       }
       // Only a step that was blocked on purpose is not worth another look.
       if (record.blocked && !record.attempts.some((a) => a.tried)) break;
+      // Two controls with one name, or a click that opened the wrong thing, will not be different the second time.
+      if (record.ambiguous || record.stopped) break;
       // A control that is not on the page yet (a skeleton, a slow panel) is waited for, for a bounded time; one that was there but did nothing is tried again a couple of times.
       const lookedAt = record.attempts.slice(attemptsBefore);
       const nothingThere = ["open-nav", "select-tab", "reveal", "expand", "open-item", "open", "choose", "click", "confirm", "create", "close", "discard", "type", "send", "hover", "switch-experience"].includes(step.action) && lookedAt.length > 0 && lookedAt.every((a) => a.found === 0);
+      missing = nothingThere;
       if (nothingThere) {
         if (now() - started >= findBudgetMs || ctx.shouldStop?.()) break;
         await sleep(500);
@@ -1237,9 +1394,31 @@ export function createExecutor(ctx) {
       if (attempt >= retries) break;
       await sleep(400 * 2 ** attempt);
     }
+    if (record.status !== "ok" && !record.note && !state.halted) record.note = plainFailureNote(step, record, { missing, waitedMs: now() - started });
+    if (record.status !== "ok") {
+      record.missing = missing && !record.ambiguous;
+      record.waitedMs = now() - started;
+    }
     record.attempts = record.attempts.slice(-10);
     record.ms = now() - started;
     return record;
+  }
+
+  /** What a step calls its control in a sentence: its own name in quotes, or "the control". */
+  function labelOf(step) {
+    const name = step.target?.name || step.target?.alt?.[0] || "";
+    return name ? `“${name}”` : "the control";
+  }
+
+  /** The plain sentence for a targeted step that failed without saying why: what the computer was looking for, and what it saw. Empty when the step has no control to name. */
+  function plainFailureNote(step, record, { missing, waitedMs }) {
+    if (!step.target?.name && !step.target?.alt?.length) return "";
+    const label = labelOf(step);
+    if (record.ambiguous) return `${record.ambiguous.count} controls are named ${label}, so the computer did not guess which one to use`;
+    if (missing) return `${label} was not on the page after waiting ${Math.max(1, Math.round(waitedMs / 1000))} seconds`;
+    const seen = record.lastWhy?.why;
+    if (!seen) return "";
+    return step.action === "type" ? seen : `after the computer used ${label}, ${seen}`;
   }
 
   async function sendWithEnter(step, record) {
@@ -1305,7 +1484,7 @@ export function createExecutor(ctx) {
           continue;
         }
         const code = record.blocked && !record.attempts.some((a) => a.tried) ? (record.blocked.denied === "needs-practice" ? "needs-practice" : record.blocked.denied === "stopped" ? "cancelled" : "blocked") : "step-failed";
-        failed = { id: step.id, action: step.action, why: record.note || (record.blocked ? record.blocked.reason : "the control was not found or did nothing"), code, blockedBy: record.blocked?.category || "" };
+        failed = { id: step.id, action: step.action, why: record.note || (record.blocked ? record.blocked.reason : "the control was not found or did nothing"), code, blockedBy: record.blocked?.category || "", ...(record.missing ? { missing: true, waitedMs: record.waitedMs } : {}), ...(record.ambiguous ? { ambiguous: record.ambiguous.count } : {}) };
         if (code === "step-failed" || code === "blocked") {
           const written = await writeDiagnostic({ page, home, step, attempts: record.attempts, product, shot, timings: { stepMs: record.ms }, terms, companion, cause: code }).catch(() => ({ file: null, bundle: null }));
           diagnostic = written;
@@ -1345,5 +1524,10 @@ export function createExecutor(ctx) {
     }
   }
 
-  return { run, runStep, cleanup, prepareForCapture, dismissInterruptions, state };
+  /** The dialogs, menus, and panels open now (kind and title only): what a caller says when a menu it needs is not there. */
+  async function readOverlays() {
+    return (await readState(page)).dialogs;
+  }
+
+  return { run, runStep, cleanup, prepareForCapture, dismissInterruptions, readOverlays, state };
 }

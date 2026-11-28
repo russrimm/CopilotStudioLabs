@@ -50,7 +50,7 @@ const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * `agentSource` is the job's choice of agent ("created": the practice agent made or reused first in this job, "own": the person's own agent; `null`
  * from a portal that does not say, which keeps the older behavior). `accountId` is the sign-in marker of the browser profile (see `agentAccountState`).
  */
-export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", agentSource = null, accountId = null, writeGapMs = undefined, effectMs = undefined, findMs = undefined, landmarkMs = undefined, landmarkSettleMs = undefined, promptMs = undefined, switchWaitMs = undefined, switchTabMs = undefined } = {}) {
+export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", agentSource = null, accountId = null, writeGapMs = undefined, effectMs = undefined, findMs = undefined, landmarkMs = undefined, landmarkSettleMs = undefined, promptMs = undefined, switchWaitMs = undefined, switchTabMs = undefined, createMenuMs = undefined, agentListMs = undefined } = {}) {
   const source = normalizeAgentSource(agentSource);
   // With the agent handed over from the creation step, no other agent is ever reachable: the person's own agent address and name are not kept at all.
   const values = source === "created" ? withoutOwnAgent(targetValuesFromJob(env, targets)) : targetValuesFromJob(env, targets);
@@ -78,6 +78,10 @@ export function createCaptureSession({ env = {}, targets = {}, autonomy = null, 
     // Test knobs for the switch: how long the "More options" button is waited for (a real page takes 15 to 30 seconds to draw it), and how long the new tab is waited for.
     switchWaitMs,
     switchTabMs,
+    // Test knobs for creating the practice agent: how long the Agents list is waited for to draw "More create options" (a real list takes 15 to 30 seconds), and how long
+    // the list is waited for to show an agent that was just created (it can lag behind the new agent).
+    createMenuMs,
+    agentListMs,
   };
 }
 
