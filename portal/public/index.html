@@ -2337,6 +2337,15 @@
     .lb-mine-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .lb-mine-label { font-size: 12px; font-weight: 600; }
     .lb-mine-input { flex: 1 1 280px; min-width: 0; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+    /* Add another product: its two rows share one grid, so the controls start at the same edge and the rows sit well apart (a focus ring reaches 6px out). */
+    .lb-addprod-rows { display: grid; gap: 24px; max-width: 46rem; margin: 12px 0; }
+    .lb-addprod-rows > .lb-mine-row { display: grid; gap: 8px; justify-items: start; }
+    .lb-addprod-rows .lb-mine-input { width: 100%; }
+    @media (min-width: 641px) {
+      .lb-addprod-rows { grid-template-columns: max-content minmax(0, 1fr) max-content; gap: 24px 12px; align-items: center; }
+      .lb-addprod-rows > .lb-mine-row { display: contents; }
+      .lb-addprod-rows .btn { justify-self: stretch; }
+    }
     .lb-mine-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .lb-mine-result { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
     .lb-mine-heading { margin: 12px 0 0; font-size: 13px; }
@@ -6371,6 +6380,7 @@
                 <summary>Add another Microsoft product from Microsoft Learn</summary>
                 <div class="lb-mine-body">
                   <p class="lb-mine-help">Pick a product's documentation from the list, or search Microsoft Learn. It joins the products above, is saved for next time, and its topics are read from Microsoft Learn. Nothing about it is reviewed here, so its labs say so.</p>
+                  <div class="lb-addprod-rows">
                   <div class="lb-mine-row">
                     <label for="lb-addprod-pick" class="lb-mine-label">Choose a product</label>
                     <select id="lb-addprod-pick" class="lb-mine-input"><option value="">Choose a product...</option></select>
@@ -6380,6 +6390,7 @@
                     <label for="lb-addprod-input" class="lb-mine-label">Or search Microsoft Learn</label>
                     <input id="lb-addprod-input" type="text" class="lb-mine-input" maxlength="200" autocomplete="off" placeholder="For example: Dynamics 365 Customer Service">
                     <button type="button" class="btn btn-sm" id="lb-addprod-go">Search</button>
+                  </div>
                   </div>
                   <p id="lb-addprod-status" class="lb-learn-status" role="status" aria-live="polite"></p>
                   <ul id="lb-addprod-results" class="lb-mine-results"></ul>
